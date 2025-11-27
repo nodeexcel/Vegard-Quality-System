@@ -1,0 +1,22 @@
+INFO:     Will watch for changes in these directories: ['/home/python/python_projects/Vegard-R-System-AI/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8010 (Press CTRL+C to quit)
+INFO:     Started reloader process [1386177] using WatchFiles
+INFO:     Started server process [1386200]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:56502 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49502 - "OPTIONS /api/v1/auth/google HTTP/1.1" 200 OK
+2025-11-27 06:57:09,002 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+2025-11-27 06:57:09,089 - app.api.v1.auth - INFO - Created new user: atul.etech2011@gmail.com
+INFO:     127.0.0.1:49502 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49502 - "OPTIONS /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49512 - "OPTIONS /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49502 - "GET /api/v1/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49512 - "GET /api/v1/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:35040 - "GET /api/v1/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:47674 - "GET /health HTTP/1.1" 200 OK
+2025-11-27 07:01:07,270 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:43342 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47448 - "OPTIONS /api/v1/auth/google HTTP/1.1" 200 OK
+2025-11-27 07:07:59,060 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:47448 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
