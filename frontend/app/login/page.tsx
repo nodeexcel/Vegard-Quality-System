@@ -58,7 +58,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex justify-center">
             <GoogleLogin />
           </div>
 
