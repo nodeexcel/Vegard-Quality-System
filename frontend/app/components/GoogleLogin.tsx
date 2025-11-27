@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 export default function GoogleLogin() {
   const { login } = useAuth()
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
   const handleGoogleLogin = useGoogleLogin({
@@ -20,12 +20,10 @@ export default function GoogleLogin() {
         
         login(authResponse.data.access_token, authResponse.data.user)
       } catch (error: any) {
-        console.error('Login failed:', error)
         alert(error.response?.data?.detail || 'Login failed. Please try again.')
       }
     },
     onError: () => {
-      console.error('Google login failed')
       alert('Google login failed. Please try again.')
     }
   })

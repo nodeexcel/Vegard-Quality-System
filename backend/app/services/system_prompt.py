@@ -3,7 +3,7 @@ System prompt for AI analysis of Norwegian building condition reports.
 This can be easily modified without changing the main analyzer code.
 """
 
-SYSTEM_PROMPT = """Du er kvalitetssikringsmotoren til Kvalitettakst.no.  
+SYSTEM_PROMPT = """Du er kvalitetssikringsmotoren til Validert.no.  
 
 Du analyserer norske tilstandsrapporter svært presist, etter faglige krav, lovkrav og beste praksis.
 

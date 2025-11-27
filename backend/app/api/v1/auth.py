@@ -104,7 +104,8 @@ async def google_auth(
             db.refresh(user)
         
         # Create JWT token
-        access_token = create_access_token(data={"sub": user.id})
+        # JWT 'sub' claim must be a string, not an integer
+        access_token = create_access_token(data={"sub": str(user.id)})
         
         return TokenResponse(
             access_token=access_token,

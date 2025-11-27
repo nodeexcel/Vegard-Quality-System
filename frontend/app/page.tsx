@@ -14,7 +14,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
-  const { user, loading, refreshUser } = useAuth()
+  const { user, token, loading, refreshUser } = useAuth()
 
   // Redirect to login if not authenticated (after loading completes)
   useEffect(() => {
@@ -86,11 +86,6 @@ export default function Home() {
       return
     }
 
-    if (user.credits <= 0) {
-      setError('You have no credits remaining. Please purchase credits to analyze reports.')
-      return
-    }
-    
     if (!file) {
       setError('Please select a PDF file')
       return
@@ -109,27 +104,31 @@ export default function Home() {
         formData.append('building_year', buildingYear)
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
+      // Get token from context or localStorage as fallback
+      const authToken = token || localStorage.getItem('auth_token')
+      if (!authToken) {
+        setError('Please sign in to upload reports')
+        setUploading(false)
+        return
+      }
+      
       const response = await axios.post(
         `${apiUrl}/api/v1/reports/upload`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${authToken}`,
+            // Don't set Content-Type - axios will set it automatically with boundary for FormData
           },
         }
       )
-
-      // Refresh user credits
-      await refreshUser()
 
       // Redirect to results page
       router.push(`/results/${response.data.id}`)
     } catch (err: any) {
       if (err.response?.status === 401) {
-        setError('Please sign in to upload reports')
-      } else if (err.response?.status === 402) {
-        setError('Insufficient credits. Please purchase credits to analyze reports.')
+        setError('Please sign in to upload reports. If you are signed in, please try signing out and signing in again.')
       } else {
         setError(err.response?.data?.detail || 'Failed to upload report. Please try again.')
       }
@@ -161,7 +160,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  KvalitetTakst
+                  Validert
                 </h1>
                 <p className="text-xs text-gray-500">AI-powered quality assessment</p>
               </div>
@@ -181,12 +180,6 @@ export default function Home() {
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Upload your tilstandsrapport and receive automated quality evaluation based on Norwegian building standards
             </p>
-            {user && (
-              <div className="mt-4 inline-flex items-center space-x-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                <span className="text-sm text-gray-600">Credits remaining:</span>
-                <span className="text-lg font-bold text-blue-600">{user.credits}</span>
-              </div>
-            )}
           </div>
 
           {/* Upload Card */}
@@ -195,20 +188,6 @@ export default function Home() {
               <h3 className="text-2xl font-semibold text-white">Upload Report</h3>
               <p className="text-blue-100 mt-1">Get instant quality analysis</p>
             </div>
-
-            {user.credits <= 0 && (
-              <div className="p-8 bg-red-50 border-l-4 border-red-400 rounded-lg mb-6">
-                <div className="flex items-start space-x-3">
-                  <svg className="w-6 h-6 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-red-800 mb-1">No credits remaining</h3>
-                    <p className="text-red-700">You need to purchase credits to analyze reports. Payment integration coming soon!</p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {/* File Upload */}
@@ -322,7 +301,7 @@ export default function Home() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={uploading || !file || !user || user.credits <= 0}
+                disabled={uploading || !file || !user}
                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 shadow-lg disabled:shadow-none"
               >
                 {uploading ? (

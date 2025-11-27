@@ -25,16 +25,9 @@ async def upload_report(
 ):
     """
     Upload a PDF condition report and get automated quality analysis
-    Requires authentication and credits
+    Requires authentication
     """
     try:
-        # Check if user has credits
-        if current_user.credits <= 0:
-            raise HTTPException(
-                status_code=402,
-                detail="Insufficient credits. Please purchase credits to analyze reports."
-            )
-        
         # Validate file type
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -103,18 +96,15 @@ async def upload_report(
             )
             db.add(finding)
         
-        # Deduct credit after successful analysis
-        current_user.credits -= 1
         db.commit()
         db.refresh(report)
-        db.refresh(current_user)
         
         # Load relationships
         db.refresh(report)
         report.components = db.query(Component).filter(Component.report_id == report.id).all()
         report.findings = db.query(Finding).filter(Finding.report_id == report.id).all()
         
-        logger.info(f"Successfully processed report {report.id} for user {current_user.id}. Credits remaining: {current_user.credits}")
+        logger.info(f"Successfully processed report {report.id} for user {current_user.id}")
         
         # Convert SQLAlchemy models to dicts for Pydantic validation
         from app.schemas import ComponentBase, FindingBase

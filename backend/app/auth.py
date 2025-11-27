@@ -26,8 +26,15 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
 def verify_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # Ensure 'sub' is a string (JWT requirement)
+        if 'sub' in payload and not isinstance(payload['sub'], str):
+            payload['sub'] = str(payload['sub'])
+        
         return payload
     except JWTError:
+        return None
+    except Exception:
         return None
 
 def get_current_user(
@@ -35,6 +42,7 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     token = credentials.credentials
+    
     payload = verify_token(token)
     if payload is None:
         raise HTTPException(
@@ -42,13 +50,25 @@ def get_current_user(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user_id: int = payload.get("sub")
-    if user_id is None:
+    
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Convert string user_id back to integer
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(
@@ -56,6 +76,7 @@ def get_current_user(
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
     return user
 
 def get_current_user_optional(

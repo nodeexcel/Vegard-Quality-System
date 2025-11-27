@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
 
   const logout = useCallback(() => {
     setToken(null)
@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(storedToken)
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
     } catch (error) {
-      console.error('Failed to refresh user:', error)
       logout()
     } finally {
       setLoading(false)
@@ -67,6 +66,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Set up axios interceptor to always include auth token
+    const requestInterceptor = axios.interceptors.request.use(
+      (config) => {
+        const storedToken = localStorage.getItem('auth_token')
+        if (storedToken && !config.headers.Authorization) {
+          config.headers.Authorization = `Bearer ${storedToken}`
+        }
+        return config
+      },
+      (error) => {
+        return Promise.reject(error)
+      }
+    )
+
     // Check for stored token on mount
     const storedToken = localStorage.getItem('auth_token')
     if (storedToken) {
@@ -75,6 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUser()
     } else {
       setLoading(false)
+    }
+
+    // Cleanup interceptor on unmount
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor)
     }
   }, [refreshUser])
 

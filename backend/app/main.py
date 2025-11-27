@@ -16,7 +16,7 @@ logging.basicConfig(
 # Or use: python init_db.py (for development)
 
 app = FastAPI(
-    title="KvalitetTakst API",
+    title="Validert API",
     description="API for automated quality evaluation of building condition reports",
     version="1.0.0"
 )
@@ -35,7 +35,7 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
-    return {"message": "KvalitetTakst API", "version": "1.0.0"}
+    return {"message": "Validert API", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():

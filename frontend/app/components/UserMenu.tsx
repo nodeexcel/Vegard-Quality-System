@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react'
 export default function UserMenu() {
   const { user, logout, loading } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -20,13 +21,18 @@ export default function UserMenu() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Reset image error when user changes
+  useEffect(() => {
+    setImageError(false)
+  }, [user?.picture])
+
   if (loading) {
     return <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
   }
 
   if (!user) {
     return <GoogleLogin />
-  }
+  } 
 
   return (
     <div className="relative" ref={menuRef}>
@@ -34,20 +40,21 @@ export default function UserMenu() {
         onClick={() => setShowMenu(!showMenu)}
         className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg px-3 py-2 transition-colors"
       >
-        {user.picture ? (
+        {user.picture && !imageError ? (
           <img
             src={user.picture}
             alt={user.name || user.email}
-            className="w-8 h-8 rounded-full"
+            className="w-8 h-8 rounded-full object-cover"
+            onError={() => setImageError(true)}
+            referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
             {user.name?.[0] || user.email[0].toUpperCase()}
           </div>
         )}
         <div className="hidden md:block text-left">
           <div className="text-sm font-medium text-gray-900">{user.name || user.email}</div>
-          <div className="text-xs text-gray-500">{user.credits} credits</div>
         </div>
         <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -59,10 +66,6 @@ export default function UserMenu() {
           <div className="px-4 py-3 border-b border-gray-200">
             <p className="text-sm font-medium text-gray-900">{user.name || 'User'}</p>
             <p className="text-xs text-gray-500">{user.email}</p>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-xs text-gray-600">Credits:</span>
-              <span className="text-sm font-bold text-blue-600">{user.credits}</span>
-            </div>
           </div>
           <button
             onClick={() => {
