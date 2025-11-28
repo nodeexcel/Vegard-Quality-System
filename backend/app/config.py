@@ -16,7 +16,16 @@ class Settings(BaseSettings):
     
     @property
     def CORS_ORIGINS(self) -> List[str]:
-        return [self.FRONTEND_URL, "http://localhost:3000", "http://13.53.164.13:3000"]
+        origins = [
+            self.FRONTEND_URL,
+            "http://localhost:3000",
+            "http://13.53.164.13:3000",
+            "https://www.validert.no",
+            "https://validert.no",
+            "http://www.validert.no",
+            "http://validert.no"
+        ]
+        return origins
     
     class Config:
         env_file = ".env"

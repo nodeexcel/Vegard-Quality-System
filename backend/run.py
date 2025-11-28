@@ -16,6 +16,9 @@ if __name__ == "__main__":
         "app.main:app",
         host=host,
         port=port,
-        reload=settings.ENVIRONMENT == "development"
+        reload=settings.ENVIRONMENT == "development",
+        limit_concurrency=1000,
+        limit_max_requests=10000,
+        timeout_keep_alive=5
     )
 
