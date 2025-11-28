@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 export default function GoogleLogin() {
   const { login } = useAuth()
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
   const handleGoogleLogin = useGoogleLogin({

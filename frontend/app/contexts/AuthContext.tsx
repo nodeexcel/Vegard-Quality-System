@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
 
   const logout = useCallback(() => {
     setToken(null)

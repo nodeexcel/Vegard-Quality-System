@@ -104,7 +104,7 @@ export default function Home() {
         formData.append('building_year', buildingYear)
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
       // Get token from context or localStorage as fallback
       const authToken = token || localStorage.getItem('auth_token')
       if (!authToken) {
