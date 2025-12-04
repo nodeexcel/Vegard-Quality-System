@@ -8,6 +8,14 @@ from app.services.system_prompt import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
+# Import RAG retriever (optional - will work without if Pinecone not configured)
+try:
+    from app.services.rag_retriever import RAGRetriever
+    RAG_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"RAG retriever not available: {str(e)}")
+    RAG_AVAILABLE = False
+
 # Initialize OpenAI client (lazy initialization to avoid import-time errors)
 _client = None
 
@@ -83,6 +91,29 @@ class AIAnalyzer:
             # For safety, limit to ~6000 tokens for text to ensure we stay well under limits
             available_tokens = 6000 - system_tokens - response_tokens - context_tokens - buffer_tokens
             
+            # ===== RAG RETRIEVAL (NEW) =====
+            # Retrieve relevant chunks from standards if RAG is available
+            rag_context = ""
+            if RAG_AVAILABLE and settings.PINECONE_API_KEY:
+                try:
+                    retriever = RAGRetriever()
+                    relevant_chunks = retriever.retrieve_relevant_chunks(text, top_k=5)
+                    
+                    if relevant_chunks:
+                        # Build context from retrieved chunks
+                        rag_sections = []
+                        for chunk in relevant_chunks:
+                            rag_sections.append(
+                                f"[{chunk['standard']}]\n{chunk['text']}"
+                            )
+                        rag_context = "\n\n---\n\n".join(rag_sections)
+                        logger.info(f"Using RAG context from {len(relevant_chunks)} chunks")
+                except Exception as e:
+                    logger.warning(f"RAG retrieval failed, continuing without: {str(e)}")
+            else:
+                logger.info("RAG not available or not configured, using system prompt only")
+            # ===== END RAG RETRIEVAL =====
+            
             # Truncate text if needed
             text_tokens = estimate_tokens(text)
             if text_tokens > available_tokens:
@@ -91,7 +122,26 @@ class AIAnalyzer:
             else:
                 truncated_text = text
             
-            user_prompt = f"""
+            # Enhanced user prompt with RAG context
+            if rag_context:
+                user_prompt = f"""
+{context_info}
+
+===== RELEVANTE SEKSJONER FRA STANDARDER OG FORSKRIFTER =====
+
+{rag_context}
+
+===== TILSTANDSRAPPORT SOM SKAL ANALYSERES =====
+
+Analyser følgende norske tilstandsrapport opp mot de relevante standardseksjonene ovenfor:
+
+Rapporttekst:
+{truncated_text}
+
+Produser KUN gyldig JSON i det spesifiserte formatet. Ingen tekst utenfor JSON.
+"""
+            else:
+                user_prompt = f"""
 {context_info}
 
 Analyser følgende norske tilstandsrapport:
