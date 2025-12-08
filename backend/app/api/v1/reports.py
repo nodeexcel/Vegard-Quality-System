@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
+import io
 
 from app.database import get_db
 from app.models import Report, Component, Finding, User
@@ -10,6 +11,12 @@ from app.schemas import ReportCreate, ReportResponse, AnalysisResult
 from app.services.pdf_extractor import PDFExtractor
 from app.services.ai_analyzer import AIAnalyzer
 from app.auth import get_current_user
+from app.config import settings
+
+# Import S3 storage if enabled
+if settings.USE_S3_STORAGE:
+    from app.services.s3_storage import S3Storage
+    s3_storage = S3Storage(bucket_name=settings.S3_BUCKET_NAME)
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +39,14 @@ async def upload_report(
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
+        # Read file content
+        file_content = await file.read()
+        file_stream = io.BytesIO(file_content)
+        
         # Extract text from PDF
         logger.info(f"Extracting text from PDF: {file.filename}")
         pdf_extractor = PDFExtractor()
-        extracted_text = pdf_extractor.extract_text(file.file)
+        extracted_text = pdf_extractor.extract_text(file_stream)
         
         if not extracted_text or len(extracted_text.strip()) < 100:
             raise HTTPException(
@@ -53,6 +64,21 @@ async def upload_report(
         )
         db.add(report)
         db.flush()  # Get the ID
+        
+        # Upload to S3 if enabled
+        if settings.USE_S3_STORAGE:
+            try:
+                file_stream.seek(0)  # Reset stream
+                s3_key = s3_storage.upload_pdf(
+                    file=file_stream,
+                    filename=file.filename,
+                    user_id=current_user.id,
+                    report_id=report.id
+                )
+                report.s3_key = s3_key
+                logger.info(f"Uploaded PDF to S3: {s3_key}")
+            except Exception as s3_error:
+                logger.warning(f"S3 upload failed: {str(s3_error)}, continuing without S3")
         
         # Analyze with AI
         logger.info(f"Analyzing report {report.id} with AI")

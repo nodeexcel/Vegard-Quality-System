@@ -8,14 +8,6 @@ from app.services.system_prompt import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-# Import RAG retriever (optional - will work without if Pinecone not configured)
-try:
-    from app.services.rag_retriever import RAGRetriever
-    RAG_AVAILABLE = True
-except Exception as e:
-    logger.warning(f"RAG retriever not available: {str(e)}")
-    RAG_AVAILABLE = False
-
 # Initialize OpenAI client (lazy initialization to avoid import-time errors)
 _client = None
 
@@ -94,9 +86,16 @@ class AIAnalyzer:
             # ===== RAG RETRIEVAL (NEW) =====
             # Retrieve relevant chunks from standards if RAG is available
             rag_context = ""
-            if RAG_AVAILABLE and settings.PINECONE_API_KEY:
+            if settings.PINECONE_API_KEY:
                 try:
-                    retriever = RAGRetriever()
+                    # Import appropriate retriever based on configuration
+                    if settings.USE_AWS_BEDROCK:
+                        from app.services.bedrock_rag_retriever import BedrockRAGRetriever
+                        retriever = BedrockRAGRetriever()
+                    else:
+                        from app.services.rag_retriever import RAGRetriever
+                        retriever = RAGRetriever()
+                    
                     relevant_chunks = retriever.retrieve_relevant_chunks(text, top_k=5)
                     
                     if relevant_chunks:
@@ -152,26 +151,26 @@ Rapporttekst:
 Produser KUN gyldig JSON i det spesifiserte formatet. Ingen tekst utenfor JSON.
 """
             
-            client = get_openai_client()
-            # Use gpt-4-turbo-preview or gpt-4o for larger context window
-            # Fallback to gpt-4 if those aren't available
-            model = "gpt-4-turbo-preview"  # Has 128k context window
-            
-            try:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=4000
+            # Use Bedrock or OpenAI based on configuration
+            if settings.USE_AWS_BEDROCK:
+                # Use AWS Bedrock Claude
+                logger.info("Using AWS Bedrock Claude for analysis")
+                from app.services.bedrock_ai import BedrockAI
+                bedrock = BedrockAI(region=settings.AWS_REGION)
+                analysis_data = bedrock.analyze_report_with_claude(
+                    report_text=truncated_text,
+                    rag_context=rag_context,
+                    context_info=context_info
                 )
-            except Exception as e:
-                # Fallback to gpt-4o if turbo-preview doesn't work
-                if "gpt-4-turbo-preview" in str(e) or "model" in str(e).lower():
-                    logger.info("Falling back to gpt-4o model")
-                    model = "gpt-4o"
+                # analysis_data is already parsed JSON from Bedrock
+                # Skip the JSON extraction step below
+            else:
+                # Use OpenAI GPT-4
+                logger.info("Using OpenAI GPT-4 for analysis")
+                client = get_openai_client()
+                model = "gpt-4-turbo-preview"
+                
+                try:
                     response = client.chat.completions.create(
                         model=model,
                         messages=[
@@ -181,21 +180,36 @@ Produser KUN gyldig JSON i det spesifiserte formatet. Ingen tekst utenfor JSON.
                         temperature=0.3,
                         max_tokens=4000
                     )
+                except Exception as e:
+                    if "gpt-4-turbo-preview" in str(e) or "model" in str(e).lower():
+                        logger.info("Falling back to gpt-4o model")
+                        model = "gpt-4o"
+                        response = client.chat.completions.create(
+                            model=model,
+                            messages=[
+                                {"role": "system", "content": SYSTEM_PROMPT},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            temperature=0.3,
+                            max_tokens=4000
+                        )
+                    else:
+                        raise
+                
+                # Parse the response
+                response_text = response.choices[0].message.content.strip()
+                
+                # Try to extract JSON from the response
+                json_start = response_text.find("{")
+                json_end = response_text.rfind("}") + 1
+                
+                if json_start != -1 and json_end > json_start:
+                    json_text = response_text[json_start:json_end]
+                    analysis_data = json.loads(json_text)
                 else:
-                    raise
+                    raise ValueError("Could not find JSON in AI response")
             
-            # Parse the response
-            response_text = response.choices[0].message.content.strip()
-            
-            # Try to extract JSON from the response
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-            
-            if json_start != -1 and json_end > json_start:
-                json_text = response_text[json_start:json_end]
-                analysis_data = json.loads(json_text)
-            else:
-                raise ValueError("Could not find JSON in AI response")
+            # Now analysis_data is set from either Bedrock or OpenAI
             
             # Map new structure to existing schema
             scores = analysis_data.get("scores", {})

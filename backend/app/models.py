@@ -41,6 +41,9 @@ class Report(Base):
     # AI analysis results (stored as JSON)
     ai_analysis = Column(JSON, nullable=True)
     
+    # S3 storage
+    s3_key = Column(String, nullable=True)  # S3 path if using S3 storage
+    
     # Relationships
     user = relationship("User", back_populates="reports")
     components = relationship("Component", back_populates="report", cascade="all, delete-orphan")

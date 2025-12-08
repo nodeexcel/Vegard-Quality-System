@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = "validert-standards"
     
     @property
+    def ACTIVE_PINECONE_INDEX(self) -> str:
+        """Return the active index based on which AI service is being used"""
+        if self.USE_AWS_BEDROCK:
+            return "validert-standards-bedrock"  # 1024 dimensions for Bedrock Titan
+        return self.PINECONE_INDEX_NAME  # 1536 dimensions for OpenAI
+    
+    # AWS Configuration
+    USE_AWS_BEDROCK: bool = True  # Set to True to use Bedrock instead of OpenAI
+    USE_S3_STORAGE: bool = True  # Set to True to use S3 for PDF storage
+    AWS_REGION: str = "eu-north-1"  # Bedrock region (Stockholm)
+    S3_BUCKET_NAME: str = "validert-reports"
+    
+    @property
     def CORS_ORIGINS(self) -> List[str]:
         origins = [
             self.FRONTEND_URL,
