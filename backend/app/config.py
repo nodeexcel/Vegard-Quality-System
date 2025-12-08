@@ -29,8 +29,10 @@ class Settings(BaseSettings):
     # AWS Configuration
     USE_AWS_BEDROCK: bool = True  # Set to True to use Bedrock instead of OpenAI
     USE_S3_STORAGE: bool = True  # Set to True to use S3 for PDF storage
+    USE_SQS_PROCESSING: bool = False  # Set to True to use SQS + Lambda for async processing
     AWS_REGION: str = "eu-north-1"  # Bedrock region (Stockholm)
     S3_BUCKET_NAME: str = "validert-reports"
+    SQS_QUEUE_URL: str = ""  # SQS queue URL for async PDF processing
     
     @property
     def CORS_ORIGINS(self) -> List[str]:

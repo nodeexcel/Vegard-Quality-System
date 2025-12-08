@@ -320,7 +320,8 @@ Produser KUN gyldig JSON i det spesifiserte formatet. Ingen tekst utenfor JSON.
             
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse AI response as JSON: {str(e)}")
-            logger.error(f"Response was: {response_text[:500]}")
+            # response_text is not in scope here when using Bedrock
+            logger.error(f"Error analyzing report with AI: {str(e)}")
             raise Exception("Failed to parse AI analysis response")
         except Exception as e:
             logger.error(f"Error analyzing report with AI: {str(e)}")

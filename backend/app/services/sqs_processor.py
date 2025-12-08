@@ -21,13 +21,13 @@ class SQSProcessor:
         """Get or create the SQS queue"""
         try:
             # Try to get queue URL
-            response = self.sqs.get_queue_url(QueueName='validert-pdf-processing')
+            response = self.sqs.get_queue_url(QueueName='validert-pdf-processing-queue')
             self.queue_url = response['QueueUrl']
             logger.info(f"Using existing SQS queue: {self.queue_url}")
         except self.sqs.exceptions.QueueDoesNotExist:
             # Create queue if doesn't exist
             response = self.sqs.create_queue(
-                QueueName='validert-pdf-processing',
+                QueueName='validert-pdf-processing-queue',
                 Attributes={
                     'VisibilityTimeout': '900',  # 15 minutes
                     'MessageRetentionPeriod': '86400',  # 1 day

@@ -18,6 +18,11 @@ if settings.USE_S3_STORAGE:
     from app.services.s3_storage import S3Storage
     s3_storage = S3Storage(bucket_name=settings.S3_BUCKET_NAME)
 
+# Import SQS processor if enabled (lazy initialization to avoid startup errors)
+sqs_processor = None
+if settings.USE_SQS_PROCESSING:
+    from app.services.sqs_processor import SQSProcessor
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -80,7 +85,49 @@ async def upload_report(
             except Exception as s3_error:
                 logger.warning(f"S3 upload failed: {str(s3_error)}, continuing without S3")
         
-        # Analyze with AI
+        # If SQS processing is enabled, send to queue and return immediately
+        if settings.USE_SQS_PROCESSING and report.s3_key:
+            try:
+                logger.info(f"Sending report {report.id} to SQS for async processing")
+                # Lazy initialize SQS processor
+                global sqs_processor
+                if sqs_processor is None:
+                    from app.services.sqs_processor import SQSProcessor
+                    sqs_processor = SQSProcessor()
+                message_id = sqs_processor.send_pdf_processing_job(
+                    s3_key=report.s3_key,
+                    report_id=report.id,
+                    user_id=current_user.id,
+                    filename=file.filename,
+                    report_system=report_system,
+                    building_year=building_year
+                )
+                report.overall_score = 0.0
+                report.quality_score = 0.0
+                report.completeness_score = 0.0
+                report.compliance_score = 0.0
+                db.commit()
+                
+                return {
+                    "id": report.id,
+                    "report_id": report.id,
+                    "filename": report.filename,
+                    "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
+                    "status": "processing",
+                    "message": "Report queued for processing. Results will be available shortly.",
+                    "message_id": message_id,
+                    "overall_score": 0.0,
+                    "quality_score": 0.0,
+                    "completeness_score": 0.0,
+                    "compliance_score": 0.0,
+                    "components": [],
+                    "findings": []
+                }
+            except Exception as sqs_error:
+                logger.error(f"SQS processing failed: {str(sqs_error)}, falling back to sync processing")
+                # Fall through to synchronous processing
+        
+        # Synchronous processing (original behavior)
         logger.info(f"Analyzing report {report.id} with AI")
         ai_analyzer = AIAnalyzer()
         analysis_result, full_analysis = ai_analyzer.analyze_report(
