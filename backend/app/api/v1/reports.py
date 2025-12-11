@@ -324,3 +324,65 @@ async def list_reports(
     
     return result
 
+@router.post("/{report_id}/update-analysis")
+async def update_report_analysis(
+    report_id: int,
+    analysis_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Update report with analysis results from Lambda
+    Internal endpoint for Lambda callbacks
+    """
+    try:
+        report = db.query(Report).filter(Report.id == report_id).first()
+        
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        
+        # Update scores
+        report.overall_score = analysis_data.get("overall_score", 0.0)
+        report.quality_score = analysis_data.get("quality_score", 0.0)
+        report.completeness_score = analysis_data.get("completeness_score", 0.0)
+        report.compliance_score = analysis_data.get("compliance_score", 0.0)
+        report.ai_analysis = analysis_data.get("ai_analysis", {})
+        
+        # Delete existing components and findings
+        db.query(Component).filter(Component.report_id == report_id).delete()
+        db.query(Finding).filter(Finding.report_id == report_id).delete()
+        
+        # Store components
+        for comp_data in analysis_data.get("components", []):
+            component = Component(
+                report_id=report.id,
+                component_type=comp_data.get("component_type", "Unknown"),
+                name=comp_data.get("name", ""),
+                condition=comp_data.get("condition"),
+                description=comp_data.get("description"),
+                score=comp_data.get("score")
+            )
+            db.add(component)
+        
+        # Store findings
+        for finding_data in analysis_data.get("findings", []):
+            finding = Finding(
+                report_id=report.id,
+                finding_type=finding_data.get("finding_type", "general"),
+                severity=finding_data.get("severity", "info"),
+                title=finding_data.get("title", ""),
+                description=finding_data.get("description", ""),
+                suggestion=finding_data.get("suggestion"),
+                standard_reference=finding_data.get("standard_reference")
+            )
+            db.add(finding)
+        
+        db.commit()
+        logger.info(f"Successfully updated report {report_id} from Lambda")
+        
+        return {"status": "success", "report_id": report_id}
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating report {report_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+

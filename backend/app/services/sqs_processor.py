@@ -18,24 +18,16 @@ class SQSProcessor:
         self._get_or_create_queue()
     
     def _get_or_create_queue(self):
-        """Get or create the SQS queue"""
+        """Get the SQS queue URL (queue should already exist)"""
         try:
-            # Try to get queue URL
+            # Try to get queue URL (queue should already exist)
             response = self.sqs.get_queue_url(QueueName='validert-pdf-processing-queue')
             self.queue_url = response['QueueUrl']
-            logger.info(f"Using existing SQS queue: {self.queue_url}")
-        except self.sqs.exceptions.QueueDoesNotExist:
-            # Create queue if doesn't exist
-            response = self.sqs.create_queue(
-                QueueName='validert-pdf-processing-queue',
-                Attributes={
-                    'VisibilityTimeout': '900',  # 15 minutes
-                    'MessageRetentionPeriod': '86400',  # 1 day
-                    'ReceiveMessageWaitTimeSeconds': '20'  # Long polling
-                }
-            )
-            self.queue_url = response['QueueUrl']
-            logger.info(f"Created SQS queue: {self.queue_url}")
+            logger.info(f"Using SQS queue: {self.queue_url}")
+        except Exception as e:
+            # If queue doesn't exist or we don't have permission, log and set to None
+            logger.warning(f"Could not get SQS queue URL: {str(e)}. Queue may need to be created manually.")
+            self.queue_url = None
     
     def send_pdf_processing_job(
         self,
@@ -60,6 +52,9 @@ class SQSProcessor:
         Returns:
             SQS message ID
         """
+        if not self.queue_url:
+            raise Exception("SQS queue URL not available. Queue may need to be created or permissions configured.")
+        
         try:
             message_body = {
                 's3_key': s3_key,
