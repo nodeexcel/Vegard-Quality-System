@@ -53,8 +53,11 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
     picture: Optional[str] = None
     credits: int
+    is_admin: Optional[int] = 0
     created_at: datetime
     
     class Config:

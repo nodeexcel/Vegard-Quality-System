@@ -7,8 +7,11 @@ interface User {
   id: number
   email: string
   name: string | null
+  phone?: string | null
+  company?: string | null
   picture: string | null
   credits: number
+  is_admin?: number
   created_at: string
 }
 

@@ -97,9 +97,11 @@ async def google_auth(
             logger.info(f"Created new user: {email}")
         else:
             # Update user info in case it changed
+            from datetime import datetime, timezone
             user.email = email
             user.name = name
             user.picture = picture
+            user.last_login = datetime.now(timezone.utc)
             db.commit()
             db.refresh(user)
         
@@ -113,8 +115,11 @@ async def google_auth(
                 id=user.id,
                 email=user.email,
                 name=user.name,
+                phone=user.phone,
+                company=user.company,
                 picture=user.picture,
                 credits=user.credits,
+                is_admin=user.is_admin,
                 created_at=user.created_at
             )
         )
@@ -143,8 +148,11 @@ async def get_current_user_info(
         id=current_user.id,
         email=current_user.email,
         name=current_user.name,
+        phone=current_user.phone,
+        company=current_user.company,
         picture=current_user.picture,
         credits=current_user.credits,
+        is_admin=current_user.is_admin,
         created_at=current_user.created_at
     )
 

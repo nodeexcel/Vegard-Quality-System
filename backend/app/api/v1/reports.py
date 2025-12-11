@@ -65,7 +65,8 @@ async def upload_report(
             filename=file.filename,
             report_system=report_system,
             building_year=building_year,
-            extracted_text=extracted_text
+            extracted_text=extracted_text,
+            status="processing"
         )
         db.add(report)
         db.flush()  # Get the ID
@@ -141,6 +142,7 @@ async def upload_report(
         report.quality_score = analysis_result.quality_score
         report.completeness_score = analysis_result.completeness_score
         report.compliance_score = analysis_result.compliance_score
+        report.status = "completed"
         # Store full analysis JSON for detailed view
         report.ai_analysis = full_analysis
         
@@ -218,6 +220,13 @@ async def upload_report(
     except Exception as e:
         logger.error(f"Error processing report: {str(e)}", exc_info=True)
         db.rollback()
+        # Mark report as failed if it exists
+        try:
+            if 'report' in locals() and report.id:
+                report.status = "failed"
+                db.commit()
+        except:
+            pass
         raise HTTPException(status_code=500, detail=f"Error processing report: {str(e)}")
 
 @router.get("/{report_id}", response_model=ReportResponse)
@@ -346,6 +355,7 @@ async def update_report_analysis(
         report.completeness_score = analysis_data.get("completeness_score", 0.0)
         report.compliance_score = analysis_data.get("compliance_score", 0.0)
         report.ai_analysis = analysis_data.get("ai_analysis", {})
+        report.status = "completed"
         
         # Delete existing components and findings
         db.query(Component).filter(Component.report_id == report_id).delete()

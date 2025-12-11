@@ -20,6 +20,11 @@ export default function Home() {
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login')
+      return
+    }
+    // Check if profile is complete (name, phone, company)
+    if (!loading && user && (!user.name || !user.phone || !user.company)) {
+      router.push('/onboarding')
     }
   }, [user, loading, router])
 

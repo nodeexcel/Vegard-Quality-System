@@ -1,20 +1,22 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
 import GoogleLogin from '../components/GoogleLogin'
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl') || '/'
 
   useEffect(() => {
-    // Redirect to home if already logged in
+    // Redirect to returnUrl (or home) if already logged in
     if (!loading && user) {
-      router.push('/')
+      router.push(returnUrl)
     }
-  }, [user, loading, router])
+  }, [user, loading, router, returnUrl])
 
   if (loading) {
     return (

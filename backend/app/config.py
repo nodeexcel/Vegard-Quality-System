@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     
+    # Admin credentials (simple username/password for internal use)
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin@123"
+    
     # Pinecone RAG Configuration
     PINECONE_API_KEY: str = ""
     PINECONE_ENVIRONMENT: str = "us-east-1"  # AWS region for Pinecone
@@ -43,7 +47,9 @@ class Settings(BaseSettings):
             "https://www.validert.no",
             "https://validert.no",
             "http://www.validert.no",
-            "http://validert.no"
+            "http://validert.no",
+            "https://admin.validert.no",
+            "http://admin.validert.no"
         ]
         return origins
     

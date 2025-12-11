@@ -2,10 +2,14 @@
 
 import { useGoogleLogin } from '@react-oauth/google'
 import axios from 'axios'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function GoogleLogin() {
   const { login } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl') || '/'
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
@@ -19,6 +23,9 @@ export default function GoogleLogin() {
         })
         
         login(authResponse.data.access_token, authResponse.data.user)
+        
+        // Redirect to returnUrl after successful login
+        router.push(returnUrl)
       } catch (error: any) {
         alert(error.response?.data?.detail || 'Login failed. Please try again.')
       }
