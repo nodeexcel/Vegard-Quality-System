@@ -166,7 +166,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Validert
+                  Verifisert
                 </h1>
                 <p className="text-xs text-gray-500">AI-powered quality assessment</p>
               </div>

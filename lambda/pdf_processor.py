@@ -19,7 +19,7 @@ bedrock_runtime = boto3.client('bedrock-runtime', region_name='eu-north-1')
 
 # Environment variables
 S3_BUCKET = os.environ.get('S3_BUCKET_NAME', 'validert-tilstandsrapporter')
-API_ENDPOINT = os.environ.get('API_ENDPOINT', 'https://www.validert.no/api')
+API_ENDPOINT = os.environ.get('API_ENDPOINT', 'https://www.verifisert.no/api')
 
 
 def extract_text_from_pdf(pdf_content: bytes) -> str:

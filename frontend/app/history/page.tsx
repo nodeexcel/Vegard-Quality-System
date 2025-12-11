@@ -102,7 +102,7 @@ export default function HistoryPage() {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-transparent bg-clip-text">
-                Validert
+                Verifisert
               </h1>
               <nav className="hidden md:flex space-x-4">
                 <button

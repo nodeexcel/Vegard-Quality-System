@@ -48,7 +48,7 @@ export default function AdminLoginPage() {
             </div>
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-            Validert Admin
+            Verifisert Admin
           </h1>
           <p className="text-xl text-gray-600">Internal Dashboard Access</p>
         </div>

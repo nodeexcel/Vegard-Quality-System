@@ -44,12 +44,12 @@ class Settings(BaseSettings):
             self.FRONTEND_URL,
             "http://localhost:3000",
             "http://13.53.164.13:3000",
-            "https://www.validert.no",
-            "https://validert.no",
-            "http://www.validert.no",
-            "http://validert.no",
-            "https://admin.validert.no",
-            "http://admin.validert.no"
+            "https://www.verifisert.no",
+            "https://verifisert.no",
+            "http://www.verifisert.no",
+            "http://verifisert.no",
+            "https://admin.verifisert.no",
+            "http://admin.verifisert.no"
         ]
         return origins
     
