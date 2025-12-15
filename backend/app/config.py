@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # Admin credentials (simple username/password for internal use)
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "admin@123"
+    ADMIN_PASSWORD: str = "admin@12345"
     
     # Pinecone RAG Configuration
     PINECONE_API_KEY: str = ""

@@ -270,7 +270,25 @@ export default function ResultsPage() {
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{report.filename}</h2>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-gray-900">{report.filename}</h2>
+                  {/* Trygghetsscore in top right corner - score in middle of image */}
+                  {report.overall_score !== null && (
+                    <div className="relative inline-block">
+                      <img
+                        src="/Trygghetsscore_Topp_s.png"
+                        alt="Trygghetsscore"
+                        className="h-32 w-auto"
+                      />
+                      {/* Score number in the middle of the image */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-5xl font-bold text-red-600 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]">
+                          {Math.min(Math.round(report.overall_score * 0.99), 99).toFixed(0)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                   {report.report_system && (
                     <div className="flex items-center space-x-2">
@@ -296,50 +314,7 @@ export default function ResultsPage() {
                   </div>
                 </div>
               </div>
-              {/* Overall Score Badge */}
-              {report.overall_score !== null && (
-                <div className="flex items-center space-x-4">
-                  <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${overallGradient} flex flex-col items-center justify-center text-white shadow-xl ring-4 ring-white`}>
-                    <div className="text-3xl font-bold">{report.overall_score.toFixed(0)}</div>
-                    <div className="text-xs opacity-90">Overall</div>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Score Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {[
-              { label: 'Quality Score', score: report.quality_score, icon: '✨' },
-              { label: 'Completeness', score: report.completeness_score, icon: '📋' },
-              { label: 'Compliance', score: report.compliance_score, icon: '✅' },
-            ].map((item, idx) => {
-              const scoreColor = getScoreColor(item.score)
-              const scoreGradient = getScoreGradient(item.score)
-              return (
-                <div key={idx} className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-2xl">{item.icon}</div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${scoreColor.bg} ${scoreColor.text}`}>
-                      {item.score !== null ? `${item.score.toFixed(0)}/100` : 'N/A'}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-semibold text-gray-600 mb-3">{item.label}</h3>
-                  {item.score !== null && (
-                    <div className="space-y-2">
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div
-                          className={`h-full bg-gradient-to-r ${scoreGradient} rounded-full transition-all duration-1000 ease-out`}
-                          style={{ width: `${item.score}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-gray-500">{item.score.toFixed(1)} points</p>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
           </div>
 
           {/* Summary Section */}

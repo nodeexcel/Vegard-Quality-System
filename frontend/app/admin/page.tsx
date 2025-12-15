@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import UsersSection from './components/UsersSection'
+import SystemInsightsSection from './components/SystemInsightsSection'
 
 interface Report {
   id: number
@@ -35,18 +36,26 @@ export default function AdminDashboard() {
     score_max: '',
     status: '',
     low_score_only: false,
+    date_from: '',
+    date_to: '',
+    user_search: '',
+    company_search: '',
+    standard: '',
+    high_risk_only: false,
+    min_findings: '',
   })
 
   useEffect(() => {
-    // Check for admin token
+    // Check for admin token immediately
     const token = localStorage.getItem('admin_token')
     if (!token) {
-      router.push('/admin/login')
+      // Immediately redirect to admin login (not regular login)
+      window.location.href = '/admin/login'
       return
     }
     setAdminToken(token)
     setLoading(false)
-  }, [router])
+  }, [])
 
   useEffect(() => {
     if (adminToken && activeTab === 'reports') {
@@ -65,6 +74,13 @@ export default function AdminDashboard() {
       if (filters.score_max) params.append('score_max', filters.score_max)
       if (filters.status) params.append('status', filters.status)
       if (filters.low_score_only) params.append('low_score_only', 'true')
+      if (filters.date_from) params.append('date_from', filters.date_from)
+      if (filters.date_to) params.append('date_to', filters.date_to)
+      if (filters.user_search) params.append('user_id', filters.user_search)
+      if (filters.company_search) params.append('company', filters.company_search)
+      if (filters.standard) params.append('report_system', filters.standard)
+      if (filters.high_risk_only) params.append('high_risk_only', 'true')
+      if (filters.min_findings) params.append('min_findings', filters.min_findings)
 
       const response = await axios.get(
         `${apiUrl}/api/v1/admin/reports?${params.toString()}`,
@@ -77,7 +93,7 @@ export default function AdminDashboard() {
       console.error('Error fetching reports:', error)
       if (error.response?.status === 401 || error.response?.status === 403) {
         localStorage.removeItem('admin_token')
-        router.push('/admin/login')
+        window.location.href = '/admin/login'
       }
     } finally {
       setLoadingReports(false)
@@ -119,7 +135,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => {
                 localStorage.removeItem('admin_token')
-                router.push('/admin/login')
+                window.location.href = '/admin/login'
               }}
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
@@ -163,50 +179,155 @@ export default function AdminDashboard() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Reports & Feedback</h2>
                 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Min Score</label>
-                    <input
-                      type="number"
-                      value={filters.score_min}
-                      onChange={(e) => setFilters({ ...filters, score_min: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
-                    <input
-                      type="number"
-                      value={filters.score_max}
-                      onChange={(e) => setFilters({ ...filters, score_max: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={filters.status}
-                      onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All</option>
-                      <option value="completed">Completed</option>
-                      <option value="processing">Processing</option>
-                      <option value="failed">Failed</option>
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center space-x-2 cursor-pointer">
+                <div className="space-y-4 mb-4">
+                  {/* First Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Min Score</label>
                       <input
-                        type="checkbox"
-                        checked={filters.low_score_only}
-                        onChange={(e) => setFilters({ ...filters, low_score_only: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 rounded"
+                        type="number"
+                        value={filters.score_min}
+                        onChange={(e) => setFilters({ ...filters, score_min: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="0"
                       />
-                      <span className="text-sm font-medium text-gray-700">Low score only (&lt;70)</span>
-                    </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
+                      <input
+                        type="number"
+                        value={filters.score_max}
+                        onChange={(e) => setFilters({ ...filters, score_max: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select
+                        value={filters.status}
+                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">All</option>
+                        <option value="completed">Completed</option>
+                        <option value="processing">Processing</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Standard</label>
+                      <select
+                        value={filters.standard}
+                        onChange={(e) => setFilters({ ...filters, standard: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">All</option>
+                        <option value="NT">NT</option>
+                        <option value="NITO">NITO</option>
+                        <option value="Fremtind">Fremtind</option>
+                        <option value="BMTF">BMTF</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Second Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                      <input
+                        type="date"
+                        value={filters.date_from}
+                        onChange={(e) => setFilters({ ...filters, date_from: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                      <input
+                        type="date"
+                        value={filters.date_to}
+                        onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                      <input
+                        type="number"
+                        value={filters.user_search}
+                        onChange={(e) => setFilters({ ...filters, user_search: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="User ID (from Users tab)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                      <input
+                        type="text"
+                        value={filters.company_search}
+                        onChange={(e) => setFilters({ ...filters, company_search: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Search by company..."
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Third Row - Checkboxes and Min Findings */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="flex items-center">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filters.low_score_only}
+                          onChange={(e) => setFilters({ ...filters, low_score_only: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Low score only (&lt;70)</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filters.high_risk_only}
+                          onChange={(e) => setFilters({ ...filters, high_risk_only: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">High-risk only</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Min Findings</label>
+                      <input
+                        type="number"
+                        value={filters.min_findings}
+                        onChange={(e) => setFilters({ ...filters, min_findings: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="0"
+                        min="0"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={() => setFilters({
+                          score_min: '',
+                          score_max: '',
+                          status: '',
+                          low_score_only: false,
+                          date_from: '',
+                          date_to: '',
+                          user_search: '',
+                          company_search: '',
+                          standard: '',
+                          high_risk_only: false,
+                          min_findings: '',
+                        })}
+                        className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -307,9 +428,7 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'system' && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">System & Insights section - Coming soon</p>
-            </div>
+            <SystemInsightsSection adminToken={adminToken} />
           )}
         </div>
       </div>

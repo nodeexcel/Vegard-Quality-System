@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, text
 from typing import Optional, List
 from datetime import datetime, timedelta
 import logging
@@ -634,9 +634,54 @@ async def get_system_status(
         except Exception as e:
             status["s3_storage"]["status"] = f"error: {str(e)[:100]}"
     
+    # Check SQS
+    if settings.USE_SQS_PROCESSING:
+        try:
+            sqs = boto3.client('sqs', region_name=settings.AWS_REGION)
+            queue_url = None
+            
+            # Try to get queue URL - first from config, then by name
+            if settings.SQS_QUEUE_URL:
+                queue_url = settings.SQS_QUEUE_URL
+            else:
+                # Try to get queue by name (default queue name)
+                try:
+                    response = sqs.get_queue_url(QueueName='validert-pdf-processing-queue')
+                    queue_url = response['QueueUrl']
+                except Exception as name_error:
+                    # If queue doesn't exist by name, try verifisert queue name
+                    try:
+                        response = sqs.get_queue_url(QueueName='verifisert-pdf-processing-queue')
+                        queue_url = response['QueueUrl']
+                    except:
+                        raise name_error  # Raise original error
+            
+            if queue_url:
+                # Try to get queue attributes to verify it exists and is accessible
+                sqs.get_queue_attributes(QueueUrl=queue_url, AttributeNames=['ApproximateNumberOfMessages'])
+                status["sqs_processing"]["status"] = "operational"
+                status["sqs_processing"]["queue_url"] = queue_url
+            else:
+                status["sqs_processing"]["status"] = "not_configured"
+                status["sqs_processing"]["error"] = "Queue URL not found in config and queue name lookup failed"
+        except Exception as e:
+            error_msg = str(e)
+            # Check if it's a permissions issue
+            if "AccessDenied" in error_msg or "Access to the resource" in error_msg:
+                status["sqs_processing"]["status"] = "permission_denied"
+                status["sqs_processing"]["error"] = "IAM role needs sqs:GetQueueUrl and sqs:GetQueueAttributes permissions"
+            elif "NonExistentQueue" in error_msg or "does not exist" in error_msg:
+                status["sqs_processing"]["status"] = "queue_not_found"
+                status["sqs_processing"]["error"] = "Queue does not exist. Create queue: validert-pdf-processing-queue or verifisert-pdf-processing-queue"
+            else:
+                status["sqs_processing"]["status"] = f"error"
+                status["sqs_processing"]["error"] = error_msg[:150]
+    else:
+        status["sqs_processing"]["status"] = "disabled"
+    
     # Check database
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         status["database"]["status"] = "operational"
     except Exception as e:
         status["database"]["status"] = f"error: {str(e)[:100]}"

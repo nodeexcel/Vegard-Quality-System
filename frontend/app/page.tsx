@@ -16,6 +16,33 @@ export default function Home() {
   const router = useRouter()
   const { user, token, loading, refreshUser } = useAuth()
 
+  // Check if we're on admin subdomain and redirect to admin panel (FIRST CHECK)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname
+      if (hostname === 'admin.verifisert.no' || hostname === 'admin.validert.no') {
+        // We're on admin subdomain, redirect to admin panel immediately
+        window.location.href = '/admin'
+        return
+      }
+    }
+  }, [])
+
+  // Early return if on admin subdomain (prevent rendering user dashboard)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname === 'admin.verifisert.no' || hostname === 'admin.validert.no') {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Redirecting to admin panel...</p>
+          </div>
+        </div>
+      )
+    }
+  }
+
   // Redirect to login if not authenticated (after loading completes)
   useEffect(() => {
     if (!loading && !user) {
