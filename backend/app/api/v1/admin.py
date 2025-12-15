@@ -12,6 +12,7 @@ from app.auth import get_current_admin, create_access_token, verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas import ReportResponse, ComponentBase, FindingBase
 from app.config import settings
+from app.services.ai_analyzer import AIAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -789,4 +790,202 @@ async def get_analytics(
         "lowest_score_users": lowest_score_users,
         "most_active_users": most_active_users,
     }
+
+@router.post("/system/test-report")
+async def run_test_report(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_from_token)
+):
+    """
+    Admin endpoint: Run a test report through the analysis pipeline
+    Creates a sample condition report and processes it
+    """
+    try:
+        # Sample Norwegian condition report text for testing
+        test_report_text = """
+TILSTANDSRAPPORT - TEST RAPPORT
+
+Oppdrag og bestilling:
+Denne rapporten er en testrapport for å verifisere analysepipeline.
+
+Byggeår: 1985
+Byggetype: Enebolig
+Adresse: Testveien 1, 0001 Oslo
+
+DOKUMENTGJENNOMGANG:
+- Byggetegninger fra 1985
+- Ingen oppgraderinger dokumentert
+
+BEFARING OG METODE:
+Befaring utført 15.12.2024. Visuell inspeksjon av tilgjengelige områder.
+
+TILSTANDSREGISTRERING:
+
+1. TAK OG LOFT
+Tilstand: TG2
+Beskrivelse: Taktekkingen er fra 1985 og viser tegn på slitasje. Noen takstein mangler.
+Årsak: Alder og normal slitasje over tid.
+Konsekvens: Vanninntrenging kan oppstå ved kraftig regn.
+
+2. VÅTROM
+Tilstand: TG3
+Beskrivelse: Våtrom i første etasje mangler dokumentert fuktvurdering.
+Årsak: Hulltaking og fuktmåling ikke utført.
+Konsekvens: Skjult fuktskade kan eksistere uten at dette er avdekket.
+Tiltak: Utføre grundig fuktvurdering med hulltaking og måling.
+
+3. ROM UNDER TERRENG
+Tilstand: TG2
+Beskrivelse: Kjellerrom er tilgjengelig, men ventilasjon er utilstrekkelig.
+Årsak: Vinduer er for små i forhold til romstørrelse.
+Konsekvens: Fuktproblemer kan oppstå over tid.
+
+4. DRENERING
+Tilstand: TG1
+Beskrivelse: Dreneringssystemet ser ut til å fungere normalt.
+
+5. VENTILASJON
+Tilstand: TG2
+Beskrivelse: Naturlig ventilasjon i bygget. Ingen mekanisk ventilasjon installert.
+Årsak: Bygget er fra 1985 og oppfyller ikke dagens ventilasjonskrav.
+Konsekvens: Dårlig luftkvalitet og potensielt fuktproblemer.
+
+6. VANN OG AVLØP
+Tilstand: TG1
+Beskrivelse: Vann- og avløpsanlegg ser ut til å fungere normalt.
+
+7. VARMEANLEGG
+Tilstand: TG2
+Beskrivelse: Oljefyring fra 1985. Anlegget er gammelt men fungerer.
+Årsak: Alder på anlegget.
+Konsekvens: Høyere vedlikeholdskostnader og lavere effektivitet enn moderne løsninger.
+
+OPPSUMMERING:
+TG1: 2 komponenter
+TG2: 4 komponenter
+TG3: 1 komponent
+
+AREALBEREGNING (NS 3940:2023):
+BRA: 120 m²
+BRA-i: 15 m²
+S-rom: 25 m²
+
+TEK-REFERANSE:
+Bygget er fra 1985 og skal vurderes etter TEK87.
+
+KONKLUSJON:
+Bygget er i generelt god stand for alder, men har noen områder som krever oppmerksomhet,
+spesielt våtrom som mangler dokumentert fuktvurdering.
+"""
+        
+        # Create test report record
+        report = Report(
+            user_id=current_admin.id,
+            filename="test_report_sample.pdf",
+            report_system="Test System",
+            building_year=1985,
+            extracted_text=test_report_text,
+            status="processing"
+        )
+        db.add(report)
+        db.flush()  # Get the ID
+        
+        # Process through AI analyzer
+        logger.info(f"Processing test report {report.id} with AI analyzer")
+        ai_analyzer = AIAnalyzer()
+        analysis_result, full_analysis = ai_analyzer.analyze_report(
+            text=test_report_text,
+            report_system="Test System",
+            building_year=1985
+        )
+        
+        # Store analysis results
+        report.overall_score = analysis_result.overall_score
+        report.quality_score = analysis_result.quality_score
+        report.completeness_score = analysis_result.completeness_score
+        report.compliance_score = analysis_result.compliance_score
+        report.status = "completed"
+        report.ai_analysis = full_analysis
+        
+        # Store components
+        for comp_data in analysis_result.components:
+            component = Component(
+                report_id=report.id,
+                component_type=comp_data.component_type,
+                name=comp_data.name,
+                condition=comp_data.condition,
+                description=comp_data.description,
+                score=comp_data.score
+            )
+            db.add(component)
+        
+        # Store findings
+        for finding_data in analysis_result.findings:
+            finding = Finding(
+                report_id=report.id,
+                finding_type=finding_data.finding_type,
+                severity=finding_data.severity,
+                title=finding_data.title,
+                description=finding_data.description,
+                suggestion=finding_data.suggestion,
+                standard_reference=finding_data.standard_reference
+            )
+            db.add(finding)
+        
+        db.commit()
+        db.refresh(report)
+        
+        # Load relationships
+        report.components = db.query(Component).filter(Component.report_id == report.id).all()
+        report.findings = db.query(Finding).filter(Finding.report_id == report.id).all()
+        
+        logger.info(f"Successfully processed test report {report.id}")
+        
+        # Convert to response format
+        components_data = [ComponentBase(
+            component_type=c.component_type,
+            name=c.name,
+            condition=c.condition,
+            description=c.description,
+            score=c.score
+        ) for c in report.components]
+        
+        findings_data = [FindingBase(
+            finding_type=f.finding_type,
+            severity=f.severity,
+            title=f.title,
+            description=f.description,
+            suggestion=f.suggestion,
+            standard_reference=f.standard_reference
+        ) for f in report.findings]
+        
+        return {
+            "status": "success",
+            "message": "Test report processed successfully",
+            "report": {
+                "id": report.id,
+                "filename": report.filename,
+                "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
+                "overall_score": report.overall_score,
+                "quality_score": report.quality_score,
+                "completeness_score": report.completeness_score,
+                "compliance_score": report.compliance_score,
+                "components_count": len(components_data),
+                "findings_count": len(findings_data),
+                "components": components_data,
+                "findings": findings_data
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing test report: {str(e)}", exc_info=True)
+        db.rollback()
+        # Mark report as failed if it exists
+        try:
+            if 'report' in locals() and report.id:
+                report.status = "failed"
+                db.commit()
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Error processing test report: {str(e)}")
 

@@ -19,12 +19,6 @@ interface SystemStatus {
     bucket: string
     status: string
   }
-  sqs_processing: {
-    enabled: boolean
-    status: string
-    queue_url?: string
-    error?: string
-  }
   database: {
     status: string
   }
@@ -111,11 +105,26 @@ export default function SystemInsightsSection({ adminToken }: SystemInsightsSect
     if (!adminToken) return
     setRunningTest(true)
     try {
-      // This would trigger a test report - you may need to implement this endpoint
-      alert('Test report functionality - to be implemented with actual test PDF')
-    } catch (error) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const response = await axios.post(
+        `${apiUrl}/api/v1/admin/system/test-report`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        }
+      )
+      
+      if (response.data.status === 'success') {
+        alert(`Test report processed successfully!\n\nReport ID: ${response.data.report.id}\nOverall Score: ${response.data.report.overall_score?.toFixed(1) || 'N/A'}\nComponents: ${response.data.report.components_count}\nFindings: ${response.data.report.findings_count}`)
+        // Refresh system status to update failed reports count if needed
+        fetchSystemStatus()
+      } else {
+        alert('Test report completed but with unexpected response')
+      }
+    } catch (error: any) {
       console.error('Error running test report:', error)
-      alert('Failed to run test report')
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to run test report'
+      alert(`Failed to run test report: ${errorMessage}`)
     } finally {
       setRunningTest(false)
     }
@@ -170,79 +179,51 @@ export default function SystemInsightsSection({ adminToken }: SystemInsightsSect
           ) : systemStatus ? (
             <>
               {/* System Components */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">AWS Bedrock</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
+                  <div className="space-y-2 flex-grow">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Status:</span>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(systemStatus.aws_bedrock.status)}`}>
                         {systemStatus.aws_bedrock.status}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Enabled:</span>
                       <span className="text-sm font-medium">{systemStatus.aws_bedrock.enabled ? 'Yes' : 'No'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Region:</span>
                       <span className="text-sm font-medium">{systemStatus.aws_bedrock.region || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">S3 Storage</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
+                  <div className="space-y-2 flex-grow">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Status:</span>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(systemStatus.s3_storage.status)}`}>
                         {systemStatus.s3_storage.status}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Enabled:</span>
                       <span className="text-sm font-medium">{systemStatus.s3_storage.enabled ? 'Yes' : 'No'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Bucket:</span>
                       <span className="text-sm font-medium">{systemStatus.s3_storage.bucket || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">SQS Processing</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Status:</span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(systemStatus.sqs_processing.status)}`}>
-                        {systemStatus.sqs_processing.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Enabled:</span>
-                      <span className="text-sm font-medium">{systemStatus.sqs_processing.enabled ? 'Yes' : 'No'}</span>
-                    </div>
-                    {systemStatus.sqs_processing.queue_url && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Queue URL:</span>
-                        <span className="text-xs font-mono text-gray-500 truncate max-w-xs">{systemStatus.sqs_processing.queue_url}</span>
-                      </div>
-                    )}
-                    {systemStatus.sqs_processing.error && (
-                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-xs text-red-800 font-medium">Error:</p>
-                        <p className="text-xs text-red-700 mt-1">{systemStatus.sqs_processing.error}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Database</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
+                  <div className="space-y-2 flex-grow">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Status:</span>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(systemStatus.database.status)}`}>
                         {systemStatus.database.status}
