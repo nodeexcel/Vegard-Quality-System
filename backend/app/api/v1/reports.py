@@ -48,9 +48,16 @@ async def upload_report(
         file_content = await file.read()
         file_stream = io.BytesIO(file_content)
         
-        # Extract text from PDF
+        # Extract text from PDF and get metadata
         logger.info(f"Extracting text from PDF: {file.filename}")
         pdf_extractor = PDFExtractor()
+        
+        # Get PDF metadata first
+        file_stream.seek(0)
+        pdf_metadata = pdf_extractor.get_pdf_metadata(file_stream)
+        
+        # Extract text
+        file_stream.seek(0)
         extracted_text = pdf_extractor.extract_text(file_stream)
         
         if not extracted_text or len(extracted_text.strip()) < 100:
@@ -134,7 +141,8 @@ async def upload_report(
         analysis_result, full_analysis = ai_analyzer.analyze_report(
             text=extracted_text,
             report_system=report_system,
-            building_year=building_year
+            building_year=building_year,
+            pdf_metadata=pdf_metadata
         )
         
         # Store analysis results

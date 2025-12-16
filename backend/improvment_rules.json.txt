@@ -1,0 +1,154 @@
+==================== START IMPROVEMENT_RULES.JSON ====================
+
+{
+  "version": "1.0",
+  "scope": "Validert.no – forbedringslogikk og sperrer",
+  "principle": "Alle identifiserte avvik skal resultere i konkrete forbedringspunkter. Enkelte avvik utløser automatisk sperre mot trygghetsscore ≥96.",
+
+  "global_rules": {
+    "one_deviation_one_item": true,
+    "improvement_list_always_required": true,
+    "no_generic_text_allowed": true,
+    "full_document_required": true
+  },
+
+  "categories": {
+    "SPERRE_96": {
+      "label": "SPERRE ≥96",
+      "description": "Avvik som automatisk hindrer trygghetsscore ≥96"
+    },
+    "VESENTLIG": {
+      "label": "Vesentlig avvik",
+      "description": "Avvik som trekker betydelig ned trygghetsscore"
+    },
+    "MINDRE": {
+      "label": "Mindre forbedring",
+      "description": "Forbedringer som ikke alene hindrer ≥96"
+    }
+  },
+
+  "rules": [
+
+    {
+      "id": "ARKAT_MISSING",
+      "description": "Manglende én eller flere ARKAT-deler på TG2/TG3",
+      "trigger": {
+        "tg_level": ["TG2", "TG3"],
+        "arkat_complete": false
+      },
+      "category": "SPERRE_96",
+      "message": "TG2/TG3 mangler full ARKAT (Årsak, Risiko, Konsekvens eller Anbefalt tiltak)."
+    },
+
+    {
+      "id": "ARKAT_GENERIC",
+      "description": "ARKAT er generell og ikke objekttilpasset",
+      "trigger": {
+        "arkat_generic": true
+      },
+      "category": "SPERRE_96",
+      "message": "ARKAT er formulert som generell standardtekst og ikke tilpasset det konkrete forholdet."
+    },
+
+    {
+      "id": "RECOMMENDED_ACTION_PROJECTING",
+      "description": "Anbefalt tiltak er prosjekterende",
+      "trigger": {
+        "recommended_action_projecting": true
+      },
+      "category": "SPERRE_96",
+      "message": "Anbefalt tiltak fremstår prosjekterende og går utover takstmannens rolle."
+    },
+
+    {
+      "id": "TGIU_MISUSE",
+      "description": "Feil eller mangelfull bruk av TGIU",
+      "trigger": {
+        "tgiu_used": true,
+        "tgiu_properly_justified": false
+      },
+      "category": "SPERRE_96",
+      "message": "TGIU er brukt uten tilstrekkelig begrunnelse, risiko og konsekvens."
+    },
+
+    {
+      "id": "MISSING_MANDATORY_INSPECTION",
+      "description": "Manglende forskriftsmessig undersøkelse",
+      "trigger": {
+        "mandatory_inspection_missing": true
+      },
+      "category": "SPERRE_96",
+      "message": "Bygningsdel som skulle vært undersøkt etter forskriften er ikke reelt undersøkt."
+    },
+
+    {
+      "id": "CONTRADICTION",
+      "description": "Motstridende beskrivelser i rapporten",
+      "trigger": {
+        "contradictory_statements": true
+      },
+      "category": "SPERRE_96",
+      "message": "Rapporten inneholder motstridende eller selvmotsigende beskrivelser."
+    },
+
+    {
+      "id": "WRONG_TG_LEVEL",
+      "description": "Feil valg av tilstandsgrad",
+      "trigger": {
+        "tg_inconsistent_with_text": true
+      },
+      "category": "SPERRE_96",
+      "message": "Valgt tilstandsgrad samsvarer ikke med beskrivelsen eller risikoen."
+    },
+
+    {
+      "id": "UNCLEAR_LANGUAGE",
+      "description": "Uklart eller tvetydig språk",
+      "trigger": {
+        "unclear_or_vague_language": true
+      },
+      "category": "VESENTLIG",
+      "message": "Rapporten benytter uklart eller tvetydig språk som svekker kjøpers forståelse."
+    },
+
+    {
+      "id": "IMPORTANT_INFO_IN_REMARKS",
+      "description": "Viktig informasjon gjemt i merknader",
+      "trigger": {
+        "critical_info_in_remarks": true
+      },
+      "category": "VESENTLIG",
+      "message": "Viktig risiko- eller tilstandsinformasjon er plassert i merknader uten tydelig fremheving."
+    },
+
+    {
+      "id": "INSUFFICIENT_DOCUMENTATION",
+      "description": "Manglende eller svak dokumentasjon",
+      "trigger": {
+        "documentation_insufficient": true
+      },
+      "category": "VESENTLIG",
+      "message": "Manglende eller svak dokumentasjon (bilder, målinger, beskrivelser)."
+    },
+
+    {
+      "id": "MINOR_IMPROVEMENT",
+      "description": "Mindre forbedringspunkt",
+      "trigger": {
+        "minor_issue_detected": true
+      },
+      "category": "MINDRE",
+      "message": "Forholdet kan forbedres for økt klarhet og kvalitet, men er ikke alene kritisk."
+    }
+
+  ],
+
+  "output_requirements": {
+    "include_all_triggered_rules": true,
+    "group_by_category": true,
+    "reference_report_location": true,
+    "explain_consequence_if_not_fixed": true
+  }
+}
+
+===================== SLUTT IMPROVEMENT_RULES.JSON ===================== 

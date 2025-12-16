@@ -31,6 +31,8 @@ export default function AdminDashboard() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [adminToken, setAdminToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sortField, setSortField] = useState<string>('uploaded_at')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [filters, setFilters] = useState({
     score_min: '',
     score_max: '',
@@ -61,7 +63,58 @@ export default function AdminDashboard() {
     if (adminToken && activeTab === 'reports') {
       fetchReports()
     }
-  }, [adminToken, activeTab, filters])
+  }, [adminToken, activeTab, filters, sortField, sortDirection])
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const sortedReports = [...reports].sort((a, b) => {
+    let aValue: any
+    let bValue: any
+
+    switch (sortField) {
+      case 'id':
+        aValue = a.id
+        bValue = b.id
+        break
+      case 'uploaded_at':
+        aValue = new Date(a.uploaded_at).getTime()
+        bValue = new Date(b.uploaded_at).getTime()
+        break
+      case 'overall_score':
+        aValue = a.overall_score ?? 0
+        bValue = b.overall_score ?? 0
+        break
+      case 'findings_count':
+        aValue = a.findings_count
+        bValue = b.findings_count
+        break
+      case 'filename':
+        aValue = a.filename.toLowerCase()
+        bValue = b.filename.toLowerCase()
+        break
+      case 'user':
+        aValue = (a.user.name || a.user.email || '').toLowerCase()
+        bValue = (b.user.name || b.user.email || '').toLowerCase()
+        break
+      case 'status':
+        aValue = a.status
+        bValue = b.status
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  })
 
   const fetchReports = async () => {
     if (!adminToken) return
@@ -343,26 +396,100 @@ export default function AdminDashboard() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date/Time</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User / Company</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Findings</th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('id')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Report ID</span>
+                            {sortField === 'id' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('uploaded_at')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Date/Time</span>
+                            {sortField === 'uploaded_at' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('user')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>User / Company</span>
+                            {sortField === 'user' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('filename')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>File Name</span>
+                            {sortField === 'filename' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('overall_score')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Score</span>
+                            {sortField === 'overall_score' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('findings_count')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Findings</span>
+                            {sortField === 'findings_count' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Standard</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('status')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Status</span>
+                            {sortField === 'status' && (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reports.length === 0 ? (
+                      {sortedReports.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                             No reports found
                           </td>
                         </tr>
                       ) : (
-                        reports.map((report) => (
+                        sortedReports.map((report) => (
                           <tr key={report.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
+                              #{report.id}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {new Date(report.uploaded_at).toLocaleString()}
                             </td>

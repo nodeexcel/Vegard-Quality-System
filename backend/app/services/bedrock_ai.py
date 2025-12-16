@@ -168,7 +168,7 @@ Produser KUN gyldig JSON i det spesifiserte formatet. Ingen tekst utenfor JSON.
             
             body = json.dumps({
                 "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 4000,
+                "max_tokens": 8000,  # Increased for larger JSON response with new structure
                 "temperature": 0.3,
                 "system": SYSTEM_PROMPT,
                 "messages": [

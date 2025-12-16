@@ -39,9 +39,36 @@ interface ReportDetail {
   tg2_tg3_issues: Array<any>
   ns3600_deviations: Array<any>
   ns3940_deviations: Array<any>
+  regulation_deviations: Array<any>
+  prop44_deviations: Array<any>
   risk_findings: Array<any>
   ai_analysis: any
   s3_key: string | null
+  pdf_download_url: string | null
+  trygghetsscore: {
+    score: number
+    explanation: string
+    factors_positive: string
+    factors_negative: string
+  } | null
+  forbedringsliste: Array<{
+    nummer: number
+    kategori: string
+    hva_er_feil: string
+    hvor_i_rapporten: string
+    hvorfor_problem: string
+    hva_må_endres: string
+    konsekvens_ikke_rettet: string
+  }>
+  sperrer_96: Array<string>
+  rettssaksvurdering: {
+    title: string
+    sterke_sider: string
+    svake_sider: string
+    angrepspunkter: string
+    ansvarseksponering: string
+    samlet_vurdering: string
+  } | null
 }
 
 export default function AdminReportDetail() {
@@ -51,7 +78,7 @@ export default function AdminReportDetail() {
   const [report, setReport] = useState<ReportDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeSection, setActiveSection] = useState<'overview' | 'findings' | 'components' | 'raw'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'arkat' | 'findings' | 'components' | 'raw'>('overview')
 
   useEffect(() => {
     const adminToken = localStorage.getItem('admin_token')
@@ -179,50 +206,174 @@ export default function AdminReportDetail() {
           </div>
         </div>
 
-        {/* Score Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Score</h3>
-            <p className={`text-2xl font-bold ${
-              (report.overall_score || 0) >= 80 ? 'text-green-600' :
-              (report.overall_score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
-            }`}>
-              {report.overall_score?.toFixed(1) || 'N/A'}
-            </p>
+        {/* Score Breakdown Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Full Score Breakdown</h2>
+          
+          {/* Trygghetsscore (Primary Score) - Only show if score exists */}
+          {report.trygghetsscore && report.trygghetsscore.score !== null && report.trygghetsscore.score !== undefined && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">Trygghetsscore</h3>
+                <p className={`text-3xl font-bold ${
+                  (report.trygghetsscore.score || 0) >= 80 ? 'text-green-600' :
+                  (report.trygghetsscore.score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {report.trygghetsscore.score.toFixed(1)} / 100
+                </p>
+              </div>
+              {report.trygghetsscore.explanation && (
+                <p className="text-sm text-gray-600 mb-3">{report.trygghetsscore.explanation}</p>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {report.trygghetsscore.factors_positive && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <h4 className="text-sm font-medium text-green-900 mb-1">Positive Factors</h4>
+                    <p className="text-sm text-green-700">{report.trygghetsscore.factors_positive}</p>
+                  </div>
+                )}
+                {report.trygghetsscore.factors_negative && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <h4 className="text-sm font-medium text-red-900 mb-1">Negative Factors</h4>
+                    <p className="text-sm text-red-700">{report.trygghetsscore.factors_negative}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Legacy Scores */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Score</h3>
+              <p className={`text-2xl font-bold ${
+                (report.overall_score || 0) >= 80 ? 'text-green-600' :
+                (report.overall_score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {report.overall_score?.toFixed(1) || 'N/A'}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-1">Quality Score</h3>
+              <p className="text-2xl font-bold text-gray-900">
+                {report.quality_score?.toFixed(1) || 'N/A'}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-1">Completeness</h3>
+              <p className="text-2xl font-bold text-gray-900">
+                {report.completeness_score?.toFixed(1) || 'N/A'}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-1">Compliance</h3>
+              <p className="text-2xl font-bold text-gray-900">
+                {report.compliance_score?.toFixed(1) || 'N/A'}
+              </p>
+            </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Quality Score</h3>
-            <p className="text-2xl font-bold text-gray-900">
-              {report.quality_score?.toFixed(1) || 'N/A'}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Completeness</h3>
-            <p className="text-2xl font-bold text-gray-900">
-              {report.completeness_score?.toFixed(1) || 'N/A'}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Compliance</h3>
-            <p className="text-2xl font-bold text-gray-900">
-              {report.compliance_score?.toFixed(1) || 'N/A'}
-            </p>
-          </div>
+          
+          {/* PDF Download Link */}
+          {report.s3_key && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              {report.pdf_download_url ? (
+                <a
+                  href={report.pdf_download_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Download Original PDF</span>
+                </a>
+              ) : (
+                <button
+                  onClick={async () => {
+                    const adminToken = localStorage.getItem('admin_token')
+                    if (!adminToken) {
+                      alert('Please log in to download PDF')
+                      return
+                    }
+                    
+                    try {
+                      const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/reports/${report.id}/download-pdf`,
+                        {
+                          headers: {
+                            'Authorization': `Bearer ${adminToken}`
+                          }
+                        }
+                      )
+                      
+                      if (!response.ok) {
+                        const errorText = await response.text()
+                        throw new Error(errorText || `HTTP ${response.status}`)
+                      }
+                      
+                      // Check if response is actually a PDF
+                      const contentType = response.headers.get('content-type')
+                      if (!contentType || !contentType.includes('application/pdf')) {
+                        throw new Error('Response is not a PDF file')
+                      }
+                      
+                      const blob = await response.blob()
+                      
+                      // Validate blob is actually a PDF by checking first bytes
+                      const arrayBuffer = await blob.slice(0, 4).arrayBuffer()
+                      const uint8Array = new Uint8Array(arrayBuffer)
+                      const pdfMagicBytes = [0x25, 0x50, 0x44, 0x46] // %PDF
+                      const isPDF = uint8Array.every((byte, index) => byte === pdfMagicBytes[index])
+                      
+                      if (!isPDF) {
+                        throw new Error('Downloaded file is not a valid PDF')
+                      }
+                      
+                      // Create download link
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = report.filename || 'report.pdf'
+                      document.body.appendChild(a)
+                      a.click()
+                      
+                      // Cleanup
+                      setTimeout(() => {
+                        window.URL.revokeObjectURL(url)
+                        document.body.removeChild(a)
+                      }, 100)
+                    } catch (err: any) {
+                      console.error('Download failed:', err)
+                      alert(`Failed to download PDF: ${err.message || 'Unknown error'}`)
+                    }
+                  }}
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Download Original PDF</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="flex border-b border-gray-200">
+          <div className="flex border-b border-gray-200 overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview' },
-              { id: 'findings', label: `Findings (${report.findings.length})` },
+              { id: 'arkat', label: `ARKAT Findings (${report.forbedringsliste?.length || 0})` },
+              { id: 'findings', label: `All Findings (${report.findings.length})` },
               { id: 'components', label: `Components (${report.components.length})` },
               { id: 'raw', label: 'Raw Analysis' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveSection(tab.id as any)}
-                className={`px-6 py-4 text-sm font-medium transition-colors ${
+                className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
                   activeSection === tab.id
                     ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -291,6 +442,59 @@ export default function AdminReportDetail() {
                 </div>
 
                 <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Regulation (Forskrift) Deviations</h3>
+                  {report.regulation_deviations && report.regulation_deviations.length > 0 ? (
+                    <div className="space-y-2">
+                      {report.regulation_deviations.map((dev, idx) => (
+                        <div key={idx} className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded">
+                          <p className="font-medium text-gray-900">{dev.title}</p>
+                          <p className="text-sm text-gray-600 mt-1">{dev.description}</p>
+                          {dev.standard_reference && (
+                            <p className="text-xs text-gray-500 mt-1">Reference: {dev.standard_reference}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No Regulation deviations found</p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Prop. 44 L (Forarbeid) Deviations</h3>
+                  {report.prop44_deviations && report.prop44_deviations.length > 0 ? (
+                    <div className="space-y-2">
+                      {report.prop44_deviations.map((dev, idx) => (
+                        <div key={idx} className="bg-purple-50 border-l-4 border-purple-400 p-4 rounded">
+                          <p className="font-medium text-gray-900">{dev.title}</p>
+                          <p className="text-sm text-gray-600 mt-1">{dev.description}</p>
+                          {dev.standard_reference && (
+                            <p className="text-xs text-gray-500 mt-1">Reference: {dev.standard_reference}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No Prop. 44 deviations found</p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Sperrer mot Trygghetsscore ≥96</h3>
+                  {report.sperrer_96 && report.sperrer_96.length > 0 ? (
+                    <div className="space-y-2">
+                      {report.sperrer_96.map((sperre, idx) => (
+                        <div key={idx} className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                          <p className="font-medium text-red-900">🚫 {sperre}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No blockers found</p>
+                  )}
+                </div>
+
+                <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">High-Risk Findings</h3>
                   {report.risk_findings.length > 0 ? (
                     <div className="space-y-2">
@@ -317,6 +521,63 @@ export default function AdminReportDetail() {
                     </div>
                   ) : (
                     <p className="text-gray-500">No high-risk findings</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'arkat' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Findings in ARKAT Format</h3>
+                  {report.forbedringsliste && report.forbedringsliste.length > 0 ? (
+                    <div className="space-y-4">
+                      {report.forbedringsliste.map((item) => (
+                        <div key={item.nummer} className="border border-gray-200 rounded-lg p-5 bg-gray-50">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-lg font-bold text-blue-600">#{item.nummer}</span>
+                              <span className={`px-3 py-1 text-xs font-medium rounded ${
+                                item.kategori === 'SPERRE ≥96' ? 'bg-red-100 text-red-800' :
+                                item.kategori === 'Vesentlig avvik' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {item.kategori}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div>
+                              <h5 className="text-sm font-semibold text-gray-700 mb-1">Hva er feil eller mangler:</h5>
+                              <p className="text-sm text-gray-900 bg-white p-2 rounded border border-gray-200">{item.hva_er_feil}</p>
+                            </div>
+                            
+                            <div>
+                              <h5 className="text-sm font-semibold text-gray-700 mb-1">Hvor i rapporten:</h5>
+                              <p className="text-sm text-gray-900 bg-white p-2 rounded border border-gray-200">{item.hvor_i_rapporten}</p>
+                            </div>
+                            
+                            <div>
+                              <h5 className="text-sm font-semibold text-gray-700 mb-1">Hvorfor dette er et problem:</h5>
+                              <p className="text-sm text-gray-900 bg-white p-2 rounded border border-gray-200">{item.hvorfor_problem}</p>
+                            </div>
+                            
+                            <div>
+                              <h5 className="text-sm font-semibold text-gray-700 mb-1">Hva som må endres i rapporten:</h5>
+                              <p className="text-sm text-blue-700 bg-blue-50 p-2 rounded border border-blue-200">{item.hva_må_endres}</p>
+                            </div>
+                            
+                            <div>
+                              <h5 className="text-sm font-semibold text-gray-700 mb-1">Konsekvens dersom det ikke rettes:</h5>
+                              <p className="text-sm text-red-700 bg-red-50 p-2 rounded border border-red-200">{item.konsekvens_ikke_rettet}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No ARKAT findings available</p>
                   )}
                 </div>
               </div>
@@ -388,9 +649,49 @@ export default function AdminReportDetail() {
             {activeSection === 'raw' && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Raw AI Analysis (Debug Mode)</h3>
-                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-auto text-xs">
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ This is the raw JSON output from the AI analysis. Use this for debugging and verification.
+                  </p>
+                </div>
+                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-auto text-xs max-h-96">
                   {JSON.stringify(report.ai_analysis, null, 2)}
                 </pre>
+                
+                {report.rettssaksvurdering && (
+                  <div className="mt-6">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3">Rettssaksvurdering</h4>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+                      <div>
+                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Sterke sider:</h5>
+                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.sterke_sider || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Svake sider:</h5>
+                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.svake_sider || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Angrepspunkter:</h5>
+                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.angrepspunkter || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Ansvarseksponering:</h5>
+                        <span className={`px-3 py-1 text-sm font-medium rounded ${
+                          report.rettssaksvurdering.ansvarseksponering === 'høy' ? 'bg-red-100 text-red-800' :
+                          report.rettssaksvurdering.ansvarseksponering === 'moderat' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {report.rettssaksvurdering.ansvarseksponering || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Samlet vurdering:</h5>
+                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.samlet_vurdering || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {report.s3_key && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-2">PDF Location</h4>

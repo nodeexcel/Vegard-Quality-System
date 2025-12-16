@@ -90,6 +90,63 @@ def get_current_admin_from_token(
 # REPORTS & FEEDBACK
 # ============================================================================
 
+# IMPORTANT: More specific routes must be defined BEFORE less specific ones
+# /reports/{report_id}/download-pdf must come before /reports/{report_id}
+
+@router.get("/reports/{report_id}/download-pdf")
+async def download_report_pdf(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_from_token)
+):
+    """
+    Admin endpoint: Download PDF directly (fallback if presigned URL fails)
+    """
+    from fastapi.responses import StreamingResponse
+    import io
+    from urllib.parse import quote
+    
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    if not report.s3_key:
+        raise HTTPException(status_code=404, detail="PDF not available (no S3 key)")
+    
+    if not settings.USE_S3_STORAGE:
+        raise HTTPException(status_code=503, detail="S3 storage is not enabled")
+    
+    try:
+        from app.services.s3_storage import S3Storage
+        s3_storage = S3Storage()
+        pdf_content = s3_storage.download_pdf(report.s3_key)
+        
+        # Validate PDF content (check for PDF magic bytes)
+        if not pdf_content.startswith(b'%PDF'):
+            logger.error(f"Downloaded content from S3 is not a valid PDF (s3_key: {report.s3_key})")
+            raise HTTPException(status_code=500, detail="Downloaded file is not a valid PDF")
+        
+        # Create a BytesIO stream for the response
+        pdf_stream = io.BytesIO(pdf_content)
+        
+        # Properly encode filename for Content-Disposition header
+        encoded_filename = quote(report.filename, safe='')
+        
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{report.filename}"; filename*=UTF-8\'\'{encoded_filename}',
+                "Content-Length": str(len(pdf_content)),
+                "Content-Type": "application/pdf"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading PDF: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to download PDF: {str(e)}")
+
 @router.get("/reports")
 async def list_reports_admin(
     skip: int = Query(0, ge=0),
@@ -199,7 +256,7 @@ async def get_report_admin(
     current_admin: User = Depends(get_current_admin_from_token)
 ):
     """
-    Admin endpoint: Get detailed report view
+    Admin endpoint: Get detailed report view with full breakdown
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
@@ -228,11 +285,84 @@ async def get_report_admin(
         standard_reference=f.standard_reference
     ) for f in report.findings]
     
-    # Group findings by type
+    # Extract data from new ai_analysis format
+    ai_analysis = report.ai_analysis or {}
+    
+    # Extract trygghetsscore breakdown
+    trygghetsscore_data = {}
+    if isinstance(ai_analysis, dict):
+        # Try to get from formatted_output first
+        formatted_output = ai_analysis.get("formatted_output", {})
+        if formatted_output and "trygghetsscore" in formatted_output:
+            trygghetsscore_data = formatted_output.get("trygghetsscore", {})
+        elif "trygghetsscore" in ai_analysis:
+            trygghetsscore_data = ai_analysis.get("trygghetsscore", {})
+    
+    # Extract forbedringsliste (ARKAT format)
+    forbedringsliste = []
+    if isinstance(ai_analysis, dict):
+        formatted_output = ai_analysis.get("formatted_output", {})
+        if formatted_output and "forbedringsliste" in formatted_output:
+            forbedringsliste = formatted_output.get("forbedringsliste", [])
+        elif "forbedringsliste" in ai_analysis:
+            forbedringsliste = ai_analysis.get("forbedringsliste", [])
+    
+    # Extract sperrer_96
+    sperrer_96 = []
+    if isinstance(ai_analysis, dict):
+        formatted_output = ai_analysis.get("formatted_output", {})
+        if formatted_output and "sperrer_96" in formatted_output:
+            sperrer_96 = formatted_output.get("sperrer_96", [])
+        elif "sperrer_96" in ai_analysis:
+            sperrer_96 = ai_analysis.get("sperrer_96", [])
+    
+    # Extract rettssaksvurdering
+    rettssaksvurdering = {}
+    if isinstance(ai_analysis, dict):
+        formatted_output = ai_analysis.get("formatted_output", {})
+        if formatted_output and "rettssaksvurdering" in formatted_output:
+            rettssaksvurdering = formatted_output.get("rettssaksvurdering", {})
+        elif "rettssaksvurdering" in ai_analysis:
+            rettssaksvurdering = ai_analysis.get("rettssaksvurdering", {})
+    
+    # Group findings by type (enhanced detection)
     tg2_tg3_issues = [f for f in findings_data if "TG2" in f.description or "TG3" in f.description or "TG2" in f.title or "TG3" in f.title]
     ns3600_deviations = [f for f in findings_data if f.standard_reference and ("NS3600" in f.standard_reference or "NS 3600" in f.standard_reference)]
     ns3940_deviations = [f for f in findings_data if f.standard_reference and ("NS3940" in f.standard_reference or "NS 3940" in f.standard_reference)]
+    
+    # Detect Regulation (Forskrift) and Prop.44 deviations
+    regulation_deviations = []
+    prop44_deviations = []
+    for f in findings_data:
+        desc_lower = (f.description or "").lower()
+        title_lower = (f.title or "").lower()
+        ref_lower = (f.standard_reference or "").lower()
+        
+        # Check for Regulation/Forskrift references
+        if any(term in desc_lower or term in title_lower or term in ref_lower 
+               for term in ["forskrift", "avhendingslova", "tryggere bolighandel"]):
+            if f not in regulation_deviations:
+                regulation_deviations.append(f)
+        
+        # Check for Prop.44 references
+        if any(term in desc_lower or term in title_lower or term in ref_lower 
+               for term in ["prop. 44", "prop 44", "forarbeid", "prop.44"]):
+            if f not in prop44_deviations:
+                prop44_deviations.append(f)
+    
     risk_findings = [f for f in findings_data if f.severity in ["high", "critical"]]
+    
+    # Generate presigned URL for PDF if available
+    pdf_download_url = None
+    if report.s3_key and settings.USE_S3_STORAGE:
+        try:
+            from app.services.s3_storage import S3Storage
+            s3_storage = S3Storage()
+            pdf_download_url = s3_storage.get_presigned_url(report.s3_key, expiration=3600)
+        except Exception as e:
+            logger.warning(f"Could not generate presigned URL: {str(e)}")
+            # If presigned URL fails, we'll provide a direct download endpoint
+            pdf_download_url = None
     
     return {
         "id": report.id,
@@ -256,9 +386,17 @@ async def get_report_admin(
         "tg2_tg3_issues": tg2_tg3_issues,
         "ns3600_deviations": ns3600_deviations,
         "ns3940_deviations": ns3940_deviations,
+        "regulation_deviations": regulation_deviations,
+        "prop44_deviations": prop44_deviations,
         "risk_findings": risk_findings,
         "ai_analysis": report.ai_analysis,
-        "s3_key": report.s3_key,  # For PDF download link
+        "s3_key": report.s3_key,
+        "pdf_download_url": pdf_download_url,
+        # New format data
+        "trygghetsscore": trygghetsscore_data,
+        "forbedringsliste": forbedringsliste,
+        "sperrer_96": sperrer_96,
+        "rettssaksvurdering": rettssaksvurdering,
     }
 
 # ============================================================================
@@ -693,6 +831,54 @@ async def get_system_status(
     
     return status
 
+@router.get("/system/error-logs")
+async def get_error_logs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_from_token)
+):
+    """
+    Admin endpoint: Get error logs for failed reports
+    """
+    failed_reports = db.query(Report).filter(
+        Report.status == "failed"
+    ).order_by(Report.uploaded_at.desc()).offset(skip).limit(limit).all()
+    
+    error_logs = []
+    for report in failed_reports:
+        user = db.query(User).filter(User.id == report.user_id).first()
+        
+        # Try to extract error from ai_analysis if available
+        error_message = "Unknown error"
+        if report.ai_analysis and isinstance(report.ai_analysis, dict):
+            if "error" in report.ai_analysis:
+                error_message = report.ai_analysis.get("error", "Unknown error")
+            elif "formatted_output" in report.ai_analysis and "error" in report.ai_analysis["formatted_output"]:
+                error_message = report.ai_analysis["formatted_output"].get("error", "Unknown error")
+        
+        error_logs.append({
+            "report_id": report.id,
+            "filename": report.filename,
+            "user": {
+                "id": user.id if user else None,
+                "name": user.name if user else None,
+                "email": user.email if user else None,
+            },
+            "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
+            "error_message": error_message,
+            "extracted_text_length": len(report.extracted_text) if report.extracted_text else 0,
+        })
+    
+    total = db.query(func.count(Report.id)).filter(Report.status == "failed").scalar() or 0
+    
+    return {
+        "error_logs": error_logs,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
 @router.get("/analytics")
 async def get_analytics(
     days: int = Query(30, ge=1, le=365),
@@ -736,6 +922,77 @@ async def get_analytics(
         if f.standard_reference:
             ref = f.standard_reference.split()[0] if f.standard_reference else "Unknown"
             standard_refs[ref] = standard_refs.get(ref, 0) + 1
+    
+    # NS3600/NS3940 specific error tracking
+    ns3600_errors = {}
+    ns3940_errors = {}
+    for f in all_findings:
+        if f.standard_reference:
+            ref_lower = f.standard_reference.lower()
+            if "ns3600" in ref_lower or "ns 3600" in ref_lower:
+                error_type = f.title[:50] if f.title else f.finding_type
+                ns3600_errors[error_type] = ns3600_errors.get(error_type, 0) + 1
+            elif "ns3940" in ref_lower or "ns 3940" in ref_lower:
+                error_type = f.title[:50] if f.title else f.finding_type
+                ns3940_errors[error_type] = ns3940_errors.get(error_type, 0) + 1
+    
+    # TG2/TG3 misuse tracking
+    tg2_tg3_issues = {}
+    tg2_count = 0
+    tg3_count = 0
+    tg2_tg3_findings = db.query(Finding).join(Report).filter(
+        Report.status == "completed",
+        Report.uploaded_at >= date_from,
+        or_(
+            Finding.title.contains("TG2"),
+            Finding.title.contains("TG3"),
+            Finding.description.contains("TG2"),
+            Finding.description.contains("TG3")
+        )
+    ).all()
+    
+    for f in tg2_tg3_findings:
+        desc_lower = (f.description or "").lower()
+        title_lower = (f.title or "").lower()
+        
+        if "tg2" in title_lower or "tg2" in desc_lower:
+            tg2_count += 1
+        if "tg3" in title_lower or "tg3" in desc_lower:
+            tg3_count += 1
+        
+        # Track specific misuse patterns
+        if "manglende arkat" in desc_lower or "mangler arkat" in desc_lower:
+            tg2_tg3_issues["Manglende ARKAT"] = tg2_tg3_issues.get("Manglende ARKAT", 0) + 1
+        if "generell" in desc_lower and ("tg2" in desc_lower or "tg3" in desc_lower):
+            tg2_tg3_issues["Generell beskrivelse"] = tg2_tg3_issues.get("Generell beskrivelse", 0) + 1
+        if "feil tg" in desc_lower or "feil bruk" in desc_lower:
+            tg2_tg3_issues["Feil TG-nivå"] = tg2_tg3_issues.get("Feil TG-nivå", 0) + 1
+        if "tgiu" in desc_lower and ("tg2" in desc_lower or "tg3" in desc_lower):
+            tg2_tg3_issues["TGIU misbruk"] = tg2_tg3_issues.get("TGIU misbruk", 0) + 1
+    
+    # Time-series trends (daily report counts and average scores)
+    time_series = []
+    current_date = date_from
+    while current_date <= datetime.utcnow():
+        day_start = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        day_reports = db.query(Report).filter(
+            Report.status == "completed",
+            Report.uploaded_at >= day_start,
+            Report.uploaded_at < day_end
+        ).all()
+        
+        day_scores = [r.overall_score for r in day_reports if r.overall_score]
+        avg_score = sum(day_scores) / len(day_scores) if day_scores else 0
+        
+        time_series.append({
+            "date": day_start.strftime("%Y-%m-%d"),
+            "report_count": len(day_reports),
+            "average_score": round(avg_score, 2)
+        })
+        
+        current_date += timedelta(days=1)
     
     # Users with lowest average score
     user_scores = db.query(
@@ -789,6 +1046,16 @@ async def get_analytics(
         "most_common_standards": dict(sorted(standard_refs.items(), key=lambda x: x[1], reverse=True)[:10]),
         "lowest_score_users": lowest_score_users,
         "most_active_users": most_active_users,
+        # New tracking
+        "ns3600_errors": dict(sorted(ns3600_errors.items(), key=lambda x: x[1], reverse=True)[:10]),
+        "ns3940_errors": dict(sorted(ns3940_errors.items(), key=lambda x: x[1], reverse=True)[:10]),
+        "tg2_tg3_stats": {
+            "tg2_count": tg2_count,
+            "tg3_count": tg3_count,
+            "total_tg2_tg3": tg2_count + tg3_count,
+            "misuse_patterns": dict(sorted(tg2_tg3_issues.items(), key=lambda x: x[1], reverse=True))
+        },
+        "time_series": time_series,
     }
 
 @router.post("/system/test-report")
@@ -893,10 +1160,20 @@ spesielt våtrom som mangler dokumentert fuktvurdering.
         # Process through AI analyzer
         logger.info(f"Processing test report {report.id} with AI analyzer")
         ai_analyzer = AIAnalyzer()
+        
+        # Create test PDF metadata
+        test_pdf_metadata = {
+            "total_pages": 10,  # Estimated for test report
+            "pages_with_text": 10,
+            "images_detected": 0,
+            "full_document_available": True
+        }
+        
         analysis_result, full_analysis = ai_analyzer.analyze_report(
             text=test_report_text,
             report_system="Test System",
-            building_year=1985
+            building_year=1985,
+            pdf_metadata=test_pdf_metadata
         )
         
         # Store analysis results

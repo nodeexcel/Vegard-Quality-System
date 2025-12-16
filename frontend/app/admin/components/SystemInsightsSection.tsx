@@ -51,23 +51,71 @@ interface Analytics {
     email: string
     report_count: number
   }>
+  ns3600_errors?: Record<string, number>
+  ns3940_errors?: Record<string, number>
+  tg2_tg3_stats?: {
+    tg2_count: number
+    tg3_count: number
+    total_tg2_tg3: number
+    misuse_patterns: Record<string, number>
+  }
+  time_series?: Array<{
+    date: string
+    report_count: number
+    average_score: number
+  }>
+}
+
+interface ErrorLog {
+  report_id: number
+  filename: string
+  user: {
+    id: number | null
+    name: string | null
+    email: string | null
+  }
+  uploaded_at: string | null
+  error_message: string
+  extracted_text_length: number
 }
 
 export default function SystemInsightsSection({ adminToken }: SystemInsightsSectionProps) {
-  const [activeTab, setActiveTab] = useState<'status' | 'analytics'>('status')
+  const [activeTab, setActiveTab] = useState<'status' | 'analytics' | 'errors'>('status')
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([])
   const [loadingStatus, setLoadingStatus] = useState(false)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const [loadingErrors, setLoadingErrors] = useState(false)
   const [analyticsDays, setAnalyticsDays] = useState(30)
   const [runningTest, setRunningTest] = useState(false)
 
   useEffect(() => {
     if (adminToken) {
       fetchSystemStatus()
-      fetchAnalytics()
+      if (activeTab === 'analytics') {
+        fetchAnalytics()
+      } else if (activeTab === 'errors') {
+        fetchErrorLogs()
+      }
     }
-  }, [adminToken, analyticsDays])
+  }, [adminToken, analyticsDays, activeTab])
+
+  const fetchErrorLogs = async () => {
+    if (!adminToken) return
+    setLoadingErrors(true)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const response = await axios.get(`${apiUrl}/api/v1/admin/system/error-logs`, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      setErrorLogs(response.data.error_logs || [])
+    } catch (error) {
+      console.error('Error fetching error logs:', error)
+    } finally {
+      setLoadingErrors(false)
+    }
+  }
 
   const fetchSystemStatus = async () => {
     if (!adminToken) return
@@ -164,6 +212,16 @@ export default function SystemInsightsSection({ adminToken }: SystemInsightsSect
             }`}
           >
             Analytics
+          </button>
+          <button
+            onClick={() => setActiveTab('errors')}
+            className={`px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'errors'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Error Logs
           </button>
         </div>
       </div>
@@ -405,8 +463,186 @@ export default function SystemInsightsSection({ adminToken }: SystemInsightsSect
                   </table>
                 </div>
               </div>
+
+              {/* NS3600 Errors */}
+              {analytics.ns3600_errors && Object.keys(analytics.ns3600_errors).length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">NS 3600 Specific Errors</h3>
+                  <div className="space-y-2">
+                    {Object.entries(analytics.ns3600_errors).slice(0, 10).map(([error, count]) => (
+                      <div key={error} className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-700">{error}</span>
+                        <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                          {count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* NS3940 Errors */}
+              {analytics.ns3940_errors && Object.keys(analytics.ns3940_errors).length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">NS 3940 Specific Errors</h3>
+                  <div className="space-y-2">
+                    {Object.entries(analytics.ns3940_errors).slice(0, 10).map(([error, count]) => (
+                      <div key={error} className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-700">{error}</span>
+                        <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                          {count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TG2/TG3 Misuse Tracking */}
+              {analytics.tg2_tg3_stats && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">TG2/TG3 Statistics</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-yellow-900 mb-1">TG2 Count</h4>
+                      <p className="text-2xl font-bold text-yellow-700">{analytics.tg2_tg3_stats.tg2_count}</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-red-900 mb-1">TG3 Count</h4>
+                      <p className="text-2xl font-bold text-red-700">{analytics.tg2_tg3_stats.tg3_count}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Total TG2/TG3</h4>
+                      <p className="text-2xl font-bold text-gray-700">{analytics.tg2_tg3_stats.total_tg2_tg3}</p>
+                    </div>
+                  </div>
+                  {Object.keys(analytics.tg2_tg3_stats.misuse_patterns).length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Misuse Patterns</h4>
+                      <div className="space-y-2">
+                        {Object.entries(analytics.tg2_tg3_stats.misuse_patterns).map(([pattern, count]) => (
+                          <div key={pattern} className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-sm text-gray-700">{pattern}</span>
+                            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                              {count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Time-Series Trends */}
+              {analytics.time_series && analytics.time_series.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Trends Over Time</h3>
+                  <div className="space-y-6">
+                    {/* Report Count Trend */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Daily Report Count</h4>
+                      <div className="h-48 flex items-end space-x-1 overflow-x-auto">
+                        {analytics.time_series.map((item, idx) => {
+                          const maxCount = Math.max(...analytics.time_series!.map(ts => ts.report_count), 1)
+                          return (
+                            <div key={idx} className="flex-1 flex flex-col items-center min-w-[30px]">
+                              <div
+                                className="w-full bg-blue-500 hover:bg-blue-600 rounded-t transition-colors"
+                                style={{ height: `${(item.report_count / maxCount) * 100}%` }}
+                                title={`${item.date}: ${item.report_count} reports`}
+                              />
+                              <span className="text-xs text-gray-500 mt-1 transform -rotate-45 origin-top-left whitespace-nowrap">
+                                {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* Average Score Trend */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Daily Average Score</h4>
+                      <div className="h-48 flex items-end space-x-1 overflow-x-auto">
+                        {analytics.time_series.map((item, idx) => (
+                          <div key={idx} className="flex-1 flex flex-col items-center min-w-[30px]">
+                            <div
+                              className={`w-full rounded-t transition-colors ${
+                                item.average_score >= 80 ? 'bg-green-500 hover:bg-green-600' :
+                                item.average_score >= 60 ? 'bg-yellow-500 hover:bg-yellow-600' :
+                                'bg-red-500 hover:bg-red-600'
+                              }`}
+                              style={{ height: `${item.average_score}%` }}
+                              title={`${item.date}: ${item.average_score.toFixed(1)}`}
+                            />
+                            <span className="text-xs text-gray-500 mt-1 transform -rotate-45 origin-top-left whitespace-nowrap">
+                              {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           ) : null}
+        </div>
+      )}
+
+      {/* Error Logs Tab */}
+      {activeTab === 'errors' && (
+        <div className="space-y-6">
+          {loadingErrors ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading error logs...</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Failed Reports Error Logs</h3>
+                {errorLogs.length === 0 ? (
+                  <p className="text-gray-500">No error logs found</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Report ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Filename</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error Message</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Text Length</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {errorLogs.map((log) => (
+                          <tr key={log.report_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-mono text-gray-600">
+                              <a href={`/admin/reports/${log.report_id}`} className="text-blue-600 hover:text-blue-800">
+                                #{log.report_id}
+                              </a>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{log.filename}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{log.user.name || log.user.email || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {log.uploaded_at ? new Date(log.uploaded_at).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-red-600 max-w-md" title={log.error_message}>
+                              <div className="truncate">{log.error_message}</div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{log.extracted_text_length} chars</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
