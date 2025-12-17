@@ -397,80 +397,101 @@ export default function AdminDashboard() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('id')}
+                          title="Click to sort by Report ID"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>Report ID</span>
-                            {sortField === 'id' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'id' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('uploaded_at')}
+                          title="Click to sort by Date/Time"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>Date/Time</span>
-                            {sortField === 'uploaded_at' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'uploaded_at' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('user')}
+                          title="Click to sort by User/Company"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>User / Company</span>
-                            {sortField === 'user' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'user' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('filename')}
+                          title="Click to sort by File Name"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>File Name</span>
-                            {sortField === 'filename' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'filename' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('overall_score')}
+                          title="Click to sort by Score"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>Score</span>
-                            {sortField === 'overall_score' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'overall_score' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('findings_count')}
+                          title="Click to sort by Findings"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>Findings</span>
-                            {sortField === 'findings_count' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'findings_count' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Standard</th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('status')}
+                          title="Click to sort by Status"
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>Status</span>
-                            {sortField === 'status' && (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            {sortField === 'status' ? (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-gray-400">↕</span>
                             )}
                           </div>
                         </th>
