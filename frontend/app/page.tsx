@@ -13,6 +13,8 @@ export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [isDragging, setIsDragging] = useState(false)
+  const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
+  const [insufficientCreditsMessage, setInsufficientCreditsMessage] = useState('')
   const router = useRouter()
   const { user, token, loading, refreshUser } = useAuth()
 
@@ -161,6 +163,11 @@ export default function Home() {
     } catch (err: any) {
       if (err.response?.status === 401) {
         setError('Please sign in to upload reports. If you are signed in, please try signing out and signing in again.')
+      } else if (err.response?.status === 402) {
+        // Insufficient credits - show modal
+        setError('')
+        setShowInsufficientCredits(true)
+        setInsufficientCreditsMessage(err.response?.data?.detail || 'Insufficient credits to upload this report.')
       } else {
         setError(err.response?.data?.detail || 'Failed to upload report. Please try again.')
       }
@@ -404,6 +411,48 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Insufficient Credits Modal */}
+      {showInsufficientCredits && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Insufficient Credits</h3>
+              <p className="text-gray-600 mb-4">{insufficientCreditsMessage}</p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="text-sm text-gray-700 mb-2">
+                  <strong>Current Credits:</strong> {user?.credits || 0}
+                </div>
+                <div className="text-sm text-gray-700">
+                  <strong>Required:</strong> 10 credits for first analysis, 2 credits for re-check
+                </div>
+              </div>
+            </div>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setShowInsufficientCredits(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowInsufficientCredits(false)
+                  router.push('/buy-credits')
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Buy Credits
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import UsersSection from './components/UsersSection'
 import SystemInsightsSection from './components/SystemInsightsSection'
+import CreditsBillingSection from './components/CreditsBillingSection'
 
 interface Report {
   id: number
@@ -570,9 +571,7 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'credits' && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Credits & Billing section - Coming soon</p>
-            </div>
+            <CreditsBillingSection adminToken={adminToken} />
           )}
 
           {activeTab === 'system' && (

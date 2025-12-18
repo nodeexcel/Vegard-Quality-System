@@ -472,15 +472,15 @@ Produser KUN gyldig JSON i det spesifiserte formatet fra system prompten. Ingen 
                     if len(parts) >= 2:
                         comp_name = parts[0].strip()
                         comp_type = parts[1].strip()
-                key = f"{comp_type}_{comp_name}"
-                if key not in component_map:
-                    component_map[key] = {
-                        "component_type": comp_type,
-                        "name": comp_name,
-                        "condition": None,
-                        "description": "",
-                        "score": None
-                    }
+                        key = f"{comp_type}_{comp_name}"
+                        if key not in component_map:
+                            component_map[key] = {
+                                "component_type": comp_type,
+                                "name": comp_name,
+                                "condition": None,
+                                "description": "",
+                                "score": None
+                            }
             
             components = [ComponentBase(**comp) for comp in component_map.values()]
             

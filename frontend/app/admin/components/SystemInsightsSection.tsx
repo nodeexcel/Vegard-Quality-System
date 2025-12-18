@@ -94,7 +94,7 @@ export default function SystemInsightsSection({ adminToken }: SystemInsightsSect
     if (adminToken) {
       fetchSystemStatus()
       if (activeTab === 'analytics') {
-        fetchAnalytics()
+      fetchAnalytics()
       } else if (activeTab === 'errors') {
         fetchErrorLogs()
       }

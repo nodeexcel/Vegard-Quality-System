@@ -245,32 +245,32 @@ export default function AdminReportDetail() {
           {/* Legacy Scores */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Score</h3>
-              <p className={`text-2xl font-bold ${
-                (report.overall_score || 0) >= 80 ? 'text-green-600' :
-                (report.overall_score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
-              }`}>
-                {report.overall_score?.toFixed(1) || 'N/A'}
-              </p>
-            </div>
+            <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Score</h3>
+            <p className={`text-2xl font-bold ${
+              (report.overall_score || 0) >= 80 ? 'text-green-600' :
+              (report.overall_score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
+            }`}>
+              {report.overall_score?.toFixed(1) || 'N/A'}
+            </p>
+          </div>
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Quality Score</h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {report.quality_score?.toFixed(1) || 'N/A'}
-              </p>
-            </div>
+            <h3 className="text-sm font-medium text-gray-500 mb-1">Quality Score</h3>
+            <p className="text-2xl font-bold text-gray-900">
+              {report.quality_score?.toFixed(1) || 'N/A'}
+            </p>
+          </div>
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Completeness</h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {report.completeness_score?.toFixed(1) || 'N/A'}
-              </p>
-            </div>
+            <h3 className="text-sm font-medium text-gray-500 mb-1">Completeness</h3>
+            <p className="text-2xl font-bold text-gray-900">
+              {report.completeness_score?.toFixed(1) || 'N/A'}
+            </p>
+          </div>
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Compliance</h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {report.compliance_score?.toFixed(1) || 'N/A'}
-              </p>
-            </div>
+            <h3 className="text-sm font-medium text-gray-500 mb-1">Compliance</h3>
+            <p className="text-2xl font-bold text-gray-900">
+              {report.compliance_score?.toFixed(1) || 'N/A'}
+            </p>
+          </div>
           </div>
           
           {/* PDF Download Link */}

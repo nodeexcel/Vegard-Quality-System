@@ -6,7 +6,7 @@ import logging
 import io
 
 from app.database import get_db
-from app.models import Report, Component, Finding, User
+from app.models import Report, Component, Finding, User, CreditTransaction
 from app.schemas import ReportCreate, ReportResponse, AnalysisResult
 from app.services.pdf_extractor import PDFExtractor
 from app.services.ai_analyzer import AIAnalyzer
@@ -46,10 +46,25 @@ async def upload_report(
         
         # Read file content
         file_content = await file.read()
+        
+        # Validate file size (must be at least 100 bytes - very small PDFs are suspicious)
+        if len(file_content) < 100:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"PDF file is too small ({len(file_content)} bytes). The file appears to be corrupted or incomplete. Please ensure you're uploading a complete PDF file."
+            )
+        
+        # Check PDF magic bytes
+        if not file_content.startswith(b'%PDF'):
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded file does not appear to be a valid PDF file. PDF files must start with '%PDF' header. Please ensure you're uploading a valid PDF file."
+            )
+        
         file_stream = io.BytesIO(file_content)
         
         # Extract text from PDF and get metadata
-        logger.info(f"Extracting text from PDF: {file.filename}")
+        logger.info(f"Extracting text from PDF: {file.filename} (size: {len(file_content)} bytes)")
         pdf_extractor = PDFExtractor()
         
         # Get PDF metadata first
@@ -65,6 +80,36 @@ async def upload_report(
                 status_code=400, 
                 detail="Could not extract sufficient text from PDF. Please ensure the PDF contains readable text."
             )
+        
+        # Check if this is a re-check (same filename already exists for this user)
+        existing_report = db.query(Report).filter(
+            Report.user_id == current_user.id,
+            Report.filename == file.filename,
+            Report.status == "completed"
+        ).order_by(Report.uploaded_at.desc()).first()
+        
+        is_recheck = existing_report is not None
+        credits_required = 2 if is_recheck else 10
+        
+        # Check if user has enough credits
+        db.refresh(current_user)  # Refresh to get latest credit balance
+        if current_user.credits < credits_required:
+            raise HTTPException(
+                status_code=402,  # 402 Payment Required
+                detail=f"Insufficient credits. You need {credits_required} credits to {'re-check' if is_recheck else 'analyze'} this report. You currently have {current_user.credits} credits."
+            )
+        
+        # Deduct credits
+        current_user.credits -= credits_required
+        
+        # Create credit transaction record
+        credit_transaction = CreditTransaction(
+            user_id=current_user.id,
+            amount=-credits_required,  # Negative for usage
+            transaction_type="usage",
+            description=f"{'Re-check' if is_recheck else 'First analysis'} of report: {file.filename}"
+        )
+        db.add(credit_transaction)
         
         # Create report record
         report = Report(
@@ -154,6 +199,37 @@ async def upload_report(
         # Store full analysis JSON for detailed view
         report.ai_analysis = full_analysis
         
+        # Check for automatic refund (96%+ trygghetsscore)
+        # Extract trygghetsscore from full_analysis
+        trygghetsscore = None
+        if isinstance(full_analysis, dict):
+            trygghetsscore_data = full_analysis.get("trygghetsscore", {})
+            if isinstance(trygghetsscore_data, dict):
+                trygghetsscore = trygghetsscore_data.get("score")
+            elif isinstance(trygghetsscore_data, (int, float)):
+                trygghetsscore = trygghetsscore_data
+        
+        # If trygghetsscore is not found, use overall_score as fallback
+        if trygghetsscore is None:
+            trygghetsscore = analysis_result.overall_score
+        
+        # Auto-refund if score is 96% or higher
+        if trygghetsscore and trygghetsscore >= 96.0:
+            # Refund the credits that were just used
+            refund_amount = credits_required
+            current_user.credits += refund_amount
+            
+            # Create refund transaction
+            refund_transaction = CreditTransaction(
+                user_id=current_user.id,
+                amount=refund_amount,
+                transaction_type="auto_refund",
+                description=f"Automatic refund: {refund_amount} credits for achieving {trygghetsscore:.1f}% trygghetsscore on report: {file.filename}",
+                report_id=report.id
+            )
+            db.add(refund_transaction)
+            logger.info(f"Auto-refunded {refund_amount} credits to user {current_user.id} for report {report.id} (score: {trygghetsscore:.1f}%)")
+        
         # Store components
         for comp_data in analysis_result.components:
             component = Component(
@@ -225,6 +301,11 @@ async def upload_report(
         
     except HTTPException:
         raise
+    except ValueError as e:
+        # Convert ValueError (from PDF validation) to HTTPException with user-friendly message
+        logger.error(f"PDF validation error: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error processing report: {str(e)}", exc_info=True)
         db.rollback()
@@ -364,6 +445,47 @@ async def update_report_analysis(
         report.compliance_score = analysis_data.get("compliance_score", 0.0)
         report.ai_analysis = analysis_data.get("ai_analysis", {})
         report.status = "completed"
+        
+        # Check for automatic refund (96%+ trygghetsscore)
+        user = db.query(User).filter(User.id == report.user_id).first()
+        if user:
+            # Extract trygghetsscore from ai_analysis
+            trygghetsscore = None
+            ai_analysis = analysis_data.get("ai_analysis", {})
+            if isinstance(ai_analysis, dict):
+                trygghetsscore_data = ai_analysis.get("trygghetsscore", {})
+                if isinstance(trygghetsscore_data, dict):
+                    trygghetsscore = trygghetsscore_data.get("score")
+                elif isinstance(trygghetsscore_data, (int, float)):
+                    trygghetsscore = trygghetsscore_data
+            
+            # If trygghetsscore is not found, use overall_score as fallback
+            if trygghetsscore is None:
+                trygghetsscore = report.overall_score
+            
+            # Auto-refund if score is 96% or higher
+            if trygghetsscore and trygghetsscore >= 96.0:
+                # Find the usage transaction for this report
+                usage_transaction = db.query(CreditTransaction).filter(
+                    CreditTransaction.user_id == user.id,
+                    CreditTransaction.report_id == report.id,
+                    CreditTransaction.transaction_type == "usage"
+                ).order_by(CreditTransaction.created_at.desc()).first()
+                
+                if usage_transaction:
+                    refund_amount = abs(usage_transaction.amount)  # Get positive amount
+                    user.credits += refund_amount
+                    
+                    # Create refund transaction
+                    refund_transaction = CreditTransaction(
+                        user_id=user.id,
+                        amount=refund_amount,
+                        transaction_type="auto_refund",
+                        description=f"Automatic refund: {refund_amount} credits for achieving {trygghetsscore:.1f}% trygghetsscore on report: {report.filename}",
+                        report_id=report.id
+                    )
+                    db.add(refund_transaction)
+                    logger.info(f"Auto-refunded {refund_amount} credits to user {user.id} for report {report.id} (score: {trygghetsscore:.1f}%)")
         
         # Delete existing components and findings
         db.query(Component).filter(Component.report_id == report_id).delete()

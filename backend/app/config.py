@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = "validert-reports"
     SQS_QUEUE_URL: str = ""  # SQS queue URL for async PDF processing
     
+    # Stripe Configuration
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_CURRENCY: str = "nok"  # Norwegian Krone
+    
     @property
     def CORS_ORIGINS(self) -> List[str]:
         origins = [

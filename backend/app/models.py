@@ -91,7 +91,7 @@ class CreditTransaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     amount = Column(Integer, nullable=False)  # Positive for credits added, negative for credits used
-    transaction_type = Column(String, nullable=False)  # "purchase", "usage", "admin_add", "admin_remove", "refund"
+    transaction_type = Column(String, nullable=False)  # "purchase", "usage", "admin_add", "admin_remove", "refund", "auto_refund"
     description = Column(Text, nullable=True)
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=True)  # If related to a report
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -99,4 +99,46 @@ class CreditTransaction(Base):
     # Relationships
     user = relationship("User", back_populates="credit_transactions")
     report = relationship("Report")
+
+class StripeCustomer(Base):
+    __tablename__ = "stripe_customers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    stripe_customer_id = Column(String, nullable=False, unique=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User")
+
+class CreditPackage(Base):
+    __tablename__ = "credit_packages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)  # e.g., "Starter", "Standard", "Pro"
+    credits_amount = Column(Integer, nullable=False)
+    price_nok = Column(Integer, nullable=False)  # Price in Norwegian Krone (øre, so 165000 = 1650 NOK)
+    stripe_price_id = Column(String, nullable=True)  # Stripe Price ID if using Stripe Products
+    is_active = Column(Integer, default=1, nullable=False)  # 1 = active, 0 = inactive
+    display_order = Column(Integer, default=0, nullable=False)  # For ordering packages
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class StripePayment(Base):
+    __tablename__ = "stripe_payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stripe_payment_intent_id = Column(String, nullable=False, unique=True, index=True)
+    stripe_customer_id = Column(String, nullable=True)
+    amount_nok = Column(Integer, nullable=False)  # Amount in øre (e.g., 165000 = 1650 NOK)
+    credits_purchased = Column(Integer, nullable=False)
+    credit_package_id = Column(Integer, ForeignKey("credit_packages.id"), nullable=True)
+    status = Column(String, nullable=False)  # "pending", "succeeded", "failed", "refunded", "canceled"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    user = relationship("User")
+    credit_package = relationship("CreditPackage")
 
