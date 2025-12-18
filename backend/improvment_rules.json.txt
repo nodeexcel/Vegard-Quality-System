@@ -31,13 +31,65 @@
 
     {
       "id": "ARKAT_MISSING",
-      "description": "Manglende én eller flere ARKAT-deler på TG2/TG3",
+      "description": "Manglende ARKAT på TG2/TG3 (total fravær eller legacy triggers). Merk: Manglende Anbefalt tiltak på TG2 behandles ikke som SPERRE_96 her - bruk ARKAT_RECOMMENDED_ACTION_MISSING_TG2 i stedet.",
       "trigger": {
         "tg_level": ["TG2", "TG3"],
         "arkat_complete": false
       },
       "category": "SPERRE_96",
-      "message": "TG2/TG3 mangler full ARKAT (Årsak, Risiko, Konsekvens eller Anbefalt tiltak)."
+      "message": "TG2/TG3 mangler full ARKAT (Årsak, Risiko, Konsekvens eller Anbefalt tiltak).",
+      "arkat_presence_resolution": {
+        "policy": "ARKAT is considered present if found either locally at the TG item OR in the TG2/TG3 summary section, provided there is an unambiguous match on point ID.",
+        "allowed_sources": ["LOCAL_ITEM", "TG_SUMMARY_SECTION"],
+        "matching": {
+          "primary_key": "point_id",
+          "secondary_key_optional": "component_name",
+          "match_examples": [
+            "TG3 1.3 Terrengforhold",
+            "TG2 2.1 Yttervegger"
+          ]
+        },
+        "tg_summary_section_markers": [
+          "Takstmannens vurdering ved TG2",
+          "Takstmannens vurdering ved TG3",
+          "Surveyor assessment for TG2",
+          "Surveyor assessment for TG3"
+        ],
+        "missing_definition": "ARKAT_MISSING triggers only if ARKAT is not found in any allowed source for the same TG level and point ID."
+      }
+    },
+
+    {
+      "id": "ARKAT_CRITICAL_PARTS_MISSING",
+      "description": "Missing Cause/Risk/Consequence in ARKAT on TG2 or TG3",
+      "trigger": {
+        "tg_level": ["TG2", "TG3"],
+        "any_missing": ["CAUSE", "RISK", "CONSEQUENCE"]
+      },
+      "category": "SPERRE_96",
+      "message": "TG2/TG3 is missing one or more critical ARKAT parts (Cause/Risk/Consequence)."
+    },
+
+    {
+      "id": "ARKAT_RECOMMENDED_ACTION_MISSING_TG2",
+      "description": "Missing Recommended action on TG2 (penalty but not an automatic ≥96 blocker)",
+      "trigger": {
+        "tg_level": ["TG2"],
+        "missing": ["RECOMMENDED_ACTION"]
+      },
+      "category": "VESENTLIG",
+      "message": "TG2 is missing Recommended action. This should be added to improve clarity and reduce liability exposure."
+    },
+
+    {
+      "id": "ARKAT_RECOMMENDED_ACTION_MISSING_TG3",
+      "description": "Missing Recommended action on TG3 (automatic ≥96 blocker)",
+      "trigger": {
+        "tg_level": ["TG3"],
+        "missing": ["RECOMMENDED_ACTION"]
+      },
+      "category": "SPERRE_96",
+      "message": "TG3 is missing Recommended action. This must be added and must not be project-design advice."
     },
 
     {

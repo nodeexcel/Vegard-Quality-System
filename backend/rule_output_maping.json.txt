@@ -22,6 +22,36 @@
       }
     },
     {
+      "rule_id": "ARKAT_CRITICAL_PARTS_MISSING",
+      "output": {
+        "sections": ["SPERRE_LIST", "IMPROVEMENT_LIST", "LEGAL_ASSESSMENT"],
+        "improvement_category": "SPERRE ≥96",
+        "requires_improvement_item": true,
+        "blocks_score_96": true,
+        "include_in_legal_assessment": true
+      }
+    },
+    {
+      "rule_id": "ARKAT_RECOMMENDED_ACTION_MISSING_TG2",
+      "output": {
+        "sections": ["IMPROVEMENT_LIST"],
+        "improvement_category": "Vesentlig avvik",
+        "requires_improvement_item": true,
+        "blocks_score_96": false,
+        "include_in_legal_assessment": false
+      }
+    },
+    {
+      "rule_id": "ARKAT_RECOMMENDED_ACTION_MISSING_TG3",
+      "output": {
+        "sections": ["SPERRE_LIST", "IMPROVEMENT_LIST", "LEGAL_ASSESSMENT"],
+        "improvement_category": "SPERRE ≥96",
+        "requires_improvement_item": true,
+        "blocks_score_96": true,
+        "include_in_legal_assessment": true
+      }
+    },
+    {
       "rule_id": "ARKAT_GENERIC",
       "output": {
         "sections": ["SPERRE_LIST", "IMPROVEMENT_LIST"],
