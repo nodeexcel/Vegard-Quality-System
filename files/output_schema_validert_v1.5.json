@@ -1,0 +1,490 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Validert Output Schema",
+  "description": "Kontrakt for modellens output til UI/PDF. Bygget for trygghetsscore + forklarbarhet. Versjon v1.5.",
+  "type": "object",
+  "required": [
+    "meta",
+    "score_total",
+    "score_band",
+    "score_by_category",
+    "top_score_drivers",
+    "findings",
+    "improvements",
+    "disclaimers"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "analysis_timestamp_utc",
+        "document_title"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "1.4"
+          ]
+        },
+        "analysis_timestamp_utc": {
+          "type": "string",
+          "description": "ISO 8601 UTC timestamp, e.g. 2025-12-26T12:00:00Z"
+        },
+        "document_title": {
+          "type": "string"
+        },
+        "document_id": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "no",
+            "nb",
+            "nn"
+          ],
+          "default": "nb"
+        },
+        "model_notes": {
+          "type": "string",
+          "description": "Optional internal note about limitations (short)."
+        },
+        "scoring_model_id": {
+          "type": "string",
+          "description": "Identifier for scoring model used (e.g., rag_scoring_model_validert)."
+        },
+        "scoring_model_version": {
+          "type": "string",
+          "description": "Version of scoring model used (e.g., 1.5)."
+        },
+        "scoring_model_updated_at": {
+          "type": "string",
+          "description": "Date the scoring model was last updated (YYYY-MM-DD)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "score_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "score_band": {
+      "type": "string",
+      "enum": [
+        "Svært høy juridisk trygghet",
+        "God rapport – mindre forbedringer",
+        "Middels – sårbar i tvist",
+        "Høy risiko for takstmann",
+        "Svært svak – ofte klart reklamasjonsgrunnlag"
+      ]
+    },
+    "score_by_category": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "category_id",
+          "category_name",
+          "deduction",
+          "max_deduction"
+        ],
+        "properties": {
+          "category_id": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "E"
+            ]
+          },
+          "category_name": {
+            "type": "string"
+          },
+          "deduction": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_deduction": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "top_score_drivers": {
+      "type": "array",
+      "description": "Maks 5 viktigste årsaker til scoretrekk, sortert mest alvorlig først.",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "severity",
+          "reason",
+          "deduction_points",
+          "rule_refs"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Kort og konkret forklaring for forbruker/takstmann."
+          },
+          "deduction_points": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rule_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Rule IDs (f.eks. A_ARKAT.TG3.tiltak_not_necessary_tone)."
+          },
+          "evidence": {
+            "type": "array",
+            "description": "Valgfritt: sitat/utdrag/sidehenvisning.",
+            "items": {
+              "$ref": "#/$defs/evidenceSpan"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Funn per bygningsdel/tema.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "component_id",
+          "component_title",
+          "tg",
+          "arkat",
+          "issues",
+          "deductions"
+        ],
+        "properties": {
+          "component_id": {
+            "type": "string",
+            "description": "Punktnummer/ID, f.eks. 7.2"
+          },
+          "component_title": {
+            "type": "string",
+            "description": "Navn, f.eks. 'Bad 1. etg'"
+          },
+          "location": {
+            "type": "string",
+            "description": "Valgfritt rom/etasje/område."
+          },
+          "tg": {
+            "type": "string",
+            "enum": [
+              "TG0",
+              "TG1",
+              "TG2",
+              "TG3",
+              "TGIU"
+            ]
+          },
+          "arkat": {
+            "type": "object",
+            "required": [
+              "arsak",
+              "risiko",
+              "konsekvens",
+              "anbefalt_tiltak",
+              "source"
+            ],
+            "properties": {
+              "arsak": {
+                "$ref": "#/$defs/arkatField"
+              },
+              "risiko": {
+                "$ref": "#/$defs/arkatField"
+              },
+              "konsekvens": {
+                "$ref": "#/$defs/arkatField"
+              },
+              "anbefalt_tiltak": {
+                "$ref": "#/$defs/arkatField"
+              },
+              "source": {
+                "type": "object",
+                "required": [
+                  "found",
+                  "where"
+                ],
+                "properties": {
+                  "found": {
+                    "type": "boolean"
+                  },
+                  "where": {
+                    "type": "string",
+                    "enum": [
+                      "under_bygningsdel",
+                      "merknader",
+                      "oppsummering",
+                      "annet",
+                      "ikke_funnet"
+                    ]
+                  },
+                  "page_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "description": "1-indekserte sidehenvisninger der relevant."
+                  },
+                  "traceability_ok": {
+                    "type": "boolean",
+                    "description": "Om ARKAT/tekst er tydelig koblet til riktig bygningsdel."
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "issues": {
+            "type": "array",
+            "description": "Konkretliste over problemer ved bygningsdelen.",
+            "items": {
+              "type": "object",
+              "required": [
+                "issue_id",
+                "severity",
+                "summary",
+                "details",
+                "rule_refs"
+              ],
+              "properties": {
+                "issue_id": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "critical",
+                    "high",
+                    "medium",
+                    "low",
+                    "info"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "details": {
+                  "type": "string"
+                },
+                "rule_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/evidenceSpan"
+                  }
+                },
+                "deduction_points": {
+                  "type": "number",
+                  "description": "Points deducted for this issue (already capped at category level)."
+                },
+                "category_id": {
+                  "type": "string",
+                  "description": "Category of the rule/issue (e.g., A, B, C, D, E)."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "deductions": {
+            "type": "array",
+            "description": "Poengtrekk som er brukt for denne bygningsdelen.",
+            "items": {
+              "type": "object",
+              "required": [
+                "rule_id",
+                "points",
+                "reason"
+              ],
+              "properties": {
+                "rule_id": {
+                  "type": "string"
+                },
+                "points": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "category_id": {
+                  "type": "string",
+                  "enum": [
+                    "A",
+                    "B",
+                    "C",
+                    "D",
+                    "E"
+                  ]
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/evidenceSpan"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "aggregation_note": {
+            "type": "string",
+            "description": "Optional note describing how issues were aggregated for this component (e.g., assessed at paragraph level)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "description": "Konkrete forbedringsforslag, gjerne med alternative formuleringer.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "priority",
+          "what_to_change",
+          "suggested_text"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "what_to_change": {
+            "type": "string"
+          },
+          "suggested_text": {
+            "type": "string",
+            "description": "Foreslått tekst i klarspråk. Kan være tom hvis ikke relevant."
+          },
+          "applies_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "component_id'er eller 'global'."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "disclaimers": {
+      "type": "array",
+      "description": "Standard forbehold (ikke juridisk rådgivning etc.).",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "arkatField": {
+      "type": "object",
+      "required": [
+        "status",
+        "required"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "missing",
+            "not_required",
+            "unclear"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Kort begrunnelse, f.eks. 'TG2 – risiko ikke obligatorisk, men nødvendig her pga…'"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceSpan"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidenceSpan": {
+      "type": "object",
+      "required": [
+        "page",
+        "text"
+      ],
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "type": "string",
+          "description": "Kort utdrag (maks 1–2 setninger)."
+        },
+        "bbox": {
+          "type": "array",
+          "description": "Valgfritt: [x0,y0,x1,y1] i PDF-koordinater hvis tilgjengelig.",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

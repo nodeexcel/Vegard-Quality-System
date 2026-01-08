@@ -44,6 +44,8 @@ class ReportResponse(BaseModel):
     components: List[ComponentBase]
     findings: List[FindingBase]
     ai_analysis: Optional[dict] = None
+    detected_points: Optional[dict] = None
+    scoring_result: Optional[dict] = None
     extracted_text: Optional[str] = None  # For verification purposes
     
     class Config:

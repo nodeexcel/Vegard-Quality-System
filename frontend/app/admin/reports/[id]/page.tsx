@@ -4,6 +4,96 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import axios from 'axios'
 
+interface Evidence {
+  point_id: string
+  tg: string
+  page: number
+  heading: string
+  source: 'LOCAL' | 'SUMMARY'
+  snippet: string
+  match_explain: string
+}
+
+interface IssueV14 {
+  issue_id: string
+  severity: string
+  summary: string
+  details: string
+  rule_refs: string[]
+  evidence: Evidence[]
+}
+
+interface FindingV14 {
+  component_id: string
+  component_title: string
+  location?: string
+  tg: string
+  arkat: any
+  issues: IssueV14[]
+  deductions: any[]
+}
+
+interface AnalysisV14 {
+  meta: any
+  score_total: number
+  score_band: string
+  score_by_category: Array<{ category_id: string; category_name: string; deduction: number; max_deduction: number }>
+  top_score_drivers: Array<{
+    title: string
+    severity: string
+    reason: string
+    deduction_points: number
+    rule_refs: string[]
+    evidence: Evidence[]
+  }>
+  findings: FindingV14[]
+  improvements: Array<{ title: string; priority: string; what_to_change: string; suggested_text: string }>
+  disclaimers: string[]
+}
+
+interface FeedbackPointOverview {
+  point_id: string
+  title: string
+  tg: string
+  status: 'ok' | 'improve' | 'deduction' | 'blocking'
+  summary: string
+  deduction_total?: number
+  finding_ids?: string[]
+}
+
+interface FeedbackV11 {
+  version: 'v1.1'
+  report_id: string
+  document_hash?: string
+  score: {
+    total: number
+    category_deductions: Array<{
+      category: string
+      deduction: number
+      max_deduction: number
+    }>
+    top_drivers?: Array<{
+      rule_id: string
+      deduction: number
+      message?: string
+    }>
+  }
+  gate: {
+    active: boolean
+    blocked_96: boolean
+    blocked_by: string[]
+  }
+  points_overview: FeedbackPointOverview[]
+  findings: Array<any>
+}
+
+interface TrygghetScore {
+  score: number | null
+  explanation?: string | null
+  factors_positive?: string | null
+  factors_negative?: string | null
+}
+
 interface ReportDetail {
   id: number
   filename: string
@@ -42,16 +132,18 @@ interface ReportDetail {
   regulation_deviations: Array<any>
   prop44_deviations: Array<any>
   risk_findings: Array<any>
-  ai_analysis: any
+  ai_analysis: AnalysisV14 | any
   s3_key: string | null
   pdf_download_url: string | null
-  trygghetsscore: {
-    score: number
-    explanation: string
-    factors_positive: string
-    factors_negative: string
-  } | null
-  forbedringsliste: Array<{
+  score_total?: number | null
+  score_band?: string | null
+  score_by_category?: Array<{ category_id: string; category_name: string; deduction: number; max_deduction: number }>
+  top_score_drivers?: Array<any>
+  findings_v14?: Array<any>
+  improvements_v14?: Array<any>
+  disclaimers_v14?: Array<string>
+  trygghetsscore?: TrygghetScore | null
+  forbedringsliste?: Array<{
     nummer: number
     kategori: string
     hva_er_feil: string
@@ -60,15 +152,8 @@ interface ReportDetail {
     hva_må_endres: string
     konsekvens_ikke_rettet: string
   }>
-  sperrer_96: Array<string>
-  rettssaksvurdering: {
-    title: string
-    sterke_sider: string
-    svake_sider: string
-    angrepspunkter: string
-    ansvarseksponering: string
-    samlet_vurdering: string
-  } | null
+  sperrer_96?: Array<string>
+  scoring_result?: { feedback_v11?: FeedbackV11 } | null
 }
 
 export default function AdminReportDetail() {
@@ -78,7 +163,7 @@ export default function AdminReportDetail() {
   const [report, setReport] = useState<ReportDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeSection, setActiveSection] = useState<'overview' | 'arkat' | 'findings' | 'components' | 'raw'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'arkat' | 'findings' | 'components' | 'raw' | 'points'>('overview')
 
   useEffect(() => {
     const adminToken = localStorage.getItem('admin_token')
@@ -141,6 +226,26 @@ export default function AdminReportDetail() {
       </div>
     )
   }
+
+  const analysis = report.ai_analysis as AnalysisV14 | null
+  const feedbackV11 = report.scoring_result?.feedback_v11 || null
+  const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
+  const hasV14 = Boolean(analysis && typeof analysis.score_total === 'number')
+  const tabs = hasV14
+    ? [
+        { id: 'overview', label: 'Overview' },
+        ...(hasFeedbackV11 ? [{ id: 'points', label: `Points (${feedbackV11?.points_overview.length || 0})` }] : []),
+        { id: 'findings', label: `Findings (${analysis?.findings.length || 0})` },
+        { id: 'components', label: `Components (${analysis?.findings.length || 0})` },
+        { id: 'raw', label: 'Raw Analysis' },
+      ]
+    : [
+        { id: 'overview', label: 'Overview' },
+        { id: 'arkat', label: `ARKAT (Årsak–Risiko–Konsekvens–Anbefalt tiltak) (${report.forbedringsliste?.length || 0})` },
+        { id: 'findings', label: `All Findings (${report.findings.length})` },
+        { id: 'components', label: `Components (${report.components.length})` },
+        { id: 'raw', label: 'Raw Analysis' },
+      ]
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -210,8 +315,30 @@ export default function AdminReportDetail() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Full Score Breakdown</h2>
           
-          {/* Trygghetsscore (Primary Score) - Only show if score exists */}
-          {report.trygghetsscore && report.trygghetsscore.score !== null && report.trygghetsscore.score !== undefined && (
+          {hasV14 && analysis && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">Trygghetsscore</h3>
+                <p className={`text-3xl font-bold ${
+                  analysis.score_total >= 80 ? 'text-green-600' :
+                  analysis.score_total >= 60 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {analysis.score_total.toFixed(1)} / 100
+                </p>
+              </div>
+              <p className="text-sm text-gray-600">{analysis.score_band}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {analysis.score_by_category.map((category) => (
+                  <div key={category.category_id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-sm font-medium text-gray-900">{category.category_name}</p>
+                    <p className="text-sm text-gray-600">Trekk: {category.deduction} / {category.max_deduction}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!hasV14 && report.trygghetsscore && report.trygghetsscore.score !== null && report.trygghetsscore.score !== undefined && (
             <div className="mb-6 pb-6 border-b border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-900">Trygghetsscore</h3>
@@ -243,7 +370,8 @@ export default function AdminReportDetail() {
           )}
           
           {/* Legacy Scores */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {!hasV14 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Score</h3>
             <p className={`text-2xl font-bold ${
@@ -272,6 +400,7 @@ export default function AdminReportDetail() {
             </p>
           </div>
           </div>
+          )}
           
           {/* PDF Download Link */}
           {report.s3_key && (
@@ -363,13 +492,7 @@ export default function AdminReportDetail() {
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <div className="flex border-b border-gray-200 overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Overview' },
-              { id: 'arkat', label: `ARKAT Findings (${report.forbedringsliste?.length || 0})` },
-              { id: 'findings', label: `All Findings (${report.findings.length})` },
-              { id: 'components', label: `Components (${report.components.length})` },
-              { id: 'raw', label: 'Raw Analysis' },
-            ].map((tab) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveSection(tab.id as any)}
@@ -385,7 +508,60 @@ export default function AdminReportDetail() {
           </div>
 
           <div className="p-6">
-            {activeSection === 'overview' && (
+            {activeSection === 'overview' && hasV14 && analysis && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Score Drivers</h3>
+                  {analysis.top_score_drivers.length > 0 ? (
+                    <div className="space-y-3">
+                      {analysis.top_score_drivers.map((driver, idx) => (
+                        <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-gray-900">{driver.title}</p>
+                            <span className="text-sm font-semibold text-red-600">-{driver.deduction_points}</span>
+                          </div>
+                          <p className="text-sm text-gray-700">{driver.reason}</p>
+                          {driver.evidence && driver.evidence.length > 0 && (
+                            <div className="mt-3 text-sm text-gray-600">
+                              <p>
+                                {driver.evidence[0].heading}
+                                {driver.evidence[0].point_id ? ` (Point ${driver.evidence[0].point_id}, ${driver.evidence[0].tg})` : ''}
+                              </p>
+                              <p>Page {driver.evidence[0].page} • {driver.evidence[0].source}</p>
+                              <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
+                              <p className="text-xs text-gray-500 mt-1">{driver.evidence[0].match_explain}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No top score drivers found</p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Improvements</h3>
+                  {analysis.improvements.length > 0 ? (
+                    <div className="space-y-3">
+                      {analysis.improvements.map((item, idx) => (
+                        <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
+                          <p className="font-medium text-gray-900">{item.title}</p>
+                          <p className="text-sm text-gray-700 mt-1">{item.what_to_change}</p>
+                          {item.suggested_text && (
+                            <p className="text-sm text-green-700 mt-2 italic">{item.suggested_text}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No improvements found</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'overview' && !hasV14 && (
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">TG2/TG3 Assessment Issues</h3>
@@ -526,7 +702,7 @@ export default function AdminReportDetail() {
               </div>
             )}
 
-            {activeSection === 'arkat' && (
+            {activeSection === 'arkat' && !hasV14 && (
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Findings in ARKAT Format</h3>
@@ -583,7 +759,49 @@ export default function AdminReportDetail() {
               </div>
             )}
 
-            {activeSection === 'findings' && (
+            {activeSection === 'findings' && hasV14 && analysis && (
+              <div className="space-y-4">
+                {analysis.findings.map((component, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{component.component_title}</h4>
+                        <p className="text-xs text-gray-500">Punkt {component.component_id}</p>
+                      </div>
+                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
+                        {component.tg}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {component.issues.map((issue, issueIdx) => (
+                        <div key={issueIdx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <h5 className="font-medium text-gray-900">{issue.summary}</h5>
+                            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
+                              {issue.severity}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700">{issue.details}</p>
+                          {issue.evidence && issue.evidence.length > 0 && (
+                            <div className="mt-3 text-sm text-gray-600">
+                              <p>
+                                {issue.evidence[0].heading}
+                                {issue.evidence[0].point_id ? ` (Point ${issue.evidence[0].point_id}, ${issue.evidence[0].tg})` : ''}
+                              </p>
+                              <p>Page {issue.evidence[0].page} • {issue.evidence[0].source}</p>
+                              <p className="italic mt-1">"{issue.evidence[0].snippet}"</p>
+                              <p className="text-xs text-gray-500 mt-1">{issue.evidence[0].match_explain}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeSection === 'findings' && !hasV14 && (
               <div className="space-y-4">
                 {report.findings.map((finding, idx) => (
                   <div key={idx} className="border border-gray-200 rounded-lg p-4">
@@ -617,7 +835,51 @@ export default function AdminReportDetail() {
               </div>
             )}
 
-            {activeSection === 'components' && (
+            {activeSection === 'points' && hasFeedbackV11 && feedbackV11 && (
+              <div className="space-y-4">
+                {feedbackV11.points_overview.map((point) => (
+                  <div key={point.point_id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{point.title}</h4>
+                        <p className="text-xs text-gray-500">Punkt {point.point_id}</p>
+                      </div>
+                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
+                        {point.tg}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-700">{point.summary}</p>
+                      <span className="text-xs font-medium text-gray-600">{point.status}</span>
+                    </div>
+                    {typeof point.deduction_total === 'number' && point.deduction_total > 0 && (
+                      <p className="text-xs text-red-600 mt-2">Trekk: {point.deduction_total}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeSection === 'components' && hasV14 && analysis && (
+              <div className="space-y-4">
+                {analysis.findings.map((component, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{component.component_title}</h4>
+                        <p className="text-sm text-gray-500">Punkt {component.component_id}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700">{component.tg}</span>
+                    </div>
+                    {component.location && (
+                      <p className="text-sm text-gray-600">Location: {component.location}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeSection === 'components' && !hasV14 && (
               <div className="space-y-4">
                 {report.components.map((component, idx) => (
                   <div key={idx} className="border border-gray-200 rounded-lg p-4">
@@ -658,39 +920,7 @@ export default function AdminReportDetail() {
                   {JSON.stringify(report.ai_analysis, null, 2)}
                 </pre>
                 
-                {report.rettssaksvurdering && (
-                  <div className="mt-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">Rettssaksvurdering</h4>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Sterke sider:</h5>
-                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.sterke_sider || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Svake sider:</h5>
-                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.svake_sider || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Angrepspunkter:</h5>
-                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.angrepspunkter || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Ansvarseksponering:</h5>
-                        <span className={`px-3 py-1 text-sm font-medium rounded ${
-                          report.rettssaksvurdering.ansvarseksponering === 'høy' ? 'bg-red-100 text-red-800' :
-                          report.rettssaksvurdering.ansvarseksponering === 'moderat' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {report.rettssaksvurdering.ansvarseksponering || 'N/A'}
-                        </span>
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-700 mb-1">Samlet vurdering:</h5>
-                        <p className="text-sm text-gray-900">{report.rettssaksvurdering.samlet_vurdering || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Court case section removed in v1.4 */}
                 
                 {report.s3_key && (
                   <div className="mt-4">
@@ -708,4 +938,3 @@ export default function AdminReportDetail() {
     </div>
   )
 }
-

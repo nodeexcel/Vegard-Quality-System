@@ -1,0 +1,118 @@
+{
+  "version": "v1.2",
+  "report_id": "rpt-123",
+  "document_hash": "doc_hash_example_abcdef12",
+  "score": {
+    "total": 96,
+    "category_deductions": [
+      {
+        "category": "A",
+        "deduction": 2,
+        "max_deduction": 40
+      },
+      {
+        "category": "B",
+        "deduction": 0,
+        "max_deduction": 20
+      },
+      {
+        "category": "C",
+        "deduction": 0,
+        "max_deduction": 15
+      },
+      {
+        "category": "D",
+        "deduction": 2,
+        "max_deduction": 15
+      },
+      {
+        "category": "E",
+        "deduction": 0,
+        "max_deduction": 10
+      }
+    ],
+    "top_drivers": [
+      {
+        "rule_id": "D_LANGUAGE.long_sentences",
+        "deduction": 2,
+        "message": "Long sentences in a few points reduce readability."
+      }
+    ]
+  },
+  "gate": {
+    "active": true,
+    "blocked_96": false,
+    "blocked_by": []
+  },
+  "points_overview": [
+    {
+      "display_index": 1,
+      "point_key": "P0002",
+      "native_label": "Utvendig > Drenering",
+      "title": "Drenering og fuktsikring",
+      "native_path": [
+        "Utvendig",
+        "Drenering"
+      ],
+      "tg": "TG1",
+      "status": "ok",
+      "summary": "OK – clear and buyer-friendly description. No changes needed.",
+      "deduction_total": 0,
+      "finding_ids": [],
+      "where": {
+        "page": 12,
+        "anchor_text": "Drenering og fuktsikring"
+      }
+    },
+    {
+      "display_index": 2,
+      "point_key": "P0001",
+      "native_label": "6.12",
+      "numeric_id": "6.12",
+      "title": "Taktekking",
+      "native_path": [
+        "Utvendig",
+        "Tak"
+      ],
+      "tg": "TG2",
+      "status": "deduction",
+      "summary": "Deduction – risk and consequence are mixed; split into separate sentences.",
+      "deduction_total": 2,
+      "finding_ids": [
+        "f-001"
+      ],
+      "where": {
+        "page": 18,
+        "anchor_text": "6.12 Taktekking"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "f-001",
+      "rule_id": "D_LANGUAGE.long_sentences",
+      "rule_family": "D_LANGUAGE",
+      "severity": "low",
+      "affects_96_gate": false,
+      "point_key": "P0001",
+      "arkat_section": "konsekvens",
+      "message": "The sentence mixes risk and consequence and is too long.",
+      "what_to_change": "Split into (1) risk/development and (2) consequence for the buyer.",
+      "example_fix": {
+        "good_example": "Risk: ... Consequence: ..."
+      },
+      "evidence": {
+        "page": 18,
+        "snippet": "…",
+        "match": "mixed risk/consequence",
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "deduction": 2
+    }
+  ]
+}

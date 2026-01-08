@@ -1,0 +1,196 @@
+VALIDERT™ – SPRÅK- OG FORMULERINGSREGLER
+Versjon: v1.7
+Status: Normativ
+Gjelder for: VALIDERT™-scoring, 96 %-nivå
+Ikrafttredelse: Sammen med scoring v1.6.1+
+
+────────────────────────────────────
+1. FORMÅL OG PRINSIPP
+────────────────────────────────────
+
+Disse språkreglene definerer hva som anses som korrekt, konsistent og
+forbrukerrettet formulering i en tilstandsrapport som skal vurderes
+etter VALIDERT™-systemet.
+
+Reglene er normerende og overstyrer:
+- individuelle skrivestiler
+- programvaregenererte tekster
+- tidligere praksis som strider mot forskrift
+
+Språkreglene skal sikre:
+- forutsigbar scoring
+- lik vurdering av like rapporter
+- at 96 %+ er realistisk oppnåelig for kvalifiserte brukere
+
+────────────────────────────────────
+2. STRUKTURELLE KRAV (ARKAT)
+────────────────────────────────────
+
+Ved TG2 og TG3 skal følgende felter foreligge:
+
+- Årsak
+- Risiko
+- Konsekvens
+- Anbefalt tiltak
+
+Manglende eller utydelige ARKAT-felt regnes som avvik.
+
+────────────────────────────────────
+3. OBSERVASJON
+────────────────────────────────────
+
+Observasjon skal:
+- beskrive faktiske, observerbare forhold
+- være fri for vurdering, årsak, risiko og konsekvens
+- ikke inneholde anbefalinger eller tiltak
+
+Observasjon skal ikke:
+- tolke
+- forklare konsekvens
+- angi løsning
+- angi kostnad
+
+────────────────────────────────────
+4. KONSEKVENS – FORBRUKERRETTET INNHOLD
+────────────────────────────────────
+
+4.1 Hva konsekvens SKAL være
+
+Konsekvens skal:
+- forklare hva forholdet betyr for kjøper
+- være praktisk og forståelig
+- beskrive følger dersom forholdet ikke utbedres
+- være knyttet til faktisk bruk av boligen
+
+Eksempel (god):
+"Kjøper må forholde seg til økt risiko for fuktskader i konstruksjonen,
+med mulig behov for omfattende utbedring over tid."
+
+4.2 Hva konsekvens IKKE er
+
+Konsekvens er ikke:
+- gjentakelse av årsak
+- teknisk redegjørelse
+- risikovurdering
+- anbefalt tiltak
+- prosjektering
+
+────────────────────────────────────
+4.3 SJABLONMESSIG KOSTNADSANSLAG (TG3)
+────────────────────────────────────
+
+Ved tilstandsgrad 3 (TG3) SKAL rapporten inneholde et
+sjablonmessig anslag på utbedringskostnad.
+
+Dette følger av forskrift til avhendingslova § 2-22
+(i kraft 1. januar 2026).
+
+Kostnadsanslaget er dermed:
+- PÅKREVD ved TG3 (forskriftskrav)
+- TILLATT som sjablonmessig og veiledende intervall/størrelsesorden
+- IKKE et pristilbud og må derfor være tydelig forbeholdt
+
+Kostnadsanslaget skal:
+- være veiledende og sjablonmessig (ikke bindende)
+- angis som intervall eller størrelsesorden (ikke eksakt pris)
+- inneholde forbehold, f.eks. "avhengig av omfang og valgt løsning"
+- ikke angi entreprenør, metode eller detaljert omfang
+- plasseres i "Konsekvens" (som del av konsekvens for kjøper) eller i et eget kostnadsfelt.
+  Dersom kostnad tas med i "Konsekvens", skal den stå som siste setning og være tydelig merket som sjablonmessig anslag.
+
+Eksempel (godt):
+"Utbedringskostnader må påregnes og kan ligge i størrelsesorden
+kr 150.000–300.000, avhengig av valgt løsning og omfang."
+
+Kostnadsanslag skal:
+- IKKE gis ved TG1
+- IKKE gis ved TG2
+
+Manglende sjablonmessig kostnadsanslag ved TG3 regnes som avvik.
+
+────────────────────────────────────
+5. ANBEFALT TILTAK
+────────────────────────────────────
+
+5.1 Språkbruk
+
+Anbefalt tiltak skal:
+- være veiledende
+- bruke formuleringer som:
+  "det anbefales", "bør vurderes", "videre undersøkelser bør utføres"
+
+Anbefalt tiltak skal ikke:
+- være imperativt
+- fremstå som ordre
+- bruke "må", "skal", "kreves"
+
+────────────────────────────────────
+5.2 IKKE PROSJEKTERING
+────────────────────────────────────
+
+Anbefalt tiltak skal ikke:
+- fastlåse løsning
+- angi metode
+- angi detaljert omfang
+- angi kostnad
+
+Unntak:
+- Sjablonmessig kostnadsanslag ved TG3 tillates,
+  men kun i eget kostnadsfelt jf. punkt 4.3
+
+────────────────────────────────────
+6. SPRÅKLIG KLARHET
+────────────────────────────────────
+
+Språket skal:
+- være klart
+- være entydig
+- bruke korte og presise setninger
+
+Unngå:
+- lange sammensatte setninger
+- flere vurderinger i samme setning
+- teknisk sjargong uten forklaring
+
+────────────────────────────────────
+7. KONSISTENS
+────────────────────────────────────
+
+Tilstandsgrad skal være konsistent med:
+- observasjon
+- årsak
+- risiko
+- konsekvens
+
+TG3 forutsetter:
+- reell konsekvens for kjøper
+- alvorlighetsgrad som forsvarer TG3
+- ved TG3: sjablonmessig kostnadsanslag
+
+────────────────────────────────────
+8. IKKE STRAFFBARE FORMULERINGER
+────────────────────────────────────
+
+Følgende formuleringer er tillatt og skal ikke trekkes:
+
+- "kan medføre"
+- "må påregnes"
+- "økt risiko for"
+- "avhengig av omfang og valgt løsning"
+- "videre undersøkelser anbefales"
+
+────────────────────────────────────
+9. NORMATIV STATUS
+────────────────────────────────────
+
+Dette dokumentet er normativt for:
+- VALIDERT™-scoring
+- brukerfeedback
+- 96 %-vurdering
+
+Ved konflikt mellom språkregler og andre dokumenter,
+har dette dokumentet forrang.
+
+────────────────────────────────────
+SLUTT
+────────────────────────────────────

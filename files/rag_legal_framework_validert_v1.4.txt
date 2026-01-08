@@ -1,0 +1,31 @@
+RAG – JURIDISK RAMMEVERK (VALIDERT)
+Formål: Gi modellen “hard facts” og prioriteringsregler slik at den ikke overkravsetter og ikke gjetter.
+
+1) Rettskilder og prioritet
+- Avhendingslova (lov) er overordnet.
+- Forskrift til avhendingslova (forskrift) er bindende krav til tilstandsrapporten.
+- Prop. 44 L (forarbeider) brukes til å tolke lov/forskrift (formål, klarspråk, forbrukerhensyn).
+- NS 3600 er bransjestandard/metodikk og kan brukes som støtte der den ikke strider mot lov/forskrift.
+
+2) Tilstandsgrader (TG)
+- Rapporten skal bruke TG0–TG3, samt TGIU (ikke undersøkt).
+- TG fastsettes av bygningssakkyndig. Verktøy/rapportsystem kan være støtte, men ansvaret kan ikke skyves over på systemet.
+
+3) Krav knyttet til tekst ved TG2 og TG3 (forskriftsminimum)
+- Ved TG2: Årsak og konsekvens skal fremgå (minimum).
+- Ved TG3: Årsak og konsekvens skal fremgå, og i tillegg skal det gis et sjablonmessig kostnadsanslag.
+- Risiko og anbefalt(e) tiltak er ikke eksplisitt minimumskrav ved TG2, men kan være nødvendig for klarhet.
+- Ved TG3 skal anbefalt(e) tiltak fremstå nødvendig.
+
+4) Klart språk
+- Rapporten skal være forståelig for forbruker.
+- Lange, uklare og sammensatte formuleringer øker risiko i tvist.
+
+5) Begrensninger i undersøkelsen
+- Ikke-destruktiv kontroll er hovedregelen.
+- Der undersøkelse krever destruktive inngrep eller er uforsvarlig, skal dette opplyses.
+- TGIU skal forklare hva/hvorfor samt risiko og konsekvens.
+
+6) TEK vs byggeår
+- Vurderinger relateres til relevant teknisk forskrift ved oppføring/omsøkt tidspunkt.
+- TEK17 skal ikke brukes som default ved ukjent alder.

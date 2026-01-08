@@ -12,7 +12,7 @@ from app.auth import get_current_admin, create_access_token, verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas import ReportResponse, ComponentBase, FindingBase
 from app.config import settings
-from app.services.ai_analyzer import AIAnalyzer
+from app.services.ai_analyzer import AIAnalyzer, ensure_analysis_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -287,43 +287,18 @@ async def get_report_admin(
     
     # Extract data from new ai_analysis format
     ai_analysis = report.ai_analysis or {}
+    scoring_result = report.scoring_result or {}
     
-    # Extract trygghetsscore breakdown
-    trygghetsscore_data = {}
-    if isinstance(ai_analysis, dict):
-        # Try to get from formatted_output first
-        formatted_output = ai_analysis.get("formatted_output", {})
-        if formatted_output and "trygghetsscore" in formatted_output:
-            trygghetsscore_data = formatted_output.get("trygghetsscore", {})
-        elif "trygghetsscore" in ai_analysis:
-            trygghetsscore_data = ai_analysis.get("trygghetsscore", {})
-    
-    # Extract forbedringsliste (ARKAT format)
-    forbedringsliste = []
-    if isinstance(ai_analysis, dict):
-        formatted_output = ai_analysis.get("formatted_output", {})
-        if formatted_output and "forbedringsliste" in formatted_output:
-            forbedringsliste = formatted_output.get("forbedringsliste", [])
-        elif "forbedringsliste" in ai_analysis:
-            forbedringsliste = ai_analysis.get("forbedringsliste", [])
-    
-    # Extract sperrer_96
-    sperrer_96 = []
-    if isinstance(ai_analysis, dict):
-        formatted_output = ai_analysis.get("formatted_output", {})
-        if formatted_output and "sperrer_96" in formatted_output:
-            sperrer_96 = formatted_output.get("sperrer_96", [])
-        elif "sperrer_96" in ai_analysis:
-            sperrer_96 = ai_analysis.get("sperrer_96", [])
-    
-    # Extract rettssaksvurdering
-    rettssaksvurdering = {}
-    if isinstance(ai_analysis, dict):
-        formatted_output = ai_analysis.get("formatted_output", {})
-        if formatted_output and "rettssaksvurdering" in formatted_output:
-            rettssaksvurdering = formatted_output.get("rettssaksvurdering", {})
-        elif "rettssaksvurdering" in ai_analysis:
-            rettssaksvurdering = ai_analysis.get("rettssaksvurdering", {})
+    analysis_output = ai_analysis if isinstance(ai_analysis, dict) else {}
+    if isinstance(analysis_output, dict):
+        ensure_analysis_evidence(analysis_output, report.extracted_text or "")
+    score_total = analysis_output.get("score_total")
+    score_band = analysis_output.get("score_band")
+    score_by_category = analysis_output.get("score_by_category", [])
+    top_score_drivers = analysis_output.get("top_score_drivers", [])
+    findings_v14 = analysis_output.get("findings", [])
+    improvements_v14 = analysis_output.get("improvements", [])
+    disclaimers_v14 = analysis_output.get("disclaimers", [])
     
     # Group findings by type (enhanced detection)
     tg2_tg3_issues = [f for f in findings_data if "TG2" in f.description or "TG3" in f.description or "TG2" in f.title or "TG3" in f.title]
@@ -389,14 +364,18 @@ async def get_report_admin(
         "regulation_deviations": regulation_deviations,
         "prop44_deviations": prop44_deviations,
         "risk_findings": risk_findings,
-        "ai_analysis": report.ai_analysis,
+        "ai_analysis": analysis_output,
+        "scoring_result": scoring_result,
         "s3_key": report.s3_key,
         "pdf_download_url": pdf_download_url,
-        # New format data
-        "trygghetsscore": trygghetsscore_data,
-        "forbedringsliste": forbedringsliste,
-        "sperrer_96": sperrer_96,
-        "rettssaksvurdering": rettssaksvurdering,
+        # v1.4 output schema data
+        "score_total": score_total,
+        "score_band": score_band,
+        "score_by_category": score_by_category,
+        "top_score_drivers": top_score_drivers,
+        "findings_v14": findings_v14,
+        "improvements_v14": improvements_v14,
+        "disclaimers_v14": disclaimers_v14,
     }
 
 # ============================================================================
@@ -1169,7 +1148,7 @@ spesielt våtrom som mangler dokumentert fuktvurdering.
             "full_document_available": True
         }
         
-        analysis_result, full_analysis = ai_analyzer.analyze_report(
+        analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
             text=test_report_text,
             report_system="Test System",
             building_year=1985,
@@ -1183,6 +1162,8 @@ spesielt våtrom som mangler dokumentert fuktvurdering.
         report.compliance_score = analysis_result.compliance_score
         report.status = "completed"
         report.ai_analysis = full_analysis
+        report.detected_points = detected_points_payload
+        report.scoring_result = scoring_result_payload
         
         # Store components
         for comp_data in analysis_result.components:
@@ -1265,4 +1246,3 @@ spesielt våtrom som mangler dokumentert fuktvurdering.
         except:
             pass
         raise HTTPException(status_code=500, detail=f"Error processing test report: {str(e)}")
-

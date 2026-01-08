@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
 import GoogleLogin from '../components/GoogleLogin'
 
-export default function LoginPage() {
+function LoginPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,7 +23,7 @@ export default function LoginPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -48,15 +48,15 @@ export default function LoginPage() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
             Validert™
           </h1>
-          <p className="text-xl text-gray-600">AI-powered quality assessment</p>
+          <p className="text-xl text-gray-600">AI-drevet kvalitetsvurdering</p>
         </div>
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Velkommen</h2>
             <p className="text-gray-600">
-              Sign in with your Google account to access the report analysis platform
+              Logg inn med Google-kontoen din for å få tilgang til rapportanalyseplattformen
             </p>
           </div>
 
@@ -66,32 +66,32 @@ export default function LoginPage() {
 
           <div className="mt-6 pt-6 border-t border-gray-200">
             <p className="text-xs text-gray-500 text-center">
-              By signing in, you agree to use this service for analyzing building condition reports.
+              Ved å logge inn samtykker du til å bruke tjenesten for analyse av tilstandsrapporter.
               <br />
-              Your data is secure and private.
+              Dataene dine er sikre og private.
             </p>
           </div>
         </div>
 
         {/* Info Section */}
         <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">What you can do:</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Dette kan du gjøre:</h3>
           <ul className="space-y-2 text-sm text-gray-600">
             <li className="flex items-start">
               <span className="text-blue-600 mr-2">✓</span>
-              <span>Upload and analyze building condition reports</span>
+              <span>Last opp og analyser tilstandsrapporter</span>
             </li>
             <li className="flex items-start">
               <span className="text-blue-600 mr-2">✓</span>
-              <span>Get detailed quality scores and findings</span>
+              <span>Få detaljerte kvalitetspoeng og funn</span>
             </li>
             <li className="flex items-start">
               <span className="text-blue-600 mr-2">✓</span>
-              <span>Receive improvement recommendations</span>
+              <span>Motta forbedringsanbefalinger</span>
             </li>
             <li className="flex items-start">
               <span className="text-blue-600 mr-2">✓</span>
-              <span>Access your report history</span>
+              <span>Se rapporthistorikken din</span>
             </li>
           </ul>
         </div>
@@ -100,3 +100,19 @@ export default function LoginPage() {
   )
 }
 
+export default function LoginPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Laster...</p>
+          </div>
+        </div>
+      }
+    >
+      <LoginPage />
+    </Suspense>
+  )
+}

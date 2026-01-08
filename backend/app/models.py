@@ -43,9 +43,12 @@ class Report(Base):
     
     # Extracted text from PDF
     extracted_text = Column(Text, nullable=True)
+    document_hash = Column(String, nullable=True, index=True)
     
     # AI analysis results (stored as JSON)
     ai_analysis = Column(JSON, nullable=True)
+    detected_points = Column(JSON, nullable=True)
+    scoring_result = Column(JSON, nullable=True)
     
     # S3 storage
     s3_key = Column(String, nullable=True)  # S3 path if using S3 storage
@@ -57,6 +60,19 @@ class Report(Base):
     user = relationship("User", back_populates="reports")
     components = relationship("Component", back_populates="report", cascade="all, delete-orphan")
     findings = relationship("Finding", back_populates="report", cascade="all, delete-orphan")
+
+class DocumentAnalysisCache(Base):
+    __tablename__ = "document_analysis_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_hash = Column(String, nullable=False, index=True)
+    scoring_model_sha = Column(String, nullable=True, index=True)
+    pipeline_git_sha = Column(String, nullable=True, index=True)
+    detected_points = Column(JSON, nullable=True)
+    scoring_result = Column(JSON, nullable=True)
+    ai_analysis = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class Component(Base):
     __tablename__ = "components"
@@ -141,4 +157,3 @@ class StripePayment(Base):
     # Relationships
     user = relationship("User")
     credit_package = relationship("CreditPackage")
-

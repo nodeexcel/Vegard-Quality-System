@@ -47,6 +47,11 @@ export default function AdminDashboard() {
     high_risk_only: false,
     min_findings: '',
   })
+  const statusLabels: Record<string, string> = {
+    completed: 'Fullført',
+    processing: 'Under behandling',
+    failed: 'Feilet',
+  }
 
   useEffect(() => {
     // Check for admin token immediately
@@ -159,7 +164,7 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -182,7 +187,7 @@ export default function AdminDashboard() {
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     Verifisert Admin
                   </h1>
-                  <p className="text-xs text-gray-500">Internal Dashboard</p>
+                  <p className="text-xs text-gray-500">Internt dashbord</p>
                 </div>
               </div>
             </div>
@@ -193,7 +198,7 @@ export default function AdminDashboard() {
               }}
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <span>Sign Out</span>
+              <span>Logg ut</span>
             </button>
           </div>
         </div>
@@ -204,10 +209,10 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <div className="flex border-b border-gray-200">
             {[
-              { id: 'reports', label: 'Reports & Feedback', icon: '📊' },
-              { id: 'users', label: 'Users', icon: '👥' },
-              { id: 'credits', label: 'Credits & Billing', icon: '💳' },
-              { id: 'system', label: 'System & Insights', icon: '🔧' },
+              { id: 'reports', label: 'Rapporter og tilbakemeldinger', icon: '📊' },
+              { id: 'users', label: 'Brukere', icon: '👥' },
+              { id: 'credits', label: 'Kreditter og fakturering', icon: '💳' },
+              { id: 'system', label: 'System og innsikt', icon: '🔧' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -230,14 +235,14 @@ export default function AdminDashboard() {
           {activeTab === 'reports' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Reports & Feedback</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Rapporter og tilbakemeldinger</h2>
                 
                 {/* Filters */}
                 <div className="space-y-4 mb-4">
                   {/* First Row */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Min Score</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Min score</label>
                       <input
                         type="number"
                         value={filters.score_min}
@@ -247,7 +252,7 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Maks score</label>
                       <input
                         type="number"
                         value={filters.score_max}
@@ -263,10 +268,10 @@ export default function AdminDashboard() {
                         onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">All</option>
-                        <option value="completed">Completed</option>
-                        <option value="processing">Processing</option>
-                        <option value="failed">Failed</option>
+                        <option value="">Alle</option>
+                        <option value="completed">Fullført</option>
+                        <option value="processing">Under behandling</option>
+                        <option value="failed">Feilet</option>
                       </select>
                     </div>
                     <div>
@@ -276,7 +281,7 @@ export default function AdminDashboard() {
                         onChange={(e) => setFilters({ ...filters, standard: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">All</option>
+                        <option value="">Alle</option>
                         <option value="NT">NT</option>
                         <option value="NITO">NITO</option>
                         <option value="Fremtind">Fremtind</option>
@@ -288,7 +293,7 @@ export default function AdminDashboard() {
                   {/* Second Row */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Dato fra</label>
                       <input
                         type="date"
                         value={filters.date_from}
@@ -297,7 +302,7 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Dato til</label>
                       <input
                         type="date"
                         value={filters.date_to}
@@ -306,23 +311,23 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bruker-ID</label>
                       <input
                         type="number"
                         value={filters.user_search}
                         onChange={(e) => setFilters({ ...filters, user_search: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="User ID (from Users tab)"
+                        placeholder="Bruker-ID (fra Brukere-fanen)"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Selskap</label>
                       <input
                         type="text"
                         value={filters.company_search}
                         onChange={(e) => setFilters({ ...filters, company_search: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Search by company..."
+                        placeholder="Søk på selskap..."
                       />
                     </div>
                   </div>
@@ -337,7 +342,7 @@ export default function AdminDashboard() {
                           onChange={(e) => setFilters({ ...filters, low_score_only: e.target.checked })}
                           className="w-4 h-4 text-blue-600 rounded"
                         />
-                        <span className="text-sm font-medium text-gray-700">Low score only (&lt;70)</span>
+                        <span className="text-sm font-medium text-gray-700">Kun lav score (&lt;70)</span>
                       </label>
                     </div>
                     <div className="flex items-center">
@@ -348,11 +353,11 @@ export default function AdminDashboard() {
                           onChange={(e) => setFilters({ ...filters, high_risk_only: e.target.checked })}
                           className="w-4 h-4 text-blue-600 rounded"
                         />
-                        <span className="text-sm font-medium text-gray-700">High-risk only</span>
+                        <span className="text-sm font-medium text-gray-700">Kun høy risiko</span>
                       </label>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Min Findings</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Min antall funn</label>
                       <input
                         type="number"
                         value={filters.min_findings}
@@ -379,7 +384,7 @@ export default function AdminDashboard() {
                         })}
                         className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
-                        Clear Filters
+                        Tøm filtre
                       </button>
                     </div>
                   </div>
@@ -390,7 +395,7 @@ export default function AdminDashboard() {
               {loadingReports ? (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading reports...</p>
+                  <p className="mt-4 text-gray-600">Laster rapporter...</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -400,10 +405,10 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('id')}
-                          title="Click to sort by Report ID"
+                          title="Klikk for å sortere etter rapport-ID"
                         >
                           <div className="flex items-center space-x-2">
-                            <span>Report ID</span>
+                            <span>Rapport-ID</span>
                             {sortField === 'id' ? (
                               <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -414,10 +419,10 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('uploaded_at')}
-                          title="Click to sort by Date/Time"
+                          title="Klikk for å sortere etter dato/tid"
                         >
                           <div className="flex items-center space-x-2">
-                            <span>Date/Time</span>
+                            <span>Dato/tid</span>
                             {sortField === 'uploaded_at' ? (
                               <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -428,10 +433,10 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('user')}
-                          title="Click to sort by User/Company"
+                          title="Klikk for å sortere etter bruker/selskap"
                         >
                           <div className="flex items-center space-x-2">
-                            <span>User / Company</span>
+                            <span>Bruker / selskap</span>
                             {sortField === 'user' ? (
                               <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -442,10 +447,10 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('filename')}
-                          title="Click to sort by File Name"
+                          title="Klikk for å sortere etter filnavn"
                         >
                           <div className="flex items-center space-x-2">
-                            <span>File Name</span>
+                            <span>Filnavn</span>
                             {sortField === 'filename' ? (
                               <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -456,7 +461,7 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('overall_score')}
-                          title="Click to sort by Score"
+                          title="Klikk for å sortere etter score"
                         >
                           <div className="flex items-center space-x-2">
                             <span>Score</span>
@@ -470,10 +475,10 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('findings_count')}
-                          title="Click to sort by Findings"
+                          title="Klikk for å sortere etter funn"
                         >
                           <div className="flex items-center space-x-2">
-                            <span>Findings</span>
+                            <span>Funn</span>
                             {sortField === 'findings_count' ? (
                               <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -485,7 +490,7 @@ export default function AdminDashboard() {
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                           onClick={() => handleSort('status')}
-                          title="Click to sort by Status"
+                          title="Klikk for å sortere etter status"
                         >
                           <div className="flex items-center space-x-2">
                             <span>Status</span>
@@ -496,14 +501,14 @@ export default function AdminDashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handling</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {sortedReports.length === 0 ? (
                         <tr>
                           <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                            No reports found
+                            Ingen rapporter funnet
                           </td>
                         </tr>
                       ) : (
@@ -527,17 +532,17 @@ export default function AdminDashboard() {
                                 (report.overall_score || 0) >= 80 ? 'text-green-600' :
                                 (report.overall_score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
                               }`}>
-                                {report.overall_score?.toFixed(1) || 'N/A'}
+                                {report.overall_score?.toFixed(1) || 'Ikke tilgjengelig'}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {report.findings_count}
                               {report.high_risk_findings > 0 && (
-                                <span className="ml-2 text-xs text-red-600">({report.high_risk_findings} high-risk)</span>
+                                <span className="ml-2 text-xs text-red-600">({report.high_risk_findings} høy risiko)</span>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {report.report_system || 'N/A'}
+                              {report.report_system || 'Ikke tilgjengelig'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -545,7 +550,7 @@ export default function AdminDashboard() {
                                 report.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-red-100 text-red-800'
                               }`}>
-                                {report.status}
+                                {statusLabels[report.status] || report.status}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -553,7 +558,7 @@ export default function AdminDashboard() {
                                 href={`/admin/reports/${report.id}`}
                                 className="text-blue-600 hover:text-blue-800 font-medium"
                               >
-                                Open
+                                Åpne
                               </a>
                             </td>
                           </tr>
@@ -582,4 +587,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-

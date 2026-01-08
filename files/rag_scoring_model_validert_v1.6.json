@@ -1,0 +1,398 @@
+{
+  "model": "VALIDERT_TRYGGHETSSCORE",
+  "version": "1.6.2",
+  "score_start": 100,
+  "no_bonus_points": true,
+  "principles": [
+    "Skrivekurs-fasit (ARKAT) er normgrunnlaget for språk og struktur. Lov/forskrift er minstekrav; Validert må ikke belønne juridisk risikabel språkbruk.",
+    "Vurder helhet per bygningsdel/avsnitt. Enkeltsetninger skal ikke isoleres dersom kjøperkonsekvens fremgår samlet.",
+    "Konsekvens skal uttrykke praktisk betydning for kjøper. Dette kan gjøres eksplisitt eller implisitt (f.eks. usikkerhet, skjulte forhold, mulig utbedringsbehov). Kostnadsanslag er ikke krav.",
+    "Anbefalt tiltak skal ikke være ordre eller prosjektering. Imperativform ('må/skal utbedres') skal ikke gi plusspoeng og kan gi trekk dersom det fremstår som pålegg.",
+    "TG2/TG3 kan korrekt følges av anbefalt videre undersøkelse når omfang/årsaksforhold ikke kan avklares uten inngrep.",
+    "Trekk skal være proporsjonale: 'forbedringspotensial' (mindre trekk) skilles fra 'reell faglig mangel' (større trekk).",
+    "Maks trekk per kategori gjelder. Summert trekk kan ikke overstige kategoriens maks.",
+    "96 %-kravdokumentet er normativt. B_96_GATE begrenser maks score til 95 dersom ett av fem kritiske forhold brytes."
+  ],
+  "categories": [
+    {
+      "id": "A",
+      "name": "ARKAT-kvalitet (TG2/TG3)",
+      "max_deduction": 40
+    },
+    {
+      "id": "B",
+      "name": "TG-setting og konsistens",
+      "max_deduction": 20
+    },
+    {
+      "id": "C",
+      "name": "TGIU og undersøkelsesbegrensninger",
+      "max_deduction": 15
+    },
+    {
+      "id": "D",
+      "name": "Klarspråk og struktur",
+      "max_deduction": 10
+    },
+    {
+      "id": "E",
+      "name": "Metodikk og lovforankring",
+      "max_deduction": 10
+    }
+  ],
+  "output_requirements": [
+    "Trygghetsscore 0–100",
+    "Kort hovedvurdering",
+    "Punktvis avviksliste (konkret, etterprøvbar)",
+    "Egen liste over ARKAT-mangler (der relevant)",
+    "Forbedringsforslag (inkl. alternative formuleringer der nyttig)",
+    "Kort forklaring av hva trygghetsscoren betyr",
+    "Topp drivere for scoretrekk (maks 5)"
+  ],
+  "updated_at": "2025-12-30",
+  "rule_catalog": [
+    {
+      "id": "A_ARKAT.konsekvens_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "Konsekvensfelt mangler helt i en TG2/TG3-vurdering.",
+      "acceptance_criteria": [
+        "Konsekvens kan være kort, men må si hva kjøper må forholde seg til (usikkerhet, funksjon, vedlikehold, mulig utbedring, sikkerhet).",
+        "Det kreves ikke kostnadsestimat eller 'for kjøper'-formulering."
+      ],
+      "examples_ok": [
+        "Skjulte skader kan utvikle seg uten å bli oppdaget, og kjøper må forholde seg til usikkerhet knyttet til tilstanden.",
+        "Kjøper må påregne vedlikehold/utbedring av bygningsdelen."
+      ],
+      "examples_not_ok": [
+        "Konsekvens: (tomt)",
+        "Konsekvens gjentas som risiko uten kjøperbetydning: 'kan føre til skader' uten videre."
+      ]
+    },
+    {
+      "id": "A_ARKAT.konsekvens_unclear",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 3,
+      "trigger": "Konsekvens finnes, men er uklar eller for teknisk uten å oversette til kjøper.",
+      "acceptance_criteria": [
+        "Vurder konsekvensavsnittet samlet. Dersom kjøperbetydning fremgår i én av setningene, skal regelen ikke trigges.",
+        "Kostnadsanslag, årstall eller løsingsvalg er aldri krav i konsekvens.",
+        "Godkjenn formuleringer som: 'Kjøper må forholde seg til ...', 'Det må påregnes ...', 'Dette kan medføre behov for ...'.",
+        "Konsekvens kan være kort hvis den tydelig sier praktisk betydning (bruk, oppfølging, sannsynlig utbedringsbehov, usikkerhet/skjult skade, sikkerhet)."
+      ],
+      "remediation": "Legg til én setning som eksplisitt knytter forholdet til kjøpers situasjon (usikkerhet, mulig utbedring, funksjon, sikkerhet)."
+    },
+    {
+      "id": "A_ARKAT.risiko_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Risiko mangler helt ved TG2/TG3 der det er relevant."
+    },
+    {
+      "id": "A_ARKAT.observasjon_unclear",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Observasjon blander inn vurdering uten å markere hva som er fakta vs vurdering, eller bruker ubegrunnet synsing ('trolig/antas') uten grunnlag."
+    },
+    {
+      "id": "A_ARKAT.tiltak_imperativ",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 3,
+      "trigger": "Anbefalt tiltak er formulert som ordre/pålegg eller fremstår prosjekterende.",
+      "acceptance_criteria": [
+        "Anbefalt tiltak skal være 'vurderes/undersøkes av fagperson' eller nøkternt 'utbedres' uten å fastlåse løsning/omfang.",
+        "Bruk av 'må/skal' kan være tillatt kun der det åpenbart handler om sikkerhet og ikke prosjektering; vurder samlet.",
+        "IKKE gi trekk (og aldri foreslå) at TG3 krever imperativ språk. 'Det anbefales å ...' er korrekt når nødvendighet forklares (sikkerhet, måledata, aktiv fukt, dokumenterte avvik, høy sannsynlighet for skjult skade)."
+      ]
+    },
+    {
+      "id": "A_ARKAT.TG3.tiltak_vague_without_necessity",
+      "category": "A",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Ved TG3 fremstår anbefalt tiltak valgfritt/vagt uten å forklare hvorfor oppfølging er nødvendig.",
+      "acceptance_criteria": [
+        "Tilfredsstillende hvis tiltak knyttes til nødvendighet: sikkerhet, aktiv fukt/måledata, dokumenterte avvik, eller høy sannsynlighet for skjult skade.",
+        "Tilfredsstillende hvis tiltak beskriver formål: 'for å avklare omfang/årsak/tetthet' og hva kjøper oppnår ved oppfølging.",
+        "Veiledende språk ('Det anbefales å ...') er korrekt; vurder innhold, ikke imperativ form."
+      ],
+      "remediation": "Legg til 1–2 setninger som forklarer hvorfor oppfølging er nødvendig ved TG3 (aktiv fukt/sikkerhet/dokumenterte avvik) og hva videre kontroll skal avklare."
+    },
+    {
+      "id": "B_TG.inconsistent_with_text",
+      "category": "B",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "TG står i klar motstrid til egne observasjoner/risiko/konsekvens (f.eks. alvorlige avvik beskrevet men TG1).",
+      "acceptance_criteria": [
+        "TG3 er konsistent når det foreligger aktiv fukt (måledata over grenseverdier), tydelig skaderisiko/sikkerhetsrisiko, eller høy sannsynlighet for skjult skade i risikokonstruksjon.",
+        "TG2 er konsistent når forholdet innebærer risiko eller svekket funksjon uten dokumentert aktiv skade på befaringstidspunktet.",
+        "Alder alene er ikke grunnlag for TG3; det må kobles til dokumenterte avvik, målinger, eller tydelig funksjonssvikt."
+      ],
+      "remediation": "Vurder om TG bør justeres for å samsvare med beskrivelsen, eller stram teksten slik at alvorlighetsgrad og TG matcher."
+    },
+    {
+      "id": "B_TG.TG3_requires_severity_not_language",
+      "category": "B",
+      "severity": "minor",
+      "deduction": 0,
+      "trigger": "TG3 vurderes basert på språkbruk (f.eks. 'anbefales' vs 'må') fremfor teknisk alvorlighetsgrad.",
+      "acceptance_criteria": [
+        "TG3 avgjøres av teknisk alvor (aktiv fukt, sikkerhet, dokumenterte avvik), ikke av imperativ språk.",
+        "Veiledende språk er korrekt også ved TG3 når nødvendighet er faglig begrunnet."
+      ]
+    },
+    {
+      "id": "B_TG.multi_issue_single_TG",
+      "category": "B",
+      "severity": "minor",
+      "deduction": 0,
+      "trigger": "Flere avvik i samme punkt tolkes som inkonsistent TG selv om samlet risiko begrunner én TG.",
+      "acceptance_criteria": [
+        "Flere avvik i samme bygningsdel kan samlet begrunne én TG3 eller TG2.",
+        "TG skal reflektere samlet risiko og funksjon, ikke hvert enkelt avvik isolert."
+      ]
+    },
+    {
+      "id": "B_TG.overconfidence",
+      "category": "B",
+      "severity": "minor",
+      "deduction": 3,
+      "trigger": "TG-konklusjon fremstår overstyrt uten begrunnelse i observasjon."
+    },
+    {
+      "id": "C_TGIU.missing_limitations",
+      "category": "C",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Undersøkelsesbegrensning er relevant, men ikke opplyst."
+    },
+    {
+      "id": "C_TGIU.penalize_uncertainty_error",
+      "category": "C",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Systemet tolker korrekt 'usikkerhet' som feil (skal ikke gi trekk).",
+      "note": "Denne regelen skal normalt være deaktivert i scoring; brukt som kontroll for feilkilder."
+    },
+    {
+      "id": "D_LANGUAGE.long_sentences",
+      "category": "D",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Flere setninger er unødvendig lange og blander flere ledd.",
+      "acceptance_criteria": [
+        "Ikke gi trekk for en teknisk korrekt årsakskjede når setningen handler om én bygningsdetalj og én teknisk funksjon (f.eks. topplist/klemlist -> avslutning av fuktsikring).",
+        "Gi trekk når setningen blander flere vurderinger (observasjon+årsak+risiko+tiltak) eller svekker forståelsen for kjøper.",
+        "Foreslå deling i 2 setninger kun når det øker lesbarhet uten å miste teknisk presisjon."
+      ],
+      "remediation": "Del opp setningen i 2 dersom den blander flere vurderinger eller blir vanskelig å forstå. Behold teknisk årsakskjede samlet hvis den gir presisjon."
+    },
+    {
+      "id": "D_LANGUAGE.jargon_without_explanation",
+      "category": "D",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Fagspråk uten forklaring som svekker forståelsen for kjøper.",
+      "acceptance_criteria": [
+        "Gi ikke trekk når fagbegrep er vanlig og forståelig i kontekst (f.eks. sluk, klemring) eller forklares kort (i parentes) ett sted i rapporten.",
+        "Gi trekk når flere fagbegreper brukes uten forklaring og gjør det uklart for kjøper hva det betyr praktisk.",
+        "Aksepter kort forklaring i risiko/konsekvens fremfor å forklare alt i observasjon."
+      ],
+      "remediation": "Legg til kort forklaring i parentes eller én setning i risiko/konsekvens som oversetter fagbegrepet til praktisk betydning."
+    },
+    {
+      "id": "E_METHOD.cost_speculation",
+      "category": "E",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Kostnadsanslag i kroner (kr/NOK/€), tallintervall eller prisvurdering oppgis i TG3-tekst på en måte som kan oppfattes som forventet faktisk pris (ikke kun sjablon/kostnadsklasse).",
+      "acceptance_criteria": [
+        "Trigges kun når evidence-snippet inneholder eksplisitt valuta (kr/NOK/€) og et tall eller tallintervall, eventuelt terskeluttrykk som «mer enn», «minst», «ca. kr».",
+        "Skal ikke trigges når rapporten bruker kostnadsklasser (Lav/Middels/Høy) og/eller henviser til «sjablonmessige kostnadsklasser», forutsatt at slike kostnadsklasser er definert samlet i rapporten.",
+        "Skal ikke trigges når kroner kun forekommer i en generell forklaringstabell/innledning (ikke i bygningsdelens ARKAT-tekst).",
+        "Ingen trekk uten beviselig evidence-snippet som viser valuta + tall (anti-falsk positiv)."
+      ],
+      "remediation": "Erstatt kroner/intervaller i TG3-tekst med kostnadsklasse (Lav/Middels/Høy) og legg veiledende størrelsesorden i en samlet forklaringsdel i rapporten. Unngå formuleringer som «takstmannens prisvurdering» og «ved utskiftning».",
+      "detector_hints": {
+        "requires_evidence_regex_any": [
+          "(?i)\\b(kr|nok|eur|€)\\b",
+          "\\d{1,3}(?:[ .]\\d{3})+(?:\\s*[–\\-]\\s*\\d{1,3}(?:[ .]\\d{3})+)?",
+          "(?i)\\b(mer enn|minst|ca\\.?)\\b"
+        ],
+        "suppress_if_evidence_regex_any": [
+          "(?i)\\b(lav|middels|høy)\\s+kostnad\\b",
+          "(?i)sjablonmessige\\s+kostnadsklasser"
+        ],
+        "suppress_if_global_regex_any": [
+          "(?i)sjablonmessige\\s+kostnadsklasser\\s+ved\\s+tg3",
+          "(?i)\\bkostnadsklasse\\b",
+          "(?i)\\blav\\s+kostnad\\b",
+          "(?i)\\bmiddels\\s+kostnad\\b",
+          "(?i)\\bhøy\\s+kostnad\\b"
+        ],
+        "scope": "TG3_ARCAT_TEXT_ONLY"
+      }
+    },
+    {
+      "id": "E_METHOD.requires_NS_only",
+      "category": "E",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Systemet krever NS-formuleringer som går lenger enn lov/forskrift og skrivekurs (skal ikke gi trekk).",
+      "note": "Som over: kontrollregel; bør ikke brukes til å trekke score."
+    },
+    {
+      "id": "E_METHOD.tg3_cost_sjablon_missing",
+      "category": "E",
+      "severity": "major",
+      "deduction": 4,
+      "trigger": "TG3 er brukt uten sjablonmessig kostnadsanslag (kostnadsklasse eller tilsvarende), jf. § 2-22.",
+      "acceptance_criteria": [
+        "Trigges kun når rapporten har TG3 og det hverken finnes kostnadsklasse (Lav/Middels/Høy) i TG3-punktet, eller en samlet definisjon av kostnadsklasser i rapporten.",
+        "Skal ikke trigges dersom kostnadsklasser er definert samlet og TG3-punktet angir kostnadsklasse."
+      ],
+      "examples_ok": [
+        "Konsekvens: Forholdet kan medføre høy kostnad, jf. rapportens sjablonmessige kostnadsklasser.",
+        "Utbedringskostnad: Middels kostnad."
+      ],
+      "examples_not_ok": [
+        "TG3 uten noen omtale av kostnadsklasse/anslag, og uten kostnadstabell i rapporten."
+      ],
+      "remediation": "Angi kostnadsklasse (Lav/Middels/Høy) ved TG3 og inkluder en samlet tabell i rapportens innledning som forklarer klassene.",
+      "detector_hints": {
+        "requires_context": [
+          "HAS_TG3"
+        ],
+        "trigger_if_missing_all": {
+          "evidence_regex_any": [
+            "(?i)\\b(lav|middels|høy)\\s+kostnad\\b"
+          ],
+          "global_regex_any": [
+            "(?i)sjablonmessige\\s+kostnadsklasser\\s+ved\\s+tg3",
+            "(?i)\\bkostnadsklasse\\b"
+          ]
+        }
+      }
+    }
+  ],
+  "scoring_mechanics": {
+    "score_start": 100,
+    "score_floor": 0,
+    "score_ceiling": 100,
+    "deduct_per_occurrence": true,
+    "aggregate_level": "bygningsdel",
+    "category_caps": {
+      "A": 40,
+      "B": 20,
+      "C": 15,
+      "D": 15,
+      "E": 10
+    },
+    "severity_weights": {
+      "minor": 1,
+      "major": 1
+    },
+    "notes": [
+      "Trekk for 'konsekvens_unclear' skal ikke gis dersom kjøperbetydning fremgår i konsekvensavsnittet samlet.",
+      "Trekk for 'tiltak_imperativ' skal ikke erstattes med krav om imperativ; imperativ er ikke kvalitetsmål.",
+      "TG3 sjablonkostnad: Ikke gi dobbelttrekk mellom E_METHOD.cost_speculation og E_METHOD.tg3_cost_sjablon_missing for samme punkt."
+    ]
+  },
+  "hard_gates": {
+    "B_96_GATE": {
+      "version": "1.0",
+      "title": "VALIDERT_B_96_GATING_RULES",
+      "description": "Uttømmende liste over forhold som alene kan trekke rapport under 96 %.",
+      "hard_gate": true,
+      "rules": [
+        {
+          "id": "B1_ARKAT_MISSING",
+          "severity": "critical",
+          "description": "Manglende ARKAT-del i TG2/TG3",
+          "trigger_if": {
+            "TG_level": [
+              "TG2",
+              "TG3"
+            ],
+            "missing_any": [
+              "arsak",
+              "risiko",
+              "konsekvens",
+              "anbefalt_tiltak"
+            ]
+          },
+          "effect": {
+            "max_score": 95
+          }
+        },
+        {
+          "id": "B2_KONSEKVENS_MANGLER",
+          "severity": "critical",
+          "description": "Manglende eller ikke-forbrukerrettet konsekvens",
+          "trigger_if": {
+            "TG_level": [
+              "TG2",
+              "TG3"
+            ],
+            "konsekvens_missing_or_only_technical": true
+          },
+          "effect": {
+            "max_score": 95
+          }
+        },
+        {
+          "id": "B3_IMPERATIV_TILTAK",
+          "severity": "critical",
+          "description": "Gjennomgående imperativ språkbruk i anbefalte tiltak",
+          "trigger_if": {
+            "imperative_ratio": {
+              "greater_than": 0.3
+            }
+          },
+          "effect": {
+            "max_score": 95
+          }
+        },
+        {
+          "id": "B4_TG_INKONSISTENT",
+          "severity": "critical",
+          "description": "Alvorlig inkonsistens mellom TG og tekstlig alvorlighetsgrad",
+          "trigger_if": {
+            "tg_text_mismatch": "severe"
+          },
+          "effect": {
+            "max_score": 95
+          }
+        },
+        {
+          "id": "B5_OBSERVASJON_VURDERING",
+          "severity": "critical",
+          "description": "Systematisk blanding av observasjon og vurdering",
+          "trigger_if": {
+            "observation_contains_evaluation": {
+              "repeated": true
+            }
+          },
+          "effect": {
+            "max_score": 95
+          }
+        }
+      ],
+      "non_blocking_findings": [
+        "mangler_kostnadsanslag",
+        "mangler_levetidstall",
+        "nøkternt_språk",
+        "sammenhengende_årsakssetninger",
+        "tg3_uten_dramatikk",
+        "begrenset_tilkomst",
+        "krysshenvisninger"
+      ]
+    }
+  }
+}

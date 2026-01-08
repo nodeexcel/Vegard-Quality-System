@@ -1,0 +1,191 @@
+{
+  "schema": "validert.output_policy",
+  "version": "v1.2.0",
+  "applies_to_model": "VALIDERT_TRYGGHETSSCORE",
+  "model_versions_supported": [
+    "v1.6.1"
+  ],
+  "purpose": "Skjule interne indikatorer/tall (trekk, statuskoder, regel-IDer, ukjent-koder) og presentere brukerrettede beskrivelser. Mapper spesielt 'Trekk: 1/2/3' til kvalitative nivåer (Lav/Middels/Høy påvirkning).",
+  "global_output_policy": {
+    "language": "nb-NO",
+    "hide_internal_values": true,
+    "hide_numeric_scales": true,
+    "prevent_reverse_engineering": true,
+    "allow_user_friendly_labels_only": true
+  },
+  "field_policies": {
+    "trekk": {
+      "internal_scale": [
+        1,
+        2,
+        3
+      ],
+      "prefix": "Vurdering",
+      "external_labels": {
+        "1": "Lav påvirkning",
+        "2": "Middels påvirkning",
+        "3": "Høy påvirkning"
+      },
+      "external_explanations": {
+        "1": "Mindre forbedringsbehov",
+        "2": "Tydelig forbedringsbehov",
+        "3": "Vesentlige forbedringsbehov"
+      },
+      "render": {
+        "format": "{prefix}: {label}",
+        "include_explanation": false
+      }
+    },
+    "status": {
+      "hide_internal_status_tokens": true,
+      "map_tokens": {
+        "ok": "OK – ingen endringer nødvendig.",
+        "deduction": "Forbedringspunkt"
+      }
+    },
+    "unknown_handling": {
+      "hide_token": "UNKNOWN",
+      "replacement": ""
+    },
+    "arkat_presence": {
+      "hide_internal_states": true,
+      "map_states": {
+        "present": "Med",
+        "unclear": "Uklart",
+        "missing": "Mangler",
+        "not_required": "Ikke relevant"
+      },
+      "render": {
+        "format": "{label}: {state}",
+        "labels": {
+          "arsak": "Årsak",
+          "risiko": "Risiko",
+          "konsekvens": "Konsekvens",
+          "anbefalt_tiltak": "Anbefalt tiltak"
+        }
+      }
+    },
+    "category_deductions": {
+      "hide_numeric_category_math": true,
+      "show_user_summary_only": true,
+      "user_summary_format": "{category_name}: {impact_level}",
+      "impact_level_mapping": [
+        {
+          "max_ratio": 0.15,
+          "label": "Lav påvirkning"
+        },
+        {
+          "max_ratio": 0.35,
+          "label": "Middels påvirkning"
+        },
+        {
+          "max_ratio": 1.0,
+          "label": "Høy påvirkning"
+        }
+      ],
+      "note": "Bruk ratio = (absolutt trekk) / maks_trekk internt, men vis aldri tall."
+    },
+    "rule_id_policy": {
+      "hide_rule_ids": true,
+      "hide_prefixes": [
+        "Regler:"
+      ],
+      "replacement": ""
+    },
+    "evidence_policy": {
+      "hide_evidence_location_tokens": true,
+      "hide_tokens_containing": [
+        "• LOCAL",
+        "Derived from evidence text."
+      ],
+      "keep_page_number_only": true,
+      "page_format": "Dokumentasjon: side {page}"
+    }
+  },
+  "text_sanitization": {
+    "enabled": true,
+    "scope": [
+      "ui_output",
+      "pdf_output",
+      "email_output",
+      "api_public_response"
+    ],
+    "rewrite_rules": [
+      {
+        "id": "trekk_replace_numeric_1",
+        "pattern": "\\bTrekk\\s*:\\s*1\\b",
+        "replacement": "Vurdering: Lav påvirkning"
+      },
+      {
+        "id": "trekk_replace_numeric_2",
+        "pattern": "\\bTrekk\\s*:\\s*2\\b",
+        "replacement": "Vurdering: Middels påvirkning"
+      },
+      {
+        "id": "trekk_replace_numeric_3",
+        "pattern": "\\bTrekk\\s*:\\s*3\\b",
+        "replacement": "Vurdering: Høy påvirkning"
+      },
+      {
+        "id": "remove_unknown_token",
+        "pattern": "\\bUNKNOWN\\b\\s*\\n?",
+        "replacement": ""
+      },
+      {
+        "id": "remove_internal_rule_ids_lines",
+        "pattern": "^\\s*Regler:\\s*[A-Z0-9_\\.]+\\s*$",
+        "replacement": ""
+      },
+      {
+        "id": "remove_internal_evidence_local",
+        "pattern": "•\\s*LOCAL\\b",
+        "replacement": ""
+      },
+      {
+        "id": "remove_derived_from_evidence",
+        "pattern": "\\bDerived from evidence text\\.?\\b",
+        "replacement": ""
+      },
+      {
+        "id": "replace_status_ok_line",
+        "pattern": "^\\s*ok\\s*$",
+        "replacement": ""
+      },
+      {
+        "id": "replace_status_deduction_line",
+        "pattern": "^\\s*deduction\\s*$",
+        "replacement": "Forbedringspunkt"
+      },
+      {
+        "id": "strip_category_numeric_fractions",
+        "pattern": "\\bTrekk\\s*\\d+\\s*/\\s*\\d+\\b",
+        "replacement": ""
+      },
+      {
+        "id": "strip_category_max_numbers",
+        "pattern": "\\bmaks\\s*\\d+\\b",
+        "replacement": ""
+      },
+      {
+        "id": "strip_category_minus_numbers",
+        "pattern": "\\n\\s*-\\d+\\s*\\n",
+        "replacement": "\n"
+      }
+    ]
+  },
+  "enforcement": {
+    "detect_numeric_leaks": true,
+    "leak_patterns": [
+      "\\bTrekk\\s*:\\s*[1-3]\\b",
+      "\\bTrekk\\s*\\d+\\s*/\\s*\\d+\\b",
+      "\\bmaks\\s*\\d+\\b",
+      "\\n\\s*-\\d+\\s*\\n",
+      "^\\s*Regler:\\s*",
+      "\\bUNKNOWN\\b"
+    ],
+    "on_leak": "sanitize_and_log",
+    "log_level": "warn",
+    "log_message": "Output overlay sanerte interne/tallbaserte signaler før visning."
+  },
+  "methodology_text": "Systemet bruker interne indikatorer og tallverdier for konsistent kvalitetssikring. I brukerrettet visning erstattes slike interne signaler med kvalitative beskrivelser for å hindre feiltolkning og poengfokusering."
+}

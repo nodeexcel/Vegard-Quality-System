@@ -7,7 +7,7 @@ import { AuthProvider } from './contexts/AuthContext'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Verifisert - Quality Assessment for Building Reports',
+  title: 'Verifisert - Kvalitetssjek av tilstandsrapporter',
   description: 'Automated quality evaluation of Norwegian building condition reports',
 }
 

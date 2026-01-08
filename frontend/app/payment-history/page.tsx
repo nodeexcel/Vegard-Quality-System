@@ -92,7 +92,7 @@ export default function PaymentHistoryPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -103,12 +103,12 @@ export default function PaymentHistoryPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to view payment history</p>
+          <p className="text-gray-600 mb-4">Vennligst logg inn for å se betalingshistorikk</p>
           <button
             onClick={() => router.push('/')}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Go to Login
+            Gå til innlogging
           </button>
         </div>
       </div>
@@ -131,12 +131,12 @@ export default function PaymentHistoryPage() {
                 </svg>
               </button>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Payment History
+                Betalingshistorikk
               </h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-                <span className="text-sm text-gray-600">Your Credits: </span>
+                <span className="text-sm text-gray-600">Dine kreditter: </span>
                 <span className="text-lg font-bold text-blue-600">{user.credits || 0}</span>
               </div>
             </div>
@@ -149,20 +149,20 @@ export default function PaymentHistoryPage() {
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading payment history...</p>
+              <p className="mt-4 text-gray-600">Laster betalingshistorikk...</p>
             </div>
           ) : payments.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No payments yet</h3>
-              <p className="text-gray-600 mb-6">Your payment history will appear here once you make a purchase.</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Ingen betalinger ennå</h3>
+              <p className="text-gray-600 mb-6">Betalingshistorikken vises her når du har gjort et kjøp.</p>
               <button
                 onClick={() => router.push('/buy-credits')}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Buy Credits
+                Kjøp kreditter
               </button>
             </div>
           ) : (
@@ -171,10 +171,10 @@ export default function PaymentHistoryPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dato</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pakke</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Beløp</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kreditter</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
@@ -185,13 +185,13 @@ export default function PaymentHistoryPage() {
                           {formatDate(payment.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {payment.package_name || 'Custom'}
+                          {payment.package_name || 'Tilpasset'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {payment.amount_nok.toFixed(2)} NOK
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {payment.credits} credits
+                          {payment.credits} kreditter
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(payment.status)}`}>
@@ -210,4 +210,3 @@ export default function PaymentHistoryPage() {
     </div>
   )
 }
-

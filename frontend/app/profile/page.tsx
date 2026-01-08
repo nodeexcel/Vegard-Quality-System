@@ -38,7 +38,7 @@ export default function ProfilePage() {
     setSuccess('')
     
     if (!name || !phone || !company) {
-      setError('Please fill in all required fields')
+      setError('Vennligst fyll ut alle påkrevde felter')
       return
     }
 
@@ -62,12 +62,12 @@ export default function ProfilePage() {
       // Refresh user data
       await refreshUser()
       
-      setSuccess('Profile updated successfully!')
+      setSuccess('Profilen er oppdatert!')
       setTimeout(() => {
         router.push('/')
       }, 1500)
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update profile. Please try again.')
+      setError(err.response?.data?.detail || 'Kunne ikke oppdatere profilen. Vennligst prøv igjen.')
       setLoading(false)
     }
   }
@@ -77,7 +77,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -104,7 +104,7 @@ export default function ProfilePage() {
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     Verifisert
                   </h1>
-                  <p className="text-xs text-gray-500">AI-powered quality assessment</p>
+                  <p className="text-xs text-gray-500">AI-drevet kvalitetsvurdering</p>
                 </div>
               </div>
               <nav className="hidden md:flex space-x-4">
@@ -112,13 +112,13 @@ export default function ProfilePage() {
                   onClick={() => router.push('/')}
                   className="text-gray-600 hover:text-blue-600 transition-colors pb-1"
                 >
-                  Upload
+                  Last opp
                 </button>
                 <button
                   onClick={() => router.push('/history')}
                   className="text-gray-600 hover:text-blue-600 transition-colors pb-1"
                 >
-                  History
+                  Historikk
                 </button>
               </nav>
             </div>
@@ -132,10 +132,10 @@ export default function ProfilePage() {
           {/* Title */}
           <div className="text-center mb-8">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Edit Profile
+              Rediger profil
             </h2>
             <p className="text-xl text-gray-600">
-              Update your profile information
+              Oppdater profilinformasjonen din
             </p>
           </div>
 
@@ -144,7 +144,7 @@ export default function ProfilePage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email <span className="text-gray-400 font-normal">(Cannot be changed)</span>
+                  E-post <span className="text-gray-400 font-normal">(Kan ikke endres)</span>
                 </label>
                 <input
                   id="email"
@@ -157,7 +157,7 @@ export default function ProfilePage() {
 
               <div>
                 <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Full Name <span className="text-red-500">*</span>
+                  Fullt navn <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="name"
@@ -165,7 +165,7 @@ export default function ProfilePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Enter your full name"
+                  placeholder="Skriv inn fullt navn"
                   required
                   disabled={loading}
                 />
@@ -173,7 +173,7 @@ export default function ProfilePage() {
 
               <div>
                 <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Phone Number <span className="text-red-500">*</span>
+                  Telefonnummer <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="phone"
@@ -181,7 +181,7 @@ export default function ProfilePage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Enter your phone number"
+                  placeholder="Skriv inn telefonnummer"
                   required
                   disabled={loading}
                 />
@@ -189,7 +189,7 @@ export default function ProfilePage() {
 
               <div>
                 <label htmlFor="company" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company Name <span className="text-red-500">*</span>
+                  Firmanavn <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="company"
@@ -197,7 +197,7 @@ export default function ProfilePage() {
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Enter your company name"
+                  placeholder="Skriv inn firmanavn"
                   required
                   disabled={loading}
                 />
@@ -227,10 +227,10 @@ export default function ProfilePage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Saving...</span>
+                      <span>Lagrer...</span>
                     </span>
                   ) : (
-                    'Save Changes'
+                    'Lagre endringer'
                   )}
                 </button>
                 <button
@@ -238,14 +238,14 @@ export default function ProfilePage() {
                   onClick={() => router.push('/')}
                   className="px-6 py-4 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
                 >
-                  Cancel
+                  Avbryt
                 </button>
               </div>
             </form>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
               <p className="text-xs text-gray-500 text-center">
-                This information appears in your reports and helps us provide better service.
+                Denne informasjonen vises i rapportene dine og hjelper oss å tilby bedre service.
               </p>
             </div>
           </div>
@@ -254,4 +254,3 @@ export default function ProfilePage() {
     </div>
   )
 }
-

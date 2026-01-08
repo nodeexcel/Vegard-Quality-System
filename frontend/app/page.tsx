@@ -38,7 +38,7 @@ export default function Home() {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Redirecting to admin panel...</p>
+            <p className="mt-4 text-gray-600">Omdirigerer til adminpanelet...</p>
           </div>
         </div>
       )
@@ -63,7 +63,7 @@ export default function Home() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -75,7 +75,7 @@ export default function Home() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecting...</p>
+          <p className="mt-4 text-gray-600">Omdirigerer...</p>
         </div>
       </div>
     )
@@ -107,7 +107,7 @@ export default function Home() {
         setFile(droppedFile)
         setError('')
       } else {
-        setError('Please upload a PDF file')
+        setError('Vennligst last opp en PDF-fil')
       }
     }
   }
@@ -116,12 +116,12 @@ export default function Home() {
     e.preventDefault()
     
     if (!user) {
-      setError('Please sign in to upload reports')
+      setError('Vennligst logg inn for å laste opp rapporter')
       return
     }
 
     if (!file) {
-      setError('Please select a PDF file')
+      setError('Vennligst velg en PDF-fil')
       return
     }
 
@@ -142,7 +142,7 @@ export default function Home() {
       // Get token from context or localStorage as fallback
       const authToken = token || localStorage.getItem('auth_token')
       if (!authToken) {
-        setError('Please sign in to upload reports')
+        setError('Vennligst logg inn for å laste opp rapporter')
         setUploading(false)
         return
       }
@@ -162,14 +162,14 @@ export default function Home() {
       router.push(`/results/${response.data.id}`)
     } catch (err: any) {
       if (err.response?.status === 401) {
-        setError('Please sign in to upload reports. If you are signed in, please try signing out and signing in again.')
+        setError('Vennligst logg inn for å laste opp rapporter. Hvis du allerede er innlogget, prøv å logge ut og inn igjen.')
       } else if (err.response?.status === 402) {
         // Insufficient credits - show modal
         setError('')
         setShowInsufficientCredits(true)
-        setInsufficientCreditsMessage(err.response?.data?.detail || 'Insufficient credits to upload this report.')
+        setInsufficientCreditsMessage(err.response?.data?.detail || 'Ikke nok kreditter til å laste opp denne rapporten.')
       } else {
-        setError(err.response?.data?.detail || 'Failed to upload report. Please try again.')
+        setError(err.response?.data?.detail || 'Kunne ikke laste opp rapporten. Vennligst prøv igjen.')
       }
       setUploading(false)
     }
@@ -202,18 +202,18 @@ export default function Home() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   Verifisert
                 </h1>
-                <p className="text-xs text-gray-500">AI-powered quality assessment</p>
+                <p className="text-xs text-gray-500">AI-drevet kvalitetsvurdering</p>
               </div>
               </div>
               <nav className="hidden md:flex space-x-4">
                 <span className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1">
-                  Upload
+                  Last opp
                 </span>
                 <button
                   onClick={() => router.push('/history')}
                   className="text-gray-600 hover:text-blue-600 transition-colors pb-1"
                 >
-                  History
+                  Historikk
                 </button>
               </nav>
             </div>
@@ -227,25 +227,25 @@ export default function Home() {
           {/* Hero Section */}
           <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Evaluate Your Building Condition Reports
+              Evaluer tilstandsrapporten din
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Upload your tilstandsrapport and receive automated quality evaluation based on Norwegian building standards
+              Last opp din tilstandsrapport og motta en automatisert kvalitetsvurdering basert på avhendingslova og forskrift om tryggere bolighandel.
             </p>
           </div>
 
           {/* Upload Card */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
-              <h3 className="text-2xl font-semibold text-white">Upload Report</h3>
-              <p className="text-blue-100 mt-1">Get instant quality analysis</p>
+              <h3 className="text-2xl font-semibold text-white">Last opp rapport</h3>
+              <p className="text-blue-100 mt-1">Få umiddelbar kvalitetsanalyse</p>
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {/* File Upload */}
               <div>
                 <label htmlFor="file" className="block text-sm font-semibold text-gray-700 mb-3">
-                  PDF Report <span className="text-red-500">*</span>
+                  PDF-rapport <span className="text-red-500">*</span>
                 </label>
                 <div
                   onDragOver={handleDragOver}
@@ -283,7 +283,7 @@ export default function Home() {
                           onClick={() => setFile(null)}
                           className="text-xs text-red-600 hover:text-red-700 font-medium"
                         >
-                          Remove file
+                          Fjern fil
                         </button>
                       </div>
                     ) : (
@@ -295,48 +295,13 @@ export default function Home() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            <span className="text-blue-600 hover:text-blue-700 cursor-pointer">Click to upload</span> or drag and drop
+                            <span className="text-blue-600 hover:text-blue-700 cursor-pointer">Klikk for å laste opp</span> eller dra og slipp
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">PDF files only (max 10MB)</p>
+                          <p className="text-xs text-gray-500 mt-1">Kun PDF-filer (maks 10 MB)</p>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Optional Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="report_system" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Report System <span className="text-gray-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="report_system"
-                    value={reportSystem}
-                    onChange={(e) => setReportSystem(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="e.g., Byggtjeneste, NITO"
-                    disabled={uploading}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="building_year" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Building Year <span className="text-gray-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    id="building_year"
-                    value={buildingYear}
-                    onChange={(e) => setBuildingYear(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="e.g., 1985"
-                    min="1800"
-                    max="2030"
-                    disabled={uploading}
-                  />
                 </div>
               </div>
 
@@ -362,14 +327,14 @@ export default function Home() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Analyzing Report...</span>
+                    <span>Analyserer rapport...</span>
                   </span>
                 ) : (
                   <span className="flex items-center justify-center space-x-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>Upload and Analyze</span>
+                    <span>Last opp og analyser</span>
                   </span>
                 )}
               </button>
@@ -380,13 +345,13 @@ export default function Home() {
           <div className="mt-8 bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
               <span className="w-1 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full mr-4"></span>
-              How It Works
+              Slik fungerer det
             </h2>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { num: '1', title: 'Upload PDF', desc: 'Upload your building condition report (tilstandsrapport)' },
-                { num: '2', title: 'AI Analysis', desc: 'Our AI analyzes against Norwegian building standards (NS 3600, NS 3940, TEK)' },
-                { num: '3', title: 'Get Results', desc: 'Receive detailed quality scores, findings, and recommendations' },
+                { num: '1', title: 'Last opp PDF', desc: 'Last opp tilstandsrapporten din' },
+                { num: '2', title: 'Kontroll mot lovkrav', desc: 'Automatisert kontroll av rapporten opp mot avhendingslova og forskrift om tryggere bolighandel.' },
+                { num: '3', title: 'Få resultater', desc: 'Motta detaljerte kvalitetsresultater, funn og anbefalinger' },
               ].map((step, idx) => (
                 <div key={idx}>
                   <div className="flex items-start space-x-4">
@@ -406,7 +371,7 @@ export default function Home() {
           {/* Standards Info */}
           <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6">
             <p className="text-sm text-gray-700 text-center">
-              <span className="font-semibold">Standards evaluated:</span> Forskrift til avhendingslova, NS 3600:2018, NS 3940:2023, TEK, Prop. 44 L
+              <span className="font-semibold">Standarder vurdert:</span> Forskrift til avhendingslova, NS 3600:2018, NS 3940:2023, TEK, Prop. 44 L
             </p>
           </div>
         </div>
@@ -422,14 +387,14 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Insufficient Credits</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Ikke nok kreditter</h3>
               <p className="text-gray-600 mb-4">{insufficientCreditsMessage}</p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <div className="text-sm text-gray-700 mb-2">
-                  <strong>Current Credits:</strong> {user?.credits || 0}
+                  <strong>Nåværende kreditter:</strong> {user?.credits || 0}
                 </div>
                 <div className="text-sm text-gray-700">
-                  <strong>Required:</strong> 10 credits for first analysis, 2 credits for re-check
+                  <strong>Kreves:</strong> 10 kreditter for første analyse, 2 kreditter for ny sjekk
                 </div>
               </div>
             </div>
@@ -438,7 +403,7 @@ export default function Home() {
                 onClick={() => setShowInsufficientCredits(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                Avbryt
               </button>
               <button
                 onClick={() => {
@@ -447,7 +412,7 @@ export default function Home() {
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Buy Credits
+                Kjøp kreditter
               </button>
             </div>
           </div>
@@ -456,4 +421,3 @@ export default function Home() {
     </div>
   )
 }
-

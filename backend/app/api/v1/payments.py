@@ -17,8 +17,7 @@ from app.config import settings
 from typing import Optional
 
 class PaymentIntentRequest(BaseModel):
-    package_id: Optional[int] = None
-    custom_amount_nok: Optional[float] = None
+    package_id: int
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +25,7 @@ router = APIRouter()
 
 # Initialize credit packages (will be seeded in database)
 DEFAULT_PACKAGES = [
+    {"name": "Beginner", "credits": 10, "price_nok": 1000},  # 10 NOK in øre
     {"name": "Starter", "credits": 30, "price_nok": 165000},  # 1650 NOK in øre
     {"name": "Standard", "credits": 100, "price_nok": 500000},  # 5000 NOK in øre
     {"name": "Pro", "credits": 300, "price_nok": 1350000},  # 13500 NOK in øre
@@ -84,51 +84,31 @@ async def create_payment_intent(
 ):
     """
     Create a Stripe PaymentIntent for credit purchase
-    Either package_id or custom_amount_nok must be provided
+    Requires package_id
     """
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Payment system is not configured")
     
     package_id = request.package_id
-    custom_amount_nok = request.custom_amount_nok
     
-    logger.info(f"Payment intent request - package_id: {package_id} (type: {type(package_id)}), custom_amount_nok: {custom_amount_nok} (type: {type(custom_amount_nok)})")
+    logger.info(f"Payment intent request - package_id: {package_id}")
     
-    # Validate input - check if both are None or both are provided
-    has_package = package_id is not None and package_id != 0
-    has_custom = custom_amount_nok is not None and custom_amount_nok > 0
+    # Validate package_id is provided
+    if not package_id or package_id == 0:
+        raise HTTPException(status_code=400, detail="package_id is required")
     
-    logger.info(f"Validation - has_package: {has_package}, has_custom: {has_custom}")
+    # Get package
+    package = db.query(CreditPackage).filter(
+        CreditPackage.id == package_id,
+        CreditPackage.is_active == 1
+    ).first()
     
-    if not has_package and not has_custom:
-        logger.error(f"Validation failed - package_id: {package_id}, custom_amount_nok: {custom_amount_nok}")
-        raise HTTPException(status_code=400, detail="Either package_id or custom_amount_nok must be provided")
+    if not package:
+        raise HTTPException(status_code=404, detail="Credit package not found")
     
-    if has_package and has_custom:
-        raise HTTPException(status_code=400, detail="Provide either package_id or custom_amount_nok, not both")
-    
-    # Get package or calculate custom amount
-    if package_id:
-        package = db.query(CreditPackage).filter(
-            CreditPackage.id == package_id,
-            CreditPackage.is_active == 1
-        ).first()
-        
-        if not package:
-            raise HTTPException(status_code=404, detail="Credit package not found")
-        
-        amount_nok = package.price_nok  # Already in øre
-        credits = package.credits_amount
-        package_name = package.name
-    else:
-        # Custom amount
-        if custom_amount_nok < 100:  # Minimum 100 NOK
-            raise HTTPException(status_code=400, detail="Minimum purchase is 100 NOK")
-        
-        amount_nok = int(custom_amount_nok * 100)  # Convert NOK to øre
-        # Calculate credits: 100 NOK = 10 credits (based on pricing)
-        credits = int((custom_amount_nok / 100) * 10)
-        package_name = "Custom"
+    amount_nok = package.price_nok  # Already in øre
+    credits = package.credits_amount
+    package_name = package.name
     
     # Get or create Stripe customer
     stripe_customer = db.query(StripeCustomer).filter(
@@ -170,9 +150,8 @@ async def create_payment_intent(
             "user_id": str(current_user.id),
             "credits": str(credits),
             "package_name": package_name,
+            "package_id": str(package_id),
         }
-        if package_id:
-            metadata["package_id"] = str(package_id)
         
         intent = StripeService.create_payment_intent(
             amount_nok=amount_nok,
@@ -187,7 +166,7 @@ async def create_payment_intent(
             stripe_customer_id=customer_id,
             amount_nok=amount_nok,
             credits_purchased=credits,
-            credit_package_id=package_id if package_id else None,
+            credit_package_id=package_id,
             status="pending"
         )
         db.add(payment)

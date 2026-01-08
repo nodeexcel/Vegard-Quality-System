@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_CURRENCY: str = "nok"  # Norwegian Krone
+
+    # LLM configuration
+    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_SEED: Optional[int] = 0
+    PIPELINE_GIT_SHA: str = ""
     
     @property
     def CORS_ORIGINS(self) -> List[str]:
@@ -64,4 +69,3 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
-

@@ -1,0 +1,50 @@
+VALIDERT – Pipeline note (v1.4)
+Formål: Stabil og etterprøvbar analyse av tilstandsrapporter med RAG + scoring.
+
+0) Inputs
+- PDF (tilstandsrapport) + evt. egenerklæring/vedlegg (valgfritt).
+- Konfig: system_prompt_validert_v1.4.txt + RAG-tekster + scoring_model_validert_v1.4.json + output_schema_validert_v1.4.json.
+
+1) Tekstekstraksjon og struktur
+- Ekstraher tekst per side (bevar sidetall).
+- Identifiser seksjoner/bygningsdeler (punktnummer + tittel).
+- Ikke stol på side-for-side alene: overskrift kan stå på én side og ARKAT/tekst på neste.
+
+2) Normalisering
+- Normaliser TG-markeringer (TG0/TG1/TG2/TG3/TGIU).
+- Normaliser begreper: ARKAT (ikke ARKT), “Anbefalt tiltak”/“Anbefalte tiltak”.
+
+3) ARKAT-søk og sporbarhet (kritisk steg)
+For hver bygningsdel:
+- Søk først i selve bygningsdelsteksten.
+- Søk deretter i merknader/tilleggsfelt.
+- Søk til slutt i oppsummering på sluttsider.
+- Sett arkat.source.where + page_refs + traceability_ok.
+- Dersom ARKAT finnes men ikke kan knyttes tydelig til komponenten: flagg issue “manglende sporbarhet”.
+- Alle regel-treff må ha evidence (point_id, tg, page, heading, source, snippet, match_explain).
+
+4) Evaluering mot regler
+- Bruk RAG:
+  - rag_legal_framework_validert_v1.4.txt (juridiske prioriteringer)
+  - rag_validert_rules_v1.4.txt (Validert-metodikk)
+  - rag_language_rules_v1.4.txt (klarspråk/synsing)
+- Evaluer TG2 vs TG3:
+  - TG2: minimum Årsak+Konsekvens (risiko/tiltak situasjonsavhengig)
+  - TG3: full ARKAT, og anbefalt(e) tiltak må fremstå nødvendig
+
+5) Scoring
+- Start 100.
+- Trekk per funn/per bygningsdel iht. scoring_model_validert_v1.4.json.
+- Summer kategori-trekk (A–E) og total.
+
+6) Generer “top_score_drivers” (maks 5)
+- Rangér de mest poenggivende/risikofylte avvikene.
+- Hver driver må ha: kort tittel, begrunnelse, poeng, rule_refs og helst evidence.
+
+7) Returner output som valid JSON
+- Må validere mot output_schema_validert_v1.4.json.
+- UI renderer score, kategori-trekk, funn, forbedringer, og topp drivere (i stedet for rettsak-seksjon).
+
+8) Feilhåndtering
+- Hvis dokumentet er delvis utilgjengelig/feilparset: sett meta.model_notes og legg inn disclaimer.
+- Unngå å “gjette” om innhold som ikke er funnet i tekstgrunnlaget.

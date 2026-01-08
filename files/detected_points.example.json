@@ -1,0 +1,52 @@
+{
+  "version": "v1.1",
+  "document": {
+    "document_hash": "doc_hash_example_abcdef12",
+    "source_filename": "some_report.pdf",
+    "page_count": 55,
+    "report_vendor": "Supertakst",
+    "report_type": "Tilstandsrapport",
+    "extraction": {
+      "engine": "pdf-layout-parser",
+      "engine_version": "1.2.0",
+      "notes": "Native headings + breadcrumbs when available."
+    }
+  },
+  "points": [
+    {
+      "point_key": "P0002",
+      "native_label": "Utvendig > Drenering",
+      "title": "Drenering og fuktsikring",
+      "native_path": [
+        "Utvendig",
+        "Drenering"
+      ],
+      "kind": "point",
+      "tg": "TG1",
+      "page_start": 12,
+      "page_end": 12,
+      "order_in_doc": 5,
+      "anchor_text": "Drenering og fuktsikring",
+      "span_hash": "span_path_0002_99aa88bb",
+      "excerpt": "Drenering og fuktsikring – beskrivelse og vurdering."
+    },
+    {
+      "point_key": "P0001",
+      "native_label": "6.12",
+      "numeric_id": "6.12",
+      "title": "Taktekking",
+      "native_path": [
+        "Utvendig",
+        "Tak"
+      ],
+      "kind": "point",
+      "tg": "TG2",
+      "page_start": 18,
+      "page_end": 19,
+      "order_in_doc": 12,
+      "anchor_text": "6.12 Taktekking",
+      "span_hash": "span_6_12_1234abcd",
+      "excerpt": "Taktekking – vurdering av yttertak."
+    }
+  ]
+}

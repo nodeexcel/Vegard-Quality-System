@@ -4,6 +4,166 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
+import outputOverlay from '../../../../files/scoring_policy.validert_output_overlay.v1.1.json'
+
+interface Evidence {
+  point_id: string
+  tg: string
+  page: number
+  heading: string
+  source: 'LOCAL' | 'SUMMARY'
+  snippet: string
+  match_explain: string
+}
+
+interface ArkatField {
+  status: 'present' | 'missing' | 'not_required' | 'unclear'
+  required: boolean
+  comment?: string
+  evidence?: Evidence[]
+}
+
+interface ArkatSource {
+  found: boolean
+  where: 'under_bygningsdel' | 'merknader' | 'oppsummering' | 'annet' | 'ikke_funnet'
+  page_refs?: number[]
+  traceability_ok?: boolean
+}
+
+interface Arkat {
+  arsak: ArkatField
+  risiko: ArkatField
+  konsekvens: ArkatField
+  anbefalt_tiltak: ArkatField
+  source: ArkatSource
+}
+
+interface Issue {
+  issue_id: string
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
+  summary: string
+  details: string
+  rule_refs: string[]
+  evidence: Evidence[]
+}
+
+interface Deduction {
+  rule_id: string
+  points: number
+  reason: string
+  category_id?: 'A' | 'B' | 'C' | 'D' | 'E'
+  evidence?: Evidence[]
+}
+
+interface ComponentFinding {
+  component_id: string
+  component_title: string
+  location?: string
+  tg: 'TG0' | 'TG1' | 'TG2' | 'TG3' | 'TGIU'
+  arkat: Arkat
+  issues: Issue[]
+  deductions: Deduction[]
+}
+
+interface ScoreByCategory {
+  category_id: 'A' | 'B' | 'C' | 'D' | 'E'
+  category_name: string
+  deduction: number
+  max_deduction: number
+}
+
+interface TopScoreDriver {
+  title: string
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  reason: string
+  deduction_points: number
+  rule_refs: string[]
+  evidence: Evidence[]
+}
+
+interface Improvement {
+  title: string
+  priority: 'critical' | 'high' | 'medium' | 'low'
+  what_to_change: string
+  suggested_text: string
+  applies_to?: string[]
+}
+
+interface FeedbackPointOverview {
+  point_id: string
+  title: string
+  tg: string
+  status: 'ok' | 'improve' | 'deduction' | 'blocking'
+  summary: string
+  deduction_total?: number
+  finding_ids?: string[]
+}
+
+interface FeedbackFinding {
+  finding_id: string
+  rule_id: string
+  rule_family: string
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical'
+  affects_96_gate: boolean
+  point_id: string
+  arkat_section: string
+  message: string
+  what_to_change: string
+  example_fix: {
+    good_example: string
+    bad_example?: string
+  }
+  evidence: {
+    page: number
+    snippet: string
+    match: string
+  }
+  deduction?: number
+}
+
+interface FeedbackV11 {
+  version: 'v1.1'
+  report_id: string
+  document_hash?: string
+  score: {
+    total: number
+    category_deductions: Array<{
+      category: string
+      deduction: number
+      max_deduction: number
+    }>
+    top_drivers?: Array<{
+      rule_id: string
+      deduction: number
+      message?: string
+    }>
+  }
+  gate: {
+    active: boolean
+    blocked_96: boolean
+    blocked_by: string[]
+  }
+  points_overview: FeedbackPointOverview[]
+  findings: FeedbackFinding[]
+}
+
+interface AnalysisV14 {
+  meta: {
+    schema_version: '1.4'
+    analysis_timestamp_utc: string
+    document_title: string
+    document_id?: string
+    language?: 'no' | 'nb' | 'nn'
+    model_notes?: string
+  }
+  score_total: number
+  score_band: string
+  score_by_category: ScoreByCategory[]
+  top_score_drivers: TopScoreDriver[]
+  findings: ComponentFinding[]
+  improvements: Improvement[]
+  disclaimers: string[]
+}
 
 interface Component {
   component_type: string
@@ -34,17 +194,8 @@ interface Report {
   compliance_score: number | null
   components: Component[]
   findings: Finding[]
-  ai_analysis: {
-    summary?: string
-    recommendations?: string[]
-    overall_assessment?: any
-    legal_risk?: any
-    courtroom_assessment?: any
-    improvement_suggestions?: {
-      for_takstmann?: (string | { issue?: string; recommended_text?: string })[]
-      for_report_text?: (string | { issue?: string; recommended_text?: string })[]
-    }
-  } | null
+  ai_analysis: AnalysisV14 | any | null
+  scoring_result?: { feedback_v11?: FeedbackV11 } | null
   extracted_text: string | null
 }
 
@@ -95,7 +246,7 @@ export default function ResultsPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -177,8 +328,8 @@ export default function ResultsPage() {
               <div className="w-8 h-8 bg-blue-600 rounded-full animate-pulse"></div>
             </div>
           </div>
-          <p className="mt-6 text-lg font-medium text-gray-700">Loading analysis results...</p>
-          <p className="mt-2 text-sm text-gray-500">This may take a few seconds</p>
+          <p className="mt-6 text-lg font-medium text-gray-700">Laster analyseresultater...</p>
+          <p className="mt-2 text-sm text-gray-500">Dette kan ta noen sekunder</p>
         </div>
       </div>
     )
@@ -194,13 +345,13 @@ export default function ResultsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
-            <p className="text-red-600 mb-6">{error || 'Report not found'}</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Feil</h3>
+            <p className="text-red-600 mb-6">{error || 'Rapport ikke funnet'}</p>
             <button
               onClick={() => router.push('/')}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl"
             >
-              Back to Upload
+              Tilbake til opplasting
             </button>
           </div>
         </div>
@@ -208,8 +359,82 @@ export default function ResultsPage() {
     )
   }
 
-  const overallScoreColor = getScoreColor(report.overall_score)
-  const overallGradient = getScoreGradient(report.overall_score)
+  const analysis = report.ai_analysis as AnalysisV14 | null
+  const feedbackV11 = report.scoring_result?.feedback_v11 || null
+  const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
+  const hasV14 = Boolean(analysis && typeof analysis.score_total === 'number')
+  const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
+  const scoreTotal = hasV14
+    ? analysis?.score_total ?? null
+    : feedbackV11?.score?.total ?? report.overall_score
+  const improvementPriorityOrder: Record<string, number> = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3
+  }
+  const sortedImprovements = hasV14 && analysis
+    ? [...analysis.improvements].sort(
+        (a, b) => (improvementPriorityOrder[a.priority] ?? 99) - (improvementPriorityOrder[b.priority] ?? 99)
+      )
+    : []
+  const highPriorityImprovements = sortedImprovements.filter(
+    (item) => item.priority === 'critical' || item.priority === 'high'
+  )
+  const mediumPriorityImprovements = sortedImprovements.filter((item) => item.priority === 'medium')
+  const lowPriorityImprovements = sortedImprovements.filter((item) => item.priority === 'low')
+  const improvementBadgeClasses = (priority: string) => {
+    switch (priority) {
+      case 'critical':
+        return 'bg-red-100 text-red-800'
+      case 'high':
+        return 'bg-orange-100 text-orange-800'
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'low':
+        return 'bg-blue-100 text-blue-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+  const improvementCardClasses = (priority: string) => {
+    switch (priority) {
+      case 'critical':
+        return 'border-red-200 bg-red-50'
+      case 'high':
+        return 'border-orange-200 bg-orange-50'
+      case 'medium':
+        return 'border-yellow-200 bg-yellow-50'
+      case 'low':
+        return 'border-blue-200 bg-blue-50'
+      default:
+        return 'border-gray-200 bg-white'
+    }
+  }
+  const pointStatusClasses = (status: FeedbackPointOverview['status']) => {
+    switch (status) {
+      case 'ok':
+        return 'bg-green-100 text-green-800'
+      case 'improve':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'deduction':
+        return 'bg-red-100 text-red-800'
+      case 'blocking':
+        return 'bg-red-200 text-red-900'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+  const renderTrekkLabel = (value: number | null | undefined) => {
+    if (!value) return null
+    const policy = (outputOverlay as any)?.field_policies?.trekk
+    const label = policy?.external_labels?.[String(value)]
+    if (!label) return null
+    const prefix = policy?.prefix || 'Vurdering'
+    const format = policy?.render?.format || '{prefix}: {label}'
+    return format.replace('{prefix}', prefix).replace('{label}', label)
+  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -234,9 +459,9 @@ export default function ResultsPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    Analysis Results
+                    Analyseresultater
                   </h1>
-                  <p className="text-xs text-gray-500">Report #{report.id}</p>
+                  <p className="text-xs text-gray-500">Rapport nr. {report.id}</p>
                 </div>
               </div>
               <nav className="hidden md:flex space-x-4">
@@ -244,13 +469,13 @@ export default function ResultsPage() {
                   onClick={() => router.push('/')}
                   className="text-gray-600 hover:text-blue-600 transition-colors"
                 >
-                  Upload
+                  Last opp
                 </button>
                 <button
                   onClick={() => router.push('/history')}
                   className="text-gray-600 hover:text-blue-600 transition-colors"
                 >
-                  History
+                  Historikk
                 </button>
               </nav>
             </div>
@@ -258,7 +483,7 @@ export default function ResultsPage() {
               onClick={() => router.push('/')}
               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
             >
-              Upload New Report
+              Last opp ny rapport
             </button>
           </div>
         </div>
@@ -273,7 +498,7 @@ export default function ResultsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-2xl font-bold text-gray-900">{report.filename}</h2>
                   {/* Trygghetsscore in top right corner - score in middle of image */}
-                  {report.overall_score !== null && (
+                  {scoreTotal !== null && scoreTotal !== undefined && (
                     <div className="relative inline-block">
                       <img
                         src="/Trygghetsscore_Topp_s.png"
@@ -283,7 +508,7 @@ export default function ResultsPage() {
                       {/* Score number in the middle of the image */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-5xl font-bold text-red-600 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]">
-                          {Math.min(Math.round(report.overall_score * 0.99), 99).toFixed(0)}
+                          {Math.max(0, Math.min(100, Math.round(scoreTotal))).toFixed(0)}
                         </div>
                       </div>
                     </div>
@@ -317,8 +542,345 @@ export default function ResultsPage() {
             </div>
           </div>
 
+          {hasFeedbackV11 && feedbackV11 && (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Punkt-for-punkt oversikt</h2>
+                  <p className="text-sm text-gray-500 mt-1">Alle punkter som finnes i rapporten</p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {feedbackV11.points_overview.map((point) => (
+                  <div key={point.point_id} className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-gray-500">Punkt {point.point_id}</p>
+                        <h3 className="text-lg font-semibold text-gray-900">{point.title}</h3>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pointStatusClasses(point.status)}`}>
+                          {point.status}
+                        </span>
+                        <p className="text-xs text-gray-500 mt-2">{point.tg}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700">{point.summary}</p>
+                    {typeof point.deduction_total === 'number' && point.deduction_total > 0 && (
+                      <p className="text-xs text-red-600 mt-2">{renderTrekkLabel(point.deduction_total)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasV14 && analysis && (
+            <>
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Trekk per kategori</h2>
+                    <p className="text-sm text-gray-500 mt-1">Kategoritrekk mot totalpoeng</p>
+                  </div>
+                  <div className="hidden md:flex items-center space-x-2 text-xs text-gray-500">
+                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span>Høyere trekk</span>
+                    <span className="w-2 h-2 rounded-full bg-green-500 ml-3"></span>
+                    <span>Lavere trekk</span>
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-5">
+                  {analysis.score_by_category.map((category) => (
+                    <div key={category.category_id} className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-400 via-amber-400 to-green-400"></div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              Kategori {category.category_id}
+                            </span>
+                          </div>
+                          <p className="text-lg font-semibold text-gray-900">{category.category_name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-3xl font-bold text-gray-900">-{category.deduction}</p>
+                          <p className="text-xs text-gray-500">maks {category.max_deduction}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                          <span>Trekk</span>
+                          <span>{category.deduction}/{category.max_deduction}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-400 to-green-400"
+                            style={{ width: `${Math.min(100, (category.deduction / Math.max(category.max_deduction, 1)) * 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Viktigste score-drivere</h2>
+                <div className="space-y-4">
+                  {analysis.top_score_drivers.map((driver, index) => {
+                    const severityConfig = getSeverityConfig(driver.severity)
+                    return (
+                      <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900">{driver.title}</h3>
+                            <p className="text-sm text-gray-700">{driver.reason}</p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-sm font-bold ${severityConfig.badge}`}>
+                            -{driver.deduction_points}
+                          </span>
+                        </div>
+                        {driver.rule_refs.length > 0 && (
+                          <p className="text-xs text-gray-500 mb-3">Regler: {driver.rule_refs.join(', ')}</p>
+                        )}
+                        {driver.evidence && driver.evidence.length > 0 && (
+                          <div className="bg-white/80 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
+                            <p className="font-semibold text-gray-900 mb-1">Dokumentasjon</p>
+                            <p>
+                              {driver.evidence[0].heading}
+                              {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${driver.evidence[0].tg})` : ''}
+                            </p>
+                            <p>Side {driver.evidence[0].page} • {driver.evidence[0].source}</p>
+                            <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
+                            <p className="text-xs text-gray-500 mt-1">{driver.evidence[0].match_explain}</p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Funn per bygningsdel</h2>
+                <div className="space-y-6">
+                  {analysis.findings.map((component, index) => (
+                    <div key={index} className="border border-gray-200 rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">{component.component_title}</h3>
+                          <p className="text-sm text-gray-500">
+                            Punkt {component.component_id} {component.location ? `• ${component.location}` : ''}
+                          </p>
+                        </div>
+                        <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-semibold text-gray-700">
+                          {component.tg}
+                        </span>
+                      </div>
+
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <p className="text-sm font-semibold text-gray-900 mb-2">ARKAT (Årsak–Risiko–Konsekvens–Anbefalt tiltak)</p>
+                        <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-700">
+                          <div>
+                            <span className="font-semibold">Årsak:</span> {component.arkat?.arsak?.status ?? 'ukjent'}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Risiko:</span> {component.arkat?.risiko?.status ?? 'ukjent'}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Konsekvens:</span> {component.arkat?.konsekvens?.status ?? 'ukjent'}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Anbefalt tiltak:</span> {component.arkat?.anbefalt_tiltak?.status ?? 'ukjent'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {(component.issues ?? []).map((issue, issueIndex) => {
+                          const severityConfig = getSeverityConfig(issue.severity)
+                          return (
+                            <div key={issueIndex} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-lg p-4`}>
+                              <div className="flex items-start space-x-3">
+                                <span className="text-xl">{severityConfig.icon}</span>
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-gray-900">{issue.summary}</h4>
+                                  <p className="text-sm text-gray-700 mt-1">{issue.details}</p>
+                                  {issue.rule_refs.length > 0 && (
+                                    <p className="text-xs text-gray-500 mt-2">Regler: {issue.rule_refs.join(', ')}</p>
+                                  )}
+                                  {issue.evidence && issue.evidence.length > 0 && (
+                                    <div className="mt-3 bg-white/80 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
+                                      <p className="font-semibold text-gray-900 mb-1">Dokumentasjon</p>
+                                      <p>
+                                        {issue.evidence[0].heading}
+                                        {issue.evidence[0].point_id ? ` (Punkt ${issue.evidence[0].point_id}, ${issue.evidence[0].tg})` : ''}
+                                      </p>
+                                      <p>Side {issue.evidence[0].page} • {issue.evidence[0].source}</p>
+                                      <p className="italic mt-1">"{issue.evidence[0].snippet}"</p>
+                                      <p className="text-xs text-gray-500 mt-1">{issue.evidence[0].match_explain}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-amber-50 rounded-2xl shadow-lg border border-amber-200 p-8 mb-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-md">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-gray-900">Forbedringer som trengs</h2>
+                      <p className="text-gray-600 mt-1">Tiltak for å forbedre rapportkvaliteten</p>
+                    </div>
+                  </div>
+                  <div className="px-4 py-2 bg-white rounded-lg border border-orange-300 text-center">
+                    <span className="text-2xl font-bold text-orange-600">{sortedImprovements.length}</span>
+                    <span className="text-sm text-gray-600 block">punkter</span>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  {highPriorityImprovements.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                        Høyprioriterte funn
+                      </h3>
+                      <div className="space-y-4">
+                        {highPriorityImprovements.map((improvement, index) => (
+                          <div key={index} className="bg-white rounded-xl border border-red-200 shadow-sm p-5">
+                            <div className="flex items-start space-x-4">
+                              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2h-2l-3-3H9L6 10H4a2 2 0 00-2 2v5a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
+                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
+                                    {improvement.priority}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
+                                {improvement.suggested_text && (
+                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                    <p className="font-semibold mb-1">Slik retter du:</p>
+                                    <p className="italic">{improvement.suggested_text}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {mediumPriorityImprovements.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                        Middels prioriterte forbedringer
+                      </h3>
+                      <div className="space-y-4">
+                        {mediumPriorityImprovements.map((improvement, index) => (
+                          <div key={index} className="bg-white rounded-xl border border-yellow-200 shadow-sm p-5">
+                            <div className="flex items-start space-x-4">
+                              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
+                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
+                                    {improvement.priority}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
+                                {improvement.suggested_text && (
+                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                    <p className="font-semibold mb-1">Slik retter du:</p>
+                                    <p className="italic">{improvement.suggested_text}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {lowPriorityImprovements.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        Lavt prioriterte forbedringer
+                      </h3>
+                      <div className="space-y-4">
+                        {lowPriorityImprovements.map((improvement, index) => (
+                          <div key={index} className="bg-white rounded-xl border border-blue-200 shadow-sm p-5">
+                            <div className="flex items-start space-x-4">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
+                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
+                                    {improvement.priority}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
+                                {improvement.suggested_text && (
+                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                    <p className="font-semibold mb-1">Slik retter du:</p>
+                                    <p className="italic">{improvement.suggested_text}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {analysis.disclaimers && analysis.disclaimers.length > 0 && (
+                <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 mb-6 text-sm text-gray-600">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-2">Forbehold</h2>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {analysis.disclaimers.map((disclaimer, index) => (
+                      <li key={index}>{disclaimer}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+
           {/* Summary Section */}
-          {report.ai_analysis?.summary && (
+          {!hasV14 && legacyAnalysis?.summary && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
@@ -326,14 +888,14 @@ export default function ResultsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Executive Summary</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Sammendrag</h2>
               </div>
-              <p className="text-gray-700 leading-relaxed text-lg">{report.ai_analysis.summary}</p>
+              <p className="text-gray-700 leading-relaxed text-lg">{legacyAnalysis.summary}</p>
             </div>
           )}
 
           {/* Improvements Needed Section - Actionable Checklist */}
-          {((report.findings && report.findings.length > 0) || (report.ai_analysis?.improvement_suggestions)) && (
+          {!hasV14 && ((report.findings && report.findings.length > 0) || (legacyAnalysis?.improvement_suggestions)) && (
             <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-2xl shadow-xl border-2 border-orange-200 p-8 mb-6">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -342,14 +904,14 @@ export default function ResultsPage() {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-3xl font-bold text-gray-900">Improvements Needed</h2>
-                  <p className="text-gray-600 mt-1">Action items to improve your report quality</p>
+                  <h2 className="text-3xl font-bold text-gray-900">Forbedringer som trengs</h2>
+                  <p className="text-gray-600 mt-1">Tiltak for å forbedre rapportkvaliteten</p>
                 </div>
                 <div className="px-4 py-2 bg-white rounded-lg border-2 border-orange-300">
                   <span className="text-2xl font-bold text-orange-600">
-                    {(report.findings?.length || 0) + (report.ai_analysis?.improvement_suggestions?.for_takstmann?.length || 0) + (report.ai_analysis?.improvement_suggestions?.for_report_text?.length || 0)}
+                    {(report.findings?.length || 0) + (legacyAnalysis?.improvement_suggestions?.for_takstmann?.length || 0) + (legacyAnalysis?.improvement_suggestions?.for_report_text?.length || 0)}
                   </span>
-                  <span className="text-sm text-gray-600 block">items</span>
+                  <span className="text-sm text-gray-600 block">punkter</span>
                 </div>
               </div>
 
@@ -359,7 +921,7 @@ export default function ResultsPage() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                       <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                      High Priority Issues
+                      Høyprioriterte funn
                     </h3>
                     <div className="space-y-3">
                       {report.findings
@@ -377,13 +939,13 @@ export default function ResultsPage() {
                                 <p className="text-sm text-gray-700 mb-2">{finding.description}</p>
                                 {finding.suggestion && (
                                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                    <p className="text-sm font-semibold text-green-800 mb-1">✅ How to fix:</p>
+                                    <p className="text-sm font-semibold text-green-800 mb-1">✅ Slik retter du:</p>
                                     <p className="text-sm text-green-900">{finding.suggestion}</p>
                                   </div>
                                 )}
                                 {finding.standard_reference && (
                                   <p className="text-xs text-gray-500 mt-2">
-                                    <span className="font-medium">Reference:</span> {finding.standard_reference}
+                                    <span className="font-medium">Referanse:</span> {finding.standard_reference}
                                   </p>
                                 )}
                               </div>
@@ -399,7 +961,7 @@ export default function ResultsPage() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                       <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                      Medium Priority Improvements
+                      Middels prioriterte forbedringer
                     </h3>
                     <div className="space-y-3">
                       {report.findings
@@ -417,13 +979,13 @@ export default function ResultsPage() {
                                 <p className="text-sm text-gray-700 mb-2">{finding.description}</p>
                                 {finding.suggestion && (
                                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                    <p className="text-sm font-semibold text-green-800 mb-1">✅ How to fix:</p>
+                                    <p className="text-sm font-semibold text-green-800 mb-1">✅ Slik retter du:</p>
                                     <p className="text-sm text-green-900">{finding.suggestion}</p>
                                   </div>
                                 )}
                                 {finding.standard_reference && (
                                   <p className="text-xs text-gray-500 mt-2">
-                                    <span className="font-medium">Reference:</span> {finding.standard_reference}
+                                    <span className="font-medium">Referanse:</span> {finding.standard_reference}
                                   </p>
                                 )}
                               </div>
@@ -435,16 +997,16 @@ export default function ResultsPage() {
                 )}
 
                 {/* Improvement Suggestions from AI */}
-                {report.ai_analysis?.improvement_suggestions && (
+                {legacyAnalysis?.improvement_suggestions && (
                   <>
-                    {report.ai_analysis.improvement_suggestions.for_takstmann && report.ai_analysis.improvement_suggestions.for_takstmann.length > 0 && (
+                    {legacyAnalysis.improvement_suggestions.for_takstmann && legacyAnalysis.improvement_suggestions.for_takstmann.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                           <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                          Recommendations for Surveyor
+                          Anbefalinger for takstmann
                         </h3>
                         <div className="space-y-3">
-                          {report.ai_analysis.improvement_suggestions.for_takstmann.map((item, index) => {
+                          {legacyAnalysis.improvement_suggestions.for_takstmann.map((item: any, index: number) => {
                             const issue = typeof item === 'object' ? item.issue || item.recommended_text : item
                             const recommendedText = typeof item === 'object' ? item.recommended_text : item
                             return (
@@ -470,14 +1032,14 @@ export default function ResultsPage() {
                       </div>
                     )}
 
-                    {report.ai_analysis.improvement_suggestions.for_report_text && report.ai_analysis.improvement_suggestions.for_report_text.length > 0 && (
+                    {legacyAnalysis.improvement_suggestions.for_report_text && legacyAnalysis.improvement_suggestions.for_report_text.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                           <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
-                          Text Improvements Needed
+                          Tekstforbedringer som trengs
                         </h3>
                         <div className="space-y-3">
-                          {report.ai_analysis.improvement_suggestions.for_report_text.map((item, index) => {
+                          {legacyAnalysis.improvement_suggestions.for_report_text.map((item: any, index: number) => {
                             const issue = typeof item === 'object' ? item.issue || item.recommended_text : item
                             const recommendedText = typeof item === 'object' ? item.recommended_text : item
                             return (
@@ -508,48 +1070,10 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {/* Legal Risk & Courtroom Assessment */}
-          {(report.ai_analysis?.legal_risk || report.ai_analysis?.courtroom_assessment) && (
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              {report.ai_analysis?.legal_risk && (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl shadow-lg border border-amber-200 p-6">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <span className="text-2xl">⚖️</span>
-                    <h3 className="text-xl font-bold text-gray-900">Legal Risk Assessment</h3>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-sm font-semibold text-gray-600">Risk Level: </span>
-                      <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                        report.ai_analysis.legal_risk.risk_level === 'høy' ? 'bg-red-100 text-red-800' :
-                        report.ai_analysis.legal_risk.risk_level === 'middels' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {report.ai_analysis.legal_risk.risk_level?.toUpperCase() || 'N/A'}
-                      </span>
-                    </div>
-                    {report.ai_analysis.legal_risk.explanation && (
-                      <p className="text-gray-700">{report.ai_analysis.legal_risk.explanation}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {report.ai_analysis?.courtroom_assessment && (
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl shadow-lg border border-purple-200 p-6">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <span className="text-2xl">🏛️</span>
-                    <h3 className="text-xl font-bold text-gray-900">Courtroom Assessment</h3>
-                  </div>
-                  {report.ai_analysis.courtroom_assessment.assessment && (
-                    <p className="text-gray-700">{report.ai_analysis.courtroom_assessment.assessment}</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Court case section removed in v1.4 */}
 
           {/* Components Section */}
-          {report.components && report.components.length > 0 && (
+          {!hasV14 && report.components && report.components.length > 0 && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
@@ -557,7 +1081,7 @@ export default function ResultsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Building Components</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Bygningsdeler</h2>
                 <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
                   {report.components.length}
                 </span>
@@ -594,7 +1118,7 @@ export default function ResultsPage() {
           )}
 
           {/* Findings Section */}
-          {report.findings && report.findings.length > 0 && (
+          {!hasV14 && report.findings && report.findings.length > 0 && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-pink-600 rounded-lg flex items-center justify-center">
@@ -602,7 +1126,7 @@ export default function ResultsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Findings</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Funn</h2>
                 <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
                   {report.findings.length}
                 </span>
@@ -629,7 +1153,7 @@ export default function ResultsPage() {
                       </div>
                       {finding.suggestion && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
-                          <p className="text-sm font-semibold text-gray-700 mb-1">💡 Suggestion:</p>
+                          <p className="text-sm font-semibold text-gray-700 mb-1">💡 Forslag:</p>
                           <p className="text-sm text-gray-700">{finding.suggestion}</p>
                         </div>
                       )}
@@ -638,7 +1162,7 @@ export default function ResultsPage() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
-                          <span className="font-medium">Reference: {finding.standard_reference}</span>
+                          <span className="font-medium">Referanse: {finding.standard_reference}</span>
                         </div>
                       )}
                     </div>
@@ -649,7 +1173,7 @@ export default function ResultsPage() {
           )}
 
           {/* Recommendations */}
-          {report.ai_analysis?.recommendations && report.ai_analysis.recommendations.length > 0 && (
+          {legacyAnalysis?.recommendations && legacyAnalysis.recommendations.length > 0 && (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg border border-blue-200 p-8 mb-6">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
@@ -657,10 +1181,10 @@ export default function ResultsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Recommendations</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Anbefalinger</h2>
               </div>
               <ul className="space-y-3">
-                {report.ai_analysis.recommendations.map((rec, index) => (
+                {legacyAnalysis.recommendations.map((rec: string, index: number) => (
                   <li key={index} className="flex items-start space-x-3">
                     <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold mt-0.5">
                       {index + 1}
@@ -684,7 +1208,7 @@ export default function ResultsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Verification & Debug</h2>
+                <h2 className="text-xl font-bold text-gray-900">Verifisering og feilsøking</h2>
               </div>
               <svg
                 className={`w-5 h-5 text-gray-600 transition-transform ${showVerification ? 'rotate-180' : ''}`}
@@ -700,13 +1224,13 @@ export default function ResultsPage() {
               <div className="space-y-6 mt-6 pt-6 border-t border-gray-200">
                 {/* Metadata */}
                 <div className="bg-gray-50 rounded-xl p-6">
-                  <h3 className="font-bold text-gray-900 mb-4">Analysis Metadata</h3>
+                  <h3 className="font-bold text-gray-900 mb-4">Analysemetadata</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: 'Text Length', value: `${report.extracted_text?.length || 0} chars` },
-                      { label: 'Est. Tokens', value: Math.floor((report.extracted_text?.length || 0) / 4).toLocaleString() },
-                      { label: 'Components', value: report.components.length },
-                      { label: 'Findings', value: report.findings.length },
+                      { label: 'Tekstlengde', value: `${report.extracted_text?.length || 0} tegn` },
+                      { label: 'Est. tokens', value: Math.floor((report.extracted_text?.length || 0) / 4).toLocaleString() },
+                      { label: 'Bygningsdeler', value: report.components.length },
+                      { label: 'Funn', value: report.findings.length },
                     ].map((item, idx) => (
                       <div key={idx} className="bg-white rounded-lg p-3">
                         <p className="text-xs text-gray-600 mb-1">{item.label}</p>
@@ -720,19 +1244,19 @@ export default function ResultsPage() {
                 {report.extracted_text && (
                   <div>
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-bold text-gray-900">Extracted PDF Text</h3>
+                      <h3 className="font-bold text-gray-900">Uthentet PDF-tekst</h3>
                       <button
                         onClick={() => setShowFullText(!showFullText)}
                         className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                       >
-                        {showFullText ? 'Show Less' : 'Show Full Text'}
+                        {showFullText ? 'Vis mindre' : 'Vis full tekst'}
                       </button>
                     </div>
                     <div className="bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto">
                       <pre className="text-xs text-green-400 whitespace-pre-wrap font-mono">
                         {showFullText 
                           ? report.extracted_text 
-                          : `${report.extracted_text.substring(0, 2000)}${report.extracted_text.length > 2000 ? '\n\n... (truncated)' : ''}`
+                          : `${report.extracted_text.substring(0, 2000)}${report.extracted_text.length > 2000 ? '\n\n... (avkortet)' : ''}`
                         }
                       </pre>
                     </div>
@@ -742,7 +1266,7 @@ export default function ResultsPage() {
                 {/* Full AI Analysis JSON */}
                 {report.ai_analysis && (
                   <div>
-                    <h3 className="font-bold text-gray-900 mb-3">Full AI Analysis (JSON)</h3>
+                    <h3 className="font-bold text-gray-900 mb-3">Full AI-analyse (JSON)</h3>
                     <div className="bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto">
                       <pre className="text-xs text-yellow-400 whitespace-pre-wrap font-mono">
                         {JSON.stringify(report.ai_analysis, null, 2)}

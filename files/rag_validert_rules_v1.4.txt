@@ -1,0 +1,29 @@
+RAG – VALIDERT SYSTEMREGLER (METODIKK)
+Formål: Definere hvordan Validert evaluerer rapporter (konsistent, takstmann-trygt, lovnært).
+
+A) ARKAT
+ARKAT = Årsak → Risiko → Konsekvens → Anbefalt tiltak / anbefalte tiltak
+
+1) Plassering
+- ARKAT kan stå under bygningsdelen, i merknader eller i samlet oppsummering.
+- Krav: Tydelig kobling til riktig bygningsdel (sporbarhet).
+
+2) TG2
+- Obligatorisk: Årsak + Konsekvens.
+- Risiko/Anbefalt(e) tiltak: situasjonsavhengig.
+- Trekk kun hvis fravær gjør teksten uklar eller misvisende.
+
+3) TG3
+- Obligatorisk: Full ARKAT.
+- Anbefalt(e) tiltak må fremstå nødvendig.
+- Valgfrihetsformuleringer ved TG3 er ikke akseptable.
+
+B) TGIU
+- Må beskrive hva som ikke er undersøkt, hvorfor, samt risiko og konsekvens.
+
+C) Konsistens
+- Skille observasjon og vurdering.
+- Unngå dobbeltføring av samme avvik uten nye observasjoner.
+
+D) Forsvarlig undersøkelse
+- Ikke straff for manglende destruktive/uforsvarlige undersøkelser.

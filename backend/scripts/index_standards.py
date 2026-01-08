@@ -60,6 +60,16 @@ def main():
             "path": f"{base_path}/prop-44-l-2018-2019.pdf",
             "name": "Prop. 44 L",
             "category": "legal_interpretation"
+        },
+        {
+            "path": f"{base_path}/NS3600_2025.pdf",
+            "name": "NS 3600:2025",
+            "category": "technical_analysis"
+        },
+        {
+            "path": f"{base_path}/Avhl_TryggereBolighandel_NY.pdf",
+            "name": "Tryggere bolighandel (Avhl.)",
+            "category": "legal_interpretation"
         }
     ]
     
@@ -102,4 +112,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -60,7 +60,7 @@ export default function HistoryPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       </div>
     )
@@ -109,10 +109,10 @@ export default function HistoryPage() {
                   onClick={() => router.push('/')}
                   className="text-gray-600 hover:text-blue-600 transition-colors"
                 >
-                  Upload
+                  Last opp
                 </button>
                 <span className="text-blue-600 font-medium border-b-2 border-blue-600">
-                  History
+                  Historikk
                 </span>
               </nav>
             </div>
@@ -124,8 +124,8 @@ export default function HistoryPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Report History</h2>
-            <p className="text-gray-600">View all your previous report analyses</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Rapporthistorikk</h2>
+            <p className="text-gray-600">Se alle dine tidligere rapportanalyser</p>
           </div>
 
           {error && (
@@ -149,13 +149,13 @@ export default function HistoryPage() {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">No reports yet</h3>
-              <p className="text-gray-500 mb-6">Upload your first building condition report to get started</p>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">Ingen rapporter ennå</h3>
+              <p className="text-gray-500 mb-6">Last opp din første tilstandsrapport for å komme i gang</p>
               <button
                 onClick={() => router.push('/')}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
               >
-                Upload Report
+                Last opp rapport
               </button>
             </div>
           ) : (
@@ -202,25 +202,25 @@ export default function HistoryPage() {
                           <div className={`text-2xl font-bold ${getScoreColor(report.overall_score)}`}>
                             {report.overall_score !== null ? Math.round(report.overall_score) : '-'}
                           </div>
-                          <div className="text-xs text-gray-500">Overall</div>
+                          <div className="text-xs text-gray-500">Total</div>
                         </div>
                         <div className="text-center">
                           <div className={`text-sm font-semibold ${getScoreColor(report.quality_score)}`}>
                             {report.quality_score !== null ? Math.round(report.quality_score) : '-'}
                           </div>
-                          <div className="text-xs text-gray-500">Quality</div>
+                          <div className="text-xs text-gray-500">Kvalitet</div>
                         </div>
                         <div className="text-center">
                           <div className={`text-sm font-semibold ${getScoreColor(report.completeness_score)}`}>
                             {report.completeness_score !== null ? Math.round(report.completeness_score) : '-'}
                           </div>
-                          <div className="text-xs text-gray-500">Complete</div>
+                          <div className="text-xs text-gray-500">Fullstendighet</div>
                         </div>
                         <div className="text-center">
                           <div className={`text-sm font-semibold ${getScoreColor(report.compliance_score)}`}>
                             {report.compliance_score !== null ? Math.round(report.compliance_score) : '-'}
                           </div>
-                          <div className="text-xs text-gray-500">Compliant</div>
+                          <div className="text-xs text-gray-500">Samsvar</div>
                         </div>
                       </div>
 
@@ -232,7 +232,7 @@ export default function HistoryPage() {
                         }}
                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
                       >
-                        View Report
+                        Vis rapport
                       </button>
                     </div>
                   </div>
@@ -248,7 +248,7 @@ export default function HistoryPage() {
                 onClick={() => router.push('/')}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
               >
-                Upload New Report
+                Last opp ny rapport
               </button>
             </div>
           )}
@@ -257,4 +257,3 @@ export default function HistoryPage() {
     </div>
   )
 }
-
