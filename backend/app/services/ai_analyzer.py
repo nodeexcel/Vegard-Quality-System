@@ -142,12 +142,23 @@ def _extract_detected_points(report_text: str) -> List[Dict[str, object]]:
         excerpt = section_title or (span_text[:200].strip() if span_text else "")
         if not excerpt:
             excerpt = f"Punkt {heading['point_id']}"
+        native_label = heading["point_id"]
+        numeric_id = native_label if _is_numeric_point_id(native_label) else ""
+        order_in_doc = i + 1
+        anchor_text = span_lines[0]["text"] if span_lines else ""
         detected.append(
             {
+                "point_key": f"P{order_in_doc:04d}",
+                "native_label": native_label,
+                "numeric_id": numeric_id or None,
+                "native_path": [],
+                "kind": "point",
                 "point_id": heading["point_id"],
                 "title": section_title or "Ukjent",
                 "page_start": page_start,
                 "page_end": page_end,
+                "order_in_doc": order_in_doc,
+                "anchor_text": anchor_text,
                 "span_hash": hashlib.sha256(span_text.encode("utf-8")).hexdigest() if span_text else "",
                 "excerpt": excerpt,
                 "tg": tg_match.group(0) if tg_match else "",
@@ -168,7 +179,7 @@ def _build_detected_points_payload(
         page_count = int(pdf_metadata.get("total_pages") or pdf_metadata.get("pages_with_text") or 1)
     source_filename = document_title or (f"report_{document_id}.pdf" if document_id else "report.pdf")
     return {
-        "version": "v1.0",
+        "version": "v1.2",
         "document": {
             "document_hash": document_hash,
             "source_filename": source_filename,
@@ -181,6 +192,122 @@ def _build_detected_points_payload(
         },
         "points": detected_points,
     }
+
+
+def _is_numeric_point_id(value: str) -> bool:
+    if not value:
+        return False
+    return bool(re.match(r"^\d+(?:\.\d+)*$", value))
+
+
+def _parse_numeric_id(value: str) -> List[int]:
+    return [int(part) for part in value.split(".") if part.isdigit()]
+
+
+def _compare_numeric_ids(a: str, b: str) -> int:
+    arr_a = _parse_numeric_id(a)
+    arr_b = _parse_numeric_id(b)
+    max_len = max(len(arr_a), len(arr_b))
+    for i in range(max_len):
+        val_a = arr_a[i] if i < len(arr_a) else None
+        val_b = arr_b[i] if i < len(arr_b) else None
+        if val_a is None and val_b is not None:
+            return -1
+        if val_a is not None and val_b is None:
+            return 1
+        if val_a is None and val_b is None:
+            return 0
+        if val_a < val_b:
+            return -1
+        if val_a > val_b:
+            return 1
+    return 0
+
+
+def _numeric_id_for_point(point: Dict[str, object]) -> str:
+    numeric_id = point.get("numeric_id") or point.get("point_id") or ""
+    return numeric_id if isinstance(numeric_id, str) and _is_numeric_point_id(numeric_id) else ""
+
+
+def _point_key_for_point(point: Dict[str, object]) -> str:
+    return (
+        point.get("point_key")
+        or point.get("point_id")
+        or point.get("native_label")
+        or ""
+    )
+
+
+def _detect_sort_mode(points: List[Dict[str, object]]) -> str:
+    if not points:
+        return "DOCUMENT_ORDER"
+    numeric_count = 0
+    for point in points:
+        numeric_id = _numeric_id_for_point(point)
+        if numeric_id:
+            numeric_count += 1
+    ratio = numeric_count / len(points)
+    return "NUMERIC" if ratio >= 0.7 else "DOCUMENT_ORDER"
+
+
+def _dedupe_points(points: List[Dict[str, object]], dedupe_key: str) -> List[Dict[str, object]]:
+    unique: Dict[str, Dict[str, object]] = {}
+    for idx, point in enumerate(points):
+        if not isinstance(point, dict):
+            continue
+        key = ""
+        if dedupe_key == "numeric_id":
+            key = _numeric_id_for_point(point)
+        if not key:
+            key = _point_key_for_point(point)
+        if not key:
+            key = f"idx-{idx}"
+        if key not in unique:
+            unique[key] = point
+            continue
+        existing = unique[key]
+        if not existing.get("tg") and point.get("tg"):
+            existing["tg"] = point.get("tg")
+        if not existing.get("anchor_text") and point.get("anchor_text"):
+            existing["anchor_text"] = point.get("anchor_text")
+        if not existing.get("excerpt") and point.get("excerpt"):
+            existing["excerpt"] = point.get("excerpt")
+        if not existing.get("page_start") and point.get("page_start"):
+            existing["page_start"] = point.get("page_start")
+        if not existing.get("page_end") and point.get("page_end"):
+            existing["page_end"] = point.get("page_end")
+    return list(unique.values())
+
+
+def _sort_points(points: List[Dict[str, object]]) -> Tuple[str, str, List[Dict[str, object]]]:
+    mode = _detect_sort_mode(points)
+    if mode == "NUMERIC":
+        unique_points = _dedupe_points(points, "numeric_id")
+        def _cmp(a: Dict[str, object], b: Dict[str, object]) -> int:
+            a_id = _numeric_id_for_point(a)
+            b_id = _numeric_id_for_point(b)
+            if not a_id and not b_id:
+                return 0
+            if not a_id:
+                return 1
+            if not b_id:
+                return -1
+            return _compare_numeric_ids(a_id, b_id)
+        from functools import cmp_to_key
+        sorted_points = sorted(unique_points, key=cmp_to_key(_cmp))
+        return mode, "numeric_id", sorted_points
+    unique_points = _dedupe_points(points, "point_key")
+    if all(isinstance(p, dict) and p.get("order_in_doc") is not None for p in unique_points):
+        sorted_points = sorted(
+            unique_points,
+            key=lambda p: int(p.get("order_in_doc") or 0),
+        )
+    else:
+        sorted_points = sorted(
+            unique_points,
+            key=lambda p: int(p.get("page_start") or 0),
+        )
+    return mode, "point_key", sorted_points
 
 
 def _derive_rule_family(rule_id: str) -> str:
@@ -200,8 +327,20 @@ def _build_feedback_v11(
     document_hash: Optional[str],
 ) -> Dict[str, object]:
     points = detected_points_payload.get("points", []) if isinstance(detected_points_payload, dict) else []
-    allowed_point_ids = {p.get("point_id") for p in points if isinstance(p, dict)}
-    point_lookup = {p.get("point_id"): p for p in points if isinstance(p, dict) and p.get("point_id")}
+    allowed_point_ids = set()
+    point_lookup: Dict[str, Dict[str, object]] = {}
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        for key in (
+            point.get("point_id"),
+            point.get("numeric_id"),
+            point.get("point_key"),
+            point.get("native_label"),
+        ):
+            if isinstance(key, str) and key:
+                allowed_point_ids.add(key)
+                point_lookup.setdefault(key, point)
 
     score_total = analysis_output.get("score_total", 0)
     score_by_category = analysis_output.get("score_by_category", [])
@@ -215,13 +354,16 @@ def _build_feedback_v11(
         if not isinstance(component, dict):
             continue
         point_id = component.get("component_id") or ""
-        if point_id and point_id not in allowed_point_ids:
+        if not point_id:
+            continue
+        if point_id not in allowed_point_ids:
             continue
         deductions = component.get("deductions", []) if isinstance(component.get("deductions"), list) else []
         deduction_totals[point_id] = sum(
             int(d.get("points", 0)) for d in deductions if isinstance(d, dict)
         )
         issues = component.get("issues", []) if isinstance(component.get("issues"), list) else []
+        point_meta = point_lookup.get(point_id, {})
         for issue_idx, issue in enumerate(issues):
             if not isinstance(issue, dict):
                 continue
@@ -239,7 +381,6 @@ def _build_feedback_v11(
                         "match": item.get("match_explain") or "Derived from evidence.",
                     }
             if not evidence or not evidence.get("snippet"):
-                point_meta = point_lookup.get(point_id, {})
                 evidence = {
                     "page": int(point_meta.get("page_start", 1) or 1),
                     "snippet": point_meta.get("excerpt") or issue.get("details") or issue.get("summary") or "",
@@ -248,7 +389,8 @@ def _build_feedback_v11(
             if not evidence.get("snippet"):
                 evidence["snippet"] = "Ikke tilgjengelig."
 
-            finding_id = f"f-{point_id or 'unknown'}-{issue_idx + 1:03d}"
+            finding_id = f"f-{point_id}-{issue_idx + 1:03d}"
+            point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
             feedback_findings.append(
                 {
                     "finding_id": finding_id,
@@ -256,7 +398,8 @@ def _build_feedback_v11(
                     "rule_family": _derive_rule_family(rule_id),
                     "severity": severity,
                     "affects_96_gate": False,
-                    "point_id": point_id or "UNKNOWN",
+                    "point_id": point_id,
+                    "point_key": point_key or point_id,
                     "arkat_section": "annet",
                     "message": issue.get("summary") or "Avvik",
                     "what_to_change": issue.get("details") or issue.get("summary") or "Se forbedringsforslag.",
@@ -276,11 +419,19 @@ def _build_feedback_v11(
             )
             finding_ids_by_point.setdefault(point_id, []).append(finding_id)
 
+    mode, dedupe_key, sorted_points = _sort_points(points)
+    ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
+
     points_overview: List[Dict[str, object]] = []
-    for point in points:
+    display_index = 1
+    for point in sorted_points:
         if not isinstance(point, dict):
             continue
-        point_id = point.get("point_id", "")
+        kind = point.get("kind")
+        if isinstance(kind, str) and kind not in ("point", "subpoint"):
+            continue
+        point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
+        point_key = point.get("point_key") or point_id
         component = next(
             (
                 c
@@ -304,22 +455,42 @@ def _build_feedback_v11(
             summary = (issues[0].get("summary") if issues else "") or "Trekk er registrert for punktet."
 
         tg_value = point.get("tg") or (component.get("tg") if isinstance(component, dict) else "") or "UNKNOWN"
+        where = {
+            "page": int(point.get("page_start") or 1),
+        }
+        if point.get("anchor_text"):
+            where["anchor_text"] = point.get("anchor_text")
+        if point.get("bbox"):
+            where["bbox"] = point.get("bbox")
         points_overview.append(
             {
+                "display_index": display_index,
                 "point_id": point_id,
+                "point_key": point_key,
+                "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
+                "numeric_id": point.get("numeric_id") or (_numeric_id_for_point(point) or None),
+                "native_path": point.get("native_path"),
                 "title": point.get("title") or "Ukjent",
                 "tg": tg_value,
                 "status": status,
                 "summary": summary,
                 "deduction_total": max(deduction_total, 0),
                 "finding_ids": finding_ids_by_point.get(point_id, []),
+                "where": where,
             }
         )
+        display_index += 1
 
     return {
         "version": "v1.1",
         "report_id": str(report_id) if report_id else "unknown_report",
         "document_hash": document_hash or "unknown_hash",
+        "ordering": {
+            "mode": mode,
+            "dedupe_key": dedupe_key,
+            "source": "detected_points",
+            "note": ordering_note,
+        },
         "score": {
             "total": score_total,
             "category_deductions": [

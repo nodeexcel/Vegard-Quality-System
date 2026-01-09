@@ -1,389 +1,146 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://validert.no/schemas/validert_feedback_v1.2.schema.json",
-  "title": "VALIDERT Feedback Schema v1.2 (Report-agnostic point-by-point)",
+  "$id": "https://validert.no/schemas/validert_feedback_v1.3.schema.json",
+  "title": "VALIDERT Feedback Schema v1.3 (report-agnostic, point-by-point)",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "version",
-    "report_id",
-    "document_hash",
-    "score",
-    "gate",
-    "points_overview",
-    "findings"
-  ],
+  "required": ["version", "report_id", "document_hash", "ordering", "score", "gate", "points_overview", "findings"],
   "properties": {
-    "version": {
-      "type": "string",
-      "const": "v1.2"
+    "version": { "type": "string", "const": "v1.3" },
+    "report_id": { "type": "string", "minLength": 1 },
+    "document_hash": { "type": "string", "minLength": 8 },
+
+    "ordering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "dedupe_key", "source"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["NUMERIC", "DOCUMENT_ORDER"] },
+        "dedupe_key": { "type": "string", "enum": ["numeric_id", "point_key"] },
+        "source": { "type": "string", "enum": ["detected_points"] },
+        "note": { "type": "string" }
+      },
+      "description": "Debug/trace: hvordan points_overview ble produsert."
     },
-    "report_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "document_hash": {
-      "type": "string",
-      "minLength": 8
-    },
+
     "score": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "total",
-        "category_deductions"
-      ],
+      "required": ["total", "category_deductions"],
       "properties": {
-        "total": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
-        },
+        "total": { "type": "number", "minimum": 0, "maximum": 100 },
         "category_deductions": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "category",
-              "deduction",
-              "max_deduction"
-            ],
+            "required": ["category", "deduction", "max_deduction"],
             "properties": {
-              "category": {
-                "type": "string",
-                "minLength": 1
-              },
-              "deduction": {
-                "type": "number",
-                "minimum": 0
-              },
-              "max_deduction": {
-                "type": "number",
-                "minimum": 0
-              }
+              "category": { "type": "string", "minLength": 1 },
+              "deduction": { "type": "number", "minimum": 0 },
+              "max_deduction": { "type": "number", "minimum": 0 }
             }
           }
         },
         "top_drivers": {
           "type": "array",
-          "maxItems": 8,
+          "maxItems": 10,
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "rule_id",
-              "deduction",
-              "message"
-            ],
+            "required": ["rule_id", "deduction", "message"],
             "properties": {
-              "rule_id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "deduction": {
-                "type": "number",
-                "minimum": 0
-              },
-              "message": {
-                "type": "string",
-                "minLength": 1
-              }
+              "rule_id": { "type": "string", "minLength": 1 },
+              "deduction": { "type": "number", "minimum": 0 },
+              "message": { "type": "string", "minLength": 1 }
             }
           }
         }
       }
     },
+
     "gate": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "active",
-        "blocked_96",
-        "blocked_by"
-      ],
+      "required": ["active", "blocked_96", "blocked_by"],
       "properties": {
-        "active": {
-          "type": "boolean"
-        },
-        "blocked_96": {
-          "type": "boolean"
-        },
-        "blocked_by": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
+        "active": { "type": "boolean" },
+        "blocked_96": { "type": "boolean" },
+        "blocked_by": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
+
     "points_overview": {
       "type": "array",
       "minItems": 1,
-      "description": "MUST include every detected point with kind in ['point','subpoint'] in document order.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "display_index",
-          "point_key",
-          "native_label",
-          "title",
-          "status",
-          "summary"
-        ],
+        "required": ["display_index", "point_key", "native_label", "title", "status", "summary", "where"],
         "properties": {
-          "display_index": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "point_key": {
-            "type": "string",
-            "minLength": 1
-          },
-          "native_label": {
-            "type": "string",
-            "minLength": 1
-          },
-          "numeric_id": {
-            "type": "string",
-            "pattern": "^\\d+(\\.\\d+){0,5}$"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1
-          },
-          "native_path": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "tg": {
-            "type": "string",
-            "enum": [
-              "TG0",
-              "TG1",
-              "TG2",
-              "TG3",
-              "TGIU",
-              "NA",
-              "UNKNOWN"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "ok",
-              "improve",
-              "deduction",
-              "blocking"
-            ]
-          },
-          "summary": {
-            "type": "string",
-            "minLength": 1
-          },
-          "deduction_total": {
-            "type": "number",
-            "minimum": 0
-          },
-          "finding_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
+          "display_index": { "type": "integer", "minimum": 1 },
+          "point_key": { "type": "string", "minLength": 1 },
+          "native_label": { "type": "string", "minLength": 1 },
+          "numeric_id": { "type": "string", "pattern": "^\\d+(\\.\\d+){0,5}$" },
+          "native_path": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "title": { "type": "string", "minLength": 1 },
+          "tg": { "type": "string", "enum": ["TG0", "TG1", "TG2", "TG3", "TGIU", "NA", "UNKNOWN"] },
+          "status": { "type": "string", "enum": ["ok", "improve", "deduction", "blocking"] },
+          "summary": { "type": "string", "minLength": 1 },
+          "deduction_total": { "type": "number", "minimum": 0 },
+          "finding_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "where": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "page"
-            ],
+            "required": ["page"],
             "properties": {
-              "page": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "bbox": {
-                "type": "array",
-                "minItems": 4,
-                "maxItems": 4,
-                "items": {
-                  "type": "number"
-                }
-              },
-              "anchor_text": {
-                "type": "string"
-              }
+              "page": { "type": "integer", "minimum": 1 },
+              "bbox": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "anchor_text": { "type": "string" }
             }
           }
         }
-      }
+      },
+      "description": "MÅ inkludere alle detected points (typisk kind=point/subpoint) i korrekt rekkefølge."
     },
+
     "findings": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "finding_id",
-          "rule_id",
-          "rule_family",
-          "severity",
-          "affects_96_gate",
-          "point_key",
-          "message",
-          "what_to_change",
-          "evidence"
-        ],
+        "required": ["finding_id", "rule_id", "rule_family", "severity", "affects_96_gate", "point_key", "message", "what_to_change", "evidence"],
         "properties": {
-          "finding_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rule_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rule_family": {
-            "type": "string",
-            "minLength": 1
-          },
-          "severity": {
-            "type": "string",
-            "enum": [
-              "info",
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ]
-          },
-          "affects_96_gate": {
-            "type": "boolean"
-          },
-          "point_key": {
-            "type": "string",
-            "minLength": 1
-          },
-          "arkat_section": {
-            "type": "string",
-            "enum": [
-              "observasjon",
-              "arsak",
-              "risiko",
-              "konsekvens",
-              "anbefalt_tiltak",
-              "tg",
-              "annet"
-            ]
-          },
-          "message": {
-            "type": "string",
-            "minLength": 1
-          },
-          "what_to_change": {
-            "type": "string",
-            "minLength": 1
-          },
+          "finding_id": { "type": "string", "minLength": 1 },
+          "rule_id": { "type": "string", "minLength": 1 },
+          "rule_family": { "type": "string", "minLength": 1 },
+          "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+          "affects_96_gate": { "type": "boolean" },
+          "point_key": { "type": "string", "minLength": 1 },
+          "arkat_section": { "type": "string", "enum": ["observasjon", "arsak", "risiko", "konsekvens", "anbefalt_tiltak", "tg", "annet"] },
+          "message": { "type": "string", "minLength": 1 },
+          "what_to_change": { "type": "string", "minLength": 1 },
           "example_fix": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "good_example": {
-                "type": "string",
-                "minLength": 1
-              },
-              "bad_example": {
-                "type": "string"
-              }
-            }
-          },
-          "course_ref": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "course_id": {
-                "type": "string"
-              },
-              "module": {
-                "type": "string"
-              },
-              "lesson": {
-                "type": "string"
-              },
-              "timestamp": {
-                "type": "string"
-              },
-              "url": {
-                "type": "string"
-              }
+              "good_example": { "type": "string", "minLength": 1 },
+              "bad_example": { "type": "string" }
             }
           },
           "evidence": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "page",
-              "snippet",
-              "match"
-            ],
+            "required": ["page", "snippet", "match"],
             "properties": {
-              "page": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "snippet": {
-                "type": "string",
-                "minLength": 1
-              },
-              "match": {
-                "type": "string",
-                "minLength": 1
-              },
-              "bbox": {
-                "type": "array",
-                "minItems": 4,
-                "maxItems": 4,
-                "items": {
-                  "type": "number"
-                }
-              }
+              "page": { "type": "integer", "minimum": 1 },
+              "snippet": { "type": "string", "minLength": 1 },
+              "match": { "type": "string", "minLength": 1 },
+              "bbox": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
             }
           },
-          "deduction": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "affects_96_gate": {
-                  "const": true
-                }
-              }
-            },
-            "then": {
-              "required": [
-                "course_ref"
-              ],
-              "properties": {
-                "severity": {
-                  "enum": [
-                    "high",
-                    "critical"
-                  ]
-                }
-              }
-            }
-          }
-        ]
+          "deduction": { "type": "number", "minimum": 0 }
+        }
       }
     }
   }

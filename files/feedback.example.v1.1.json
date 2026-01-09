@@ -1,117 +1,82 @@
 {
-  "version": "v1.2",
+  "version": "v1.3",
   "report_id": "rpt-123",
   "document_hash": "doc_hash_example_abcdef12",
+  "ordering": {
+    "mode": "NUMERIC",
+    "dedupe_key": "numeric_id",
+    "source": "detected_points",
+    "note": "Sortert numerisk (parent før child)."
+  },
   "score": {
     "total": 96,
     "category_deductions": [
-      {
-        "category": "A",
-        "deduction": 2,
-        "max_deduction": 40
-      },
-      {
-        "category": "B",
-        "deduction": 0,
-        "max_deduction": 20
-      },
-      {
-        "category": "C",
-        "deduction": 0,
-        "max_deduction": 15
-      },
-      {
-        "category": "D",
-        "deduction": 2,
-        "max_deduction": 15
-      },
-      {
-        "category": "E",
-        "deduction": 0,
-        "max_deduction": 10
-      }
+      { "category": "A", "deduction": 2, "max_deduction": 40 },
+      { "category": "B", "deduction": 0, "max_deduction": 20 },
+      { "category": "C", "deduction": 0, "max_deduction": 15 },
+      { "category": "D", "deduction": 2, "max_deduction": 15 },
+      { "category": "E", "deduction": 0, "max_deduction": 10 }
     ],
     "top_drivers": [
-      {
-        "rule_id": "D_LANGUAGE.long_sentences",
-        "deduction": 2,
-        "message": "Long sentences in a few points reduce readability."
-      }
+      { "rule_id": "D_LANGUAGE.long_sentences", "deduction": 2, "message": "Lange setninger i noen punkter reduserer lesbarhet." }
     ]
   },
-  "gate": {
-    "active": true,
-    "blocked_96": false,
-    "blocked_by": []
-  },
+  "gate": { "active": true, "blocked_96": false, "blocked_by": [] },
   "points_overview": [
     {
       "display_index": 1,
-      "point_key": "P0002",
-      "native_label": "Utvendig > Drenering",
-      "title": "Drenering og fuktsikring",
-      "native_path": [
-        "Utvendig",
-        "Drenering"
-      ],
-      "tg": "TG1",
-      "status": "ok",
-      "summary": "OK – clear and buyer-friendly description. No changes needed.",
-      "deduction_total": 0,
-      "finding_ids": [],
-      "where": {
-        "page": 12,
-        "anchor_text": "Drenering og fuktsikring"
-      }
+      "point_key": "P0010",
+      "native_label": "1.1",
+      "numeric_id": "1.1",
+      "native_path": ["Grunn og fundamenter"],
+      "title": "Byggegrunn, fundamenter, grunnmur, drenering og sikring mot vann og fuktighet",
+      "tg": "TG3",
+      "status": "deduction",
+      "summary": "Trekk – ARKAT-struktur uklar i hovedtekst.",
+      "deduction_total": 2,
+      "finding_ids": ["f-001"],
+      "where": { "page": 10, "anchor_text": "1.1 Byggegrunn ..." }
     },
     {
       "display_index": 2,
-      "point_key": "P0001",
-      "native_label": "6.12",
-      "numeric_id": "6.12",
-      "title": "Taktekking",
-      "native_path": [
-        "Utvendig",
-        "Tak"
-      ],
+      "point_key": "P0042",
+      "native_label": "4.2",
+      "numeric_id": "4.2",
+      "native_path": ["Tak"],
+      "title": "Undertak, lekter og yttertekking (taktekkingen)",
       "tg": "TG2",
       "status": "deduction",
-      "summary": "Deduction – risk and consequence are mixed; split into separate sentences.",
+      "summary": "Trekk – undersøkelsesbegrensninger ikke tydelig nok.",
       "deduction_total": 2,
-      "finding_ids": [
-        "f-001"
-      ],
-      "where": {
-        "page": 18,
-        "anchor_text": "6.12 Taktekking"
-      }
+      "finding_ids": ["f-002"],
+      "where": { "page": 12, "anchor_text": "4.2 Undertak, lekter ..." }
     }
   ],
   "findings": [
     {
       "finding_id": "f-001",
-      "rule_id": "D_LANGUAGE.long_sentences",
-      "rule_family": "D_LANGUAGE",
+      "rule_id": "A_ARKAT.konsekvens_unclear",
+      "rule_family": "A_ARKAT",
       "severity": "low",
       "affects_96_gate": false,
-      "point_key": "P0001",
+      "point_key": "P0010",
       "arkat_section": "konsekvens",
-      "message": "The sentence mixes risk and consequence and is too long.",
-      "what_to_change": "Split into (1) risk/development and (2) consequence for the buyer.",
-      "example_fix": {
-        "good_example": "Risk: ... Consequence: ..."
-      },
-      "evidence": {
-        "page": 18,
-        "snippet": "…",
-        "match": "mixed risk/consequence",
-        "bbox": [
-          0,
-          0,
-          0,
-          0
-        ]
-      },
+      "message": "Hovedteksten mangler tydelig ARKAT-struktur.",
+      "what_to_change": "Skill tydelig mellom årsak, risiko, konsekvens og anbefalt tiltak.",
+      "evidence": { "page": 10, "snippet": "Det er påvist skader ...", "match": "mangler struktur", "bbox": [0, 0, 0, 0] },
+      "deduction": 2
+    },
+    {
+      "finding_id": "f-002",
+      "rule_id": "C_TGIU.missing_limitations",
+      "rule_family": "C_TGIU",
+      "severity": "medium",
+      "affects_96_gate": false,
+      "point_key": "P0042",
+      "arkat_section": "annet",
+      "message": "Undersøkelsesbegrensninger nevnes, men ikke tydelig strukturert.",
+      "what_to_change": "Beskriv tydelig hva som ikke kunne kontrolleres og hvorfor.",
+      "evidence": { "page": 12, "snippet": "Det anses ikke som sikkerhetsforsvarlig ...", "match": "begrenset tilkomst", "bbox": [0, 0, 0, 0] },
       "deduction": 2
     }
   ]

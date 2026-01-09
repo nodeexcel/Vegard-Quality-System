@@ -1,65 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://validert.no/schemas/validert_detected_points_v1.1.schema.json",
-  "title": "VALIDERT Detected Points Schema v1.1 (Report-agnostic)",
+  "$id": "https://validert.no/schemas/validert_detected_points_v1.2.schema.json",
+  "title": "VALIDERT Detected Points Schema v1.2 (report-agnostic)",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "version",
-    "document",
-    "points"
-  ],
+  "required": ["version", "document", "points"],
   "properties": {
-    "version": {
-      "type": "string",
-      "const": "v1.1"
-    },
+    "version": { "type": "string", "const": "v1.2" },
     "document": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "document_hash",
-        "source_filename",
-        "page_count"
-      ],
+      "required": ["document_hash", "source_filename", "page_count", "extraction"],
       "properties": {
-        "document_hash": {
-          "type": "string",
-          "minLength": 8
-        },
-        "source_filename": {
-          "type": "string",
-          "minLength": 1
-        },
-        "page_count": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "report_vendor": {
-          "type": "string"
-        },
-        "report_type": {
-          "type": "string"
-        },
+        "document_hash": { "type": "string", "minLength": 8 },
+        "source_filename": { "type": "string", "minLength": 1 },
+        "page_count": { "type": "integer", "minimum": 1 },
+        "report_vendor": { "type": "string" },
+        "report_type": { "type": "string" },
         "extraction": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "engine",
-            "engine_version"
-          ],
+          "required": ["engine", "engine_version"],
           "properties": {
-            "engine": {
-              "type": "string",
-              "minLength": 1
-            },
-            "engine_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "notes": {
-              "type": "string"
-            }
+            "engine": { "type": "string", "minLength": 1 },
+            "engine_version": { "type": "string", "minLength": 1 },
+            "notes": { "type": "string" }
           }
         }
       }
@@ -78,105 +43,63 @@
           "page_end",
           "order_in_doc",
           "span_hash",
-          "excerpt"
+          "excerpt",
+          "kind"
         ],
         "properties": {
-          "point_key": {
-            "type": "string",
-            "minLength": 1
-          },
+          "point_key": { "type": "string", "minLength": 1 },
           "native_label": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Akkurat slik rapporten viser etiketten (f.eks. '4.2', '6.12' eller 'Utvendig > Tak')."
           },
           "numeric_id": {
             "type": "string",
-            "pattern": "^\\d+(\\.\\d+){0,5}$"
+            "pattern": "^\\d+(\\.\\d+){0,5}$",
+            "description": "Kun når rapporten faktisk har numerisk hierarki."
           },
-          "title": {
-            "type": "string",
-            "minLength": 1
-          },
+          "title": { "type": "string", "minLength": 1 },
           "native_path": {
             "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Breadcrumbs (valgfritt)."
           },
-          "parent_key": {
-            "type": "string"
-          },
+          "parent_key": { "type": "string" },
           "kind": {
             "type": "string",
-            "enum": [
-              "section",
-              "group",
-              "point",
-              "subpoint"
-            ]
+            "enum": ["section", "group", "point", "subpoint"],
+            "description": "UI-hint. points_overview bør normalt bare inkludere point/subpoint."
           },
           "tg": {
             "type": "string",
-            "enum": [
-              "TG0",
-              "TG1",
-              "TG2",
-              "TG3",
-              "TGIU",
-              "NA",
-              "UNKNOWN"
-            ]
+            "enum": ["TG0", "TG1", "TG2", "TG3", "TGIU", "NA", "UNKNOWN"]
           },
-          "page_start": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "page_end": {
-            "type": "integer",
-            "minimum": 1
-          },
+          "page_start": { "type": "integer", "minimum": 1 },
+          "page_end": { "type": "integer", "minimum": 1 },
           "order_in_doc": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "description": "Absolutt leserekkefølge i dokumentet (1..N)."
           },
           "char_range": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "start",
-              "end"
-            ],
+            "required": ["start", "end"],
             "properties": {
-              "start": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "end": {
-                "type": "integer",
-                "minimum": 0
-              }
+              "start": { "type": "integer", "minimum": 0 },
+              "end": { "type": "integer", "minimum": 0 }
             }
           },
           "bbox": {
             "type": "array",
             "minItems": 4,
             "maxItems": 4,
-            "items": {
-              "type": "number"
-            }
+            "items": { "type": "number" },
+            "description": "Valgfritt: [x1,y1,x2,y2] for heading/anker i sidekoordinater."
           },
-          "anchor_text": {
-            "type": "string"
-          },
-          "span_hash": {
-            "type": "string",
-            "minLength": 8
-          },
-          "excerpt": {
-            "type": "string",
-            "minLength": 1
-          }
+          "anchor_text": { "type": "string" },
+          "span_hash": { "type": "string", "minLength": 8 },
+          "excerpt": { "type": "string", "minLength": 1 }
         }
       }
     }

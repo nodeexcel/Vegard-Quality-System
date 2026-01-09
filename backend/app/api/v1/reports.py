@@ -552,7 +552,7 @@ async def get_report(
 @router.get("/", response_model=list[ReportResponse])
 async def list_reports(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 200,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

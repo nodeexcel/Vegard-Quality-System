@@ -7954,3 +7954,288 @@ INFO:     64.226.100.253:36386 - "GET / HTTP/1.1" 200 OK
 INFO:     64.226.100.253:36398 - "GET /login HTTP/1.1" 404 Not Found
 INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
 INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     204.76.203.93:42224 - "GET /ip HTTP/1.1" 404 Not Found
+INFO:     Started server process [996671]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Started server process [996834]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-01-08 06:26:35,611 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-08 06:26:40,365 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-08 06:26:46,434 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/531 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/531 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     63.178.197.71:0 - "HEAD /api/action HTTP/1.1" 404 Not Found
+INFO:     63.178.197.71:0 - "HEAD /api/actions HTTP/1.1" 404 Not Found
+INFO:     162.243.116.182:45687 - "GET / HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     118.193.65.234:16480 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     152.32.129.154:52414 - "GET / HTTP/1.1" 200 OK
+INFO:     152.32.129.154:52652 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     152.32.129.154:52914 - "GET /sitemap.xml HTTP/1.1" 404 Not Found
+INFO:     152.32.129.154:52912 - "GET /robots.txt HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     172.104.26.202:37942 - "GET / HTTP/1.0" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     172.104.26.202:37954 - "GET /nice%20ports%2C/Trinity.txt.bak HTTP/1.0" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     172.104.26.202:37974 - "OPTIONS / HTTP/1.0" 405 Method Not Allowed
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     172.104.26.202:40768 - "GET / HTTP/1.1" 200 OK
+WARNING:  Unsupported upgrade request.
+WARNING:  No supported WebSocket library detected. Please use "pip install 'uvicorn[standard]'", or install 'websockets' or 'wsproto' manually.
+WARNING:  Unsupported upgrade request.
+WARNING:  No supported WebSocket library detected. Please use "pip install 'uvicorn[standard]'", or install 'websockets' or 'wsproto' manually.
+WARNING:  Unsupported upgrade request.
+WARNING:  No supported WebSocket library detected. Please use "pip install 'uvicorn[standard]'", or install 'websockets' or 'wsproto' manually.
+INFO:     172.104.26.202:40776 - "GET / HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-08 10:57:49,470 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_Gold_Standard.pdf (size: 511539 bytes)
+2026-01-08 10:57:53,441 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-08 10:57:58,061 - app.services.pdf_extractor - INFO - Successfully extracted 139369 characters from PDF: 37/37 pages, 17 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/532 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/532 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     Started server process [1002936]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/531 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/531 HTTP/1.1" 200 OK
+INFO:     Started server process [1004888]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-01-08 12:48:54,759 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-08 12:48:59,388 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-08 12:49:04,945 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+2026-01-08 12:49:05,098 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_533/20260108_124904_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:49:05,098 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_533/20260108_124904_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:49:05,098 - app.api.v1.reports - INFO - Analyzing report 533 with AI
+2026-01-08 12:49:05,108 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 12:49:05,134 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 12:50:29,712 - app.services.ai_analyzer - INFO - Detected 23 points before scoring
+2026-01-08 12:50:29,712 - app.services.ai_analyzer - ERROR - Error analyzing report with AI: cannot access local variable 'point_meta' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1190, in analyze_report
+    "feedback_v11": _build_feedback_v11(
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 393, in _build_feedback_v11
+    point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
+                                                          ^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'point_meta' where it is not associated with a value
+2026-01-08 12:50:29,714 - app.api.v1.reports - ERROR - Error processing report: AI analysis failed: cannot access local variable 'point_meta' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1190, in analyze_report
+    "feedback_v11": _build_feedback_v11(
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 393, in _build_feedback_v11
+    point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
+                                                          ^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'point_meta' where it is not associated with a value
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/api/v1/reports.py", line 344, in upload_report
+    analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1210, in analyze_report
+    raise Exception(f"AI analysis failed: {str(e)}")
+Exception: AI analysis failed: cannot access local variable 'point_meta' where it is not associated with a value
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 500 Internal Server Error
+2026-01-08 12:51:46,638 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-08 12:51:51,539 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-08 12:51:56,849 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+2026-01-08 12:51:56,991 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_534/20260108_125156_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:51:56,991 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_534/20260108_125156_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:51:56,991 - app.api.v1.reports - INFO - Analyzing report 534 with AI
+2026-01-08 12:51:57,001 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 12:51:57,010 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 12:53:15,683 - app.services.ai_analyzer - INFO - Detected 23 points before scoring
+2026-01-08 12:53:15,684 - app.services.ai_analyzer - ERROR - Error analyzing report with AI: cannot access local variable 'point_meta' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1190, in analyze_report
+    "feedback_v11": _build_feedback_v11(
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 393, in _build_feedback_v11
+    point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
+                                                          ^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'point_meta' where it is not associated with a value
+2026-01-08 12:53:15,684 - app.api.v1.reports - ERROR - Error processing report: AI analysis failed: cannot access local variable 'point_meta' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1190, in analyze_report
+    "feedback_v11": _build_feedback_v11(
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 393, in _build_feedback_v11
+    point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
+                                                          ^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'point_meta' where it is not associated with a value
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/api/v1/reports.py", line 344, in upload_report
+    analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1210, in analyze_report
+    raise Exception(f"AI analysis failed: {str(e)}")
+Exception: AI analysis failed: cannot access local variable 'point_meta' where it is not associated with a value
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 500 Internal Server Error
+INFO:     Started server process [1005631]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-08 12:55:13,942 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-08 12:55:18,578 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-08 12:55:23,996 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+2026-01-08 12:55:24,182 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_535/20260108_125524_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:55:24,182 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_535/20260108_125524_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:55:24,182 - app.api.v1.reports - INFO - Analyzing report 535 with AI
+2026-01-08 12:55:24,192 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 12:55:24,218 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 12:56:26,555 - app.services.ai_analyzer - INFO - Detected 23 points before scoring
+2026-01-08 12:56:26,556 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-01-08 12:56:26,605 - app.api.v1.reports - INFO - Successfully processed report 535 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/535 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/535 HTTP/1.1" 200 OK
+2026-01-08 12:57:30,370 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-08 12:57:35,441 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-08 12:57:40,731 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+2026-01-08 12:57:40,878 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_536/20260108_125740_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:57:40,878 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_536/20260108_125740_Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf
+2026-01-08 12:57:40,878 - app.api.v1.reports - INFO - Analyzing report 536 with AI
+2026-01-08 12:57:40,889 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 12:57:40,897 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 12:58:39,359 - app.services.ai_analyzer - INFO - Detected 23 points before scoring
+2026-01-08 12:58:39,360 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-01-08 12:58:39,399 - app.api.v1.reports - INFO - Successfully processed report 536 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/536 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/536 HTTP/1.1" 200 OK
+2026-01-08 12:58:55,177 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_Gold_Standard.pdf (size: 511539 bytes)
+2026-01-08 12:58:59,300 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-08 12:59:04,068 - app.services.pdf_extractor - INFO - Successfully extracted 139369 characters from PDF: 37/37 pages, 17 images
+2026-01-08 12:59:04,189 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_537/20260108_125904_1_E311_Gold_Standard.pdf
+2026-01-08 12:59:04,189 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_537/20260108_125904_1_E311_Gold_Standard.pdf
+2026-01-08 12:59:04,189 - app.api.v1.reports - INFO - Analyzing report 537 with AI
+2026-01-08 12:59:04,201 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 12:59:04,208 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 13:00:00,874 - app.services.ai_analyzer - INFO - Detected 26 points before scoring
+2026-01-08 13:00:00,875 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 90.0
+2026-01-08 13:00:00,927 - app.api.v1.reports - INFO - Successfully processed report 537 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     45.55.153.86:45479 - "GET / HTTP/1.1" 200 OK
+2026-01-08 14:00:32,313 - app.api.v1.reports - INFO - Extracting text from PDF: Tilstandsrapport (2).pdf (size: 1282857 bytes)
+2026-01-08 14:00:34,692 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-08 14:00:37,056 - app.services.pdf_extractor - INFO - Successfully extracted 51874 characters from PDF: 18/18 pages, 98 images
+2026-01-08 14:00:37,189 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_538/20260108_140037_Tilstandsrapport (2).pdf
+2026-01-08 14:00:37,190 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_538/20260108_140037_Tilstandsrapport (2).pdf
+2026-01-08 14:00:37,190 - app.api.v1.reports - INFO - Analyzing report 538 with AI
+2026-01-08 14:00:37,193 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 14:00:37,201 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 14:01:44,452 - app.services.ai_analyzer - INFO - Detected 1 points before scoring
+2026-01-08 14:01:44,453 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 71.0
+2026-01-08 14:01:44,483 - app.api.v1.reports - INFO - Successfully processed report 538 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/538 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/538 HTTP/1.1" 200 OK
+INFO:     45.156.129.133:59073 - "GET / HTTP/1.1" 200 OK
+INFO:     45.156.129.133:50911 - "GET /identity/jsLibs/IdmBrandingBar.js HTTP/1.1" 404 Not Found
+2026-01-08 15:39:52,990 - app.api.v1.reports - INFO - Extracting text from PDF: 1_e311_100.pdf (size: 519275 bytes)
+2026-01-08 15:39:57,029 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-08 15:40:01,860 - app.services.pdf_extractor - INFO - Successfully extracted 141167 characters from PDF: 37/37 pages, 17 images
+2026-01-08 15:40:02,010 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_539/20260108_154001_1_e311_100.pdf
+2026-01-08 15:40:02,011 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_539/20260108_154001_1_e311_100.pdf
+2026-01-08 15:40:02,011 - app.api.v1.reports - INFO - Analyzing report 539 with AI
+2026-01-08 15:40:02,021 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-08 15:40:02,027 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-08 15:41:04,244 - app.services.ai_analyzer - INFO - Detected 22 points before scoring
+2026-01-08 15:41:04,247 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 86.0
+2026-01-08 15:41:04,317 - app.api.v1.reports - INFO - Successfully processed report 539 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/539 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/539 HTTP/1.1" 200 OK
+INFO:     172.202.118.31:38838 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     178.128.254.250:51490 - "GET / HTTP/1.1" 200 OK
+INFO:     178.128.254.250:51496 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+2026-01-08 19:06:53,140 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     79.161.109.179:0 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+2026-01-08 19:09:00,801 - app.api.v1.reports - INFO - Extracting text from PDF: Tilstandsrapport.pdf (size: 1282857 bytes)
+2026-01-08 19:09:03,277 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-08 19:09:05,686 - app.services.pdf_extractor - INFO - Successfully extracted 51874 characters from PDF: 18/18 pages, 98 images
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/540 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/540 HTTP/1.1" 200 OK
+INFO:     147.185.132.12:63708 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:44216 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     3.37.55.180:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     3.37.55.180:0 - "GET /api/config HTTP/1.1" 404 Not Found
+INFO:     3.37.55.180:0 - "GET /api/v2/config HTTP/1.1" 404 Not Found
+INFO:     3.37.55.180:0 - "GET /api/v1/config HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:37684 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:37186 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:49418 - "GET /backup/ HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.123:15222 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.123:15234 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     66.132.153.123:26324 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.123:4012 - "GET /wiki HTTP/1.1" 404 Not Found
+INFO:     3.99.47.23:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     3.99.47.23:0 - "GET /api/config HTTP/1.1" 404 Not Found
+INFO:     3.99.47.23:0 - "GET /api/v2/config HTTP/1.1" 404 Not Found
+INFO:     3.99.47.23:0 - "GET /api/v1/config HTTP/1.1" 404 Not Found
+INFO:     161.35.145.35:39308 - "GET / HTTP/1.1" 200 OK
+INFO:     3.149.59.26:38610 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     205.210.31.105:63380 - "GET / HTTP/1.1" 200 OK
