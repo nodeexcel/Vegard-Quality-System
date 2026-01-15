@@ -8239,3 +8239,1211 @@ INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
 INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
 INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
 INFO:     205.210.31.105:63380 - "GET / HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/531 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/531 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     206.189.1.138:47744 - "GET / HTTP/1.1" 200 OK
+INFO:     206.189.1.138:47746 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     44.244.252.129:0 - "POST /api/route HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-09 10:40:19,817 - app.api.v1.reports - INFO - Extracting text from PDF: Eksamen- Espen Eilertsen.pdf (size: 265727 bytes)
+2026-01-09 10:40:21,819 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-01-09 10:40:24,027 - app.services.pdf_extractor - INFO - Successfully extracted 51355 characters from PDF: 20/20 pages, 16 images
+2026-01-09 10:40:24,174 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_541/20260109_104024_Eksamen- Espen Eilertsen.pdf
+2026-01-09 10:40:24,174 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_541/20260109_104024_Eksamen- Espen Eilertsen.pdf
+2026-01-09 10:40:24,175 - app.api.v1.reports - INFO - Analyzing report 541 with AI
+2026-01-09 10:40:24,178 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-09 10:40:24,185 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-09 10:41:12,755 - app.services.ai_analyzer - INFO - Detected 20 points before scoring
+2026-01-09 10:41:12,756 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 93.0
+2026-01-09 10:41:12,799 - app.api.v1.reports - INFO - Successfully processed report 541 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/541 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/541 HTTP/1.1" 200 OK
+INFO:     78.82.217.76:52439 - "GET / HTTP/1.0" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-09 11:57:27,260 - app.api.v1.reports - INFO - Extracting text from PDF: ARKAT Tilstandsrapport.pdf (size: 14983639 bytes)
+2026-01-09 11:57:29,940 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-09 11:57:32,860 - app.services.pdf_extractor - INFO - Successfully extracted 67926 characters from PDF: 37/37 pages, 115 images
+2026-01-09 11:57:33,294 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_542/20260109_115732_ARKAT Tilstandsrapport.pdf
+2026-01-09 11:57:33,295 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_542/20260109_115732_ARKAT Tilstandsrapport.pdf
+2026-01-09 11:57:33,295 - app.api.v1.reports - INFO - Analyzing report 542 with AI
+2026-01-09 11:57:33,300 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-09 11:57:33,308 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-09 11:58:26,605 - app.services.ai_analyzer - INFO - Detected 54 points before scoring
+2026-01-09 11:58:26,606 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 74.0
+2026-01-09 11:58:26,639 - app.api.v1.reports - INFO - Successfully processed report 542 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/542 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/542 HTTP/1.1" 200 OK
+2026-01-09 12:06:22,088 - app.api.v1.reports - INFO - Extracting text from PDF: Eksamen Andre Evers Aktiv Takst AS.pdf (size: 450644 bytes)
+2026-01-09 12:06:23,747 - app.services.pdf_extractor - INFO - Processing PDF with 19 total pages
+2026-01-09 12:06:25,655 - app.services.pdf_extractor - INFO - Successfully extracted 44086 characters from PDF: 19/19 pages, 17 images
+2026-01-09 12:06:25,787 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_543/20260109_120625_Eksamen Andre Evers Aktiv Takst AS.pdf
+2026-01-09 12:06:25,788 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_543/20260109_120625_Eksamen Andre Evers Aktiv Takst AS.pdf
+2026-01-09 12:06:25,788 - app.api.v1.reports - INFO - Analyzing report 543 with AI
+2026-01-09 12:06:25,793 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-09 12:06:25,800 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-09 12:07:13,427 - app.services.ai_analyzer - INFO - Detected 16 points before scoring
+2026-01-09 12:07:13,429 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 88.0
+2026-01-09 12:07:13,528 - app.api.v1.reports - INFO - Successfully processed report 543 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/543 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/543 HTTP/1.1" 200 OK
+INFO:     44.244.252.129:0 - "POST /api/route HTTP/1.1" 404 Not Found
+INFO:     205.210.31.9:58764 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:43362 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:43066 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:37058 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:33524 - "GET /backup/ HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     94.231.206.108:35593 - "GET / HTTP/1.1" 200 OK
+INFO:     94.231.206.32:51903 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.114:46140 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.114:46154 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     66.132.153.114:61308 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.114:53876 - "GET /wiki HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     216.180.246.56:29714 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     216.180.246.56:37754 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     27.100.13.190:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     3.134.148.59:49034 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     79.161.109.179:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-10 06:09:49,358 - app.api.v1.reports - INFO - Extracting text from PDF: 1_e311_100.pdf (size: 519275 bytes)
+2026-01-10 06:09:53,361 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-10 06:09:57,960 - app.services.pdf_extractor - INFO - Successfully extracted 141167 characters from PDF: 37/37 pages, 17 images
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/544 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/544 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-10 07:25:42,998 - app.api.v1.reports - INFO - Extracting text from PDF: NS 3600 2018.pdf (size: 1436161 bytes)
+2026-01-10 07:25:51,811 - app.services.pdf_extractor - INFO - Processing PDF with 76 total pages
+2026-01-10 07:26:01,632 - app.services.pdf_extractor - INFO - Successfully extracted 229753 characters from PDF: 76/76 pages, 5 images
+2026-01-10 07:26:01,756 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_545/20260110_072601_NS 3600 2018.pdf
+2026-01-10 07:26:01,756 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_545/20260110_072601_NS 3600 2018.pdf
+2026-01-10 07:26:01,756 - app.api.v1.reports - INFO - Analyzing report 545 with AI
+2026-01-10 07:26:01,798 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-10 07:26:01,804 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-10 07:26:21,562 - app.services.ai_analyzer - INFO - Detected 109 points before scoring
+2026-01-10 07:26:21,566 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 0.0
+2026-01-10 07:26:21,636 - app.api.v1.reports - INFO - Successfully processed report 545 for user 1
+INFO:     116.74.62.126:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/545 HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/545 HTTP/1.1" 200 OK
+2026-01-10 07:28:52,558 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_Gold_Standard.pdf (size: 511539 bytes)
+2026-01-10 07:28:56,871 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-10 07:29:01,630 - app.services.pdf_extractor - INFO - Successfully extracted 139369 characters from PDF: 37/37 pages, 17 images
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/546 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/546 HTTP/1.1" 200 OK
+2026-01-10 07:31:09,275 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-10 07:31:11,118 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-10 07:31:12,803 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+2026-01-10 07:31:12,945 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_547/20260110_073112_E3_Mats_Hansen.pdf
+2026-01-10 07:31:12,945 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_547/20260110_073112_E3_Mats_Hansen.pdf
+2026-01-10 07:31:12,945 - app.api.v1.reports - INFO - Analyzing report 547 with AI
+2026-01-10 07:31:12,951 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-10 07:31:12,959 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-10 07:31:45,255 - app.services.ai_analyzer - INFO - Detected 13 points before scoring
+2026-01-10 07:31:45,257 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 85.0
+2026-01-10 07:31:45,307 - app.api.v1.reports - INFO - Successfully processed report 547 for user 4
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/547 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/547 HTTP/1.1" 200 OK
+2026-01-10 07:38:50,391 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     116.74.62.126:0 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-10 07:42:32,473 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     116.74.62.126:0 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+2026-01-10 07:42:55,950 - app.api.v1.reports - INFO - Extracting text from PDF: NS 3600 2018.pdf (size: 1436161 bytes)
+2026-01-10 07:43:04,596 - app.services.pdf_extractor - INFO - Processing PDF with 76 total pages
+2026-01-10 07:43:14,931 - app.services.pdf_extractor - INFO - Successfully extracted 229753 characters from PDF: 76/76 pages, 5 images
+INFO:     116.74.62.126:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/548 HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/548 HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/50 HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/reports/50 HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/payments/packages HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/payments/publishable-key HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/payments/packages HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/payments/publishable-key HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-10 07:48:24,527 - app.api.v1.payments - INFO - Payment intent request - package_id: 6
+2026-01-10 07:48:24,580 - stripe - INFO - message='Request to Stripe api' method=post url=https://api.stripe.com/v1/payment_intents
+2026-01-10 07:48:24,997 - stripe - INFO - message='Stripe API response' path=https://api.stripe.com/v1/payment_intents response_code=200
+INFO:     116.74.62.126:0 - "POST /api/v1/payments/create-intent HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     116.74.62.126:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     164.90.174.158:51930 - "GET / HTTP/1.1" 200 OK
+INFO:     164.90.174.158:51934 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     44.208.30.111:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     44.208.30.111:0 - "GET /api/config HTTP/1.1" 404 Not Found
+INFO:     44.208.30.111:0 - "GET /api/v2/config HTTP/1.1" 404 Not Found
+INFO:     44.208.30.111:0 - "GET /api/v1/config HTTP/1.1" 404 Not Found
+INFO:     34.212.225.86:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     34.212.225.86:0 - "GET /api/config HTTP/1.1" 404 Not Found
+INFO:     34.212.225.86:0 - "GET /api/v2/config HTTP/1.1" 404 Not Found
+INFO:     34.212.225.86:0 - "GET /api/v1/config HTTP/1.1" 404 Not Found
+INFO:     185.39.207.3:46292 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     204.76.203.18:40930 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:40580 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:59676 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:54120 - "GET /backup/ HTTP/1.1" 404 Not Found
+INFO:     198.235.24.136:64188 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.138:18012 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.138:18020 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     66.132.153.138:18038 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.138:19278 - "GET /robots.txt HTTP/1.1" 404 Not Found
+INFO:     3.134.148.59:37518 - "GET / HTTP/1.1" 200 OK
+INFO:     3.134.148.59:54160 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     205.210.31.66:63518 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     66.228.53.136:25950 - "GET / HTTP/1.1" 200 OK
+INFO:     45.33.12.122:48987 - "GET / HTTP/1.1" 200 OK
+INFO:     172.236.119.165:7424 - "GET / HTTP/1.1" 200 OK
+INFO:     51.75.118.149:41692 - "GET /ip HTTP/1.1" 404 Not Found
+INFO:     205.210.31.161:61218 - "GET /.well-known/security.txt HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:46262 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:33408 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:38818 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:54886 - "GET /backup/ HTTP/1.1" 404 Not Found
+INFO:     178.19.31.170:51344 - "GET / HTTP/1.1" 200 OK
+INFO:     178.19.31.170:51378 - "POST /onvif/device_service HTTP/1.1" 404 Not Found
+INFO:     178.19.31.170:60334 - "GET / HTTP/1.1" 200 OK
+INFO:     178.19.31.170:60379 - "POST /onvif/device_service HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     146.190.171.113:48986 - "GET / HTTP/1.1" 200 OK
+INFO:     146.190.171.113:49000 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     172.225.69.103:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-11 18:18:27,043 - app.api.v1.reports - INFO - Extracting text from PDF: UTKAST tilstandsrapport.pdf (size: 2943598 bytes)
+2026-01-11 18:18:29,501 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-11 18:18:32,345 - app.services.pdf_extractor - INFO - Successfully extracted 71420 characters from PDF: 23/23 pages, 67 images
+2026-01-11 18:18:32,480 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_549/20260111_181832_UTKAST tilstandsrapport.pdf
+2026-01-11 18:18:32,480 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_549/20260111_181832_UTKAST tilstandsrapport.pdf
+2026-01-11 18:18:32,480 - app.api.v1.reports - INFO - Analyzing report 549 with AI
+2026-01-11 18:18:32,486 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-11 18:18:32,495 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-11 18:19:52,224 - app.services.ai_analyzer - INFO - Detected 40 points before scoring
+2026-01-11 18:19:52,225 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 87.0
+2026-01-11 18:19:52,286 - app.api.v1.reports - INFO - Successfully processed report 549 for user 2
+INFO:     172.225.69.103:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     172.225.69.101:0 - "GET /api/v1/reports/549 HTTP/1.1" 200 OK
+INFO:     13.89.124.213:36004 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     172.225.69.98:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     172.225.69.98:0 - "GET /api/v1/reports/549 HTTP/1.1" 200 OK
+INFO:     45.153.34.193:42064 - "GET /ip HTTP/1.1" 404 Not Found
+INFO:     146.75.200.21:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     146.75.200.21:0 - "GET /api/v1/reports/549 HTTP/1.1" 200 OK
+INFO:     64.227.140.243:40668 - "GET / HTTP/1.1" 200 OK
+INFO:     64.227.140.243:40680 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     93.123.57.132:46159 - "GET / HTTP/1.0" 200 OK
+INFO:     103.203.57.20:44962 - "GET / HTTP/1.1" 200 OK
+INFO:     167.94.138.197:13014 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     167.94.138.197:15286 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     167.94.138.197:47154 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     167.94.138.197:1640 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     167.94.138.197:15524 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     64.62.197.32:46462 - "GET / HTTP/1.1" 200 OK
+INFO:     64.62.197.43:38937 - "GET /?format=json HTTP/1.1" 200 OK
+WARNING:  Unsupported upgrade request.
+WARNING:  No supported WebSocket library detected. Please use "pip install 'uvicorn[standard]'", or install 'websockets' or 'wsproto' manually.
+WARNING:  Invalid HTTP request received.
+INFO:     194.146.8.62:0 - "GET /api/v1/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     194.146.8.62:0 - "GET /api/v1/auth/me HTTP/1.1" 401 Unauthorized
+2026-01-12 08:04:03,732 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     194.146.8.62:0 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+2026-01-12 08:04:14,510 - app.api.v1.reports - INFO - Extracting text from PDF: UTKAST tilstandsrapport.pdf (size: 2942594 bytes)
+2026-01-12 08:04:16,715 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-12 08:04:19,335 - app.services.pdf_extractor - INFO - Successfully extracted 70716 characters from PDF: 23/23 pages, 67 images
+2026-01-12 08:04:19,475 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_550/20260112_080419_UTKAST tilstandsrapport.pdf
+2026-01-12 08:04:19,476 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_550/20260112_080419_UTKAST tilstandsrapport.pdf
+2026-01-12 08:04:19,476 - app.api.v1.reports - INFO - Analyzing report 550 with AI
+2026-01-12 08:04:19,509 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-12 08:04:19,520 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-12 08:05:08,298 - app.services.ai_analyzer - INFO - Detected 40 points before scoring
+2026-01-12 08:05:08,299 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 90.0
+2026-01-12 08:05:08,334 - app.api.v1.reports - INFO - Successfully processed report 550 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/550 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/550 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     206.168.34.193:49292 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     206.168.34.193:13088 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     206.168.34.193:51002 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     206.168.34.193:33818 - "GET /security.txt HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     147.182.153.69:55396 - "GET / HTTP/1.1" 200 OK
+INFO:     147.182.153.69:55410 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     198.211.109.100:40822 - "GET / HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-12 11:21:07,210 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-12 11:21:12,428 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-12 11:21:17,802 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/551 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/551 HTTP/1.1" 200 OK
+INFO:     204.76.203.18:50612 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:56630 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:40172 - "GET /bin/ HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     204.76.203.18:48836 - "GET /backup/ HTTP/1.1" 404 Not Found
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/551 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/551 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     152.32.154.182:49972 - "GET / HTTP/1.1" 200 OK
+INFO:     152.32.154.182:49982 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     152.32.154.182:49990 - "GET /robots.txt HTTP/1.1" 404 Not Found
+INFO:     179.43.134.114:56110 - "GET / HTTP/1.1" 200 OK
+INFO:     179.43.134.114:56110 - "GET / HTTP/1.1" 200 OK
+INFO:     179.43.134.114:56110 - "POST / HTTP/1.1" 405 Method Not Allowed
+INFO:     179.43.134.114:26928 - "POST / HTTP/1.1" 405 Method Not Allowed
+INFO:     64.227.109.89:46285 - "GET / HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/550 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/550 HTTP/1.1" 200 OK
+2026-01-12 15:56:18,586 - app.api.v1.reports - INFO - Extracting text from PDF: UTKAST tilstandsrapport.pdf (size: 2942594 bytes)
+2026-01-12 15:56:21,372 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-12 15:56:24,224 - app.services.pdf_extractor - INFO - Successfully extracted 70716 characters from PDF: 23/23 pages, 67 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/552 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/552 HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/reports/551 HTTP/1.1" 200 OK
+INFO:     27.100.13.190:0 - "GET /api/v1/reports/551 HTTP/1.1" 200 OK
+INFO:     180.149.125.163:58611 - "GET /c/ HTTP/1.1" 404 Not Found
+INFO:     157.245.3.231:0 - "GET /api/v1/licensing/about HTTP/1.1" 404 Not Found
+2026-01-12 17:48:33,445 - app.api.v1.reports - INFO - Extracting text from PDF: UTKAST tilstandsrapport.pdf (size: 2942594 bytes)
+2026-01-12 17:48:35,910 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-12 17:48:38,802 - app.services.pdf_extractor - INFO - Successfully extracted 70716 characters from PDF: 23/23 pages, 67 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/553 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/553 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/547 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/547 HTTP/1.1" 200 OK
+2026-01-13 01:11:29,727 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-13 01:11:31,425 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-13 01:11:33,133 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/554 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/554 HTTP/1.1" 200 OK
+INFO:     3.234.31.3:49006 - "GET / HTTP/1.1" 200 OK
+INFO:     3.234.31.3:49006 - "POST / HTTP/1.1" 405 Method Not Allowed
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     170.64.130.132:38044 - "GET / HTTP/1.1" 200 OK
+INFO:     170.64.130.132:38058 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     Started server process [1061863]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-13 06:08:29,984 - app.api.v1.reports - INFO - Extracting text from PDF: Eigarskifterapport- Rennekleiva 14, 6812 Førde.pdf (size: 1120004 bytes)
+2026-01-13 06:08:35,442 - app.services.pdf_extractor - INFO - Processing PDF with 45 total pages
+2026-01-13 06:08:41,402 - app.services.pdf_extractor - INFO - Successfully extracted 134234 characters from PDF: 45/45 pages, 42 images
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/555 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/555 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/537 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/555 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/555 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/555 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/555 HTTP/1.1" 200 OK
+INFO:     3.130.96.91:33574 - "GET / HTTP/1.1" 200 OK
+INFO:     3.130.96.91:59282 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     3.234.31.3:41448 - "GET / HTTP/1.1" 200 OK
+INFO:     3.234.31.3:41448 - "POST / HTTP/1.1" 405 Method Not Allowed
+INFO:     87.236.176.69:57127 - "GET / HTTP/1.1" 200 OK
+INFO:     152.32.208.169:34800 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     152.32.247.22:33628 - "GET / HTTP/1.1" 200 OK
+INFO:     152.32.247.22:33872 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     152.32.247.22:34090 - "GET /sitemap.xml HTTP/1.1" 404 Not Found
+INFO:     152.32.247.22:34088 - "GET /robots.txt HTTP/1.1" 404 Not Found
+INFO:     205.210.31.2:62824 - "GET / HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.OperationalError: SSL connection has been closed unexpectedly
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/fastapi/routing.py", line 264, in app
+    solved_result = await solve_dependencies(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/fastapi/dependencies/utils.py", line 594, in solve_dependencies
+    solved = await run_in_threadpool(call, **sub_values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/starlette/concurrency.py", line 41, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/anyio/to_thread.py", line 33, in run_sync
+    return await get_asynclib().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 877, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 807, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/auth.py", line 72, in get_current_user
+    user = db.query(User).filter(User.id == user_id).first()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2748, in first
+    return self.limit(1)._iter().first()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2847, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2190, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 293, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
+    return meth(
+           ^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 516, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1639, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2343, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) SSL connection has been closed unexpectedly
+
+[SQL: SELECT users.id AS users_id, users.email AS users_email, users.name AS users_name, users.phone AS users_phone, users.company AS users_company, users.google_id AS users_google_id, users.picture AS users_picture, users.credits AS users_credits, users.is_admin AS users_is_admin, users.status AS users_status, users.last_login AS users_last_login, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s]
+[parameters: {'id_1': 4, 'param_1': 1}]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-01-13 09:04:17,585 - app.api.v1.reports - INFO - Extracting text from PDF: UTKAST tilstandsrapport.pdf (size: 2942594 bytes)
+2026-01-13 09:04:20,221 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-13 09:04:23,462 - app.services.pdf_extractor - INFO - Successfully extracted 70716 characters from PDF: 23/23 pages, 67 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/556 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/556 HTTP/1.1" 200 OK
+2026-01-13 09:06:44,875 - app.api.v1.reports - INFO - Extracting text from PDF: Tilstandsrapport (2).pdf (size: 1282857 bytes)
+2026-01-13 09:06:47,043 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-13 09:06:49,855 - app.services.pdf_extractor - INFO - Successfully extracted 51874 characters from PDF: 18/18 pages, 98 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/557 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/557 HTTP/1.1" 200 OK
+2026-01-13 09:07:28,704 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-13 09:07:30,647 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-13 09:07:32,677 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/558 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/558 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.139:60384 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.139:60414 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     66.132.153.139:2412 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.139:63324 - "GET /wiki HTTP/1.1" 404 Not Found
+INFO:     180.149.125.164:24943 - "GET / HTTP/1.1" 200 OK
+2026-01-13 09:41:08,006 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Florø_1975.pdf (size: 3039601 bytes)
+2026-01-13 09:41:13,007 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-13 09:41:18,763 - app.services.pdf_extractor - INFO - Successfully extracted 116019 characters from PDF: 37/37 pages, 91 images
+2026-01-13 09:41:18,986 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_559/20260113_094118_E3_Florø_1975.pdf
+2026-01-13 09:41:18,987 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_559/20260113_094118_E3_Florø_1975.pdf
+2026-01-13 09:41:18,987 - app.api.v1.reports - INFO - Analyzing report 559 with AI
+2026-01-13 09:41:18,996 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-13 09:41:19,029 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-13 09:42:12,114 - app.services.ai_analyzer - INFO - Detected 56 points before scoring
+2026-01-13 09:42:12,116 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-01-13 09:42:12,164 - app.api.v1.reports - INFO - Successfully processed report 559 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/559 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/559 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+2026-01-13 10:30:30,463 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_Gold_Standard.pdf (size: 511539 bytes)
+2026-01-13 10:30:36,237 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-13 10:30:41,972 - app.services.pdf_extractor - INFO - Successfully extracted 139369 characters from PDF: 37/37 pages, 17 images
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-13 10:33:42,911 - app.api.v1.reports - INFO - Extracting text from PDF: Rapport- BjÃ¸rnsrudgutua 5 - Enebolig med garasje (1) (1) (1).pdf (size: 1732783 bytes)
+2026-01-13 10:33:44,965 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-01-13 10:33:46,931 - app.services.pdf_extractor - INFO - Successfully extracted 42971 characters from PDF: 20/20 pages, 57 images
+2026-01-13 10:33:47,093 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_561/20260113_103346_Rapport- BjÃ¸rnsrudgutua 5 - Enebolig med garasje (1) (1) (1).pdf
+2026-01-13 10:33:47,094 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_561/20260113_103346_Rapport- BjÃ¸rnsrudgutua 5 - Enebolig med garasje (1) (1) (1).pdf
+2026-01-13 10:33:47,094 - app.api.v1.reports - INFO - Analyzing report 561 with AI
+2026-01-13 10:33:47,097 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-13 10:33:47,119 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-13 10:34:27,932 - app.services.ai_analyzer - INFO - Detected 21 points before scoring
+2026-01-13 10:34:27,933 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 92.0
+2026-01-13 10:34:27,967 - app.api.v1.reports - INFO - Successfully processed report 561 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/50 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/50 HTTP/1.1" 200 OK
+INFO:     205.210.31.254:64358 - "GET / HTTP/1.1" 200 OK
+INFO:     151.84.96.129:47524 - "GET / HTTP/1.0" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+2026-01-13 12:20:22,830 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-13 12:20:24,577 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-13 12:20:26,449 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/562 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/562 HTTP/1.1" 200 OK
+2026-01-13 12:21:06,429 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-13 12:21:08,534 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-13 12:21:10,735 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+2026-01-13 12:21:10,869 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_563/20260113_122110_E3_MarcusWinther.pdf
+2026-01-13 12:21:10,869 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_563/20260113_122110_E3_MarcusWinther.pdf
+2026-01-13 12:21:10,869 - app.api.v1.reports - INFO - Analyzing report 563 with AI
+2026-01-13 12:21:10,877 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-13 12:21:10,888 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-13 12:21:53,128 - app.services.ai_analyzer - INFO - Detected 20 points before scoring
+2026-01-13 12:21:53,129 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 87.0
+2026-01-13 12:21:53,173 - app.api.v1.reports - INFO - Successfully processed report 563 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/563 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/563 HTTP/1.1" 200 OK
+2026-01-13 12:26:12,181 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-13 12:26:14,226 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-13 12:26:16,177 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/payments/publishable-key HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/payments/packages HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/payments/publishable-key HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/payments/history HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/payments/packages HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/payments/history HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     204.76.203.18:47918 - "GET / HTTP/1.1" 200 OK
+2026-01-13 12:58:21,528 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-13 12:58:23,116 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-13 12:58:24,983 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/565 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/565 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     204.76.203.18:46066 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     204.76.203.18:49892 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=-2 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=-2 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=-2 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     204.76.203.18:53124 - "GET /backup/ HTTP/1.1" 404 Not Found
+2026-01-13 13:45:49,796 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-13 13:45:51,791 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-13 13:45:53,936 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/566 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/566 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/561 HTTP/1.1" 200 OK
+2026-01-13 14:44:34,920 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-13 14:44:36,626 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-13 14:44:38,292 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/567 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/567 HTTP/1.1" 200 OK
+INFO:     198.235.24.58:63422 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     185.242.226.87:55630 - "GET / HTTP/1.1" 200 OK
+2026-01-13 15:33:18,720 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-13 15:33:20,664 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-13 15:33:22,471 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/568 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/568 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+2026-01-13 18:48:13,508 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-13 18:48:15,700 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-13 18:48:17,930 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/569 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/569 HTTP/1.1" 200 OK
+INFO:     157.245.245.246:48489 - "GET / HTTP/1.1" 200 OK
+INFO:     172.225.69.101:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     172.225.69.101:0 - "POST /api/v1/reports/upload HTTP/1.1" 400 Bad Request
+INFO:     172.225.69.101:0 - "POST /api/v1/reports/upload HTTP/1.1" 400 Bad Request
+INFO:     159.89.116.45:50620 - "GET / HTTP/1.1" 200 OK
+INFO:     159.89.116.45:50630 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     172.226.118.39:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     44.250.251.3:39672 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     91.231.89.171:37989 - "GET / HTTP/1.1" 200 OK
+INFO:     91.196.152.15:45901 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     107.170.27.170:50364 - "GET / HTTP/1.1" 200 OK
+INFO:     107.170.27.170:50370 - "GET /login HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     3.137.73.221:59820 - "GET / HTTP/1.1" 200 OK
+INFO:     3.137.73.221:50730 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     Started server process [1087308]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/564 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+2026-01-14 07:26:29,329 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 07:26:31,600 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 07:26:33,709 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/570 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/570 HTTP/1.1" 200 OK
+2026-01-14 07:27:22,079 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 07:27:24,269 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 07:27:26,579 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+2026-01-14 07:27:26,771 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_571/20260114_072726_E3_MarcusWinther.pdf
+2026-01-14 07:27:26,772 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_571/20260114_072726_E3_MarcusWinther.pdf
+2026-01-14 07:27:26,772 - app.api.v1.reports - INFO - Analyzing report 571 with AI
+2026-01-14 07:27:26,777 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 07:27:26,809 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 07:28:10,990 - app.services.ai_analyzer - INFO - Detected 20 points before scoring
+2026-01-14 07:28:10,990 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 83.0
+2026-01-14 07:28:11,040 - app.api.v1.reports - INFO - Successfully processed report 571 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/571 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/571 HTTP/1.1" 200 OK
+2026-01-14 07:28:33,242 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_Gold_Standard.pdf (size: 511539 bytes)
+2026-01-14 07:28:37,513 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-14 07:28:42,679 - app.services.pdf_extractor - INFO - Successfully extracted 139369 characters from PDF: 37/37 pages, 17 images
+2026-01-14 07:28:42,819 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_572/20260114_072842_1_E311_Gold_Standard.pdf
+2026-01-14 07:28:42,819 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_572/20260114_072842_1_E311_Gold_Standard.pdf
+2026-01-14 07:28:42,819 - app.api.v1.reports - INFO - Analyzing report 572 with AI
+2026-01-14 07:28:42,829 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 07:28:42,835 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 07:29:41,664 - app.services.ai_analyzer - INFO - Detected 26 points before scoring
+2026-01-14 07:29:41,665 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 90.0
+2026-01-14 07:29:41,733 - app.api.v1.reports - INFO - Successfully processed report 572 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/572 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/572 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/572 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/572 HTTP/1.1" 200 OK
+2026-01-14 09:34:53,693 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 09:34:55,883 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 09:34:58,004 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/573 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/573 HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/reports/572 HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/reports/572 HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     185.198.240.203:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+2026-01-14 09:42:11,166 - app.api.v1.reports - INFO - Extracting text from PDF: Rapport- BjÃ¸rnsrudgutua 5 - Enebolig med garasje (1) (1) (1).pdf (size: 1732783 bytes)
+2026-01-14 09:42:13,732 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-01-14 09:42:15,892 - app.services.pdf_extractor - INFO - Successfully extracted 42971 characters from PDF: 20/20 pages, 57 images
+2026-01-14 09:42:16,050 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_574/20260114_094215_Rapport- BjÃ¸rnsrudgutua 5 - Enebolig med garasje (1) (1) (1).pdf
+2026-01-14 09:42:16,051 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_574/20260114_094215_Rapport- BjÃ¸rnsrudgutua 5 - Enebolig med garasje (1) (1) (1).pdf
+2026-01-14 09:42:16,051 - app.api.v1.reports - INFO - Analyzing report 574 with AI
+2026-01-14 09:42:16,055 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 09:42:16,070 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 09:43:03,126 - app.services.ai_analyzer - INFO - Detected 21 points before scoring
+2026-01-14 09:43:03,127 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 92.0
+2026-01-14 09:43:03,229 - app.api.v1.reports - INFO - Successfully processed report 574 for user 1
+INFO:     49.36.184.137:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     13.239.233.185:0 - "HEAD /api/action HTTP/1.1" 404 Not Found
+INFO:     13.239.233.185:0 - "HEAD /api/actions HTTP/1.1" 404 Not Found
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/574 HTTP/1.1" 200 OK
+INFO:     49.36.184.137:0 - "GET /api/v1/reports/574 HTTP/1.1" 200 OK
+2026-01-14 09:43:37,636 - app.api.v1.reports - INFO - Extracting text from PDF: Eierskifterapport Fauskanveien 17, 7167 Vallersund.pdf (size: 591312 bytes)
+2026-01-14 09:43:39,671 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-14 09:43:42,062 - app.services.pdf_extractor - INFO - Successfully extracted 52394 characters from PDF: 23/23 pages, 36 images
+2026-01-14 09:43:42,211 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_575/20260114_094342_Eierskifterapport Fauskanveien 17, 7167 Vallersund.pdf
+2026-01-14 09:43:42,211 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_575/20260114_094342_Eierskifterapport Fauskanveien 17, 7167 Vallersund.pdf
+2026-01-14 09:43:42,211 - app.api.v1.reports - INFO - Analyzing report 575 with AI
+2026-01-14 09:43:42,217 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 09:43:42,229 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 09:44:45,043 - app.services.ai_analyzer - INFO - Detected 19 points before scoring
+2026-01-14 09:44:45,045 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 76.0
+2026-01-14 09:44:45,113 - app.api.v1.reports - INFO - Successfully processed report 575 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/575 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/575 HTTP/1.1" 200 OK
+INFO:     3.107.27.28:0 - "HEAD /api/action HTTP/1.1" 404 Not Found
+INFO:     3.107.27.28:0 - "HEAD /api/actions HTTP/1.1" 404 Not Found
+INFO:     172.225.69.109:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-14 09:45:41,950 - app.api.v1.reports - INFO - Extracting text from PDF: Testrapport Ivit ARKAT 13.01.2026.pdf (size: 7769068 bytes)
+2026-01-14 09:45:45,873 - app.services.pdf_extractor - INFO - Processing PDF with 34 total pages
+2026-01-14 09:45:49,393 - app.services.pdf_extractor - INFO - Successfully extracted 83544 characters from PDF: 34/34 pages, 153 images
+2026-01-14 09:45:49,575 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_576/20260114_094549_Testrapport Ivit ARKAT 13.01.2026.pdf
+2026-01-14 09:45:49,575 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_576/20260114_094549_Testrapport Ivit ARKAT 13.01.2026.pdf
+2026-01-14 09:45:49,575 - app.api.v1.reports - INFO - Analyzing report 576 with AI
+2026-01-14 09:45:49,587 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 09:45:49,595 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 09:46:47,883 - app.services.ai_analyzer - INFO - Detected 2 points before scoring
+2026-01-14 09:46:47,883 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 79.0
+2026-01-14 09:46:47,914 - app.api.v1.reports - INFO - Successfully processed report 576 for user 2
+INFO:     172.225.69.109:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     172.225.69.109:0 - "GET /api/v1/reports/576 HTTP/1.1" 200 OK
+2026-01-14 10:09:57,714 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-14 10:09:59,466 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-14 10:10:01,210 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+2026-01-14 10:10:01,322 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_577/20260114_101001_E3_Mats_Hansen.pdf
+2026-01-14 10:10:01,323 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_577/20260114_101001_E3_Mats_Hansen.pdf
+2026-01-14 10:10:01,324 - app.api.v1.reports - INFO - Analyzing report 577 with AI
+2026-01-14 10:10:01,330 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 10:10:01,337 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 10:10:38,284 - app.services.ai_analyzer - INFO - Detected 13 points before scoring
+2026-01-14 10:10:38,285 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 85.0
+2026-01-14 10:10:38,346 - app.api.v1.reports - INFO - Successfully processed report 577 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/577 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/577 HTTP/1.1" 200 OK
+2026-01-14 10:46:12,684 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 10:46:14,706 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 10:46:16,719 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/578 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/578 HTTP/1.1" 200 OK
+INFO:     204.76.203.18:37660 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:40816 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:44564 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:55072 - "GET /backup/ HTTP/1.1" 404 Not Found
+2026-01-14 12:23:55,062 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-14 12:23:56,928 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-14 12:23:58,946 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/579 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/579 HTTP/1.1" 200 OK
+2026-01-14 12:24:41,063 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 12:24:43,427 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 12:24:46,124 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/580 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/580 HTTP/1.1" 200 OK
+2026-01-14 12:25:07,507 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-14 12:25:09,279 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-14 12:25:11,177 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/581 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/581 HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/reports/574 HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/reports/574 HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/reports/560 HTTP/1.1" 200 OK
+INFO:     45.131.195.88:0 - "GET /api/v1/reports/518 HTTP/1.1" 200 OK
+2026-01-14 12:37:08,089 - app.api.v1.reports - INFO - Extracting text from PDF: E3_JungBui.pdf (size: 1073639 bytes)
+2026-01-14 12:37:10,259 - app.services.pdf_extractor - INFO - Processing PDF with 22 total pages
+2026-01-14 12:37:12,660 - app.services.pdf_extractor - INFO - Successfully extracted 51570 characters from PDF: 22/22 pages, 61 images
+2026-01-14 12:37:12,824 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_582/20260114_123712_E3_JungBui.pdf
+2026-01-14 12:37:12,824 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_582/20260114_123712_E3_JungBui.pdf
+2026-01-14 12:37:12,824 - app.api.v1.reports - INFO - Analyzing report 582 with AI
+2026-01-14 12:37:12,830 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 12:37:12,837 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 12:38:16,521 - app.services.ai_analyzer - INFO - Detected 34 points before scoring
+2026-01-14 12:38:16,522 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 48.0
+2026-01-14 12:38:16,560 - app.api.v1.reports - INFO - Successfully processed report 582 for user 1
+INFO:     45.131.195.207:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     45.131.195.207:0 - "GET /api/v1/reports/582 HTTP/1.1" 200 OK
+INFO:     45.131.195.207:0 - "GET /api/v1/reports/582 HTTP/1.1" 200 OK
+INFO:     13.211.92.44:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     13.211.92.44:0 - "GET /api/config HTTP/1.1" 404 Not Found
+INFO:     13.211.92.44:0 - "GET /api/v2/config HTTP/1.1" 404 Not Found
+INFO:     13.211.92.44:0 - "GET /api/v1/config HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.135:60142 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.135:60156 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     66.132.153.135:19794 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     66.132.153.135:17828 - "GET /login HTTP/1.1" 404 Not Found
+2026-01-14 14:05:58,361 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-14 14:06:00,156 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-14 14:06:02,277 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/583 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/583 HTTP/1.1" 200 OK
+2026-01-14 14:40:43,779 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 14:40:45,931 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 14:40:48,181 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/584 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/584 HTTP/1.1" 200 OK
+2026-01-14 14:46:23,091 - app.api.v1.reports - INFO - Extracting text from PDF: Supertakst_Stjørdal_1984.pdf (size: 790748 bytes)
+2026-01-14 14:46:26,772 - app.services.pdf_extractor - INFO - Processing PDF with 23 total pages
+2026-01-14 14:46:30,712 - app.services.pdf_extractor - INFO - Successfully extracted 48901 characters from PDF: 23/23 pages, 2 images
+2026-01-14 14:46:30,872 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_585/20260114_144630_Supertakst_Stjørdal_1984.pdf
+2026-01-14 14:46:30,873 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_585/20260114_144630_Supertakst_Stjørdal_1984.pdf
+2026-01-14 14:46:30,873 - app.api.v1.reports - INFO - Analyzing report 585 with AI
+2026-01-14 14:46:30,887 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 14:46:30,899 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 14:47:21,908 - app.services.ai_analyzer - INFO - Detected 29 points before scoring
+2026-01-14 14:47:21,910 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 79.0
+2026-01-14 14:47:21,963 - app.api.v1.reports - INFO - Successfully processed report 585 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/585 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/585 HTTP/1.1" 200 OK
+2026-01-14 16:05:19,126 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-14 16:05:21,029 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-14 16:05:22,592 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/586 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/586 HTTP/1.1" 200 OK
+2026-01-14 17:08:53,202 - app.api.v1.reports - INFO - Extracting text from PDF: Nito1.pdf (size: 242260 bytes)
+2026-01-14 17:08:59,301 - app.services.pdf_extractor - INFO - Processing PDF with 16 total pages
+2026-01-14 17:09:05,778 - app.services.pdf_extractor - INFO - Successfully extracted 62337 characters from PDF: 16/16 pages, 3 images
+2026-01-14 17:09:05,913 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_587/20260114_170905_Nito1.pdf
+2026-01-14 17:09:05,913 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_587/20260114_170905_Nito1.pdf
+2026-01-14 17:09:05,913 - app.api.v1.reports - INFO - Analyzing report 587 with AI
+2026-01-14 17:09:05,917 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-14 17:09:05,924 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-14 17:09:51,324 - app.services.ai_analyzer - INFO - Detected 0 points before scoring
+2026-01-14 17:09:51,324 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 82.0
+2026-01-14 17:09:51,358 - app.api.v1.reports - INFO - Successfully processed report 587 for user 4
+INFO:     194.146.8.62:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/587 HTTP/1.1" 200 OK
+INFO:     194.146.8.62:0 - "GET /api/v1/reports/587 HTTP/1.1" 200 OK
+INFO:     79.110.49.221:0 - "POST /api/action HTTP/1.1" 404 Not Found
+INFO:     79.110.49.221:0 - "POST /api/action HTTP/1.1" 404 Not Found
+INFO:     8.209.82.97:44768 - "GET / HTTP/1.1" 200 OK
+2026-01-14 19:21:21,623 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-14 19:21:23,821 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-14 19:21:25,988 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/588 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/588 HTTP/1.1" 200 OK
+INFO:     3.72.68.92:0 - "HEAD /api/action HTTP/1.1" 404 Not Found
+INFO:     3.72.68.92:0 - "HEAD /api/actions HTTP/1.1" 404 Not Found
+INFO:     44.206.0.34:0 - "HEAD /api/action HTTP/1.1" 404 Not Found
+INFO:     44.206.0.34:0 - "HEAD /api/actions HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     86.56.232.94:45196 - "GET / HTTP/1.0" 200 OK
+INFO:     79.110.49.221:0 - "POST /api/action HTTP/1.1" 404 Not Found
+INFO:     20.64.106.75:42284 - "GET / HTTP/1.1" 200 OK
+INFO:     79.110.49.221:0 - "POST /api/action HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     104.28.105.24:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     104.28.105.24:0 - "GET /api/v1/reports/576 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     164.92.243.236:37086 - "GET / HTTP/1.1" 200 OK
+INFO:     164.92.243.236:37100 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     147.182.213.106:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     129.212.236.25:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     129.212.236.25:0 - "GET /api/src/.env HTTP/1.1" 404 Not Found
+INFO:     49.36.186.32:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     80.187.114.200:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     80.187.114.200:0 - "GET /api/v1/reports/415 HTTP/1.1" 200 OK
+2026-01-15 07:55:04,738 - app.api.v1.reports - INFO - Extracting text from PDF: KennethOlsen.pdf (size: 2635491 bytes)
+2026-01-15 07:55:06,841 - app.services.pdf_extractor - INFO - Processing PDF with 21 total pages
+2026-01-15 07:55:09,293 - app.services.pdf_extractor - INFO - Successfully extracted 54762 characters from PDF: 21/21 pages, 60 images
+2026-01-15 07:55:09,427 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_589/20260115_075509_KennethOlsen.pdf
+2026-01-15 07:55:09,427 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_589/20260115_075509_KennethOlsen.pdf
+2026-01-15 07:55:09,427 - app.api.v1.reports - INFO - Analyzing report 589 with AI
+2026-01-15 07:55:09,431 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 07:55:09,438 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 07:55:59,954 - app.services.ai_analyzer - INFO - Detected 34 points before scoring
+2026-01-15 07:55:59,955 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 92.0
+2026-01-15 07:55:59,988 - app.api.v1.reports - INFO - Successfully processed report 589 for user 4
+INFO:     80.187.114.200:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     80.187.114.200:0 - "GET /api/v1/reports/589 HTTP/1.1" 200 OK
+INFO:     3.132.23.201:33834 - "GET / HTTP/1.1" 200 OK
+INFO:     3.132.23.201:46104 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+2026-01-15 08:44:15,642 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_80-90.pdf (size: 519275 bytes)
+2026-01-15 08:44:19,947 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-15 08:44:25,645 - app.services.pdf_extractor - INFO - Successfully extracted 141167 characters from PDF: 37/37 pages, 17 images
+2026-01-15 08:44:25,814 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_590/20260115_084425_1_E311_80-90.pdf
+2026-01-15 08:44:25,814 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_590/20260115_084425_1_E311_80-90.pdf
+2026-01-15 08:44:25,814 - app.api.v1.reports - INFO - Analyzing report 590 with AI
+2026-01-15 08:44:25,828 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 08:44:25,837 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 08:45:19,927 - app.services.ai_analyzer - INFO - Detected 22 points before scoring
+2026-01-15 08:45:19,927 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 78.0
+2026-01-15 08:45:19,990 - app.api.v1.reports - INFO - Successfully processed report 590 for user 4
+INFO:     79.161.109.179:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/590 HTTP/1.1" 200 OK
+INFO:     79.161.109.179:0 - "GET /api/v1/reports/590 HTTP/1.1" 200 OK
+INFO:     204.76.203.18:34866 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:57816 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:53634 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     198.235.24.144:58772 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:37966 - "GET /backup/ HTTP/1.1" 404 Not FoundINFO:     Started server process [1106076]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.186.32:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-15 09:41:02,019 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-15 09:41:04,055 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-15 09:41:05,576 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+2026-01-15 09:41:05,764 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_591/20260115_094105_E3_Mats_Hansen.pdf
+2026-01-15 09:41:05,764 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_591/20260115_094105_E3_Mats_Hansen.pdf
+2026-01-15 09:41:05,764 - app.api.v1.reports - INFO - Analyzing report 591 with AI
+2026-01-15 09:41:05,769 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 09:41:05,798 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 09:41:48,609 - app.services.ai_analyzer - INFO - Detected 13 points before scoring
+2026-01-15 09:41:48,611 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 85.0
+2026-01-15 09:41:48,734 - app.api.v1.reports - INFO - Successfully processed report 591 for user 1
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/591 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/591 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/591 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/591 HTTP/1.1" 200 OK
+INFO:     Started server process [1106935]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.186.32:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-01-15 09:53:39,035 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-15 09:53:40,791 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-15 09:53:42,476 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+2026-01-15 09:53:42,695 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_592/20260115_095342_E3_Mats_Hansen.pdf
+2026-01-15 09:53:42,695 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_592/20260115_095342_E3_Mats_Hansen.pdf
+2026-01-15 09:53:42,696 - app.api.v1.reports - INFO - Analyzing report 592 with AI
+2026-01-15 09:53:42,702 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 09:53:42,733 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 09:54:22,812 - app.services.ai_analyzer - INFO - Detected 29 points before scoring
+2026-01-15 09:54:22,814 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 85.0
+2026-01-15 09:54:22,905 - app.api.v1.reports - INFO - Successfully processed report 592 for user 1
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/592 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/592 HTTP/1.1" 200 OK
+2026-01-15 09:55:07,434 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Florø_1975.pdf (size: 3039601 bytes)
+2026-01-15 09:55:12,115 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-15 09:55:17,447 - app.services.pdf_extractor - INFO - Successfully extracted 116019 characters from PDF: 37/37 pages, 91 images
+2026-01-15 09:55:17,602 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_593/20260115_095517_E3_Florø_1975.pdf
+2026-01-15 09:55:17,603 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_593/20260115_095517_E3_Florø_1975.pdf
+2026-01-15 09:55:17,603 - app.api.v1.reports - INFO - Analyzing report 593 with AI
+2026-01-15 09:55:17,613 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 09:55:17,622 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 09:56:20,612 - app.services.bedrock_ai - ERROR - Failed to parse AI JSON response. Snippet: {"meta":{"schema_version":"1.4","analysis_timestamp_utc":"2025-01-27T10:30:00Z","document_title":"E3_Florø_1975.pdf","document_id":"593","language":"nb","scoring_model_id":"rag_scoring_model_validert","scoring_model_version":"1.6","scoring_model_updated_at":"2025-12-28"},"score_total":62,"score_band":"Middels – sårbar i tvist","score_by_category":[{"category_id":"A","category_name":"ARKAT-kvalitet (TG2/TG3)","deduction":25,"max_deduction":40},{"category_id":"B","category_name":"TG-setting og kon
+2026-01-15 09:56:20,612 - app.services.bedrock_ai - ERROR - Bedrock analysis error: Could not parse JSON in AI response
+2026-01-15 09:56:20,620 - app.services.ai_analyzer - ERROR - Error analyzing report with AI: Could not parse JSON in AI response
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1097, in analyze_report
+    analysis_output = bedrock.analyze_report_with_claude(user_prompt=user_prompt)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/bedrock_ai.py", line 189, in analyze_report_with_claude
+    raise ValueError("Could not parse JSON in AI response")
+ValueError: Could not parse JSON in AI response
+2026-01-15 09:56:20,622 - app.api.v1.reports - ERROR - Error processing report: AI analysis failed: Could not parse JSON in AI response
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1097, in analyze_report
+    analysis_output = bedrock.analyze_report_with_claude(user_prompt=user_prompt)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/bedrock_ai.py", line 189, in analyze_report_with_claude
+    raise ValueError("Could not parse JSON in AI response")
+ValueError: Could not parse JSON in AI response
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/api/v1/reports.py", line 344, in upload_report
+    analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/ai_analyzer.py", line 1213, in analyze_report
+    raise Exception(f"AI analysis failed: {str(e)}")
+Exception: AI analysis failed: Could not parse JSON in AI response
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 500 Internal Server Error
+2026-01-15 09:59:08,756 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Florø_1975.pdf (size: 3039601 bytes)
+2026-01-15 09:59:13,913 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-15 09:59:19,151 - app.services.pdf_extractor - INFO - Successfully extracted 116019 characters from PDF: 37/37 pages, 91 images
+2026-01-15 09:59:19,321 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_594/20260115_095919_E3_Florø_1975.pdf
+2026-01-15 09:59:19,322 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_594/20260115_095919_E3_Florø_1975.pdf
+2026-01-15 09:59:19,322 - app.api.v1.reports - INFO - Analyzing report 594 with AI
+2026-01-15 09:59:19,333 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 09:59:19,341 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 10:00:13,705 - app.services.ai_analyzer - INFO - Detected 97 points before scoring
+2026-01-15 10:00:13,707 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 58.0
+2026-01-15 10:00:13,756 - app.api.v1.reports - INFO - Successfully processed report 594 for user 1
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/594 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/594 HTTP/1.1" 200 OK
+2026-01-15 10:01:10,350 - app.api.v1.reports - INFO - Extracting text from PDF: 1_E311_Gold_Standard.pdf (size: 511539 bytes)
+2026-01-15 10:01:15,322 - app.services.pdf_extractor - INFO - Processing PDF with 37 total pages
+2026-01-15 10:01:20,471 - app.services.pdf_extractor - INFO - Successfully extracted 139369 characters from PDF: 37/37 pages, 17 images
+2026-01-15 10:01:20,680 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_595/20260115_100120_1_E311_Gold_Standard.pdf
+2026-01-15 10:01:20,680 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_595/20260115_100120_1_E311_Gold_Standard.pdf
+2026-01-15 10:01:20,680 - app.api.v1.reports - INFO - Analyzing report 595 with AI
+2026-01-15 10:01:20,719 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 10:01:20,744 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 10:02:16,651 - app.services.ai_analyzer - INFO - Detected 65 points before scoring
+2026-01-15 10:02:16,652 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 90.0
+2026-01-15 10:02:16,703 - app.api.v1.reports - INFO - Successfully processed report 595 for user 1
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/595 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/595 HTTP/1.1" 200 OK
+2026-01-15 10:02:45,733 - app.api.v1.reports - INFO - Extracting text from PDF: E3_MarcusWinther.pdf (size: 448311 bytes)
+2026-01-15 10:02:47,834 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-01-15 10:02:50,278 - app.services.pdf_extractor - INFO - Successfully extracted 49388 characters from PDF: 18/18 pages, 53 images
+2026-01-15 10:02:50,445 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_596/20260115_100250_E3_MarcusWinther.pdf
+2026-01-15 10:02:50,445 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_596/20260115_100250_E3_MarcusWinther.pdf
+2026-01-15 10:02:50,445 - app.api.v1.reports - INFO - Analyzing report 596 with AI
+2026-01-15 10:02:50,453 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-01-15 10:02:50,466 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-01-15 10:03:33,245 - app.services.ai_analyzer - INFO - Detected 41 points before scoring
+2026-01-15 10:03:33,246 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 86.0
+2026-01-15 10:03:33,299 - app.api.v1.reports - INFO - Successfully processed report 596 for user 1
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/596 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/596 HTTP/1.1" 200 OK
+2026-01-15 10:05:48,027 - app.api.v1.reports - INFO - Extracting text from PDF: E3_Mats_Hansen.pdf (size: 433350 bytes)
+2026-01-15 10:05:49,860 - app.services.pdf_extractor - INFO - Processing PDF with 15 total pages
+2026-01-15 10:05:52,044 - app.services.pdf_extractor - INFO - Successfully extracted 39865 characters from PDF: 15/15 pages, 47 images
+INFO:     49.36.186.32:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/597 HTTP/1.1" 200 OK
+INFO:     49.36.186.32:0 - "GET /api/v1/reports/597 HTTP/1.1" 200 OK

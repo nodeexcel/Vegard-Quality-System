@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 PAGE_MARKER_RE = re.compile(r"\[SIDE (\d+)\]\n", re.IGNORECASE)
 SUMMARY_MARKERS = ["oppsummering", "takstmannens vurdering", "summary"]
-POINT_HEADER_RE = re.compile(r"^\s*(\d+(?:\.\d+){1,4})\s+(.*\S)?$")
+POINT_HEADER_RE = re.compile(
+    r"^\s*(?:TG\s*(?:IU|0|1|2|3)\s+)?(?:PUNKT|Punkt)?\s*(\d+(?:\.\d+){1,4})\.?\s*(?:[-–—:]?\s*(.*\S)?)?$"
+)
 TG_RE = re.compile(r"\bTG(?:0|1|2|3|IU)\b")
+DATE_POINT_ID_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
 PDF_NOISE_PATTERNS = [
     re.compile(r"^\s*\d+\s*/\s*\d+\s+.*"),
     re.compile(r"^\s*(BMTF|Byggmestrenes Takseringsforbund|EIERSKIFTERAPPORT|Tilstandsrapport|Norsk Takst).*", re.IGNORECASE),
@@ -120,7 +123,7 @@ def _extract_detected_points(report_text: str) -> List[Dict[str, object]]:
     headings: List[Dict[str, object]] = []
     for idx, line in enumerate(line_index):
         match = POINT_HEADER_RE.match(line["text"])
-        if match:
+        if match and not _looks_like_date_point_id(match.group(1)):
             headings.append(
                 {
                     "idx": idx,
@@ -198,6 +201,12 @@ def _is_numeric_point_id(value: str) -> bool:
     if not value:
         return False
     return bool(re.match(r"^\d+(?:\.\d+)*$", value))
+
+
+def _looks_like_date_point_id(value: str) -> bool:
+    if not value:
+        return False
+    return bool(DATE_POINT_ID_RE.match(value))
 
 
 def _parse_numeric_id(value: str) -> List[int]:
@@ -283,18 +292,12 @@ def _sort_points(points: List[Dict[str, object]]) -> Tuple[str, str, List[Dict[s
     mode = _detect_sort_mode(points)
     if mode == "NUMERIC":
         unique_points = _dedupe_points(points, "numeric_id")
-        def _cmp(a: Dict[str, object], b: Dict[str, object]) -> int:
-            a_id = _numeric_id_for_point(a)
-            b_id = _numeric_id_for_point(b)
-            if not a_id and not b_id:
-                return 0
-            if not a_id:
-                return 1
-            if not b_id:
-                return -1
-            return _compare_numeric_ids(a_id, b_id)
-        from functools import cmp_to_key
-        sorted_points = sorted(unique_points, key=cmp_to_key(_cmp))
+        def _numeric_sort_key(point: Dict[str, object]) -> Tuple[int, List[int]]:
+            numeric_id = _numeric_id_for_point(point)
+            if numeric_id:
+                return (0, _parse_numeric_id(numeric_id))
+            return (1, [])
+        sorted_points = sorted(unique_points, key=_numeric_sort_key)
         return mode, "numeric_id", sorted_points
     unique_points = _dedupe_points(points, "point_key")
     if all(isinstance(p, dict) and p.get("order_in_doc") is not None for p in unique_points):

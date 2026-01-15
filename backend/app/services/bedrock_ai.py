@@ -148,15 +148,16 @@ class BedrockAI:
                     ]
                 })
             
-            # Use Claude Sonnet 4 via EU inference profile (approved and working)
-            logger.info("Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic")
-            
-            # Use retry logic to handle throttling
-            response_body = self._invoke_model_with_retry(
-                model_id='eu.anthropic.claude-sonnet-4-20250514-v1:0',
-                body=_build_body(user_prompt)
-            )
-            stop_reason = response_body.get("stop_reason") or response_body.get("stopReason")
+            def _invoke_with_prompt(prompt: str) -> Dict:
+                logger.info("Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic")
+                response = self._invoke_model_with_retry(
+                    model_id='eu.anthropic.claude-sonnet-4-20250514-v1:0',
+                    body=_build_body(prompt)
+                )
+                stop_reason_local = response.get("stop_reason") or response.get("stopReason")
+                return response, stop_reason_local
+
+            response_body, stop_reason = _invoke_with_prompt(user_prompt)
             if stop_reason == "max_tokens":
                 logger.warning("Bedrock response truncated (stop_reason=max_tokens). Retrying with compact output request.")
                 compact_prompt = (
@@ -166,10 +167,7 @@ class BedrockAI:
                       "Use at most 1 evidence snippet per issue. "
                       "Omit optional fields when not needed."
                 )
-                response_body = self._invoke_model_with_retry(
-                    model_id='eu.anthropic.claude-sonnet-4-20250514-v1:0',
-                    body=_build_body(compact_prompt)
-                )
+                response_body, stop_reason = _invoke_with_prompt(compact_prompt)
             
             # Extract text from Claude response
             content = response_body.get('content', [])
@@ -186,7 +184,25 @@ class BedrockAI:
             json_text = _extract_json_block(response_text) or _strip_opening_code_fence(response_text) or response_text
             analysis_data = _parse_json_loose(json_text)
             if analysis_data is None:
-                raise ValueError("Could not parse JSON in AI response")
+                logger.warning("Initial JSON parse failed; retrying with compact JSON-only prompt.")
+                compact_prompt = (
+                    user_prompt
+                    + "\n\nIMPORTANT: Return ONLY a valid JSON object. No prose, no markdown. "
+                      "Keep it compact: max 15 findings, max 10 improvements, max 1 evidence item each. "
+                      "Omit optional fields when empty."
+                )
+                response_body, _ = _invoke_with_prompt(compact_prompt)
+                content = response_body.get('content', [])
+                if content and len(content) > 0:
+                    response_text = "".join(
+                        block.get("text", "")
+                        for block in content
+                        if isinstance(block, dict) and block.get("text")
+                    )
+                json_text = _extract_json_block(response_text) or _strip_opening_code_fence(response_text) or response_text
+                analysis_data = _parse_json_loose(json_text)
+                if analysis_data is None:
+                    raise ValueError("Could not parse JSON in AI response")
             return analysis_data
             
         except Exception as e:
