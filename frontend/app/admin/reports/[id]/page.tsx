@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import axios from 'axios'
+import { translate } from '../../../utils/translations'
 
 interface Evidence {
   point_id: string
@@ -525,11 +526,11 @@ export default function AdminReportDetail() {
                             <div className="mt-3 text-sm text-gray-600">
                               <p>
                                 {driver.evidence[0].heading}
-                                {driver.evidence[0].point_id ? ` (Point ${driver.evidence[0].point_id}, ${driver.evidence[0].tg})` : ''}
+                                {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${translate(driver.evidence[0].tg)})` : ''}
                               </p>
-                              <p>Page {driver.evidence[0].page} • {driver.evidence[0].source}</p>
+                              <p>{translate('Page')} {driver.evidence[0].page} • {translate(driver.evidence[0].source)}</p>
                               <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
-                              <p className="text-xs text-gray-500 mt-1">{driver.evidence[0].match_explain}</p>
+                              <p className="text-xs text-gray-500 mt-1">{translate(driver.evidence[0].match_explain)}</p>
                             </div>
                           )}
                         </div>
@@ -689,7 +690,7 @@ export default function AdminReportDetail() {
                               finding.severity === 'high' ? 'bg-orange-100 text-orange-800' :
                               'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {finding.severity}
+                              {translate(finding.severity)}
                             </span>
                           </div>
                         </div>
@@ -769,7 +770,7 @@ export default function AdminReportDetail() {
                         <p className="text-xs text-gray-500">Punkt {component.component_id}</p>
                       </div>
                       <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                        {component.tg}
+                        {translate(component.tg)}
                       </span>
                     </div>
                     <div className="space-y-3">
@@ -778,7 +779,7 @@ export default function AdminReportDetail() {
                           <div className="flex items-start justify-between mb-2">
                             <h5 className="font-medium text-gray-900">{issue.summary}</h5>
                             <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
-                              {issue.severity}
+                              {translate(issue.severity)}
                             </span>
                           </div>
                           <p className="text-sm text-gray-700">{issue.details}</p>
@@ -786,11 +787,11 @@ export default function AdminReportDetail() {
                             <div className="mt-3 text-sm text-gray-600">
                               <p>
                                 {issue.evidence[0].heading}
-                                {issue.evidence[0].point_id ? ` (Point ${issue.evidence[0].point_id}, ${issue.evidence[0].tg})` : ''}
+                                {issue.evidence[0].point_id ? ` (Punkt ${issue.evidence[0].point_id}, ${translate(issue.evidence[0].tg)})` : ''}
                               </p>
-                              <p>Page {issue.evidence[0].page} • {issue.evidence[0].source}</p>
+                              <p>{translate('Page')} {issue.evidence[0].page} • {translate(issue.evidence[0].source)}</p>
                               <p className="italic mt-1">"{issue.evidence[0].snippet}"</p>
-                              <p className="text-xs text-gray-500 mt-1">{issue.evidence[0].match_explain}</p>
+                              <p className="text-xs text-gray-500 mt-1">{translate(issue.evidence[0].match_explain)}</p>
                             </div>
                           )}
                         </div>
@@ -814,10 +815,10 @@ export default function AdminReportDetail() {
                           finding.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-blue-100 text-blue-800'
                         }`}>
-                          {finding.severity}
+                          {translate(finding.severity)}
                         </span>
                         <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                          {finding.finding_type}
+                          {translate(finding.finding_type)}
                         </span>
                       </div>
                     </div>
@@ -845,12 +846,12 @@ export default function AdminReportDetail() {
                         <p className="text-xs text-gray-500">Punkt {point.point_id}</p>
                       </div>
                       <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                        {point.tg}
+                        {translate(point.tg)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-gray-700">{point.summary}</p>
-                      <span className="text-xs font-medium text-gray-600">{point.status}</span>
+                      <span className="text-xs font-medium text-gray-600">{translate(point.status)}</span>
                     </div>
                     {typeof point.deduction_total === 'number' && point.deduction_total > 0 && (
                       <p className="text-xs text-red-600 mt-2">Trekk: {point.deduction_total}</p>
@@ -869,7 +870,7 @@ export default function AdminReportDetail() {
                         <h4 className="font-medium text-gray-900">{component.component_title}</h4>
                         <p className="text-sm text-gray-500">Punkt {component.component_id}</p>
                       </div>
-                      <span className="text-sm font-semibold text-gray-700">{component.tg}</span>
+                      <span className="text-sm font-semibold text-gray-700">{translate(component.tg)}</span>
                     </div>
                     {component.location && (
                       <p className="text-sm text-gray-600">Location: {component.location}</p>

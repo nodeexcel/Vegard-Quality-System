@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
 import outputOverlay from '../../../../files/scoring_policy.validert_output_overlay.v1.1.json'
+import { translate } from '../../utils/translations'
 
 interface Evidence {
   point_id: string
@@ -560,9 +561,9 @@ export default function ResultsPage() {
                       </div>
                       <div className="text-right">
                         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pointStatusClasses(point.status)}`}>
-                          {point.status}
+                          {translate(point.status)}
                         </span>
-                        <p className="text-xs text-gray-500 mt-2">{point.tg}</p>
+                        <p className="text-xs text-gray-500 mt-2">{translate(point.tg)}</p>
                       </div>
                     </div>
                     <p className="text-sm text-gray-700">{point.summary}</p>
@@ -642,18 +643,20 @@ export default function ResultsPage() {
                           </span>
                         </div>
                         {driver.rule_refs.length > 0 && (
-                          <p className="text-xs text-gray-500 mb-3">Regler: {driver.rule_refs.join(', ')}</p>
+                          <p className="text-xs text-gray-500 mb-3">
+                            Regler: {Array.from(new Set(driver.rule_refs)).map(ref => translate(ref)).join(', ')}
+                          </p>
                         )}
                         {driver.evidence && driver.evidence.length > 0 && (
                           <div className="bg-white/80 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
                             <p className="font-semibold text-gray-900 mb-1">Dokumentasjon</p>
                             <p>
                               {driver.evidence[0].heading}
-                              {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${driver.evidence[0].tg})` : ''}
+                              {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${translate(driver.evidence[0].tg)})` : ''}
                             </p>
-                            <p>Side {driver.evidence[0].page} • {driver.evidence[0].source}</p>
+                            <p>{translate('Page')} {driver.evidence[0].page} • {translate(driver.evidence[0].source)}</p>
                             <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
-                            <p className="text-xs text-gray-500 mt-1">{driver.evidence[0].match_explain}</p>
+                            <p className="text-xs text-gray-500 mt-1">{translate(driver.evidence[0].match_explain)}</p>
                           </div>
                         )}
                       </div>
@@ -675,7 +678,7 @@ export default function ResultsPage() {
                           </p>
                         </div>
                         <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-semibold text-gray-700">
-                          {component.tg}
+                          {translate(component.tg)}
                         </span>
                       </div>
 
@@ -683,16 +686,16 @@ export default function ResultsPage() {
                         <p className="text-sm font-semibold text-gray-900 mb-2">ARKAT (Årsak–Risiko–Konsekvens–Anbefalt tiltak)</p>
                         <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-700">
                           <div>
-                            <span className="font-semibold">Årsak:</span> {component.arkat?.arsak?.status ?? 'ukjent'}
+                            <span className="font-semibold">Årsak:</span> {translate(component.arkat?.arsak?.status ?? 'unknown')}
                           </div>
                           <div>
-                            <span className="font-semibold">Risiko:</span> {component.arkat?.risiko?.status ?? 'ukjent'}
+                            <span className="font-semibold">Risiko:</span> {translate(component.arkat?.risiko?.status ?? 'unknown')}
                           </div>
                           <div>
-                            <span className="font-semibold">Konsekvens:</span> {component.arkat?.konsekvens?.status ?? 'ukjent'}
+                            <span className="font-semibold">Konsekvens:</span> {translate(component.arkat?.konsekvens?.status ?? 'unknown')}
                           </div>
                           <div>
-                            <span className="font-semibold">Anbefalt tiltak:</span> {component.arkat?.anbefalt_tiltak?.status ?? 'ukjent'}
+                            <span className="font-semibold">Anbefalt tiltak:</span> {translate(component.arkat?.anbefalt_tiltak?.status ?? 'unknown')}
                           </div>
                         </div>
                       </div>
@@ -708,18 +711,20 @@ export default function ResultsPage() {
                                   <h4 className="font-semibold text-gray-900">{issue.summary}</h4>
                                   <p className="text-sm text-gray-700 mt-1">{issue.details}</p>
                                   {issue.rule_refs.length > 0 && (
-                                    <p className="text-xs text-gray-500 mt-2">Regler: {issue.rule_refs.join(', ')}</p>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      Regler: {Array.from(new Set(issue.rule_refs)).map(ref => translate(ref)).join(', ')}
+                                    </p>
                                   )}
                                   {issue.evidence && issue.evidence.length > 0 && (
                                     <div className="mt-3 bg-white/80 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
                                       <p className="font-semibold text-gray-900 mb-1">Dokumentasjon</p>
                                       <p>
                                         {issue.evidence[0].heading}
-                                        {issue.evidence[0].point_id ? ` (Punkt ${issue.evidence[0].point_id}, ${issue.evidence[0].tg})` : ''}
+                                        {issue.evidence[0].point_id ? ` (Punkt ${issue.evidence[0].point_id}, ${translate(issue.evidence[0].tg)})` : ''}
                                       </p>
-                                      <p>Side {issue.evidence[0].page} • {issue.evidence[0].source}</p>
+                                      <p>{translate('Page')} {issue.evidence[0].page} • {translate(issue.evidence[0].source)}</p>
                                       <p className="italic mt-1">"{issue.evidence[0].snippet}"</p>
-                                      <p className="text-xs text-gray-500 mt-1">{issue.evidence[0].match_explain}</p>
+                                      <p className="text-xs text-gray-500 mt-1">{translate(issue.evidence[0].match_explain)}</p>
                                     </div>
                                   )}
                                 </div>
@@ -772,7 +777,7 @@ export default function ResultsPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
                                   <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
-                                    {improvement.priority}
+                                    {translate(improvement.priority)}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
@@ -809,7 +814,7 @@ export default function ResultsPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
                                   <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
-                                    {improvement.priority}
+                                    {translate(improvement.priority)}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
@@ -846,7 +851,7 @@ export default function ResultsPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
                                   <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
-                                    {improvement.priority}
+                                    {translate(improvement.priority)}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
@@ -1148,7 +1153,7 @@ export default function ResultsPage() {
                           </div>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${severityConfig.badge} whitespace-nowrap ml-2`}>
-                          {finding.severity.toUpperCase()}
+                          {translate(finding.severity)}
                         </span>
                       </div>
                       {finding.suggestion && (
@@ -1263,17 +1268,6 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* Full AI Analysis JSON */}
-                {report.ai_analysis && (
-                  <div>
-                    <h3 className="font-bold text-gray-900 mb-3">Full AI-analyse (JSON)</h3>
-                    <div className="bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto">
-                      <pre className="text-xs text-yellow-400 whitespace-pre-wrap font-mono">
-                        {JSON.stringify(report.ai_analysis, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>

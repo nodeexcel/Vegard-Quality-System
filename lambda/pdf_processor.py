@@ -57,6 +57,7 @@ PAGE_MARKER_RE = re.compile(r"\[SIDE (\d+)\]\n", re.IGNORECASE)
 SUMMARY_MARKERS = ["oppsummering", "takstmannens vurdering", "summary"]
 POINT_HEADER_RE = re.compile(r"^\s*(\d+(?:\.\d+){1,4})\s+(.*\S)?$")
 TG_RE = re.compile(r"\bTG(?:0|1|2|3|IU)\b")
+DATE_POINT_ID_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
 
 
 def _load_scoring_model() -> Dict[str, object]:
@@ -216,6 +217,12 @@ def _extract_snippet(text: str, index: int, window: int = 220) -> str:
     return text[start:end].strip()
 
 
+def _looks_like_date_point_id(value: str) -> bool:
+    if not value:
+        return False
+    return bool(DATE_POINT_ID_RE.match(value))
+
+
 def _get_scoring_model_info() -> Dict[str, str]:
     try:
         payload = json.loads(SCORING_MODEL)
@@ -239,7 +246,7 @@ def _extract_detected_points(report_text: str) -> List[Dict[str, Any]]:
     headings: List[Dict[str, Any]] = []
     for idx, line in enumerate(line_index):
         match = POINT_HEADER_RE.match(line["text"])
-        if match:
+        if match and not _looks_like_date_point_id(match.group(1)):
             headings.append(
                 {
                     "idx": idx,
