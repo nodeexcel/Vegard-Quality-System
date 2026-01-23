@@ -47,6 +47,8 @@ function translateRuleId(ruleId: string): string {
       prefixTranslated = prefix.replace('_METHOD', '_METODE')
     } else if (prefix.includes('_ARKAT')) {
       prefixTranslated = prefix.replace('_ARKAT', '_ARKAT')
+    } else if (prefix.includes('_STRUCTURE')) {
+      prefixTranslated = prefix.replace('_STRUCTURE', '_STRUKTUR')
     }
     
     return `${prefixTranslated}.${ruleNameTranslated}`
@@ -85,7 +87,7 @@ export function translate(key: string | null | undefined): string {
   }
   
   // If it looks like a rule ID, use rule translation
-  if (key.includes('.') && /^[A-E]_/.test(key)) {
+  if (key.includes('.') && /^[A-F]_/.test(key)) {
     return translateRuleId(key)
   }
   

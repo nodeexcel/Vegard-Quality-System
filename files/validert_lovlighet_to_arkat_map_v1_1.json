@@ -1,0 +1,11 @@
+{
+  "map_id": "validert_lovlighet_to_arkat_v1_0",
+  "rule_to_template": {
+    "L-FA-01": "ferdigattest_mangler",
+    "L-MB-01": "midlertidig_brukstillatelse",
+    "L-BU-01": "bruksendring_indikert",
+    "L-UT-01": "utleiedel_indikert",
+    "L-SO-01": "soknadspliktig_tiltak_indikert"
+  },
+  "version": "v1.1"
+}

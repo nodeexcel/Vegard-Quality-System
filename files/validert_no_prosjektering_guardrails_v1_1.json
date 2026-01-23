@@ -1,0 +1,65 @@
+{
+  "guardrails_id": "validert_no_prosjektering_v1_0",
+  "language": "nb-NO",
+  "purpose": "Sikre at automatisk foreslått tekst ikke blir prosjekterende/utførende og holder seg til 'Anbefalt tiltak'.",
+  "guardrails": {
+    "forbidden_verbs": [
+      "skal",
+      "må",
+      "etableres",
+      "bygges",
+      "rives",
+      "skiftes",
+      "åpnes",
+      "dreneres",
+      "rehabiliteres",
+      "totalrenoveres",
+      "støpes",
+      "stenderverk",
+      "membran"
+    ],
+    "forbidden_detail_patterns": [
+      "\\bmm\\b",
+      "\\bcm\\b",
+      "\\bm2\\b",
+      "\\bx\\b",
+      "\\btype\\s+[A-Z0-9-]+",
+      "produkt",
+      "leverandør",
+      "entreprenør",
+      "metode",
+      "pris",
+      "kr\\s*[0-9]"
+    ],
+    "allowed_modality": [
+      "anbefales",
+      "kan vurderes",
+      "bør vurderes",
+      "det anbefales å avklare",
+      "det anbefales å innhente",
+      "det anbefales å undersøke",
+      "ved avvik bør videre avklaring vurderes"
+    ],
+    "format_limits": {
+      "max_sentences_per_field": 2,
+      "max_chars_per_field": 320
+    },
+    "enforcement": {
+      "if_forbidden_found": "rewrite_to_allowed_modality",
+      "if_too_long": "truncate_preserving_meaning",
+      "always_use_label": "Anbefalt tiltak"
+    }
+  },
+  "meta": {
+    "version": "v1.1",
+    "schema_arkat_section_enum": [
+      "observasjon",
+      "arsak",
+      "risiko",
+      "konsekvens",
+      "anbefalt_tiltak",
+      "tg",
+      "annet"
+    ]
+  }
+}

@@ -228,10 +228,26 @@ export default function AdminReportDetail() {
     )
   }
 
+  const ensureCategoryF = (items: Array<{ category_id: string; category_name: string; deduction: number; max_deduction: number }>) => {
+    if (items.some((item) => item.category_id === 'F')) {
+      return items
+    }
+    return [
+      ...items,
+      {
+        category_id: 'F',
+        category_name: 'Lovlighetsmangler',
+        deduction: 0,
+        max_deduction: 15
+      }
+    ]
+  }
+
   const analysis = report.ai_analysis as AnalysisV14 | null
   const feedbackV11 = report.scoring_result?.feedback_v11 || null
   const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
   const hasV14 = Boolean(analysis && typeof analysis.score_total === 'number')
+  const scoreByCategory = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category) : []
   const tabs = hasV14
     ? [
         { id: 'overview', label: 'Overview' },
@@ -329,7 +345,7 @@ export default function AdminReportDetail() {
               </div>
               <p className="text-sm text-gray-600">{analysis.score_band}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                {analysis.score_by_category.map((category) => (
+                {scoreByCategory.map((category) => (
                   <div key={category.category_id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <p className="text-sm font-medium text-gray-900">{category.category_name}</p>
                     <p className="text-sm text-gray-600">Trekk: {category.deduction} / {category.max_deduction}</p>

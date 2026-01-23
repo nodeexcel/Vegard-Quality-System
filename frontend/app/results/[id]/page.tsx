@@ -52,7 +52,7 @@ interface Deduction {
   rule_id: string
   points: number
   reason: string
-  category_id?: 'A' | 'B' | 'C' | 'D' | 'E'
+  category_id?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
   evidence?: Evidence[]
 }
 
@@ -67,7 +67,7 @@ interface ComponentFinding {
 }
 
 interface ScoreByCategory {
-  category_id: 'A' | 'B' | 'C' | 'D' | 'E'
+  category_id: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
   category_name: string
   deduction: number
   max_deduction: number
@@ -374,11 +374,26 @@ export default function ResultsPage() {
     medium: 2,
     low: 3
   }
+  const ensureCategoryF = (items: ScoreByCategory[]) => {
+    if (items.some((item) => item.category_id === 'F')) {
+      return items
+    }
+    return [
+      ...items,
+      {
+        category_id: 'F',
+        category_name: 'Lovlighetsmangler',
+        deduction: 0,
+        max_deduction: 15
+      }
+    ]
+  }
   const sortedImprovements = hasV14 && analysis
     ? [...analysis.improvements].sort(
         (a, b) => (improvementPriorityOrder[a.priority] ?? 99) - (improvementPriorityOrder[b.priority] ?? 99)
       )
     : []
+  const scoreByCategory = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category) : []
   const highPriorityImprovements = sortedImprovements.filter(
     (item) => item.priority === 'critical' || item.priority === 'high'
   )
@@ -427,13 +442,25 @@ export default function ResultsPage() {
     }
   }
   const renderTrekkLabel = (value: number | null | undefined) => {
-    if (!value) return null
+    if (value === null || value === undefined) return null
     const policy = (outputOverlay as any)?.field_policies?.trekk
-    const label = policy?.external_labels?.[String(value)]
-    if (!label) return null
     const prefix = policy?.prefix || 'Vurdering'
     const format = policy?.render?.format || '{prefix}: {label}'
-    return format.replace('{prefix}', prefix).replace('{label}', label)
+    const directLabel = policy?.external_labels?.[String(value)]
+    if (directLabel) {
+      return format.replace('{prefix}', prefix).replace('{label}', directLabel)
+    }
+    const bucket =
+      value <= 1
+        ? '1'
+        : value <= 3
+          ? '2'
+          : '3'
+    const bucketLabel = policy?.external_labels?.[bucket]
+    if (bucketLabel) {
+      return format.replace('{prefix}', prefix).replace('{label}', bucketLabel)
+    }
+    return `${prefix}: ${value}`
   }
 
 
@@ -592,7 +619,7 @@ export default function ResultsPage() {
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-5">
-                  {analysis.score_by_category.map((category) => (
+                  {scoreByCategory.map((category) => (
                     <div key={category.category_id} className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
                       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-400 via-amber-400 to-green-400"></div>
                       <div className="flex items-start justify-between gap-4">

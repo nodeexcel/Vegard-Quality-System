@@ -1,0 +1,335 @@
+{
+  "ruleset_id": "validert_lovlighet_v1_1",
+  "effective_from": "2026-01-01",
+  "scope": "tilstandsrapport_avhendingslova",
+  "module": "lovlighetskontroll",
+  "version": "1.0.1",
+  "notes": [
+    "Lovlighet kontrolleres som egen modul (separat fra TG).",
+    "Hard stop utløses når lovlighetsavvik er indikert uten eksplisitt konsekvens for kjøper.",
+    "ARKAT(A) betyr: Årsak → Risiko → Konsekvens → Anbefalt tiltak. Ikke bruk prosjekterende språk."
+  ],
+  "definitions": {
+    "legal_topics": [
+      "ferdigattest",
+      "midlertidig_brukstillatelse",
+      "bruksendring",
+      "soknadspliktig_tiltak",
+      "utleiedel",
+      "rom_benyttes_uten_godkjenning"
+    ],
+    "consequence_markers": [
+      "konsekvens",
+      "betydning for kjøper",
+      "kan medføre",
+      "kan føre til",
+      "risiko for pålegg",
+      "kommunen kan",
+      "krav fra kommunen",
+      "pålegg",
+      "søknad",
+      "søknadsplikt",
+      "kostnader",
+      "gebyr",
+      "tvangsmulkt",
+      "begrensning i bruk",
+      "lovlig bruk",
+      "kan påvirke videresalg",
+      "kan påvirke finansiering",
+      "kan påvirke forsikring",
+      "ulovlig",
+      "ikke godkjent"
+    ],
+    "evidence_markers": [
+      "ferdigattest",
+      "midlertidig brukstillatelse",
+      "rammetillatelse",
+      "igangsettingstillatelse",
+      "brukstillatelse",
+      "godkjent tegning",
+      "kommunale opplysninger",
+      "byggesak",
+      "søknadsdokumentasjon",
+      "situasjonsplan"
+    ]
+  },
+  "extraction": {
+    "granularity": "per_section",
+    "preferred_sections": [
+      "Kommunale opplysninger",
+      "Samsvar med byggetegninger",
+      "Ferdigattest / midlertidig brukstillatelse",
+      "Lovlighetsforhold",
+      "Oppsummering",
+      "Avvik og merknader"
+    ],
+    "fallback": "full_text"
+  },
+  "rules": [
+    {
+      "id": "L-FA-01",
+      "title": "Manglende ferdigattest oppgitt uten eksplisitt konsekvens",
+      "topic": "ferdigattest",
+      "severity": "hard_stop",
+      "trigger": {
+        "any_phrase": [
+          "ingen ferdigattest",
+          "mangler ferdigattest",
+          "ikke registrert ferdigattest",
+          "ferdigattest foreligger ikke",
+          "ingen registrert ferdigattest"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true,
+        "consequence_search_window_chars": 1200
+      },
+      "fail_if": {
+        "missing_any": [
+          "consequence_text"
+        ]
+      },
+      "message": "Rapporten opplyser om manglende ferdigattest, men forklarer ikke tydelig konsekvensen for kjøper (f.eks. risiko for pålegg, kostnader, bruksbegrensning, videresalg/finansiering).",
+      "recommended_fix_key": "consequence_template",
+      "arkat_template_key": "ferdigattest_mangler",
+      "category": "F",
+      "score_impact": {
+        "deduct_points": 15,
+        "max_total_score": 85
+      },
+      "gate_impact": {
+        "blocks_96_gate": true
+      }
+    },
+    {
+      "id": "L-MB-01",
+      "title": "Midlertidig brukstillatelse/tatt i bruk oppgitt uten eksplisitt konsekvens",
+      "topic": "midlertidig_brukstillatelse",
+      "severity": "hard_stop",
+      "trigger": {
+        "any_phrase": [
+          "midlertidig brukstillatelse",
+          "midlertidig bruk",
+          "status tatt i bruk",
+          "tatt i bruk uten ferdigattest"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true,
+        "consequence_search_window_chars": 1200
+      },
+      "fail_if": {
+        "missing_any": [
+          "consequence_text"
+        ]
+      },
+      "message": "Rapporten opplyser om midlertidig brukstillatelse/«tatt i bruk», men mangler tydelig konsekvens for kjøper.",
+      "recommended_fix_key": "consequence_template",
+      "arkat_template_key": "midlertidig_brukstillatelse",
+      "category": "F",
+      "score_impact": {
+        "deduct_points": 15,
+        "max_total_score": 85
+      },
+      "gate_impact": {
+        "blocks_96_gate": true
+      }
+    },
+    {
+      "id": "L-BU-01",
+      "title": "Bruksendring/rom benyttes som annet enn godkjent – uten eksplisitt konsekvens",
+      "topic": "bruksendring",
+      "severity": "hard_stop",
+      "trigger": {
+        "any_phrase": [
+          "bruksendring",
+          "rom benyttes som",
+          "benyttes som soverom",
+          "ikke godkjent som",
+          "ikke godkjent til varig opphold",
+          "ikke omsøkt bruksendring",
+          "bruk i strid med godkjenning"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true,
+        "consequence_search_window_chars": 1500
+      },
+      "fail_if": {
+        "missing_any": [
+          "consequence_text"
+        ]
+      },
+      "message": "Rapporten indikerer mulig bruksendring/ulovlig bruk, men forklarer ikke konsekvens for kjøper (søknadsplikt, pålegg, bruksbegrensning, kostnader).",
+      "recommended_fix_key": "consequence_template",
+      "arkat_template_key": "bruksendring_indikert",
+      "category": "F",
+      "score_impact": {
+        "deduct_points": 15,
+        "max_total_score": 85
+      },
+      "gate_impact": {
+        "blocks_96_gate": true
+      }
+    },
+    {
+      "id": "L-SO-01",
+      "title": "Mulig søknadspliktig tiltak indikert – uten avklaring/konsekvens",
+      "topic": "soknadspliktig_tiltak",
+      "severity": "major",
+      "trigger": {
+        "any_phrase": [
+          "tilbygg",
+          "påbygg",
+          "ombygging",
+          "innredet loft",
+          "utvidelse",
+          "søknadspliktig",
+          "kan være søknadspliktig"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true,
+        "consequence_search_window_chars": 1500
+      },
+      "fail_if": {
+        "missing_any": [
+          "consequence_text"
+        ]
+      },
+      "score_impact": {
+        "deduct_points": 10,
+        "max_total_score": 85
+      },
+      "message": "Rapporten indikerer mulig søknadspliktig tiltak, men mangler tydelig avklaring/konsekvens for kjøper.",
+      "recommended_fix_key": "consequence_template",
+      "arkat_template_key": "soknadspliktig_tiltak_indikert",
+      "category": "F",
+      "gate_impact": {
+        "blocks_96_gate": false
+      }
+    },
+    {
+      "id": "L-UT-01",
+      "title": "Mulig utleiedel/sekundær boenhet indikert – uten lovlighetsavklaring",
+      "topic": "utleiedel",
+      "severity": "major",
+      "trigger": {
+        "any_phrase": [
+          "utleiedel",
+          "hybel",
+          "sekundærleilighet",
+          "boenhet",
+          "egen inngang",
+          "kjøkken i underetasje",
+          "bad og kjøkken i kjeller"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true,
+        "consequence_search_window_chars": 2000
+      },
+      "fail_if": {
+        "missing_any": [
+          "consequence_text"
+        ]
+      },
+      "score_impact": {
+        "deduct_points": 12,
+        "max_total_score": 85
+      },
+      "message": "Rapporten indikerer mulig utleiedel/sekundær boenhet uten at lovlig status og konsekvens for kjøper er tydelig omtalt.",
+      "recommended_fix_key": "consequence_template",
+      "arkat_template_key": "utleiedel_indikert",
+      "category": "F",
+      "gate_impact": {
+        "blocks_96_gate": false
+      }
+    },
+    {
+      "id": "L-EV-01",
+      "title": "Lovlighetsstatus omtalt uten tydelig kildeangivelse",
+      "topic": "evidence",
+      "severity": "minor",
+      "trigger": {
+        "any_phrase": [
+          "ikke funnet",
+          "ikke registrert",
+          "ikke dokumentert",
+          "ukjent",
+          "ikke kontrollert",
+          "ingen opplysninger"
+        ],
+        "within_proximity_of_any": [
+          "ferdigattest",
+          "brukstillatelse",
+          "byggesak",
+          "godkjent",
+          "tegninger"
+        ],
+        "proximity_chars": 300
+      },
+      "requirements": {
+        "must_reference_source": true,
+        "source_search_window_chars": 1200
+      },
+      "fail_if": {
+        "missing_any": [
+          "source_reference_text"
+        ]
+      },
+      "score_impact": {
+        "deduct_points": 4
+      },
+      "message": "Lovlighetsstatus er omtalt uten tydelig kildeangivelse (f.eks. kommune/byggesak/innhentet dokumentasjon).",
+      "recommended_fix_key": "source_template",
+      "category": "F",
+      "gate_impact": {
+        "blocks_96_gate": false
+      }
+    }
+  ],
+  "evaluation": {
+    "how_to_find_consequence_text": {
+      "method": "regex_or_semantic",
+      "required_any_marker": "definitions.consequence_markers",
+      "min_length_chars": 80
+    },
+    "how_to_find_source_reference": {
+      "method": "regex_or_semantic",
+      "required_any_marker": "definitions.evidence_markers",
+      "min_length_chars": 20
+    }
+  },
+  "output_schema": {
+    "return_fields": [
+      "ruleset_id",
+      "report_id",
+      "findings",
+      "hard_stop",
+      "score_deductions",
+      "max_score_caps",
+      "human_summary"
+    ],
+    "finding_fields": [
+      "rule_id",
+      "severity",
+      "topic",
+      "matched_text_snippet",
+      "location_hint",
+      "missing_requirements",
+      "recommended_fix_text",
+      "arkat_suggestion"
+    ]
+  },
+  "recommended_fix_text_library": {
+    "consequence_template": "Konsekvens for kjøper bør beskrives tydelig (f.eks. risiko for kommunale pålegg, behov for søknad/avklaring, mulige kostnader og eventuell begrensning i lovlig bruk/videresalg/finansiering).",
+    "source_template": "Kildegrunnlag bør oppgis (f.eks. kommunale opplysninger/byggesak, innhentede tegninger, vedlagte tillatelser/attester)."
+  },
+  "meta": {
+    "version": "v1.1",
+    "ui_category": "F",
+    "ui_category_title": "Lovlighetsmangler",
+    "notes": "Lovlighetsmangler skal vises som egen kategori (F) og kan blokkere 96%-gate ved kritiske funn."
+  }
+}

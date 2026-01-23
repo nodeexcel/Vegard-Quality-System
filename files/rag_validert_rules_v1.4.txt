@@ -10,12 +10,12 @@ ARKAT = Årsak → Risiko → Konsekvens → Anbefalt tiltak / anbefalte tiltak
 
 2) TG2
 - Obligatorisk: Årsak + Konsekvens.
-- Risiko/Anbefalt(e) tiltak: situasjonsavhengig.
+- Risiko/Anbefalt tiltak: situasjonsavhengig.
 - Trekk kun hvis fravær gjør teksten uklar eller misvisende.
 
 3) TG3
 - Obligatorisk: Full ARKAT.
-- Anbefalt(e) tiltak må fremstå nødvendig.
+- Anbefalt tiltak må fremstå nødvendig.
 - Valgfrihetsformuleringer ved TG3 er ikke akseptable.
 
 B) TGIU

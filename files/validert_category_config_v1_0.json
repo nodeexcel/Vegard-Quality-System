@@ -1,0 +1,46 @@
+{
+  "version": "v1.0",
+  "categories": {
+    "A": {
+      "title": "ARKAT-kvalitet (TG2/TG3)",
+      "max_deduction": 40
+    },
+    "B": {
+      "title": "TG-setting og konsistens",
+      "max_deduction": 20
+    },
+    "C": {
+      "title": "TGIU og undersøkelsesbegrensninger",
+      "max_deduction": 15
+    },
+    "D": {
+      "title": "Klarspråk og struktur",
+      "max_deduction": 15
+    },
+    "E": {
+      "title": "Metodikk og lovforankring",
+      "max_deduction": 10
+    },
+    "F": {
+      "title": "Lovlighetsmangler",
+      "max_deduction": 15,
+      "special": {
+        "can_block_96_gate": true,
+        "can_cap_total_score": true
+      }
+    }
+  },
+  "gate": {
+    "threshold": 96,
+    "blocked_if_any": [
+      {
+        "rule_family": "LEGALITY",
+        "severity_in": [
+          "critical"
+        ],
+        "affects_96_gate": true
+      }
+    ]
+  },
+  "notes": "Kategori F vises alltid. Kritiske lovlighetsfunn kan blokkere 96%-gate og/eller sette score-tak iht. regelens score_impact."
+}

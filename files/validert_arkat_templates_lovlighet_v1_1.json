@@ -1,0 +1,63 @@
+{
+  "templateset_id": "validert_arkat_lovlighet_v1_0",
+  "language": "nb-NO",
+  "arkat_order": [
+    "arsak",
+    "risiko",
+    "konsekvens",
+    "anbefalt_tiltak"
+  ],
+  "field_labels": {
+    "arsak": "Årsak",
+    "risiko": "Risiko",
+    "konsekvens": "Konsekvens",
+    "anbefalt_tiltak": "Anbefalt tiltak"
+  },
+  "templates": {
+    "ferdigattest_mangler": {
+      "title": "Ferdigattest / midlertidig brukstillatelse",
+      "arkat": {
+        "arsak": "Det foreligger ikke dokumentasjon på ferdigattest/midlertidig brukstillatelse i tilgjengelig underlag, og forholdet er derfor ikke avklart.",
+        "risiko": "Uavklart byggesaksstatus kan medføre risiko for kommunale pålegg eller behov for etterfølgende avklaring/søknadsprosess.",
+        "konsekvens": "Kjøper kan måtte påregne tid og kostnader knyttet til avklaring/dokumentasjon, og forholdet kan påvirke lovlig bruk, videresalg og/eller finansiering.",
+        "anbefalt_tiltak": "Det anbefales å innhente og gjennomgå byggesaksdokumentasjon fra kommunen for å avklare status (ferdigattest/midlertidig brukstillatelse)."
+      }
+    },
+    "midlertidig_brukstillatelse": {
+      "title": "Midlertidig brukstillatelse / tatt i bruk",
+      "arkat": {
+        "arsak": "Opplysninger indikerer at bygget/tiltak kan være tatt i bruk uten endelig ferdigattest.",
+        "risiko": "Uavklart status kan innebære risiko for krav om dokumentasjon eller oppfølging fra kommunen.",
+        "konsekvens": "Kjøper kan måtte påregne avklaringsprosess og mulige kostnader knyttet til å oppnå endelig godkjenning.",
+        "anbefalt_tiltak": "Det anbefales å innhente relevant byggesaksdokumentasjon fra kommunen og avklare om endelig godkjenning foreligger eller om ytterligere avklaring er nødvendig."
+      }
+    },
+    "bruksendring_indikert": {
+      "title": "Mulig bruksendring / rom brukt til varig opphold",
+      "arkat": {
+        "arsak": "Rom benyttes i dag på en måte som kan avvike fra godkjent bruk i kommunale tegninger/byggesak, og forholdet er ikke dokumentert avklart.",
+        "risiko": "Dersom bruken ikke er godkjent, kan det foreligge risiko for kommunale pålegg eller krav om søknad for å lovliggjøre bruken.",
+        "konsekvens": "Kjøper kan måtte påregne kostnader og tidsbruk til avklaring, og forholdet kan påvirke lovlig bruk, videresalg og/eller finansiering.",
+        "anbefalt_tiltak": "Det anbefales å innhente godkjente tegninger/byggesaksinformasjon for å avklare lovlig bruk. Ved avvik bør behov for videre avklaring/søknad vurderes."
+      }
+    },
+    "utleiedel_indikert": {
+      "title": "Mulig utleiedel / sekundær boenhet",
+      "arkat": {
+        "arsak": "Boligen har løsninger som kan indikere utleiedel/sekundær boenhet, uten at lovlig status er dokumentert avklart.",
+        "risiko": "Manglende godkjenning kan medføre risiko for kommunale pålegg eller begrensninger i bruk.",
+        "konsekvens": "Kjøper kan måtte påregne avklaringsprosess og mulige kostnader, og forholdet kan påvirke utleiemulighet, videresalg og/eller finansiering.",
+        "anbefalt_tiltak": "Det anbefales å innhente byggesaksdokumentasjon for å avklare om utleiedel/boenhet er godkjent. Ved avvik bør videre avklaring/søknadsbehov vurderes."
+      }
+    },
+    "soknadspliktig_tiltak_indikert": {
+      "title": "Mulig søknadspliktig tiltak",
+      "arkat": {
+        "arsak": "Det fremgår indikasjoner på tiltak/ombygging/tilbygg som kan være søknadspliktig, uten at dokumentasjon for godkjenning er fremlagt.",
+        "risiko": "Uavklart godkjenning kan medføre risiko for kommunale pålegg eller krav om dokumentasjon.",
+        "konsekvens": "Kjøper kan måtte påregne tid og kostnader knyttet til avklaring og eventuell søknadsprosess.",
+        "anbefalt_tiltak": "Det anbefales å innhente relevant byggesaksdokumentasjon for å avklare om tiltaket er omsøkt og godkjent. Ved manglende dokumentasjon bør videre avklaring vurderes."
+      }
+    }
+  }
+}

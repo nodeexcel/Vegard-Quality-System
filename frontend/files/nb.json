@@ -99,5 +99,6 @@
 
   "D_LANGUAGE.long_sentences": "D_SPRÅK.lange_setninger",
   "E_METHOD.cost_speculation": "E_METODE.kostnadsspekulasjon",
-  "A_ARKAT.konsekvens_unclear": "A_ARKAT.konsekvens_uklart"
+  "A_ARKAT.konsekvens_unclear": "A_ARKAT.konsekvens_uklart",
+  "B_TG.inconsistent_with_text": "B_TG.inkonsistent_med_tekst"
 }

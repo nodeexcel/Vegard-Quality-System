@@ -29,6 +29,10 @@
   "major": "Vesentlig",
   "minor": "Mindre",
 
+  "F_STRUCTURE": "F_STRUKTUR",
+  "minor_issues": "mindre_avvik",
+  "F_STRUCTURE.minor_issues": "F_STRUKTUR.mindre_avvik",
+
   "Rules": "Regler",
   "Rule": "Regel",
   "Rule triggered": "Regel utløst",
@@ -100,5 +104,6 @@
   
   "D_LANGUAGE.long_sentences": "D_SPRÅK.lange_setninger",
   "E_METHOD.cost_speculation": "E_METODE.kostnadsspekulasjon",
-  "A_ARKAT.konsekvens_unclear": "A_ARKAT.konsekvens_uklart"
+  "A_ARKAT.konsekvens_unclear": "A_ARKAT.konsekvens_uklart",
+  "B_TG.inconsistent_with_text": "B_TG.inkonsistent_med_tekst"
 }
