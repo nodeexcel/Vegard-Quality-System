@@ -14,6 +14,11 @@ OUTPUT_SCHEMA_PATH = FILES_DIR / "output_schema_validert_v1.5.json"
 OUTPUT_OVERLAY_PATH = FILES_DIR / "scoring_policy.validert_output_overlay.v1.1.json"
 DETECTED_POINTS_SCHEMA_PATH = FILES_DIR / "validert_detected_points_v1.0.schema.json"
 FEEDBACK_SCHEMA_PATH = FILES_DIR / "validert_feedback_v1.1.schema.json"
+CATEGORY_CONFIG_PATH = FILES_DIR / "validert_category_config_v1_0.json"
+LEGALITY_RULES_PATH = FILES_DIR / "validert_legal_compliance_rules_v1_1.json"
+LEGALITY_ARKAT_TEMPLATES_PATH = FILES_DIR / "validert_arkat_templates_lovlighet_v1_1.json"
+LEGALITY_ARKAT_MAP_PATH = FILES_DIR / "validert_lovlighet_to_arkat_map_v1_1.json"
+LEGALITY_GUARDRAILS_PATH = FILES_DIR / "validert_no_prosjektering_guardrails_v1_1.json"
 
 
 def _read_text(path: Path) -> str:
@@ -51,6 +56,25 @@ def get_detected_points_schema_text() -> str:
 def get_feedback_schema_text() -> str:
     return _read_text(FEEDBACK_SCHEMA_PATH)
 
+def get_category_config_text() -> str:
+    return _read_text(CATEGORY_CONFIG_PATH)
+
+
+def get_legality_rules_text() -> str:
+    return _read_text(LEGALITY_RULES_PATH)
+
+
+def get_legality_arkat_templates_text() -> str:
+    return _read_text(LEGALITY_ARKAT_TEMPLATES_PATH)
+
+
+def get_legality_arkat_map_text() -> str:
+    return _read_text(LEGALITY_ARKAT_MAP_PATH)
+
+
+def get_legality_guardrails_text() -> str:
+    return _read_text(LEGALITY_GUARDRAILS_PATH)
+
 
 def get_scoring_model_info() -> Dict[str, str]:
     text = get_scoring_model_text()
@@ -78,6 +102,11 @@ def build_prompt_context() -> str:
             "===== OUTPUT OVERLAY POLICY =====\n" + get_output_overlay_text(),
             "===== DETECTED POINTS SCHEMA =====\n" + get_detected_points_schema_text(),
             "===== FEEDBACK SCHEMA =====\n" + get_feedback_schema_text(),
+            "===== CATEGORY CONFIG =====\n" + get_category_config_text(),
+            "===== LEGALITY RULES =====\n" + get_legality_rules_text(),
+            "===== LEGALITY ARKAT TEMPLATES =====\n" + get_legality_arkat_templates_text(),
+            "===== LEGALITY ARKAT MAP =====\n" + get_legality_arkat_map_text(),
+            "===== LEGALITY GUARDRAILS =====\n" + get_legality_guardrails_text(),
         ]
     ).strip()
 

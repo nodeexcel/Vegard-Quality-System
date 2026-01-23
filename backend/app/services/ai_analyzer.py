@@ -1,6 +1,7 @@
 from openai import OpenAI
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
+from functools import lru_cache
 import json
 import logging
 import re
@@ -10,7 +11,16 @@ from pathlib import Path
 from app.config import settings
 from app.schemas import AnalysisResult, ComponentBase, FindingBase
 from app.services.system_prompt import SYSTEM_PROMPT
-from app.services.validert_files import build_prompt_context, get_prompt_context_sha, get_scoring_model_info, get_scoring_model_text
+from app.services.validert_files import (
+    build_prompt_context,
+    get_category_config_text,
+    get_legality_arkat_map_text,
+    get_legality_arkat_templates_text,
+    get_legality_rules_text,
+    get_prompt_context_sha,
+    get_scoring_model_info,
+    get_scoring_model_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -316,11 +326,25 @@ def _sort_points(points: List[Dict[str, object]]) -> Tuple[str, str, List[Dict[s
 def _derive_rule_family(rule_id: str) -> str:
     if not rule_id:
         return ""
+    if rule_id.startswith(("L-", "L_")):
+        return "LEGALITY"
     if "." in rule_id:
         return rule_id.split(".", 1)[0]
     if "_" in rule_id:
         return rule_id.split("_", 1)[0]
     return rule_id
+
+
+def _normalize_issue_severity(severity: str) -> str:
+    mapping = {
+        "hard_stop": "critical",
+        "major": "high",
+        "minor": "low",
+    }
+    normalized = mapping.get(severity, severity)
+    if normalized not in {"info", "low", "medium", "high", "critical"}:
+        return "medium"
+    return normalized
 
 
 def _build_feedback_v11(
@@ -347,7 +371,13 @@ def _build_feedback_v11(
 
     score_total = analysis_output.get("score_total", 0)
     score_by_category = analysis_output.get("score_by_category", [])
+    if not isinstance(score_by_category, list):
+        score_by_category = []
+    if not isinstance(score_by_category, list):
+        score_by_category = []
     top_score_drivers = analysis_output.get("top_score_drivers", [])
+    legality_rule_meta = _get_legality_rule_meta()
+    blocked_by: List[str] = []
 
     feedback_findings: List[Dict[str, object]] = []
     finding_ids_by_point: Dict[str, List[str]] = {}
@@ -372,7 +402,8 @@ def _build_feedback_v11(
                 continue
             rule_refs = issue.get("rule_refs", []) if isinstance(issue.get("rule_refs"), list) else []
             rule_id = rule_refs[0] if rule_refs else "unknown"
-            severity = issue.get("severity", "medium")
+            raw_severity = issue.get("severity", "medium")
+            severity = _normalize_issue_severity(str(raw_severity))
             evidence_items = issue.get("evidence", []) if isinstance(issue.get("evidence"), list) else []
             evidence = None
             if evidence_items:
@@ -394,20 +425,31 @@ def _build_feedback_v11(
 
             finding_id = f"f-{point_id}-{issue_idx + 1:03d}"
             point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
+            rule_family = _derive_rule_family(rule_id)
+            affects_96_gate = bool(legality_rule_meta.get(rule_id, {}).get("blocks_96_gate"))
+            if affects_96_gate and rule_id not in blocked_by:
+                blocked_by.append(rule_id)
+            arkat_section = "annet"
+            example_fix = issue.get("details") or issue.get("summary") or "Se forbedringsforslag."
+            if rule_family == "LEGALITY":
+                arkat_example = _build_legality_arkat_example(rule_id)
+                if arkat_example:
+                    arkat_section = "anbefalt_tiltak"
+                    example_fix = arkat_example
             feedback_findings.append(
                 {
                     "finding_id": finding_id,
                     "rule_id": rule_id,
-                    "rule_family": _derive_rule_family(rule_id),
+                    "rule_family": rule_family,
                     "severity": severity,
-                    "affects_96_gate": False,
+                    "affects_96_gate": affects_96_gate,
                     "point_id": point_id,
                     "point_key": point_key or point_id,
-                    "arkat_section": "annet",
+                    "arkat_section": arkat_section,
                     "message": issue.get("summary") or "Avvik",
                     "what_to_change": issue.get("details") or issue.get("summary") or "Se forbedringsforslag.",
                     "example_fix": {
-                        "good_example": issue.get("details") or issue.get("summary") or "Se forbedringsforslag.",
+                        "good_example": example_fix,
                     },
                     "evidence": evidence,
                     "deduction": next(
@@ -484,6 +526,9 @@ def _build_feedback_v11(
         )
         display_index += 1
 
+    score_by_category = _ensure_score_by_category(score_by_category)
+    blocked_96 = bool(blocked_by)
+
     return {
         "version": "v1.1",
         "report_id": str(report_id) if report_id else "unknown_report",
@@ -517,8 +562,8 @@ def _build_feedback_v11(
         },
         "gate": {
             "active": True,
-            "blocked_96": False,
-            "blocked_by": [],
+            "blocked_96": blocked_96,
+            "blocked_by": blocked_by,
         },
         "points_overview": points_overview,
         "findings": feedback_findings,
@@ -687,6 +732,86 @@ def _ensure_required_arrays(analysis_output: Dict[str, object]) -> None:
     analysis_output.setdefault("disclaimers", [])
 
 
+@lru_cache(maxsize=1)
+def _load_category_config() -> Dict[str, object]:
+    try:
+        return json.loads(get_category_config_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+@lru_cache(maxsize=1)
+def _load_legality_rules() -> Dict[str, object]:
+    try:
+        return json.loads(get_legality_rules_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+@lru_cache(maxsize=1)
+def _load_legality_templates() -> Dict[str, object]:
+    try:
+        return json.loads(get_legality_arkat_templates_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+@lru_cache(maxsize=1)
+def _load_legality_rule_map() -> Dict[str, object]:
+    try:
+        return json.loads(get_legality_arkat_map_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+def _get_legality_rule_meta() -> Dict[str, Dict[str, object]]:
+    rules_payload = _load_legality_rules()
+    rules = rules_payload.get("rules", []) if isinstance(rules_payload, dict) else []
+    meta: Dict[str, Dict[str, object]] = {}
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        rule_id = rule.get("id")
+        if not rule_id:
+            continue
+        gate_impact = rule.get("gate_impact", {}) if isinstance(rule.get("gate_impact"), dict) else {}
+        score_impact = rule.get("score_impact", {}) if isinstance(rule.get("score_impact"), dict) else {}
+        meta[str(rule_id)] = {
+            "blocks_96_gate": bool(gate_impact.get("blocks_96_gate")),
+            "max_total_score": score_impact.get("max_total_score"),
+            "category": rule.get("category"),
+            "severity": rule.get("severity"),
+        }
+    return meta
+
+
+def _build_legality_arkat_example(rule_id: str) -> Optional[str]:
+    rule_map = _load_legality_rule_map()
+    templates_payload = _load_legality_templates()
+    template_key = None
+    if isinstance(rule_map, dict):
+        template_key = (rule_map.get("rule_to_template") or {}).get(rule_id)
+    templates = templates_payload.get("templates", {}) if isinstance(templates_payload, dict) else {}
+    template = templates.get(template_key) if template_key else None
+    if not isinstance(template, dict):
+        return None
+    arkat = template.get("arkat", {}) if isinstance(template.get("arkat"), dict) else {}
+    labels = {
+        "arsak": "Årsak",
+        "risiko": "Risiko",
+        "konsekvens": "Konsekvens",
+        "anbefalt_tiltak": "Anbefalt tiltak",
+    }
+    lines = []
+    for key in ("arsak", "risiko", "konsekvens", "anbefalt_tiltak"):
+        text = arkat.get(key)
+        if isinstance(text, str) and text.strip():
+            lines.append(f"{labels[key]}: {text.strip()}")
+    if len(lines) != 4:
+        return None
+    return "\n".join(lines)
+
+
 def _load_scoring_model() -> Dict[str, object]:
     try:
         payload = json.loads(get_scoring_model_text())
@@ -704,6 +829,17 @@ def _load_scoring_model() -> Dict[str, object]:
     score_start = mechanics.get("score_start", payload.get("score_start", 100))
     score_floor = mechanics.get("score_floor", 0)
     score_ceiling = mechanics.get("score_ceiling", 100)
+    category_config = _load_category_config()
+    config_categories = category_config.get("categories", {}) if isinstance(category_config, dict) else {}
+    if isinstance(config_categories, dict):
+        for category_id, info in config_categories.items():
+            if category_id not in category_order:
+                category_order.append(category_id)
+            if category_id not in category_names and isinstance(info, dict):
+                category_names[category_id] = info.get("title", "")
+            if category_id not in category_caps and isinstance(info, dict):
+                category_caps[category_id] = info.get("max_deduction", 0)
+
     return {
         "category_order": category_order,
         "category_names": category_names,
@@ -720,7 +856,61 @@ def _infer_category_from_rule_id(rule_id: str) -> str:
     if not rule_id or "_" not in rule_id:
         return ""
     prefix = rule_id.split("_", 1)[0].upper()
-    return prefix if prefix in {"A", "B", "C", "D", "E"} else ""
+    return prefix if prefix in {"A", "B", "C", "D", "E", "F"} else ""
+
+
+def _ensure_score_by_category(score_by_category: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    scoring_model = _load_scoring_model()
+    category_order = scoring_model["category_order"]
+    category_names = scoring_model["category_names"]
+    category_caps = scoring_model["category_caps"]
+    existing_map = {
+        item.get("category_id"): item
+        for item in score_by_category
+        if isinstance(item, dict) and item.get("category_id")
+    }
+    normalized = []
+    for category_id in category_order:
+        existing = existing_map.get(category_id, {})
+        max_deduction = existing.get("max_deduction", category_caps.get(category_id, 0))
+        normalized.append(
+            {
+                "category_id": category_id,
+                "category_name": existing.get("category_name", category_names.get(category_id, "")),
+                "deduction": int(existing.get("deduction", 0) or 0),
+                "max_deduction": int(max_deduction) if isinstance(max_deduction, (int, float)) else 0,
+            }
+        )
+    return normalized
+
+
+def _apply_legality_score_cap(analysis_output: Dict[str, object], score_total: int) -> int:
+    legality_meta = _get_legality_rule_meta()
+    if not legality_meta:
+        return score_total
+    triggered_rule_ids = set()
+    for component in analysis_output.get("findings", []):
+        if not isinstance(component, dict):
+            continue
+        for issue in component.get("issues", []):
+            if not isinstance(issue, dict):
+                continue
+            for rule_id in issue.get("rule_refs", []) or []:
+                if isinstance(rule_id, str):
+                    triggered_rule_ids.add(rule_id)
+        for deduction in component.get("deductions", []):
+            if isinstance(deduction, dict):
+                rule_id = deduction.get("rule_id")
+                if isinstance(rule_id, str):
+                    triggered_rule_ids.add(rule_id)
+    caps = []
+    for rule_id in triggered_rule_ids:
+        cap = legality_meta.get(rule_id, {}).get("max_total_score")
+        if isinstance(cap, (int, float)):
+            caps.append(int(cap))
+    if not caps:
+        return score_total
+    return min(score_total, min(caps))
 
 
 def _normalize_scoring_output(analysis_output: Dict[str, object]) -> Dict[str, object]:
@@ -730,6 +920,7 @@ def _normalize_scoring_output(analysis_output: Dict[str, object]) -> Dict[str, o
     category_order = scoring_model["category_order"]
     deduct_per_occurrence = scoring_model["deduct_per_occurrence"]
     aggregate_level = str(scoring_model.get("aggregate_level", "bygningsdel")).lower()
+    score_by_category = analysis_output.get("score_by_category", [])
 
     seen_keys = set()
     category_totals: Dict[str, int] = {cat: 0 for cat in category_order}
@@ -776,6 +967,10 @@ def _normalize_scoring_output(analysis_output: Dict[str, object]) -> Dict[str, o
             category_totals[category_id] = category_totals.get(category_id, 0) + points_value
 
     if not has_deductions:
+        analysis_output["score_by_category"] = _ensure_score_by_category(score_by_category)
+        score_total = analysis_output.get("score_total")
+        if isinstance(score_total, (int, float)):
+            analysis_output["score_total"] = _apply_legality_score_cap(analysis_output, int(score_total))
         return analysis_output
 
     capped_totals: Dict[str, int] = {}
@@ -804,7 +999,7 @@ def _normalize_scoring_output(analysis_output: Dict[str, object]) -> Dict[str, o
     score_floor = scoring_model["score_floor"]
     score_ceiling = scoring_model["score_ceiling"]
     score_total = int(max(score_floor, min(score_ceiling, score_start - total_deduction)))
-    analysis_output["score_total"] = score_total
+    analysis_output["score_total"] = _apply_legality_score_cap(analysis_output, score_total)
     return analysis_output
 
 
