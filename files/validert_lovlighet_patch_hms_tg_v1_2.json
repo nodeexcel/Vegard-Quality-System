@@ -1,0 +1,90 @@
+{
+  "version": "v1.2",
+  "patch_type": "append_rules_and_templates",
+  "target_ruleset_min": "validert_lovlighet_v1_2",
+  "new_rules": [
+    {
+      "id": "L-HMS-01",
+      "category": "METHODOLOGY",
+      "title": "HMS (rekkverk/fallfare) tilstandsgradert (TG) – ikke tillatt",
+      "severity": "critical",
+      "trigger": {
+        "section_match": {
+          "any_phrase": [
+            "rekkverk",
+            "fallfare",
+            "høydeforskjell",
+            "trapperekkverk",
+            "balkongrekkverk",
+            "terrasserekkverk",
+            "personfare"
+          ],
+          "and_any_phrase": [
+            "TG1",
+            "TG2",
+            "TG3",
+            "tilstandsgrad",
+            "TG:"
+          ]
+        }
+      },
+      "score_impact": {
+        "deduct_points": 10
+      },
+      "gate_impact": {
+        "affects_96_gate": true
+      },
+      "message": "HMS-forhold (rekkverk/fallfare) er gitt TG. Slike forhold skal omtales beskrivende uten TG."
+    },
+    {
+      "id": "L-HMS-02",
+      "category": "METHODOLOGY",
+      "title": "HMS (rømningsvei/brannsikkerhet) tilstandsgradert (TG) – ikke tillatt",
+      "severity": "critical",
+      "trigger": {
+        "section_match": {
+          "any_phrase": [
+            "rømningsvei",
+            "rømningsvindu",
+            "rømningsdør",
+            "brannsikkerhet",
+            "brannskille",
+            "branncelle"
+          ],
+          "and_any_phrase": [
+            "TG1",
+            "TG2",
+            "TG3",
+            "tilstandsgrad",
+            "TG:"
+          ]
+        }
+      },
+      "score_impact": {
+        "deduct_points": 10
+      },
+      "gate_impact": {
+        "affects_96_gate": true
+      },
+      "message": "HMS-forhold (rømningsvei/brannsikkerhet) er gitt TG. Slike forhold skal omtales beskrivende uten TG."
+    }
+  ],
+  "new_templates": {
+    "hms_minimum_structure": {
+      "title": "HMS-forhold – minimum struktur",
+      "minimum_krav": "Ved avvik skal minimum Årsak (observasjon) og Konsekvens for sikkerhet/bruksforhold fremgå.",
+      "structure": {
+        "arsak": "Beskriv hva som er observert.",
+        "konsekvens": "Beskriv hva forholdet kan bety for sikkerhet eller bruk."
+      },
+      "optional_fields": {
+        "risiko": "Valgfritt.",
+        "anbefalt_tiltak": "Valgfritt."
+      }
+    }
+  },
+  "mapping_additions": {
+    "L-HMS-01": "hms_minimum_structure",
+    "L-HMS-02": "hms_minimum_structure"
+  }
+}

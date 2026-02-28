@@ -1,0 +1,54 @@
+{
+  "version": "v1.2",
+  "patch_type": "append_rule_and_template",
+  "target_ruleset_min": "validert_lovlighet_v1_2",
+  "new_rule": {
+    "id": "L-EL-01",
+    "category": "METHODOLOGY",
+    "title": "Elektrisk anlegg tilstandsgradert (TG) – ikke tillatt",
+    "severity": "critical",
+    "trigger": {
+      "section_match": {
+        "any_phrase": [
+          "elektrisk anlegg",
+          "el-anlegg",
+          "sikringsskap",
+          "fordeling",
+          "kurser",
+          "jordfeil"
+        ],
+        "and_any_phrase": [
+          "TG1",
+          "TG2",
+          "TG3",
+          "tilstandsgrad",
+          "TG:"
+        ]
+      }
+    },
+    "score_impact": {
+      "deduct_points": 12
+    },
+    "gate_impact": {
+      "affects_96_gate": true
+    },
+    "message": "Elektrisk anlegg er gitt TG/tilstandsgrad. Elektrisk anlegg skal omtales beskrivende uten TG."
+  },
+  "new_template": {
+    "el_tg_forbudt": {
+      "title": "Elektrisk anlegg – TG skal ikke brukes",
+      "minimum_krav": "Ved avvik skal minimum Årsak og Konsekvens for kjøper fremgå tydelig.",
+      "structure": {
+        "arsak": "Beskriv hva som er observert.",
+        "konsekvens": "Beskriv hva forholdet kan bety for kjøper."
+      },
+      "optional_fields": {
+        "risiko": "Valgfritt.",
+        "anbefalt_tiltak": "Valgfritt."
+      }
+    }
+  },
+  "mapping_addition": {
+    "L-EL-01": "el_tg_forbudt"
+  }
+}

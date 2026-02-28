@@ -1,0 +1,66 @@
+{
+  "version": "v1.1",
+  "module": "non_mandatory_assessed_framework",
+  "principle": "If a non-mandatory element is assessed (present in report), enforce quality rules and tg_policy. If absent or explicitly not assessed, do not deduct solely for missing assessment.",
+  "ordering": {
+    "mandatory_first": true,
+    "optional_assessed_heading": "Ikke lovpålagte, men vurderte forhold",
+    "optional_assessed_only_if_present": true
+  },
+  "tg_policy": {
+    "forbidden_tokens": [
+      "TG1",
+      "TG2",
+      "TG3",
+      "tilstandsgrad",
+      "TG:"
+    ],
+    "rule_id": "M-OPT-TG-FORBIDDEN",
+    "severity": "major",
+    "deduct_points": 6,
+    "affects_96_gate": true,
+    "ui_badge": "TG brukt – ikke tillatt"
+  },
+  "arkat_requirements": {
+    "apply_when": "deviation_detected",
+    "required_fields": [
+      "arsak",
+      "konsekvens",
+      "anbefalt_tiltak"
+    ],
+    "optional_fields": [
+      "risiko"
+    ],
+    "missing_konsekvens": {
+      "rule_id": "Q-OPT-ARKAT-MISSING-KONSEKVENS",
+      "severity": "major",
+      "deduct_points": 5,
+      "affects_96_gate": false
+    },
+    "missing_anbefalt_tiltak": {
+      "rule_id": "Q-OPT-ARKAT-MISSING-ANBEFALT_TILTAK",
+      "severity": "minor",
+      "deduct_points": 3,
+      "affects_96_gate": false
+    },
+    "critical_safety_escalation": {
+      "when": {
+        "critical_safety_domain": true,
+        "missing_konsekvens": true,
+        "deviation_detected": true
+      },
+      "severity": "critical",
+      "affects_96_gate": true
+    },
+    "ui_badge": "Mangelfull ARKAT-struktur"
+  },
+  "safeguards": {
+    "never_legality_hard_stop_for_optional": true,
+    "never_required_ftfta_true_for_optional_assessed": true,
+    "penalties_families_allowed": [
+      "METHODOLOGY",
+      "QUALITY"
+    ]
+  },
+  "routing_note": "TG-forbidden optional elements (Electrical/HMS/Legality) must use the dedicated TG-forbidden meta-rule (minimum Årsak+Konsekvens)."
+}

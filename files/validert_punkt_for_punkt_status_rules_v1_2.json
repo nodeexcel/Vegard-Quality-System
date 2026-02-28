@@ -1,0 +1,20 @@
+{
+  "version": "v1.2",
+  "notes": "MANDATORY elements are always shown. OPTIONAL and NON_MANDATORY_ASSESSED elements are only shown if present in the report.",
+  "status_logic": {
+    "MANDATORY": {
+      "show_always": true,
+      "if_missing": "Ikke vurdert"
+    },
+    "NON_MANDATORY_ASSESSED": {
+      "show_only_if_present": true,
+      "if_present": "Vurdert",
+      "if_missing": "Hidden"
+    },
+    "OPTIONAL": {
+      "show_only_if_present": true,
+      "if_present": "Vurdert",
+      "if_missing": "Hidden"
+    }
+  }
+}

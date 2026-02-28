@@ -1,0 +1,9 @@
+{
+  "version": "v1.1",
+  "elements": {
+    "NMA-EL-01": ["elektrisk anlegg", "el-anlegg", "sikringsskap", "fordeling", "kurser", "jordfeil", "elkontroll", "el-kontroll"],
+    "NMA-HMS-REK-01": ["rekkverk", "fallfare", "personfare", "høydeforskjell", "trapperekkverk", "balkongrekkverk", "terrasserekkverk"],
+    "NMA-HMS-ROM-01": ["rømningsvei", "rømningsvindu", "rømningsdør", "brannsikkerhet", "brannskille", "branncelle", "røykvarsler", "slukkeutstyr"]
+  },
+  "notes": "This file extends the existing synonyms map with optional-assessed elements (NMA-*) so Punkt-for-punkt can consistently detect them across report types."
+}

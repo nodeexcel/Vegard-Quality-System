@@ -1,0 +1,34 @@
+{
+  "version": "v1.1",
+  "module": "room_instance_rollup_format",
+  "purpose": "Defines how to report multi-instance validation results back to UI and PDF output.",
+  "output_contract": {
+    "report_id": "<dynamic_report_id>",
+    "element_rollup": [
+      {
+        "element_id": "BE-20",
+        "display_label": "Våtrom - Bad/dusj/wc",
+        "instances_found": 0,
+        "instances_validated": 0,
+        "instances_with_deviation": 0,
+        "instances_missing_arkat": 0,
+        "status": "Ikke vurdert | Vurdert (N)",
+        "drilldown": [
+          {
+            "instance_id": "bathroom#1",
+            "label": "2.etasje – Bad/WC",
+            "tg_found": false,
+            "arkat_ok": true,
+            "missing": [],
+            "evidence_refs": []
+          }
+        ]
+      }
+    ],
+    "coverage_assertion": {
+      "passed": true,
+      "unvalidated_instances": [],
+      "rule": "Every room instance must be validated individually. If deviation or TG2/TG3 exists, ARKAT must include Årsak, Risiko, Konsekvens and ANBEFALT TILTAK."
+    }
+  }
+}

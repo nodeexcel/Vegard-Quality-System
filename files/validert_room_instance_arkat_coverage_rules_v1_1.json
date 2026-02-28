@@ -1,0 +1,86 @@
+{
+  "version": "v1.1",
+  "module": "room_instance_arkat_coverage_rules",
+  "principle": "Validation must be per room instance. No bathroom/kitchen/laundry instance may be considered 'validated' unless required ARKAT fields are present when deviations or TG2/TG3 are present.",
+  "required_arkat_fields": [
+    "arsak",
+    "risiko",
+    "konsekvens",
+    "anbefalt_tiltak"
+  ],
+  "triggers": {
+    "deviation_detected": {
+      "keywords_any_of": [
+        "avvik",
+        "mangel",
+        "defekt",
+        "skade",
+        "lekkasje",
+        "fukt",
+        "ikke iht",
+        "mangler",
+        "utilstrekkelig"
+      ]
+    },
+    "tg2_tg3_detected": {
+      "keywords_any_of": [
+        "TG2",
+        "TG3",
+        "tilstandsgrad 2",
+        "tilstandsgrad 3",
+        "TG: 2",
+        "TG: 3"
+      ]
+    }
+  },
+  "coverage_assertion": {
+    "must_validate_all_instances_found": true,
+    "must_attach_findings_to_exactly_one_instance": true
+  },
+  "rules": [
+    {
+      "id": "RI-ARKAT-01",
+      "title": "Instance has deviation but missing ARKAT",
+      "when": "deviation_detected == true",
+      "require": [
+        "arsak",
+        "konsekvens",
+        "anbefalt_tiltak"
+      ],
+      "severity": "major",
+      "deduct_points": 5,
+      "affects_96_gate": false,
+      "message": "Avvik er beskrevet i rommet, men ARKAT mangler (min. Årsak, Konsekvens og ANBEFALT TILTAK må fremgå)."
+    },
+    {
+      "id": "RI-ARKAT-02",
+      "title": "Instance has TG2/TG3 but missing ARKAT",
+      "when": "tg2_tg3_detected == true",
+      "require": [
+        "arsak",
+        "konsekvens",
+        "anbefalt_tiltak"
+      ],
+      "severity": "major",
+      "deduct_points": 5,
+      "affects_96_gate": false,
+      "message": "TG2/TG3 er satt i rommet, men ARKAT er ikke tilstrekkelig beskrevet (min. Årsak, Konsekvens og ANBEFALT TILTAK må fremgå)."
+    },
+    {
+      "id": "RI-COVERAGE-01",
+      "title": "Unvalidated instance leakage",
+      "when": "instances_found > instances_validated",
+      "require": [
+        "coverage_assertion_passed"
+      ],
+      "severity": "critical",
+      "deduct_points": 10,
+      "affects_96_gate": true,
+      "message": "Minst ett rom (bad/kjøkken/vaskerom) er funnet i rapporten, men ble ikke validert per instans. Dette gir risiko for at avvik sklir forbi."
+    }
+  ],
+  "ui_badges": {
+    "missing_arkat": "Mangelfull ARKAT-struktur",
+    "coverage_failed": "Instans-dekning feilet"
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "version": "v1.0",
+  "module": "optional_tg_forbidden_meta_rule",
+  "applies_to": {
+    "match": {
+      "tg_policy": "FORBIDDEN"
+    }
+  },
+  "principle": "For områder der TG ikke skal brukes (elektrisk anlegg, HMS, lovlighet): Validert skal ikke kreve full ARKAT-struktur. Minimumskrav ved avvik er Årsak + Konsekvens. Risiko og ANBEFALT TILTAK er valgfritt.",
+  "tg_forbidden_enforcement": {
+    "rule_id": "M-TG-FORBIDDEN-01",
+    "forbidden_tokens": [
+      "TG1",
+      "TG2",
+      "TG3",
+      "tilstandsgrad",
+      "TG:"
+    ],
+    "severity": "critical",
+    "deduct_points": 10,
+    "affects_96_gate": true,
+    "ui_badge": "TG brukt – ikke tillatt",
+    "message": "TG/tilstandsgrad er brukt i et område der TG ikke skal brukes (elektrisk/HMS/lovlighet). Omtal forholdet beskrivende uten TG."
+  },
+  "deviation_detection": {
+    "keywords_any_of": [
+      "avvik",
+      "mangel",
+      "defekt",
+      "skade",
+      "lekkasje",
+      "fukt",
+      "ikke iht",
+      "mangler",
+      "utilstrekkelig",
+      "fare",
+      "risiko"
+    ]
+  },
+  "requirements_when_deviation": {
+    "required_fields": [
+      "arsak",
+      "konsekvens"
+    ],
+    "optional_fields": [
+      "risiko",
+      "anbefalt_tiltak"
+    ],
+    "enforcement": [
+      {
+        "id": "Q-TGFORBIDDEN-MISSING-ARSAK",
+        "when_missing": "arsak",
+        "severity": "major",
+        "deduct_points": 4,
+        "affects_96_gate": false,
+        "message": "Avvik er omtalt, men Årsak/observasjon fremgår ikke tydelig (hva er observert?)."
+      },
+      {
+        "id": "Q-TGFORBIDDEN-MISSING-KONSEKVENS",
+        "when_missing": "konsekvens",
+        "severity": "major",
+        "deduct_points": 5,
+        "affects_96_gate": false,
+        "ui_badge": "Mangelfull konsekvens",
+        "message": "Avvik er omtalt, men Konsekvens for kjøper fremgår ikke tydelig."
+      },
+      {
+        "id": "Q-TGFORBIDDEN-OPTIONAL-ANBEFALT",
+        "when_missing": "anbefalt_tiltak",
+        "severity": "info",
+        "deduct_points": 0,
+        "affects_96_gate": false,
+        "message": "ANBEFALT TILTAK er valgfritt i TG-forbudte områder (elektrisk/HMS/lovlighet)."
+      },
+      {
+        "id": "Q-TGFORBIDDEN-OPTIONAL-RISIKO",
+        "when_missing": "risiko",
+        "severity": "info",
+        "deduct_points": 0,
+        "affects_96_gate": false,
+        "message": "Risiko er valgfritt i TG-forbudte områder (elektrisk/HMS/lovlighet)."
+      }
+    ]
+  },
+  "critical_safety_escalation": {
+    "applies_to_element_ids": [
+      "NMA-HMS-REK-01",
+      "NMA-HMS-ROM-01"
+    ],
+    "when": {
+      "deviation_detected": true,
+      "missing_field": "konsekvens"
+    },
+    "severity": "critical",
+    "deduct_points": 8,
+    "affects_96_gate": true,
+    "ui_badge": "Sikkerhetsavvik uten konsekvens",
+    "message": "Sikkerhetskritisk HMS-avvik er omtalt uten tydelig konsekvens. Dette må beskrives klart for kjøper."
+  },
+  "safeguards": {
+    "do_not_require_full_arkat": true,
+    "do_not_require_anbefalt_tiltak": true,
+    "do_not_require_risiko": true,
+    "allowed_penalty_families": [
+      "METHODOLOGY",
+      "QUALITY"
+    ],
+    "never_legality_hard_stop_from_optional_formatting": true
+  }
+}

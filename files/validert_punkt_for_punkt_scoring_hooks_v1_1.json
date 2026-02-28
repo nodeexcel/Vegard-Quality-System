@@ -1,0 +1,14 @@
+{
+  "version": "v1.1",
+  "meta_note": "PXO-02 adjusted to no-deduction by default to avoid overreach beyond FTFTA.",
+  "deductions": [
+    {
+      "id": "PXO-02",
+      "description": "Ikke-lovpålagt bygningsdel er ikke omtalt",
+      "deduct_points": 0,
+      "severity": "info",
+      "blocks_96_gate": false,
+      "message": "Ikke-lovpålagt bygningsdel er ikke omtalt. Vis 'Ikke vurdert' uten poengtrekk."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "version": "v1.0",
+  "module": "room_instance_extraction_rules",
+  "segmentation": {
+    "floor_markers": [
+      "1. etasje",
+      "2. etasje",
+      "3. etasje",
+      "kjeller",
+      "loft",
+      "underetasje",
+      "hovedetasje"
+    ],
+    "header_patterns": [
+      {
+        "pattern_type": "contains_all",
+        "must_contain": ["etasje"],
+        "and_any_of": ["bad", "bad/wc", "wc", "kjøkken", "vaskerom"]
+      },
+      {
+        "pattern_type": "arrow_breadcrumb",
+        "examples": ["1.ETASJE > BAD", "2. ETASJE > BAD/WC", "KJELLER > VASKEROM"]
+      }
+    ],
+    "table_signals": {
+      "enabled": true,
+      "hint": "If the report contains a structured table where the left column is room name and the right column is descriptions/findings, treat each row header as an instance anchor."
+    },
+    "fallback": {
+      "enabled": true,
+      "strategy": "If no reliable headers exist, detect repeated room keywords and create sequential instances in document order (Bathroom #1, Bathroom #2, ...).",
+      "min_confidence_for_header": 0.65
+    }
+  },
+  "instance_naming": {
+    "stable_instance_id_format": "{room_type}#{ordinal}",
+    "default_label_format": "{TitleCase(room_type)} #{ordinal}",
+    "location_label_format": "{floor} – {raw_room_label}"
+  },
+  "assignment_rules": {
+    "default_strategy": "Nearest preceding instance anchor wins until the next instance anchor.",
+    "tie_breakers": [
+      "same_page_proximity",
+      "same_floor_match",
+      "higher_section_confidence"
+    ]
+  }
+}

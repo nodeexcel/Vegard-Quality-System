@@ -504,6 +504,78 @@ def _point_key_for_point(point: Dict[str, object]) -> str:
     )
 
 
+# Point titles that indicate non-bygningsdel content (TG1 cost, floor summary) - exclude from punkt-for-punkt oversikt
+_NON_BYGNNINGSDEL_TITLE_PATTERNS = (
+    "kostnadspekulasjon",  # Cost speculation - TG1 section
+)
+
+
+def _is_non_bygningsdel_point(point: Dict[str, object]) -> bool:
+    """True if point title suggests it's not a bygningsdel (e.g. TG1 cost section)."""
+    if not isinstance(point, dict):
+        return False
+    title = (point.get("title") or point.get("native_label") or "").strip().lower()
+    if not title:
+        return False
+    # Only exclude when title is primarily cost-related (avoid filtering "etasje" in normal context)
+    if "kostnadspekulasjon" in title:
+        return True
+    # "etg:" as primary content (e.g. "etg: kostnadspekulasjon") - titles starting with etg: 
+    if title.startswith("etg:"):
+        return True
+    return False
+
+
+def _normalize_title_for_dedup(title: str) -> str:
+    """Normalize title for parent-child deduplication (strip, lower, collapse whitespace)."""
+    if not title or not isinstance(title, str):
+        return ""
+    return " ".join(str(title).strip().lower().split())
+
+
+def _is_parent_of(parent_id: str, child_id: str) -> bool:
+    """True if parent_id is a strict numeric prefix of child_id (e.g. '3' is parent of '3.1')."""
+    if not parent_id or not child_id or not _is_numeric_point_id(parent_id) or not _is_numeric_point_id(child_id):
+        return False
+    if parent_id == child_id:
+        return False
+    return child_id.startswith(parent_id + ".")
+
+
+def _compute_parent_child_same_title_skips(
+    sorted_points: List[Dict[str, object]],
+) -> set:
+    """
+    When parent and child have the same title (e.g. PUNKT 3 and 3.1 both 'Vinduer og ytterdører'),
+    skip the parent so we only show the more specific subpoint once.
+    Returns set of point_ids to skip.
+    """
+    title_to_points: Dict[str, List[Dict[str, object]]] = {}
+    for point in sorted_points:
+        if not isinstance(point, dict):
+            continue
+        if isinstance(point.get("kind"), str) and point.get("kind") not in ("point", "subpoint"):
+            continue
+        point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
+        title = _normalize_title_for_dedup(point.get("title") or point.get("native_label") or point_id or "")
+        if not title:
+            continue
+        title_to_points.setdefault(title, []).append(point)
+    skip_ids: set = set()
+    for title, pts in title_to_points.items():
+        if len(pts) < 2:
+            continue
+        for parent in pts:
+            parent_id = parent.get("point_id") or parent.get("numeric_id") or parent.get("native_label") or ""
+            for child in pts:
+                if parent_id == (child.get("point_id") or child.get("numeric_id") or child.get("native_label") or ""):
+                    continue
+                if _is_parent_of(parent_id, child.get("point_id") or child.get("numeric_id") or child.get("native_label") or ""):
+                    skip_ids.add(parent_id)
+                    break
+    return skip_ids
+
+
 def _detect_sort_mode(points: List[Dict[str, object]]) -> str:
     if not points:
         return "DOCUMENT_ORDER"
@@ -1271,7 +1343,9 @@ def _build_feedback_v11(
         )
         used_deductions_by_point[point_id] = set()
         issues = component.get("issues", []) if isinstance(component.get("issues"), list) else []
-        point_meta = point_lookup.get(point_id, {})
+        point_meta = point_lookup.get(point_id) or {}
+        if not isinstance(point_meta, dict):
+            point_meta = {}
         for issue_idx, issue in enumerate(issues):
             if not isinstance(issue, dict):
                 continue
@@ -1377,6 +1451,9 @@ def _build_feedback_v11(
     mode, dedupe_key, sorted_points = _sort_points(points)
     ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
 
+    # Skip parent points when child has same title (e.g. PUNKT 3 and 3.1 both "Vinduer og ytterdører" -> show only 3.1)
+    skip_parent_same_title = _compute_parent_child_same_title_skips(sorted_points)
+
     points_overview: List[Dict[str, object]] = []
     display_index = 1
     for point in sorted_points:
@@ -1386,6 +1463,10 @@ def _build_feedback_v11(
         if isinstance(kind, str) and kind not in ("point", "subpoint"):
             continue
         point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
+        if point_id in skip_parent_same_title:
+            continue
+        if _is_non_bygningsdel_point(point):
+            continue
         point_key = point.get("point_key") or point_id
         component = next(
             (
@@ -1395,7 +1476,7 @@ def _build_feedback_v11(
             ),
             None,
         )
-        issues = component.get("issues", []) if isinstance(component, dict) else []
+        issues = (component.get("issues", []) if isinstance(component, dict) else []) or []
         deduction_total = int(deduction_totals.get(point_id, 0))
         has_issues = bool(issues)
         status = "ok"
@@ -1621,6 +1702,10 @@ def _build_feedback_v11_from_all_findings(
         finding_ids_by_point.setdefault(point_id, []).append(finding_id)
     mode, dedupe_key, sorted_points = _sort_points(points)
     ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
+
+    # Skip parent points when child has same title (avoid duplicate entries like PUNKT 3 and 3.1 with same title)
+    skip_parent_same_title = _compute_parent_child_same_title_skips(sorted_points)
+
     points_overview = []
     display_index = 1
     for point in sorted_points:
@@ -1630,6 +1715,10 @@ def _build_feedback_v11_from_all_findings(
         if isinstance(kind, str) and kind not in ("point", "subpoint"):
             continue
         point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
+        if point_id in skip_parent_same_title:
+            continue
+        if _is_non_bygningsdel_point(point):
+            continue
         point_key = point.get("point_key") or point_id
         deduction_total = int(deduction_totals.get(point_id, 0))
         fids = finding_ids_by_point.get(point_id, [])
@@ -2066,13 +2155,13 @@ def _normalize_scoring_output(analysis_output: Dict[str, object]) -> Dict[str, o
             return analysis_output
 
     scoring_model = _load_scoring_model()
-    category_caps = scoring_model["category_caps"]
-    category_names = scoring_model["category_names"]
-    category_order = scoring_model["category_order"]
-    score_start = scoring_model["score_start"]
-    score_floor = scoring_model["score_floor"]
-    score_ceiling = scoring_model["score_ceiling"]
-    deduct_per_occurrence = scoring_model["deduct_per_occurrence"]
+    category_caps = scoring_model.get("category_caps", {})
+    category_names = scoring_model.get("category_names", {})
+    category_order = scoring_model.get("category_order", ["A", "B", "C", "D", "E"])
+    score_start = int(scoring_model.get("score_start", 100))
+    score_floor = int(scoring_model.get("score_floor", 0))
+    score_ceiling = int(scoring_model.get("score_ceiling", 100))
+    deduct_per_occurrence = scoring_model.get("deduct_per_occurrence", True)
     aggregate_level = str(scoring_model.get("aggregate_level", "bygningsdel")).lower()
     score_by_category = analysis_output.get("score_by_category", [])
 
@@ -2189,9 +2278,9 @@ def _normalize_scoring_output(analysis_output: Dict[str, object]) -> Dict[str, o
     analysis_output["score_by_category"] = score_by_category
 
     total_deduction = sum(capped_totals.values())
-    score_start = scoring_model["score_start"]
-    score_floor = scoring_model["score_floor"]
-    score_ceiling = scoring_model["score_ceiling"]
+    score_start = int(scoring_model.get("score_start", 100))
+    score_floor = int(scoring_model.get("score_floor", 0))
+    score_ceiling = int(scoring_model.get("score_ceiling", 100))
     score_total = int(max(score_floor, min(score_ceiling, score_start - total_deduction)))
     analysis_output["score_total"] = _apply_legality_score_cap(analysis_output, score_total)
     return analysis_output

@@ -22,6 +22,29 @@ LEGALITY_GUARDRAILS_PATH = FILES_DIR / "validert_no_prosjektering_guardrails_v1_
 ORCHESTRATOR_PIPELINE_PATH = FILES_DIR / "validert_orchestrator_pipeline_v1.json"
 AGE_SERVICE_LIFE_VALIDATION_PATH = FILES_DIR / "tg2_tg3_age_service_life_validation_v2_3.json"
 
+# Client bundle (2026-02-27): core hierarchy, punkt-for-punkt, room instances, meta rules, lovlighet patches
+ELEMENT_HIERARCHY_PATH = FILES_DIR / "validert_element_hierarchy_v1_2.json"
+ELEMENT_HIERARCHY_SYNONYMS_PATH = FILES_DIR / "validert_element_hierarchy_synonyms_v1_1.json"
+PUNKT_STATUS_RULES_PATH = FILES_DIR / "validert_punkt_for_punkt_status_rules_v1_2.json"
+PUNKT_SCORING_HOOKS_PATH = FILES_DIR / "validert_punkt_for_punkt_scoring_hooks_v1_1.json"
+ROOM_INSTANCES_SCHEMA_PATH = FILES_DIR / "validert_room_instances_schema_v1_0.json"
+ROOM_INSTANCE_EXTRACTION_RULES_PATH = FILES_DIR / "validert_room_instance_extraction_rules_v1_0.json"
+ROOM_INSTANCE_ARKAT_COVERAGE_PATH = FILES_DIR / "validert_room_instance_arkat_coverage_rules_v1_1.json"
+ROOM_INSTANCE_ROLLUP_FORMAT_PATH = FILES_DIR / "validert_room_instance_rollup_format_v1_1.json"
+META_RULE_OPTIONAL_TG_FORBIDDEN_PATH = FILES_DIR / "validert_optional_tg_forbidden_meta_rule_v1_0.json"
+META_RULE_NON_MANDATORY_ASSESSED_PATH = FILES_DIR / "validert_non_mandatory_assessed_meta_rule_v1_1.json"
+LOVLIGHET_PATCH_EL_TG_PATH = FILES_DIR / "validert_lovlighet_patch_el_tg_v1_2.json"
+LOVLIGHET_PATCH_HMS_TG_PATH = FILES_DIR / "validert_lovlighet_patch_hms_tg_v1_2.json"
+
+# Routing: if element.tg_policy == "FORBIDDEN" -> apply optional_tg_forbidden_meta_rule_v1_0
+#          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
+# OPTIONAL elements only shown if present. Room instances: validate ARKAT per instance, enforce coverage assertion.
+META_RULE_ROUTING = """META RULE ROUTING (apply in this order per element):
+- If element.tg_policy == "FORBIDDEN" -> apply validert_optional_tg_forbidden_meta_rule_v1_0 (minimum Årsak + Konsekvens).
+- Else if element.element_type == "NON_MANDATORY_ASSESSED" -> apply validert_non_mandatory_assessed_meta_rule_v1_1.
+- OPTIONAL and NON_MANDATORY_ASSESSED elements: show only if present in the report; no deduction if missing.
+- Room instances (BE-20, BE-21, BE-22, BE-23): validate ARKAT per instance; enforce coverage assertion (every instance must be validated)."""
+
 
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
@@ -86,6 +109,54 @@ def get_age_service_life_validation_text() -> str:
     return _read_text(AGE_SERVICE_LIFE_VALIDATION_PATH)
 
 
+def get_element_hierarchy_text() -> str:
+    return _read_text(ELEMENT_HIERARCHY_PATH)
+
+
+def get_element_hierarchy_synonyms_text() -> str:
+    return _read_text(ELEMENT_HIERARCHY_SYNONYMS_PATH)
+
+
+def get_punkt_status_rules_text() -> str:
+    return _read_text(PUNKT_STATUS_RULES_PATH)
+
+
+def get_punkt_scoring_hooks_text() -> str:
+    return _read_text(PUNKT_SCORING_HOOKS_PATH)
+
+
+def get_room_instances_schema_text() -> str:
+    return _read_text(ROOM_INSTANCES_SCHEMA_PATH)
+
+
+def get_room_instance_extraction_rules_text() -> str:
+    return _read_text(ROOM_INSTANCE_EXTRACTION_RULES_PATH)
+
+
+def get_room_instance_arkat_coverage_text() -> str:
+    return _read_text(ROOM_INSTANCE_ARKAT_COVERAGE_PATH)
+
+
+def get_room_instance_rollup_format_text() -> str:
+    return _read_text(ROOM_INSTANCE_ROLLUP_FORMAT_PATH)
+
+
+def get_optional_tg_forbidden_meta_rule_text() -> str:
+    return _read_text(META_RULE_OPTIONAL_TG_FORBIDDEN_PATH)
+
+
+def get_non_mandatory_assessed_meta_rule_text() -> str:
+    return _read_text(META_RULE_NON_MANDATORY_ASSESSED_PATH)
+
+
+def get_lovlighet_patch_el_tg_text() -> str:
+    return _read_text(LOVLIGHET_PATCH_EL_TG_PATH)
+
+
+def get_lovlighet_patch_hms_tg_text() -> str:
+    return _read_text(LOVLIGHET_PATCH_HMS_TG_PATH)
+
+
 def get_scoring_model_info() -> Dict[str, str]:
     text = get_scoring_model_text()
     try:
@@ -119,6 +190,19 @@ def build_prompt_context() -> str:
             "===== LEGALITY GUARDRAILS =====\n" + get_legality_guardrails_text(),
             "===== ORCHESTRATOR PIPELINE =====\n" + get_orchestrator_pipeline_text(),
             "===== AGE/SERVICE LIFE VALIDATION =====\n" + get_age_service_life_validation_text(),
+            "===== META RULE ROUTING =====\n" + META_RULE_ROUTING,
+            "===== ELEMENT HIERARCHY =====\n" + get_element_hierarchy_text(),
+            "===== ELEMENT HIERARCHY SYNONYMS =====\n" + get_element_hierarchy_synonyms_text(),
+            "===== PUNKT-FOR-PUNKT STATUS RULES =====\n" + get_punkt_status_rules_text(),
+            "===== PUNKT-FOR-PUNKT SCORING HOOKS =====\n" + get_punkt_scoring_hooks_text(),
+            "===== ROOM INSTANCES SCHEMA =====\n" + get_room_instances_schema_text(),
+            "===== ROOM INSTANCE EXTRACTION RULES =====\n" + get_room_instance_extraction_rules_text(),
+            "===== ROOM INSTANCE ARKAT COVERAGE RULES =====\n" + get_room_instance_arkat_coverage_text(),
+            "===== ROOM INSTANCE ROLLUP FORMAT =====\n" + get_room_instance_rollup_format_text(),
+            "===== META RULE: OPTIONAL TG FORBIDDEN =====\n" + get_optional_tg_forbidden_meta_rule_text(),
+            "===== META RULE: NON-MANDATORY ASSESSED =====\n" + get_non_mandatory_assessed_meta_rule_text(),
+            "===== LOVLIGHET PATCH EL TG =====\n" + get_lovlighet_patch_el_tg_text(),
+            "===== LOVLIGHET PATCH HMS TG =====\n" + get_lovlighet_patch_hms_tg_text(),
         ]
     ).strip()
 
