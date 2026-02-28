@@ -4,7 +4,6 @@
     "L-FA-01": "ferdigattest_mangler",
     "L-MB-01": "midlertidig_brukstillatelse",
     "L-BU-01": "bruksendring_indikert",
-    "L-UT-01": "utleiedel_indikert",
     "L-SO-01": "soknadspliktig_tiltak_indikert"
   },
   "version": "v1.1"

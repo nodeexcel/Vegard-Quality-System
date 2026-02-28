@@ -12,7 +12,7 @@
   "improve": "Forbedres",
   "blocking": "Sperre",
 
-  "present": "Tilstede",
+  "present": "Ok",
   "missing": "Mangler",
   "partial": "Delvis",
   "incomplete": "Ufullstendig",
@@ -28,10 +28,6 @@
   "critical": "Kritisk",
   "major": "Vesentlig",
   "minor": "Mindre",
-
-  "F_STRUCTURE": "F_STRUKTUR",
-  "minor_issues": "mindre_avvik",
-  "F_STRUCTURE.minor_issues": "F_STRUKTUR.mindre_avvik",
 
   "Rules": "Regler",
   "Rule": "Regel",
@@ -57,7 +53,7 @@
   "Risk": "Risiko",
   "Consequence": "Konsekvens",
   "Recommended action": "Anbefalt tiltak",
-  "Recommended actions": "Anbefalte tiltak",
+  "Recommended actions": "Anbefalt tiltak",
   "Assessment": "Vurdering",
   "Methodology": "Metodikk",
 
@@ -70,9 +66,14 @@
   "Inspection limitation": "Undersøkelsesbegrensning",
   "Not inspected": "Ikke undersøkt",
   "Safety limitation": "Sikkerhetsbegrensning",
+  "cost_speculation": "kostnadsspekulasjon",
+  "konsekvens_missing": "konsekvens_mangler",
+  "risiko_missing": "risiko_mangler",
+  "konsekvens_unclear": "konsekvens_uklar",
 
   "Long sentence": "Lang setning",
   "Long sentences": "Lange setninger",
+  "long_sentences": "lange_setninger",
   "Mixed content": "Sammensatt vurdering",
   "Unclear wording": "Uklar formulering",
   "Technical language": "For teknisk språk",
@@ -95,15 +96,20 @@
   "Category": "Kategori",
   "Category deduction": "Kategoritrekk",
   "Point": "Punkt",
-  
-  "cost_speculation": "kostnadsspekulasjon",
-  "konsekvens_missing": "konsekvens_mangler",
-  "risiko_missing": "risiko_mangler",
-  "konsekvens_unclear": "konsekvens_uklart",
-  "long_sentences": "lange_setninger",
-  
+
   "D_LANGUAGE.long_sentences": "D_SPRÅK.lange_setninger",
   "E_METHOD.cost_speculation": "E_METODE.kostnadsspekulasjon",
-  "A_ARKAT.konsekvens_unclear": "A_ARKAT.konsekvens_uklart",
-  "B_TG.inconsistent_with_text": "B_TG.inkonsistent_med_tekst"
+  "A_ARKAT.konsekvens_unclear": "A_ARKAT.konsekvens_uklar",
+  "B_TG.inconsistent_with_text": "B_TG.inkonsistent_med_tekst",
+
+  "Lovlighetsmangler": "Lovlighetsmangler",
+  "Lovlighet og offentlige forhold": "Lovlighet og offentlige forhold",
+  "F_LOVLIGHET.missing_ferdigattest_or_midlertidig_brukstillatelse_consequence": "Manglende presisering av ferdigattest/midlertidig brukstillatelse",
+  "F_LOVLIGHET.midlertidig_brukstillatelse_missing_details": "Midlertidig brukstillatelse uten presisering av gjenstående arbeider/frist",
+  "F_LOVLIGHET.indication_of_soknadspliktig_tiltak_not_addressed": "Indikasjon på søknadspliktig tiltak uten vurdering av lovlighet",
+  "F_LOVLIGHET.indication_of_bruksendring_not_addressed": "Mulig bruksendring uten vurdering av lovlighet",
+  "F_LOVLIGHET.pre_1998_ferdigattest_unntak_not_mentioned": "Unntak før 1998 ikke presisert",
+  "F_LOVLIGHET.missing_public_docs_reference_when_relevant": "Manglende opplysning om dokumentasjon/offentlige opplysninger",
+
+  "Lovlighetsforhold er ikke tilstrekkelig presisert.": "Lovlighetsforhold er ikke tilstrekkelig presisert."
 }

@@ -119,7 +119,7 @@ class BedrockAI:
         
         raise Exception("Failed to invoke Bedrock model after all retries")
     
-    def analyze_report_with_claude(self, user_prompt: str) -> Dict:
+    def analyze_report_with_claude(self, user_prompt: str, return_meta: bool = False):
         """
         Analyze report using Claude via AWS Bedrock
         
@@ -127,7 +127,7 @@ class BedrockAI:
             user_prompt: Fully composed user prompt string
         
         Returns:
-            Analysis result as dict
+            Analysis result as dict, optionally with meta if return_meta=True
         """
         try:
             # Use Claude Sonnet 4 (latest model)
@@ -136,7 +136,7 @@ class BedrockAI:
             def _build_body(prompt: str) -> str:
                 return json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 8000,  # Increased for larger JSON response with new structure
+                    "max_tokens": 16384,  # Allow full analysis JSON for large reports (30+ pages, many findings)
                     "temperature": 0.0,
                     "top_p": 1.0,
                     "system": SYSTEM_PROMPT,
@@ -158,16 +158,9 @@ class BedrockAI:
                 return response, stop_reason_local
 
             response_body, stop_reason = _invoke_with_prompt(user_prompt)
-            if stop_reason == "max_tokens":
-                logger.warning("Bedrock response truncated (stop_reason=max_tokens). Retrying with compact output request.")
-                compact_prompt = (
-                    user_prompt
-                    + "\n\nIMPORTANT: Previous response was truncated. Return a shorter, compact JSON. "
-                      "Limit findings to max 15 and improvements to max 10. "
-                      "Use at most 1 evidence snippet per issue. "
-                      "Omit optional fields when not needed."
-                )
-                response_body, stop_reason = _invoke_with_prompt(compact_prompt)
+            truncated = stop_reason == "max_tokens"
+            if truncated:
+                logger.warning("Bedrock response truncated (stop_reason=max_tokens).")
             
             # Extract text from Claude response
             content = response_body.get('content', [])
@@ -184,14 +177,15 @@ class BedrockAI:
             json_text = _extract_json_block(response_text) or _strip_opening_code_fence(response_text) or response_text
             analysis_data = _parse_json_loose(json_text)
             if analysis_data is None:
-                logger.warning("Initial JSON parse failed; retrying with compact JSON-only prompt.")
+                logger.warning("Initial JSON parse failed; retrying with JSON-only prompt.")
                 compact_prompt = (
                     user_prompt
                     + "\n\nIMPORTANT: Return ONLY a valid JSON object. No prose, no markdown. "
-                      "Keep it compact: max 15 findings, max 10 improvements, max 1 evidence item each. "
-                      "Omit optional fields when empty."
+                      "Do not omit findings or deductions. "
+                      "Omit optional fields only when empty."
                 )
-                response_body, _ = _invoke_with_prompt(compact_prompt)
+                response_body, stop_reason = _invoke_with_prompt(compact_prompt)
+                truncated = truncated or (stop_reason == "max_tokens")
                 content = response_body.get('content', [])
                 if content and len(content) > 0:
                     response_text = "".join(
@@ -203,6 +197,14 @@ class BedrockAI:
                 analysis_data = _parse_json_loose(json_text)
                 if analysis_data is None:
                     raise ValueError("Could not parse JSON in AI response")
+            if return_meta:
+                meta = {
+                    "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                    "stop_reason": stop_reason,
+                    "truncated": truncated,
+                    "response_chars": len(response_text or ""),
+                }
+                return analysis_data, meta
             return analysis_data
             
         except Exception as e:

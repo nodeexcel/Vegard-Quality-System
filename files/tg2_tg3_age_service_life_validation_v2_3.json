@@ -1,0 +1,115 @@
+{
+  "module_id": "tg2_tg3_age_service_life_validation",
+  "version": "2.3.0",
+  "mode": "validator_only",
+  "description": "Validerer korrekt bruk av TG2 og TG3 når alder, teknisk levetid eller redusert gjenværende brukstid benyttes som begrunnelse. Modulen trekker ikke poeng direkte, men returnerer funn til hovedscoringsmotoren.",
+
+  "principles": [
+    "TG2 begrunnet med alder skal vise til redusert eller kort gjenværende brukstid, ikke alder alene.",
+    "TG3 kan ikke settes kun på grunnlag av alder uten dokumentert funksjonssvikt, skade eller måledata.",
+    "TG2 skal inneholde ARK (Årsak, Risiko, Konsekvens).",
+    "TG3 skal inneholde ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak).",
+    "Alder alene er aldri tilstrekkelig grunnlag for TG3.",
+    "Beskrivelse av brukstid skal knyttes til faktisk tilstand og praktisk betydning for kjøper."
+  ],
+
+  "trigger_conditions": {
+    "any_phrase": [
+      "alder",
+      "høy alder",
+      "oppnådd teknisk levetid",
+      "forventet levetid",
+      "brukstid",
+      "gjenstående brukstid",
+      "kort gjenværende brukstid",
+      "normal levetid"
+    ]
+  },
+
+  "rules": [
+
+    {
+      "id": "AGE_TG2_AGE_ONLY",
+      "applies_to": "TG2",
+      "severity": "major",
+      "trigger_if": {
+        "tg_level": "TG2",
+        "justification_contains": ["alder"],
+        "missing_any": ["gjenstående brukstid", "kort gjenværende", "redusert brukstid"]
+      },
+      "message": "TG2 er begrunnet med alder alene uten henvisning til redusert eller kort gjenværende brukstid.",
+      "handled_by_master_scoring": true
+    },
+
+    {
+      "id": "AGE_TG3_AGE_ONLY",
+      "applies_to": "TG3",
+      "severity": "hard_stop",
+      "trigger_if": {
+        "tg_level": "TG3",
+        "justification_contains": ["alder"],
+        "missing_any": ["måledata", "aktiv fukt", "funksjonssvikt", "skade", "dokumentert avvik"]
+      },
+      "message": "TG3 er satt med henvisning til alder uten dokumentert funksjonssvikt, skade eller måledata.",
+      "handled_by_master_scoring": true
+    },
+
+    {
+      "id": "AGE_TG2_MISSING_ARK",
+      "applies_to": "TG2",
+      "severity": "major",
+      "trigger_if": {
+        "tg_level": "TG2",
+        "missing_any": ["arsak", "risiko", "konsekvens"]
+      },
+      "message": "TG2 mangler en eller flere av ARK-komponentene (Årsak, Risiko, Konsekvens).",
+      "handled_by_master_scoring": true
+    },
+
+    {
+      "id": "AGE_TG3_MISSING_ARKAT",
+      "applies_to": "TG3",
+      "severity": "hard_stop",
+      "trigger_if": {
+        "tg_level": "TG3",
+        "missing_any": ["arsak", "risiko", "konsekvens", "anbefalt_tiltak"]
+      },
+      "message": "TG3 mangler en eller flere av ARKAT-komponentene (Årsak, Risiko, Konsekvens, Anbefalt tiltak).",
+      "handled_by_master_scoring": true
+    },
+
+    {
+      "id": "AGE_TG2_SHORT_REMAINING_LIFE_NOT_EXPLAINED",
+      "applies_to": "TG2",
+      "severity": "minor",
+      "trigger_if": {
+        "tg_level": "TG2",
+        "contains_any": ["kort gjenværende brukstid", "redusert brukstid"],
+        "missing_any": ["konsekvens", "kjøper må", "påregne"]
+      },
+      "message": "Redusert eller kort gjenværende brukstid er nevnt, men konsekvens for kjøper er ikke tydelig forklart.",
+      "handled_by_master_scoring": true
+    }
+
+  ],
+
+  "output_schema": {
+    "return_fields": [
+      "module_id",
+      "findings"
+    ],
+    "finding_fields": [
+      "rule_id",
+      "severity",
+      "message",
+      "location_hint"
+    ]
+  },
+
+  "integration_notes": [
+    "Modulen skal ikke trekke poeng direkte.",
+    "Hovedscoringsmotoren avgjør poengtrekk basert på severity og kategori.",
+    "Funn skal dedupliseres dersom tilsvarende ARK/ARKAT-avvik allerede er registrert av hovedmodellen.",
+    "Hard_stop-funn kan føre til at totalscore begrenses til 95 gjennom hovedmotorens gating-logikk."
+  ]
+}

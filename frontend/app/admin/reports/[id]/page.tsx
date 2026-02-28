@@ -243,17 +243,40 @@ export default function AdminReportDetail() {
     ]
   }
 
-  const analysis = report.ai_analysis as AnalysisV14 | null
+  const analysis = report.ai_analysis as (AnalysisV14 & {
+    trygghetsscore?: number
+    top_issues?: Array<{ title: string; message: string; recommended_fix_text?: string; deduction_band?: string }>
+    all_findings?: Array<{ finding_id: string; title: string; message: string; recommended_fix_text?: string; point_id?: string; deduction_band?: string; evidence_snippets?: string[] }>
+    how_to_improve?: Array<{ title: string; recommended_fix_text: string }>
+  }) | null
   const feedbackV11 = report.scoring_result?.feedback_v11 || null
-  const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
-  const hasV14 = Boolean(analysis && typeof analysis.score_total === 'number')
-  const scoreByCategory = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category) : []
+  const hasFeedbackV11 = Boolean(feedbackV11 && (feedbackV11.points_overview?.length || feedbackV11.findings?.length))
+  const hasV14 = Boolean(analysis && (typeof analysis.score_total === 'number' || typeof (analysis as any).trygghetsscore === 'number'))
+  const scoreByCategory = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category || []) : []
+  const findingsForDisplay = (analysis?.findings?.length ? analysis.findings : null) || feedbackV11?.findings || []
+  const topDriversForDisplay = analysis?.top_score_drivers?.length
+    ? analysis.top_score_drivers
+    : (analysis as any)?.top_issues?.map((t: any) => ({
+        title: t.title,
+        reason: t.message,
+        deduction_points: t.deduction_band === 'Høyt trekk' ? 5 : t.deduction_band === 'Middels trekk' ? 3 : t.deduction_band === 'Lavt trekk' ? 1 : 0,
+        rule_refs: [t.category],
+        evidence: []
+      })) || []
+  const improvementsForDisplay = analysis?.improvements?.length
+    ? analysis.improvements
+    : (analysis as any)?.how_to_improve?.map((h: any) => ({
+        title: h.title,
+        what_to_change: h.recommended_fix_text,
+        suggested_text: h.recommended_fix_text,
+        priority: 'medium'
+      })) || []
   const tabs = hasV14
     ? [
         { id: 'overview', label: 'Overview' },
-        ...(hasFeedbackV11 ? [{ id: 'points', label: `Points (${feedbackV11?.points_overview.length || 0})` }] : []),
-        { id: 'findings', label: `Findings (${analysis?.findings.length || 0})` },
-        { id: 'components', label: `Components (${analysis?.findings.length || 0})` },
+        ...(hasFeedbackV11 ? [{ id: 'points', label: `Points (${feedbackV11?.points_overview?.length || 0})` }] : []),
+        { id: 'findings', label: `Findings (${findingsForDisplay.length})` },
+        { id: 'components', label: `Components (${analysis?.findings?.length || 0})` },
         { id: 'raw', label: 'Raw Analysis' },
       ]
     : [
@@ -529,24 +552,24 @@ export default function AdminReportDetail() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Score Drivers</h3>
-                  {analysis.top_score_drivers.length > 0 ? (
+                  {topDriversForDisplay.length > 0 ? (
                     <div className="space-y-3">
-                      {analysis.top_score_drivers.map((driver, idx) => (
+                      {topDriversForDisplay.map((driver: any, idx: number) => (
                         <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
                             <p className="font-medium text-gray-900">{driver.title}</p>
-                            <span className="text-sm font-semibold text-red-600">-{driver.deduction_points}</span>
+                            <span className="text-sm font-semibold text-red-600">-{driver.deduction_points ?? 0}</span>
                           </div>
-                          <p className="text-sm text-gray-700">{driver.reason}</p>
-                          {driver.evidence && driver.evidence.length > 0 && (
+                          <p className="text-sm text-gray-700">{driver.reason ?? driver.message}</p>
+                          {driver.evidence && driver.evidence.length > 0 && driver.evidence[0]?.snippet && (
                             <div className="mt-3 text-sm text-gray-600">
                               <p>
                                 {driver.evidence[0].heading}
-                                {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${translate(driver.evidence[0].tg)})` : ''}
+                                {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${translate(driver.evidence[0].tg || '')})` : ''}
                               </p>
-                              <p>{translate('Page')} {driver.evidence[0].page} • {translate(driver.evidence[0].source)}</p>
-                              <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
-                              <p className="text-xs text-gray-500 mt-1">{translate(driver.evidence[0].match_explain)}</p>
+                              <p>{translate('Page')} {driver.evidence[0].page} • {translate(driver.evidence[0].source || '')}</p>
+                              <p className="italic mt-1">&quot;{driver.evidence[0].snippet}&quot;</p>
+                              <p className="text-xs text-gray-500 mt-1">{translate(driver.evidence[0].match_explain || '')}</p>
                             </div>
                           )}
                         </div>
@@ -559,14 +582,14 @@ export default function AdminReportDetail() {
 
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Improvements</h3>
-                  {analysis.improvements.length > 0 ? (
+                  {improvementsForDisplay.length > 0 ? (
                     <div className="space-y-3">
-                      {analysis.improvements.map((item, idx) => (
+                      {improvementsForDisplay.map((item: any, idx: number) => (
                         <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
                           <p className="font-medium text-gray-900">{item.title}</p>
-                          <p className="text-sm text-gray-700 mt-1">{item.what_to_change}</p>
-                          {item.suggested_text && (
-                            <p className="text-sm text-green-700 mt-2 italic">{item.suggested_text}</p>
+                          <p className="text-sm text-gray-700 mt-1">{item.what_to_change ?? item.recommended_fix_text}</p>
+                          {(item.suggested_text ?? item.recommended_fix_text) && (
+                            <p className="text-sm text-green-700 mt-2 italic">{item.suggested_text ?? item.recommended_fix_text}</p>
                           )}
                         </div>
                       ))}
@@ -778,43 +801,75 @@ export default function AdminReportDetail() {
 
             {activeSection === 'findings' && hasV14 && analysis && (
               <div className="space-y-4">
-                {analysis.findings.map((component, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h4 className="font-medium text-gray-900">{component.component_title}</h4>
-                        <p className="text-xs text-gray-500">Punkt {component.component_id}</p>
-                      </div>
-                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                        {translate(component.tg)}
-                      </span>
-                    </div>
-                    <div className="space-y-3">
-                      {component.issues.map((issue, issueIdx) => (
-                        <div key={issueIdx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                          <div className="flex items-start justify-between mb-2">
-                            <h5 className="font-medium text-gray-900">{issue.summary}</h5>
-                            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
-                              {translate(issue.severity)}
-                            </span>
+                {findingsForDisplay.length === 0 && (
+                  <p className="text-gray-500">No findings</p>
+                )}
+                {findingsForDisplay.map((item: any, idx: number) => {
+                  const isFeedbackFinding = item && (item.rule_id != null || (item.what_to_change != null && item.point_id != null)) && !item.component_title
+                  if (isFeedbackFinding) {
+                    return (
+                      <div key={item.finding_id || idx} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{item.message || item.rule_id}</h4>
+                            <p className="text-xs text-gray-500">Punkt {item.point_id} • {item.rule_id || ''}</p>
                           </div>
-                          <p className="text-sm text-gray-700">{issue.details}</p>
-                          {issue.evidence && issue.evidence.length > 0 && (
-                            <div className="mt-3 text-sm text-gray-600">
-                              <p>
-                                {issue.evidence[0].heading}
-                                {issue.evidence[0].point_id ? ` (Punkt ${issue.evidence[0].point_id}, ${translate(issue.evidence[0].tg)})` : ''}
-                              </p>
-                              <p>{translate('Page')} {issue.evidence[0].page} • {translate(issue.evidence[0].source)}</p>
-                              <p className="italic mt-1">"{issue.evidence[0].snippet}"</p>
-                              <p className="text-xs text-gray-500 mt-1">{translate(issue.evidence[0].match_explain)}</p>
-                            </div>
-                          )}
+                          <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
+                            -{item.deduction ?? 0}
+                          </span>
                         </div>
-                      ))}
+                        <p className="text-sm text-gray-700 mb-2">{item.message}</p>
+                        {item.what_to_change && (
+                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                            <p className="text-xs font-medium text-green-900 mb-1">Slik retter du:</p>
+                            <p className="text-sm text-green-800">{item.what_to_change}</p>
+                          </div>
+                        )}
+                        {item.evidence?.snippet && (
+                          <p className="text-xs text-gray-500 mt-2 italic">&quot;{item.evidence.snippet}&quot;</p>
+                        )}
+                      </div>
+                    )
+                  }
+                  const component = item
+                  return (
+                    <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{component.component_title}</h4>
+                          <p className="text-xs text-gray-500">Punkt {component.component_id}</p>
+                        </div>
+                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
+                          {translate(component.tg)}
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {(component.issues || []).map((issue: any, issueIdx: number) => (
+                          <div key={issueIdx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <div className="flex items-start justify-between mb-2">
+                              <h5 className="font-medium text-gray-900">{issue.summary}</h5>
+                              <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
+                                {translate(issue.severity)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700">{issue.details}</p>
+                            {issue.evidence && issue.evidence.length > 0 && (
+                              <div className="mt-3 text-sm text-gray-600">
+                                <p>
+                                  {issue.evidence[0].heading}
+                                  {issue.evidence[0].point_id ? ` (Punkt ${issue.evidence[0].point_id}, ${translate(issue.evidence[0].tg)})` : ''}
+                                </p>
+                                <p>{translate('Page')} {issue.evidence[0].page} • {translate(issue.evidence[0].source)}</p>
+                                <p className="italic mt-1">&quot;{issue.evidence[0].snippet}&quot;</p>
+                                <p className="text-xs text-gray-500 mt-1">{translate(issue.evidence[0].match_explain)}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 

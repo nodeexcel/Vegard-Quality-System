@@ -12,7 +12,7 @@ from app.auth import get_current_admin, create_access_token, verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas import ReportResponse, ComponentBase, FindingBase
 from app.config import settings
-from app.services.ai_analyzer import AIAnalyzer, ensure_analysis_evidence
+from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -1148,12 +1148,31 @@ spesielt våtrom som mangler dokumentert fuktvurdering.
             "full_document_available": True
         }
         
-        analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
-            text=test_report_text,
-            report_system="Test System",
-            building_year=1985,
-            pdf_metadata=test_pdf_metadata
-        )
+        try:
+            analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+                text=test_report_text,
+                report_system="Test System",
+                building_year=1985,
+                pdf_metadata=test_pdf_metadata
+            )
+        except IncompleteAnalysisError as e:
+            report.overall_score = None
+            report.quality_score = None
+            report.completeness_score = None
+            report.compliance_score = None
+            report.status = "incomplete"
+            report.ai_analysis = {
+                "meta": {
+                    "analysis_status": "INCOMPLETE",
+                    "message": e.message,
+                    "reasons": e.reasons,
+                    "run_meta": e.run_meta,
+                }
+            }
+            report.detected_points = e.detected_points_payload
+            report.scoring_result = None
+            db.commit()
+            return {"status": "incomplete", "report_id": report.id, "message": e.message, "reasons": e.reasons}
         
         # Store analysis results
         report.overall_score = analysis_result.overall_score

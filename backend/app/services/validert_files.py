@@ -19,6 +19,8 @@ LEGALITY_RULES_PATH = FILES_DIR / "validert_legal_compliance_rules_v1_1.json"
 LEGALITY_ARKAT_TEMPLATES_PATH = FILES_DIR / "validert_arkat_templates_lovlighet_v1_1.json"
 LEGALITY_ARKAT_MAP_PATH = FILES_DIR / "validert_lovlighet_to_arkat_map_v1_1.json"
 LEGALITY_GUARDRAILS_PATH = FILES_DIR / "validert_no_prosjektering_guardrails_v1_1.json"
+ORCHESTRATOR_PIPELINE_PATH = FILES_DIR / "validert_orchestrator_pipeline_v1.json"
+AGE_SERVICE_LIFE_VALIDATION_PATH = FILES_DIR / "tg2_tg3_age_service_life_validation_v2_3.json"
 
 
 def _read_text(path: Path) -> str:
@@ -76,6 +78,14 @@ def get_legality_guardrails_text() -> str:
     return _read_text(LEGALITY_GUARDRAILS_PATH)
 
 
+def get_orchestrator_pipeline_text() -> str:
+    return _read_text(ORCHESTRATOR_PIPELINE_PATH)
+
+
+def get_age_service_life_validation_text() -> str:
+    return _read_text(AGE_SERVICE_LIFE_VALIDATION_PATH)
+
+
 def get_scoring_model_info() -> Dict[str, str]:
     text = get_scoring_model_text()
     try:
@@ -107,6 +117,8 @@ def build_prompt_context() -> str:
             "===== LEGALITY ARKAT TEMPLATES =====\n" + get_legality_arkat_templates_text(),
             "===== LEGALITY ARKAT MAP =====\n" + get_legality_arkat_map_text(),
             "===== LEGALITY GUARDRAILS =====\n" + get_legality_guardrails_text(),
+            "===== ORCHESTRATOR PIPELINE =====\n" + get_orchestrator_pipeline_text(),
+            "===== AGE/SERVICE LIFE VALIDATION =====\n" + get_age_service_life_validation_text(),
         ]
     ).strip()
 

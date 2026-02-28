@@ -90,6 +90,20 @@ interface Improvement {
   applies_to?: string[]
 }
 
+interface DeductionSummary {
+  rule_id: string
+  points: number
+  reason: string
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  point_id?: string
+  component_title?: string
+  suggestion?: string
+  /** Full consequence/improvement text from admin-level feedback (e.g. example_fix.good_example) */
+  exampleFix?: string
+  /** Where in the report (v1.6 evidence_snippets or location hint) */
+  evidence_snippets?: string[]
+}
+
 interface FeedbackPointOverview {
   point_id: string
   title: string
@@ -164,6 +178,60 @@ interface AnalysisV14 {
   findings: ComponentFinding[]
   improvements: Improvement[]
   disclaimers: string[]
+}
+
+/** v1.6 payload shape (trygghetsscore, top_issues, all_findings, category_breakdown, how_to_improve, gate) */
+interface TopIssueV16 {
+  category: string
+  title: string
+  severity: string
+  deduction_band?: string
+  message: string
+  recommended_fix_text?: string
+  gate_effect?: { blocks_96_gate?: boolean; caps_total_score_to?: number }
+}
+interface AllFindingV16 {
+  finding_id: string
+  category: string
+  severity: string
+  title: string
+  message: string
+  deduction_band?: string
+  recommended_fix_text?: string
+  evidence_snippets?: string[]
+  gate_effect?: { blocks_96_gate?: boolean; caps_total_score_to?: number }
+}
+interface CategoryBreakdownV16 {
+  category: string
+  deduction_band: string
+  summary: string
+}
+interface HowToImproveV16 {
+  category: string
+  title: string
+  recommended_fix_text: string
+}
+interface GateV16 {
+  active?: boolean
+  blocked_96?: boolean
+  max_score_if_blocked?: number
+  blocked_by_count?: number
+  message?: string
+}
+interface AnalysisV16 {
+  trygghetsscore?: number
+  score_band?: string
+  gate?: GateV16
+  top_issues?: TopIssueV16[]
+  all_findings?: AllFindingV16[]
+  how_to_improve?: HowToImproveV16[]
+  category_breakdown?: CategoryBreakdownV16[]
+  score_total?: number
+  score_by_category?: ScoreByCategory[]
+  top_score_drivers?: TopScoreDriver[]
+  findings?: ComponentFinding[]
+  improvements?: Improvement[]
+  disclaimers?: string[]
 }
 
 interface Component {
@@ -360,13 +428,25 @@ export default function ResultsPage() {
     )
   }
 
-  const analysis = report.ai_analysis as AnalysisV14 | null
+  const analysis = report.ai_analysis as (AnalysisV14 & AnalysisV16) | null
   const feedbackV11 = report.scoring_result?.feedback_v11 || null
   const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
-  const hasV14 = Boolean(analysis && typeof analysis.score_total === 'number')
+  const hasV16 = Boolean(
+    analysis &&
+    (typeof (analysis as AnalysisV16).trygghetsscore === 'number' ||
+      Array.isArray((analysis as AnalysisV16).top_issues) ||
+      Array.isArray((analysis as AnalysisV16).all_findings))
+  )
+  const hasV14 = Boolean(
+    analysis &&
+    (typeof analysis.score_total === 'number' ||
+      (hasV16 && ((analysis as AnalysisV16).trygghetsscore != null || (analysis as AnalysisV16).top_issues?.length)))
+  )
   const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
   const scoreTotal = hasV14
-    ? analysis?.score_total ?? null
+    ? (hasV16 && typeof (analysis as AnalysisV16).trygghetsscore === 'number'
+        ? (analysis as AnalysisV16).trygghetsscore
+        : analysis?.score_total ?? null)
     : feedbackV11?.score?.total ?? report.overall_score
   const improvementPriorityOrder: Record<string, number> = {
     critical: 0,
@@ -388,17 +468,105 @@ export default function ResultsPage() {
       }
     ]
   }
-  const sortedImprovements = hasV14 && analysis
-    ? [...analysis.improvements].sort(
-        (a, b) => (improvementPriorityOrder[a.priority] ?? 99) - (improvementPriorityOrder[b.priority] ?? 99)
-      )
-    : []
-  const scoreByCategory = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category) : []
-  const highPriorityImprovements = sortedImprovements.filter(
-    (item) => item.priority === 'critical' || item.priority === 'high'
-  )
-  const mediumPriorityImprovements = sortedImprovements.filter((item) => item.priority === 'medium')
-  const lowPriorityImprovements = sortedImprovements.filter((item) => item.priority === 'low')
+  const categoryBreakdown = (analysis as AnalysisV16)?.category_breakdown
+  const scoreByCategoryRaw = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category || []) : []
+  const allCategoryDeductionsZero = scoreByCategoryRaw.every((c) => c.deduction === 0)
+  const trygghetsscoreNum = hasV16 && typeof (analysis as AnalysisV16)?.trygghetsscore === 'number' ? (analysis as AnalysisV16).trygghetsscore! : null
+  const totalDeductionFromScore = trygghetsscoreNum != null ? Math.max(0, 100 - trygghetsscoreNum) : 0
+  const bandToWeight: Record<string, number> = {
+    'Høyt trekk': 3,
+    'Høy påvirkning': 3,
+    'Middels trekk': 2,
+    'Middels påvirkning': 2,
+    'Lavt trekk': 1,
+    'Lav påvirkning': 1,
+    'Ikke scoretrekk': 0,
+    'Lavere trekk': 0
+  }
+  const scoreByCategory =
+    hasV16 && allCategoryDeductionsZero && totalDeductionFromScore > 0
+      ? categoryBreakdown?.length
+        ? (() => {
+            const totalWeight = categoryBreakdown.reduce((sum, cb) => sum + (bandToWeight[cb.deduction_band] ?? 0), 0)
+            const withWeight = categoryBreakdown.map((cb) => {
+              const existing = scoreByCategoryRaw.find((s) => s.category_id === cb.category)
+              const maxDed = existing?.max_deduction ?? 20
+              const w = bandToWeight[cb.deduction_band] ?? 0
+              return { cb, existing, maxDed, weight: w }
+            })
+            const rawDeductions = withWeight.map(({ weight, maxDed }) => {
+              if (totalWeight <= 0) return 0
+              const raw = Math.round((totalDeductionFromScore * weight) / totalWeight)
+              return Math.min(maxDed, Math.max(0, raw))
+            })
+            let sumRaw = rawDeductions.reduce((a, b) => a + b, 0)
+            let adjusted = [...rawDeductions]
+            if (sumRaw > totalDeductionFromScore) {
+              let excess = sumRaw - totalDeductionFromScore
+              adjusted = rawDeductions.map((d, i) => {
+                const reduce = Math.min(d, excess)
+                excess -= reduce
+                return d - reduce
+              })
+            } else if (sumRaw < totalDeductionFromScore && totalWeight > 0) {
+              const toAdd = totalDeductionFromScore - sumRaw
+              const idx = withWeight.reduce((best, x, i) => (x.weight > 0 && (best === -1 || withWeight[best].weight < x.weight) ? i : best), -1)
+              if (idx >= 0) {
+                const maxRoom = withWeight[idx].maxDed - adjusted[idx]
+                adjusted[idx] += Math.min(toAdd, maxRoom)
+              }
+            }
+            return ensureCategoryF(
+              categoryBreakdown.map((cb, i) => {
+                const existing = scoreByCategoryRaw.find((s) => s.category_id === cb.category)
+                return {
+                  category_id: cb.category as ScoreByCategory['category_id'],
+                  category_name: existing?.category_name ?? `Kategori ${cb.category}`,
+                  deduction: adjusted[i] ?? 0,
+                  max_deduction: existing?.max_deduction ?? 20,
+                  deduction_band: cb.deduction_band,
+                  summary: cb.summary
+                }
+              }) as ScoreByCategory[]
+            )
+          })()
+        : (() => {
+            // Fallback when we have trygghetsscore but no category_breakdown: distribute by max_deduction
+            const totalMax = scoreByCategoryRaw.reduce((s, c) => s + (c.max_deduction || 0), 0)
+            if (totalMax <= 0) return scoreByCategoryRaw
+            let remaining = totalDeductionFromScore
+            const deductions = scoreByCategoryRaw.map((c) => {
+              const maxD = c.max_deduction || 0
+              const raw = Math.round((totalDeductionFromScore * maxD) / totalMax)
+              const d = Math.min(maxD, Math.max(0, raw))
+              remaining -= d
+              return { ...c, deduction: d }
+            })
+            if (remaining > 0) {
+              const idx = deductions.findIndex((d) => d.deduction < (d.max_deduction || 0))
+              if (idx >= 0) {
+                deductions[idx] = {
+                  ...deductions[idx],
+                  deduction: Math.min((deductions[idx].max_deduction ?? 0), deductions[idx].deduction + remaining)
+                }
+              }
+            }
+            return deductions as ScoreByCategory[]
+          })()
+      : scoreByCategoryRaw
+  type ScoreByCategoryDisplay = ScoreByCategory & { deduction_band?: string; summary?: string }
+  const scoreByCategoryDisplay = scoreByCategory as ScoreByCategoryDisplay[]
+  const topScoreDriversSource =
+    hasV16 && analysis && (!analysis.top_score_drivers?.length) && (analysis as AnalysisV16).top_issues?.length
+      ? (analysis as AnalysisV16).top_issues!.map((t) => ({
+          title: t.title,
+          severity: (t.severity || 'medium') as TopScoreDriver['severity'],
+          reason: t.message,
+          deduction_points: t.gate_effect?.caps_total_score_to ? 100 - t.gate_effect.caps_total_score_to : 0,
+          rule_refs: [t.category],
+          evidence: [] as Evidence[]
+        }))
+      : analysis?.top_score_drivers ?? []
   const improvementBadgeClasses = (priority: string) => {
     switch (priority) {
       case 'critical':
@@ -441,6 +609,25 @@ export default function ResultsPage() {
         return 'bg-gray-100 text-gray-800'
     }
   }
+  /** Replace vague AI phrasing with precise, legally clear wording in user-facing text only. */
+  const formatFeedbackText = (text: string | null | undefined): string => {
+    if (text == null || typeof text !== 'string') return ''
+    return text
+      .replace(/Konsekvens uklar for kjøper/g, 'Konsekvens kan presiseres i forhold til kjøpers bruk, økonomi eller risiko.')
+      .replace(/Konsekvens ikke eksplisitt oversatt til kjøpers situasjon\.?/g, 'Dette innebærer at kjøper må påregne utbedring før normal bruk kan anses trygg, og at det foreligger risiko for videre konstruksjonsskade dersom tiltak utsettes.')
+  }
+
+  /** Split recommendation into problem (top) and fix (green box only). "Slik retter du:" belongs only in the green box. */
+  const splitProblemAndFix = (text: string): { problemPart: string; fixPart: string } => {
+    if (!text || typeof text !== 'string') return { problemPart: '', fixPart: '' }
+    const marker = /Slik retter du\s*:\s*/i
+    const idx = text.search(marker)
+    if (idx === -1) return { problemPart: text.trim(), fixPart: '' }
+    const problemPart = text.slice(0, idx).trim()
+    const fixPart = text.slice(idx).replace(marker, '').trim()
+    return { problemPart, fixPart }
+  }
+
   const renderTrekkLabel = (value: number | null | undefined) => {
     if (value === null || value === undefined) return null
     const policy = (outputOverlay as any)?.field_policies?.trekk
@@ -462,6 +649,233 @@ export default function ResultsPage() {
     }
     return `${prefix}: ${value}`
   }
+
+  const buildDeductionSummariesFromAnalysis = (analysisPayload: AnalysisV14): DeductionSummary[] => {
+    const items = Array.isArray(analysisPayload.findings) ? analysisPayload.findings : []
+    const issueByRule: Record<string, Issue> = {}
+    items.forEach((component) => {
+      const issues = Array.isArray(component.issues) ? component.issues : []
+      issues.forEach((issue) => {
+        const ruleRefs = Array.isArray(issue.rule_refs) ? issue.rule_refs : []
+        ruleRefs.forEach((rule) => {
+          if (!issueByRule[rule]) {
+            issueByRule[rule] = issue
+          }
+        })
+      })
+    })
+    const summaries: DeductionSummary[] = []
+    items.forEach((component) => {
+      const deductions = Array.isArray(component.deductions) ? component.deductions : []
+      deductions.forEach((deduction) => {
+        if (!deduction || typeof deduction.points !== 'number' || deduction.points <= 0) {
+          return
+        }
+        const issue = issueByRule[deduction.rule_id]
+        const severityRaw = issue?.severity
+          || (deduction.category_id === 'F' ? 'high' : 'medium')
+        const severity = severityRaw === 'info' ? 'low' : severityRaw
+        summaries.push({
+          rule_id: deduction.rule_id,
+          points: deduction.points,
+          reason: issue?.summary || deduction.reason || deduction.rule_id,
+          severity: severity as DeductionSummary['severity'],
+          point_id: component.component_id,
+          component_title: component.component_title,
+          suggestion: issue?.details || deduction.reason
+        })
+      })
+    })
+    const scoreCaps = (analysisPayload as any).score_caps
+    if (Array.isArray(scoreCaps)) {
+      scoreCaps.forEach((cap) => {
+        if (!cap || typeof cap.points_deducted !== 'number' || cap.points_deducted <= 0) {
+          return
+        }
+        const ruleIds = Array.isArray(cap.rule_ids) ? cap.rule_ids.join(', ') : ''
+        const reason = ruleIds
+          ? `Scoretak er aktivert (maks ${cap.max_total_score}). Utløst av: ${ruleIds}.`
+          : `Scoretak er aktivert (maks ${cap.max_total_score}).`
+        summaries.push({
+          rule_id: 'SCORE_CAP',
+          points: cap.points_deducted,
+          reason,
+          severity: 'high',
+          suggestion: 'Utbedre forholdet som utløser scoretaket for å heve totalscoren.'
+        })
+      })
+    }
+    return summaries
+  }
+
+  const buildDeductionSummariesFromFeedback = (items: FeedbackFinding[]): DeductionSummary[] => {
+    return items
+      .filter((finding) => typeof finding.deduction === 'number' && finding.deduction > 0)
+      .map((finding) => ({
+        rule_id: finding.rule_id,
+        points: finding.deduction || 0,
+        reason: finding.message || finding.rule_id,
+        severity: finding.severity === 'info' ? 'low' : finding.severity,
+        point_id: finding.point_id,
+        suggestion: finding.what_to_change || finding.message,
+        exampleFix: finding.example_fix?.good_example
+      }))
+  }
+
+  /** Parse point id from title/message (e.g. "Punkt 4 (TG2) mangler..." -> "4", "Punkt 10.5 (TG3)..." -> "10.5"). */
+  const parsePointFromTitle = (title: string): string | undefined => {
+    if (!title || typeof title !== 'string') return undefined
+    const m = title.match(/(?:Punkt|punkt)\s+(\d+(?:\.\d+)*)/i)
+    return m ? m[1] : undefined
+  }
+
+  /** True if text clearly refers to a different point (e.g. "TG2-punkt 10.5" when currentPointId is "4"). */
+  const improvementTextRefersToDifferentPoint = (text: string | undefined, currentPointId: string | undefined): boolean => {
+    if (!text || !currentPointId) return false
+    const lower = text.toLowerCase()
+    const pointRefs = lower.match(/(?:punkt|pkt)\s*(\d+(?:\.\d+)*)/g)
+    if (!pointRefs) return false
+    const normalizedCurrent = currentPointId.replace(/\s/g, '')
+    for (const ref of pointRefs) {
+      const m = ref.match(/(\d+(?:\.\d+)*)/)
+      if (m && m[1] !== normalizedCurrent) return true
+    }
+    return false
+  }
+
+  /** Find improvement that applies to this deduction (same point + matching theme) so we show admin-level guidance. */
+  const findMatchingImprovement = (
+    deduction: DeductionSummary,
+    improvements: Improvement[] | undefined
+  ): Improvement | undefined => {
+    if (!improvements?.length) return undefined
+    const pointId = (deduction.point_id || '').toString().trim()
+    const ruleId = (deduction.rule_id || '').toLowerCase()
+    const reason = (deduction.reason || '').toLowerCase()
+    const appliesToPoint = (imp: Improvement) => {
+      const to = imp.applies_to
+      if (!to || !Array.isArray(to) || to.length === 0) return true
+      return to.some((id) => String(id).toLowerCase() === pointId || String(id).toLowerCase() === 'global')
+    }
+    const titleMatches = (imp: Improvement, keywords: string[]) => {
+      const t = (imp.title || '').toLowerCase()
+      const w = (imp.what_to_change || '').toLowerCase()
+      return keywords.some((k) => t.includes(k.toLowerCase()) || w.includes(k.toLowerCase()))
+    }
+    const candidates = improvements.filter(appliesToPoint)
+    if (candidates.length === 0) return undefined
+
+    // When deduction is for a specific point, only use an improvement that refers to that point (avoid overwriting with first improvement for all).
+    if (pointId) {
+      const pointSpecific = candidates.find((imp) => parsePointFromTitle(imp.title || '') === pointId)
+      if (pointSpecific) return pointSpecific
+      // No improvement explicitly for this point – do not overwrite; keep deduction's own suggestion/exampleFix.
+      return undefined
+    }
+
+    if (ruleId.includes('konsekvens_mangler') || reason.includes('manglende konsekvens'))
+      return candidates.find((imp) => titleMatches(imp, ['legg til konsekvens', 'konsekvens for kjøper', 'manglende'])) ?? undefined
+    if (ruleId.includes('konsekvens_uklart') || reason.includes('uklar konsekvens'))
+      return candidates.find((imp) => titleMatches(imp, ['utdyp', 'tekniske konsekvenser', 'kjøperbetydning'])) ?? undefined
+    if (ruleId.includes('tiltak_imperativ') || reason.includes('imperativ'))
+      return candidates.find((imp) => titleMatches(imp, ['imperativ', 'erstatt', 'veiledende'])) ?? undefined
+    if (ruleId.includes('l-fa-01') || reason.includes('ferdigattest'))
+      return candidates.find((imp) => titleMatches(imp, ['ferdigattest', 'beskriv konsekvens'])) ?? undefined
+    return undefined
+  }
+
+  const enrichWithImprovements = (
+    list: DeductionSummary[],
+    improvements: Improvement[] | undefined
+  ): DeductionSummary[] => {
+    if (!improvements?.length) return list
+    return list.map((item) => {
+      const imp = findMatchingImprovement(item, improvements)
+      if (!imp) return item
+      // Never overwrite with improvement text that clearly refers to another point (e.g. "TG2-punkt 10.5" on a Punkt 4 card)
+      const useSuggestion = imp.what_to_change && !improvementTextRefersToDifferentPoint(imp.what_to_change, item.point_id)
+      const useExampleFix = imp.suggested_text && !improvementTextRefersToDifferentPoint(imp.suggested_text, item.point_id)
+      return {
+        ...item,
+        suggestion: useSuggestion ? imp.what_to_change : item.suggestion,
+        exampleFix: item.exampleFix || (useExampleFix ? imp.suggested_text : undefined)
+      }
+    })
+  }
+
+  const allFindingsV16 = (analysis as AnalysisV16)?.all_findings
+  const howToImproveV16 = (analysis as AnalysisV16)?.how_to_improve
+  /** Try to extract point reference from message (e.g. "Punkt 4.2", "i punkt 5.1", "punkt 4.2") */
+  const parsePointIdFromMessage = (message: string): string | undefined => {
+    if (!message || typeof message !== 'string') return undefined
+    const m = message.match(/(?:Punkt|punkt)\s+(\d+(?:\.\d+)*)/i) || message.match(/(?:punkt|ved)\s+(\d+(?:\.\d+)*)/i)
+    return m ? m[1] : undefined
+  }
+  const buildDeductionSummariesFromV16 = (findings: AllFindingV16[]): DeductionSummary[] =>
+    findings.map((f) => ({
+      rule_id: f.finding_id,
+      points: f.deduction_band === 'Høyt trekk' ? 5 : f.deduction_band === 'Middels trekk' ? 3 : f.deduction_band === 'Lavt trekk' ? 1 : 0,
+      reason: f.title,
+      severity: (f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : f.severity === 'minor' ? 'low' : 'medium') as DeductionSummary['severity'],
+      suggestion: f.recommended_fix_text,
+      exampleFix: f.recommended_fix_text,
+      point_id: parsePointIdFromMessage(f.message) ?? parsePointIdFromMessage(f.title) ?? (f as { location?: string; point_id?: string }).point_id ?? (f as { location?: string }).location,
+      evidence_snippets: f.evidence_snippets?.length ? f.evidence_snippets : undefined
+    }))
+  const improvementsForFixes = hasV16 && howToImproveV16?.length && !analysis?.improvements?.length
+    ? howToImproveV16.map((h) => ({
+        title: h.title,
+        priority: 'medium' as const,
+        what_to_change: h.recommended_fix_text,
+        suggested_text: h.recommended_fix_text
+      }))
+    : analysis?.improvements
+  const allDeductions: DeductionSummary[] =
+    feedbackV11?.findings?.length
+      ? buildDeductionSummariesFromFeedback(feedbackV11.findings)
+      : hasV16 && allFindingsV16?.length
+        ? buildDeductionSummariesFromV16(allFindingsV16)
+        : hasV14 && analysis
+          ? buildDeductionSummariesFromAnalysis(analysis)
+          : []
+
+  const sortedDeductions = [...allDeductions].sort((a, b) => {
+    const priorityA = improvementPriorityOrder[a.severity] ?? 99
+    const priorityB = improvementPriorityOrder[b.severity] ?? 99
+    if (priorityA !== priorityB) return priorityA - priorityB
+    return (b.points || 0) - (a.points || 0)
+  })
+
+  const dedupedFixes = (() => {
+    const seen = new Map<string, DeductionSummary>()
+    sortedDeductions.forEach((item) => {
+      const key = `${item.point_id || 'GLOBAL'}::${item.reason}`
+      const existing = seen.get(key)
+      if (!existing) {
+        seen.set(key, { ...item })
+        return
+      }
+      const existingPriority = improvementPriorityOrder[existing.severity] ?? 99
+      const itemPriority = improvementPriorityOrder[item.severity] ?? 99
+      seen.set(key, {
+        ...existing,
+        points: (existing.points || 0) + (item.points || 0),
+        severity: itemPriority < existingPriority ? item.severity : existing.severity,
+        suggestion: existing.suggestion || item.suggestion,
+        exampleFix: existing.exampleFix || item.exampleFix,
+      })
+    })
+    return Array.from(seen.values())
+  })()
+
+  const deductionsForAlleTrekk = enrichWithImprovements(sortedDeductions, improvementsForFixes)
+  const enrichedDedupedFixes = enrichWithImprovements(dedupedFixes, improvementsForFixes)
+
+  const highPriorityDeductions = enrichedDedupedFixes.filter(
+    (item) => item.severity === 'critical' || item.severity === 'high'
+  )
+  const mediumPriorityDeductions = enrichedDedupedFixes.filter((item) => item.severity === 'medium')
+  const lowPriorityDeductions = enrichedDedupedFixes.filter((item) => item.severity === 'low')
 
 
   return (
@@ -570,6 +984,14 @@ export default function ResultsPage() {
             </div>
           </div>
 
+          {hasV16 && (analysis as AnalysisV16).gate?.blocked_96 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+              <p className="text-amber-900 font-medium">
+                {(analysis as AnalysisV16).gate?.message ?? 'Rapporten kan ikke oppnå over 95 % før gate-avvik er rettet.'}
+              </p>
+            </div>
+          )}
+
           {hasFeedbackV11 && feedbackV11 && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
               <div className="flex items-start justify-between mb-6">
@@ -619,73 +1041,53 @@ export default function ResultsPage() {
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-5">
-                  {scoreByCategory.map((category) => (
-                    <div key={category.category_id} className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
-                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-400 via-amber-400 to-green-400"></div>
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Kategori {category.category_id}
-                            </span>
-                          </div>
-                          <p className="text-lg font-semibold text-gray-900">{category.category_name}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-3xl font-bold text-gray-900">-{category.deduction}</p>
-                          <p className="text-xs text-gray-500">maks {category.max_deduction}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                          <span>Trekk</span>
-                          <span>{category.deduction}/{category.max_deduction}</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-400 to-green-400"
-                            style={{ width: `${Math.min(100, (category.deduction / Math.max(category.max_deduction, 1)) * 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Viktigste score-drivere</h2>
-                <div className="space-y-4">
-                  {analysis.top_score_drivers.map((driver, index) => {
-                    const severityConfig = getSeverityConfig(driver.severity)
+                  {scoreByCategoryDisplay.map((category) => {
+                    const deductionPct = (category.deduction / Math.max(category.max_deduction, 1)) * 100
+                    const bandPct =
+                      category.deduction > 0
+                        ? deductionPct
+                        : (category as ScoreByCategoryDisplay).deduction_band === 'Høyt trekk'
+                          ? 100
+                          : (category as ScoreByCategoryDisplay).deduction_band === 'Middels trekk'
+                            ? 50
+                            : (category as ScoreByCategoryDisplay).deduction_band === 'Lavt trekk'
+                              ? 25
+                              : deductionPct
                     return (
-                      <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
-                        <div className="flex items-start justify-between mb-2">
+                      <div key={category.category_id} className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-400 via-amber-400 to-green-400"></div>
+                        <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h3 className="text-lg font-bold text-gray-900">{driver.title}</h3>
-                            <p className="text-sm text-gray-700">{driver.reason}</p>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Kategori {category.category_id}
+                              </span>
+                            </div>
+                            <p className="text-lg font-semibold text-gray-900">{category.category_name}</p>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-sm font-bold ${severityConfig.badge}`}>
-                            -{driver.deduction_points}
-                          </span>
+                          <div className="text-right">
+                            <p className="text-3xl font-bold text-gray-900">-{category.deduction}</p>
+                            {(category as ScoreByCategoryDisplay).deduction_band && (
+                              <p className="text-xs font-medium text-gray-600">{(category as ScoreByCategoryDisplay).deduction_band}</p>
+                            )}
+                            <p className="text-xs text-gray-500">maks {category.max_deduction}</p>
+                          </div>
                         </div>
-                        {driver.rule_refs.length > 0 && (
-                          <p className="text-xs text-gray-500 mb-3">
-                            Regler: {Array.from(new Set(driver.rule_refs)).map(ref => translate(ref)).join(', ')}
-                          </p>
+                        {(category as ScoreByCategoryDisplay).summary && (
+                          <p className="text-sm text-gray-600 mt-2">{(category as ScoreByCategoryDisplay).summary}</p>
                         )}
-                        {driver.evidence && driver.evidence.length > 0 && (
-                          <div className="bg-white/80 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
-                            <p className="font-semibold text-gray-900 mb-1">Dokumentasjon</p>
-                            <p>
-                              {driver.evidence[0].heading}
-                              {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${translate(driver.evidence[0].tg)})` : ''}
-                            </p>
-                            <p>{translate('Page')} {driver.evidence[0].page} • {translate(driver.evidence[0].source)}</p>
-                            <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
-                            <p className="text-xs text-gray-500 mt-1">{translate(driver.evidence[0].match_explain)}</p>
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                            <span>Trekk</span>
+                            <span>{category.deduction}/{category.max_deduction}</span>
                           </div>
-                        )}
+                          <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-400 to-green-400"
+                              style={{ width: `${Math.min(100, bandPct)}%` }}
+                            ></div>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
@@ -693,9 +1095,98 @@ export default function ResultsPage() {
               </div>
 
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Funn per bygningsdel</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Viktigste score-drivere</h2>
+                <div className="space-y-4">
+                  {topScoreDriversSource.length === 0 ? (
+                    <p className="text-sm text-gray-600">Ingen score-drivere listet.</p>
+                  ) : (
+                    topScoreDriversSource.map((driver, index) => {
+                      const severityConfig = getSeverityConfig(driver.severity)
+                      const reason = 'reason' in driver ? driver.reason : (driver as unknown as TopIssueV16).message
+                      const recFix = (driver as unknown as TopIssueV16).recommended_fix_text
+                      return (
+                        <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="text-lg font-bold text-gray-900">{formatFeedbackText(driver.title)}</h3>
+                              <p className="text-sm text-gray-700">{formatFeedbackText(reason)}</p>
+                              {recFix && (
+                                <p className="text-sm text-green-800 mt-2 bg-green-50 border border-green-200 rounded-lg p-2">
+                                  <span className="font-semibold">Anbefaling: </span>{formatFeedbackText(recFix)}
+                                </p>
+                              )}
+                            </div>
+                            {driver.deduction_points > 0 && (
+                              <span className={`px-3 py-1 rounded-full text-sm font-bold ${severityConfig.badge}`}>
+                                -{driver.deduction_points}
+                              </span>
+                            )}
+                          </div>
+                          {driver.rule_refs?.length > 0 && (
+                            <p className="text-xs text-gray-500 mb-3">
+                              Kategori: {Array.from(new Set(driver.rule_refs)).map(ref => translate(ref)).join(', ')}
+                            </p>
+                          )}
+                          {driver.evidence && driver.evidence.length > 0 && (
+                            <div className="bg-white/80 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
+                              <p className="font-semibold text-gray-900 mb-1">Dokumentasjon</p>
+                              <p>
+                                {driver.evidence[0].heading}
+                                {driver.evidence[0].point_id ? ` (Punkt ${driver.evidence[0].point_id}, ${translate(driver.evidence[0].tg)})` : ''}
+                              </p>
+                              <p>{translate('Page')} {driver.evidence[0].page} • {translate(driver.evidence[0].source)}</p>
+                              <p className="italic mt-1">"{driver.evidence[0].snippet}"</p>
+                              <p className="text-xs text-gray-500 mt-1">{translate(driver.evidence[0].match_explain)}</p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  {allFindingsV16?.length && !analysis.findings?.length ? 'Alle funn' : 'Funn per bygningsdel'}
+                </h2>
                 <div className="space-y-6">
-                  {analysis.findings.map((component, index) => (
+                  {allFindingsV16?.length && !analysis.findings?.length ? (
+                    allFindingsV16.map((f, index) => {
+                      const severityConfig = getSeverityConfig(f.severity)
+                      return (
+                        <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-gray-500">Kategori {f.category}</p>
+                              <h3 className="text-lg font-bold text-gray-900 mt-1">{formatFeedbackText(f.title)}</h3>
+                              <p className="text-sm text-gray-700 mt-2">{formatFeedbackText(f.message)}</p>
+                              {f.recommended_fix_text && (
+                                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                  <p className="font-semibold mb-1">Anbefalt tiltak:</p>
+                                  <p>{formatFeedbackText(f.recommended_fix_text)}</p>
+                                </div>
+                              )}
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${severityConfig.badge}`}>
+                              {f.deduction_band ?? translate(f.severity)}
+                            </span>
+                          </div>
+                          {f.evidence_snippets && f.evidence_snippets.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <p className="text-xs font-semibold text-gray-500 mb-2">Dokumentasjon</p>
+                              <ul className="text-sm text-gray-700 space-y-1">
+                                {f.evidence_snippets.slice(0, 3).map((snip, i) => (
+                                  <li key={i} className="italic">&quot;{snip}&quot;</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  ) : (
+                  analysis.findings?.map((component, index) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-5">
                       <div className="flex items-center justify-between mb-3">
                         <div>
@@ -735,8 +1226,8 @@ export default function ResultsPage() {
                               <div className="flex items-start space-x-3">
                                 <span className="text-xl">{severityConfig.icon}</span>
                                 <div className="flex-1">
-                                  <h4 className="font-semibold text-gray-900">{issue.summary}</h4>
-                                  <p className="text-sm text-gray-700 mt-1">{issue.details}</p>
+                                  <h4 className="font-semibold text-gray-900">{formatFeedbackText(issue.summary)}</h4>
+                                  <p className="text-sm text-gray-700 mt-1">{formatFeedbackText(issue.details)}</p>
                                   {issue.rule_refs.length > 0 && (
                                     <p className="text-xs text-gray-500 mt-2">
                                       Regler: {Array.from(new Set(issue.rule_refs)).map(ref => translate(ref)).join(', ')}
@@ -761,8 +1252,83 @@ export default function ResultsPage() {
                         })}
                       </div>
                     </div>
-                  ))}
+                  )))}
                 </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Alle trekk</h2>
+                    <p className="text-sm text-gray-500 mt-1">Fullstendig oversikt over poengtrekk som påvirker score</p>
+                    {hasV16 && scoreTotal != null && (
+                      <p className="text-xs text-amber-700 mt-1">
+                        Total score ({scoreTotal}%) er satt av analysen og kategoritak; summen av enkelttrekk kan derfor avvike.
+                      </p>
+                    )}
+                  </div>
+                  <div className="px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                    <span className="text-2xl font-bold text-gray-900">{deductionsForAlleTrekk.length}</span>
+                    <span className="text-sm text-gray-600 block">trekk</span>
+                  </div>
+                </div>
+                {deductionsForAlleTrekk.length === 0 ? (
+                  <p className="text-sm text-gray-600">Ingen poengtrekk registrert.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {deductionsForAlleTrekk.map((item, index) => {
+                      const severityConfig = getSeverityConfig(item.severity)
+                      const reasonText = formatFeedbackText(item.reason)
+                      const rawSuggestion = formatFeedbackText(item.suggestion)
+                      const rawExampleFix = formatFeedbackText(item.exampleFix)
+                      const combined = rawSuggestion || rawExampleFix
+                      const { problemPart, fixPart } = splitProblemAndFix(combined)
+                      // Top: only the problem part when we have a separate fix part (no duplication)
+                      const suggestionText = fixPart
+                        ? (item.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, item.point_id) ? '' : problemPart)
+                        : ''
+                      const showFixInBox = fixPart || (!combined.includes('Slik retter du') && rawExampleFix)
+                      return (
+                        <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-lg font-bold text-gray-900">{reasonText}</h3>
+                              <p className="text-sm text-gray-600">
+                                {item.point_id ? `Punkt ${item.point_id}` : 'Generelt'} • {translate(item.rule_id)}
+                              </p>
+                              {item.evidence_snippets && item.evidence_snippets.length > 0 && (
+                                <div className="mt-2 p-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700">
+                                  <p className="font-medium text-gray-600 mb-1">Hvor i rapporten:</p>
+                                  {item.evidence_snippets.slice(0, 2).map((snip, i) => (
+                                    <p key={i} className="italic text-gray-600 border-l-2 border-gray-200 pl-2 mt-1">
+                                      &quot;{snip}&quot;
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                              {(suggestionText || showFixInBox) && (
+                                <div className="mt-2 space-y-2">
+                                  {suggestionText && (
+                                    <p className="text-sm text-gray-700">{suggestionText}</p>
+                                  )}
+                                  {showFixInBox && (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                      <p className="font-semibold mb-1">Slik retter du:</p>
+                                      <p className="italic">{fixPart || rawExampleFix}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold shrink-0 ${severityConfig.badge}`}>
+                              -{item.points}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="bg-amber-50 rounded-2xl shadow-lg border border-amber-200 p-8 mb-6">
@@ -774,25 +1340,25 @@ export default function ResultsPage() {
                       </svg>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-bold text-gray-900">Forbedringer som trengs</h2>
-                      <p className="text-gray-600 mt-1">Tiltak for å forbedre rapportkvaliteten</p>
+                      <h2 className="text-3xl font-bold text-gray-900">Hva du må fikse for å øke scoren</h2>
+                      <p className="text-gray-600 mt-1">Prioriterte tiltak basert på faktiske poengtrekk</p>
                     </div>
                   </div>
                   <div className="px-4 py-2 bg-white rounded-lg border border-orange-300 text-center">
-                    <span className="text-2xl font-bold text-orange-600">{sortedImprovements.length}</span>
+                    <span className="text-2xl font-bold text-orange-600">{enrichedDedupedFixes.length}</span>
                     <span className="text-sm text-gray-600 block">punkter</span>
                   </div>
                 </div>
 
                 <div className="space-y-8">
-                  {highPriorityImprovements.length > 0 && (
+                  {highPriorityDeductions.length > 0 && (
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                         <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
                         Høyprioriterte funn
                       </h3>
                       <div className="space-y-4">
-                        {highPriorityImprovements.map((improvement, index) => (
+                        {highPriorityDeductions.map((improvement, index) => (
                           <div key={index} className="bg-white rounded-xl border border-red-200 shadow-sm p-5">
                             <div className="flex items-start space-x-4">
                               <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -802,18 +1368,31 @@ export default function ResultsPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
-                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
-                                    {translate(improvement.priority)}
+                                  <h4 className="text-lg font-bold text-gray-900">{formatFeedbackText(improvement.reason)}</h4>
+                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.severity)}`}>
+                                    {translate(improvement.severity)}
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
-                                {improvement.suggested_text && (
-                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
-                                    <p className="font-semibold mb-1">Slik retter du:</p>
-                                    <p className="italic">{improvement.suggested_text}</p>
-                                  </div>
+                                {improvement.point_id && (
+                                  <p className="text-xs text-gray-500 mb-2">Punkt {improvement.point_id}</p>
                                 )}
+                                {(() => {
+                                  const combined = formatFeedbackText(improvement.suggestion || improvement.exampleFix)
+                                  const { problemPart, fixPart } = splitProblemAndFix(combined)
+                                  const safeProblem = improvement.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, improvement.point_id) ? '' : problemPart
+                                  const fixToShow = fixPart || (!combined.includes('Slik retter du') ? formatFeedbackText(improvement.exampleFix || improvement.suggestion) : '')
+                                  return (safeProblem || fixToShow) ? (
+                                    <div className="space-y-2">
+                                      {safeProblem && <p className="text-sm text-gray-700">{safeProblem}</p>}
+                                      {fixToShow && (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                          <p className="font-semibold mb-1">Slik retter du:</p>
+                                          <p className="italic">{fixToShow}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -822,14 +1401,14 @@ export default function ResultsPage() {
                     </div>
                   )}
 
-                  {mediumPriorityImprovements.length > 0 && (
+                  {mediumPriorityDeductions.length > 0 && (
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                         <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
                         Middels prioriterte forbedringer
                       </h3>
                       <div className="space-y-4">
-                        {mediumPriorityImprovements.map((improvement, index) => (
+                        {mediumPriorityDeductions.map((improvement, index) => (
                           <div key={index} className="bg-white rounded-xl border border-yellow-200 shadow-sm p-5">
                             <div className="flex items-start space-x-4">
                               <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -839,18 +1418,31 @@ export default function ResultsPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
-                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
-                                    {translate(improvement.priority)}
+                                  <h4 className="text-lg font-bold text-gray-900">{formatFeedbackText(improvement.reason)}</h4>
+                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.severity)}`}>
+                                    {translate(improvement.severity)}
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
-                                {improvement.suggested_text && (
-                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
-                                    <p className="font-semibold mb-1">Slik retter du:</p>
-                                    <p className="italic">{improvement.suggested_text}</p>
-                                  </div>
+                                {improvement.point_id && (
+                                  <p className="text-xs text-gray-500 mb-2">Punkt {improvement.point_id}</p>
                                 )}
+                                {(() => {
+                                  const combined = formatFeedbackText(improvement.suggestion || improvement.exampleFix)
+                                  const { problemPart, fixPart } = splitProblemAndFix(combined)
+                                  const safeProblem = improvement.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, improvement.point_id) ? '' : problemPart
+                                  const fixToShow = fixPart || (!combined.includes('Slik retter du') ? formatFeedbackText(improvement.exampleFix || improvement.suggestion) : '')
+                                  return (safeProblem || fixToShow) ? (
+                                    <div className="space-y-2">
+                                      {safeProblem && <p className="text-sm text-gray-700">{safeProblem}</p>}
+                                      {fixToShow && (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                          <p className="font-semibold mb-1">Slik retter du:</p>
+                                          <p className="italic">{fixToShow}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -859,14 +1451,14 @@ export default function ResultsPage() {
                     </div>
                   )}
 
-                  {lowPriorityImprovements.length > 0 && (
+                  {lowPriorityDeductions.length > 0 && (
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                         <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                         Lavt prioriterte forbedringer
                       </h3>
                       <div className="space-y-4">
-                        {lowPriorityImprovements.map((improvement, index) => (
+                        {lowPriorityDeductions.map((improvement, index) => (
                           <div key={index} className="bg-white rounded-xl border border-blue-200 shadow-sm p-5">
                             <div className="flex items-start space-x-4">
                               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -876,18 +1468,31 @@ export default function ResultsPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-lg font-bold text-gray-900">{improvement.title}</h4>
-                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.priority)}`}>
-                                    {translate(improvement.priority)}
+                                  <h4 className="text-lg font-bold text-gray-900">{formatFeedbackText(improvement.reason)}</h4>
+                                  <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.severity)}`}>
+                                    {translate(improvement.severity)}
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-700 mb-3">{improvement.what_to_change}</p>
-                                {improvement.suggested_text && (
-                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
-                                    <p className="font-semibold mb-1">Slik retter du:</p>
-                                    <p className="italic">{improvement.suggested_text}</p>
-                                  </div>
+                                {improvement.point_id && (
+                                  <p className="text-xs text-gray-500 mb-2">Punkt {improvement.point_id}</p>
                                 )}
+                                {(() => {
+                                  const combined = formatFeedbackText(improvement.suggestion || improvement.exampleFix)
+                                  const { problemPart, fixPart } = splitProblemAndFix(combined)
+                                  const safeProblem = improvement.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, improvement.point_id) ? '' : problemPart
+                                  const fixToShow = fixPart || (!combined.includes('Slik retter du') ? formatFeedbackText(improvement.exampleFix || improvement.suggestion) : '')
+                                  return (safeProblem || fixToShow) ? (
+                                    <div className="space-y-2">
+                                      {safeProblem && <p className="text-sm text-gray-700">{safeProblem}</p>}
+                                      {fixToShow && (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
+                                          <p className="font-semibold mb-1">Slik retter du:</p>
+                                          <p className="italic">{fixToShow}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -1294,6 +1899,18 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 )}
+
+                  {/* Full AI Analysis JSON */}
+             {report.ai_analysis && (
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-3">Full AI-analyse (JSON)</h3>
+                    <div className="bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="text-xs text-yellow-400 whitespace-pre-wrap font-mono">
+                        {JSON.stringify(report.ai_analysis, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )} 
 
               </div>
             )}

@@ -1,147 +1,333 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://validert.no/schemas/validert_feedback_v1.3.schema.json",
-  "title": "VALIDERT Feedback Schema v1.3 (report-agnostic, point-by-point)",
+  "$id": "https://validert.no/schemas/validert_feedback_v1.5.1.schema.json",
+  "title": "VALIDERT Feedback Schema v1.5",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "report_id", "document_hash", "ordering", "score", "gate", "points_overview", "findings"],
+  "required": [
+    "version",
+    "analysis_complete",
+    "report_id",
+    "document_hash",
+    "ordering",
+    "gate"
+  ],
   "properties": {
-    "version": { "type": "string", "const": "v1.3" },
-    "report_id": { "type": "string", "minLength": 1 },
-    "document_hash": { "type": "string", "minLength": 8 },
-
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "analysis_complete": {
+      "type": "boolean"
+    },
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "document_hash": {
+      "type": "string",
+      "minLength": 1
+    },
     "ordering": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "dedupe_key", "source"],
+      "required": [
+        "arkat_order",
+        "category_order"
+      ],
       "properties": {
-        "mode": { "type": "string", "enum": ["NUMERIC", "DOCUMENT_ORDER"] },
-        "dedupe_key": { "type": "string", "enum": ["numeric_id", "point_key"] },
-        "source": { "type": "string", "enum": ["detected_points"] },
-        "note": { "type": "string" }
-      },
-      "description": "Debug/trace: hvordan points_overview ble produsert."
-    },
-
-    "score": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["total", "category_deductions"],
-      "properties": {
-        "total": { "type": "number", "minimum": 0, "maximum": 100 },
-        "category_deductions": {
+        "arkat_order": {
           "type": "array",
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["category", "deduction", "max_deduction"],
-            "properties": {
-              "category": { "type": "string", "minLength": 1 },
-              "deduction": { "type": "number", "minimum": 0 },
-              "max_deduction": { "type": "number", "minimum": 0 }
+            "type": "string",
+            "enum": [
+              "arsak",
+              "risiko",
+              "konsekvens",
+              "anbefalt_tiltak"
+            ]
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "category_order": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total",
+            "category_deductions"
+          ],
+          "properties": {
+            "total": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Totalscore (0-100). Null eller utelatt når analysis_complete=false (INCOMPLETE)."
+            },
+            "category_deductions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "deduction",
+                  "max_deduction"
+                ],
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "deduction": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "max_deduction": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
             }
           }
         },
-        "top_drivers": {
-          "type": "array",
-          "maxItems": 10,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["rule_id", "deduction", "message"],
-            "properties": {
-              "rule_id": { "type": "string", "minLength": 1 },
-              "deduction": { "type": "number", "minimum": 0 },
-              "message": { "type": "string", "minLength": 1 }
-            }
-          }
+        {
+          "type": "null"
         }
-      }
+      ]
     },
-
     "gate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["active", "blocked_96", "blocked_by"],
+      "required": [
+        "active",
+        "blocked_96",
+        "max_score_if_blocked"
+      ],
       "properties": {
-        "active": { "type": "boolean" },
-        "blocked_96": { "type": "boolean" },
-        "blocked_by": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "active": {
+          "type": "boolean"
+        },
+        "blocked_96": {
+          "type": "boolean"
+        },
+        "max_score_if_blocked": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "enum": [
+                95
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocked_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "type": "string"
+        }
       }
     },
-
     "points_overview": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["display_index", "point_key", "native_label", "title", "status", "summary", "where"],
+        "required": [
+          "category",
+          "label",
+          "deduction_band"
+        ],
         "properties": {
-          "display_index": { "type": "integer", "minimum": 1 },
-          "point_key": { "type": "string", "minLength": 1 },
-          "native_label": { "type": "string", "minLength": 1 },
-          "numeric_id": { "type": "string", "pattern": "^\\d+(\\.\\d+){0,5}$" },
-          "native_path": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "title": { "type": "string", "minLength": 1 },
-          "tg": { "type": "string", "enum": ["TG0", "TG1", "TG2", "TG3", "TGIU", "NA", "UNKNOWN"] },
-          "status": { "type": "string", "enum": ["ok", "improve", "deduction", "blocking"] },
-          "summary": { "type": "string", "minLength": 1 },
-          "deduction_total": { "type": "number", "minimum": 0 },
-          "finding_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "where": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["page"],
-            "properties": {
-              "page": { "type": "integer", "minimum": 1 },
-              "bbox": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
-              "anchor_text": { "type": "string" }
-            }
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deduction_band": {
+            "type": "string",
+            "enum": [
+              "Lavt trekk",
+              "Middels trekk",
+              "Høyt trekk",
+              "Ikke scoretrekk"
+            ]
           }
         }
-      },
-      "description": "MÅ inkludere alle detected points (typisk kind=point/subpoint) i korrekt rekkefølge."
+      }
     },
-
     "findings": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["finding_id", "rule_id", "rule_family", "severity", "affects_96_gate", "point_key", "message", "what_to_change", "evidence"],
+        "required": [
+          "finding_id",
+          "category",
+          "severity",
+          "title",
+          "message",
+          "deduction_band"
+        ],
         "properties": {
-          "finding_id": { "type": "string", "minLength": 1 },
-          "rule_id": { "type": "string", "minLength": 1 },
-          "rule_family": { "type": "string", "minLength": 1 },
-          "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
-          "affects_96_gate": { "type": "boolean" },
-          "point_key": { "type": "string", "minLength": 1 },
-          "arkat_section": { "type": "string", "enum": ["observasjon", "arsak", "risiko", "konsekvens", "anbefalt_tiltak", "tg", "annet"] },
-          "message": { "type": "string", "minLength": 1 },
-          "what_to_change": { "type": "string", "minLength": 1 },
-          "example_fix": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "minor",
+              "major"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deduction_band": {
+            "type": "string",
+            "enum": [
+              "Lavt trekk",
+              "Middels trekk",
+              "Høyt trekk",
+              "Ikke scoretrekk"
+            ]
+          },
+          "recommended_fix_text": {
+            "type": "string"
+          },
+          "evidence_snippets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "gate_effect": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "good_example": { "type": "string", "minLength": 1 },
-              "bad_example": { "type": "string" }
+              "blocks_96_gate": {
+                "type": "boolean"
+              },
+              "caps_total_score_to": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "enum": [
+                      95
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
             }
           },
-          "evidence": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["page", "snippet", "match"],
-            "properties": {
-              "page": { "type": "integer", "minimum": 1 },
-              "snippet": { "type": "string", "minLength": 1 },
-              "match": { "type": "string", "minLength": 1 },
-              "bbox": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
-            }
-          },
-          "deduction": { "type": "number", "minimum": 0 }
+          "affects_96_gate": {
+            "type": "boolean",
+            "description": "Legacy-felt. Bruk gate_effect fremover."
+          }
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "analysis_complete": {
+            "const": true
+          }
+        },
+        "required": [
+          "analysis_complete"
+        ]
+      },
+      "then": {
+        "required": [
+          "version",
+          "analysis_complete",
+          "report_id",
+          "document_hash",
+          "ordering",
+          "gate",
+          "score",
+          "points_overview",
+          "findings"
+        ]
+      },
+      "else": {
+        "required": [
+          "version",
+          "analysis_complete",
+          "report_id",
+          "document_hash",
+          "ordering",
+          "gate"
+        ],
+        "properties": {
+          "score": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          },
+          "points_overview": {
+            "type": "array",
+            "maxItems": 0,
+            "description": "Kan utelates eller være tom ved INCOMPLETE."
+          },
+          "findings": {
+            "type": "array",
+            "maxItems": 0,
+            "description": "Kan utelates eller være tom ved INCOMPLETE."
+          }
+        }
+      }
+    }
+  ]
 }

@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime, timezone
 import logging
 import io
 import hashlib
@@ -12,10 +13,12 @@ from app.schemas import ReportCreate, ReportResponse, AnalysisResult
 from app.services.pdf_extractor import PDFExtractor
 from app.services.ai_analyzer import (
     AIAnalyzer,
+    IncompleteAnalysisError,
     build_analysis_result_from_output,
     build_feedback_v11,
     ensure_analysis_evidence,
     normalize_scoring_output,
+    postprocess_analysis_output,
     write_run_exports,
 )
 from app.services.analysis_cache import get_cached_analysis, upsert_analysis_cache
@@ -150,14 +153,25 @@ async def upload_report(
             scoring_model_sha=scoring_model_info.get("sha256"),
             pipeline_git_sha=_get_pipeline_cache_sha(),
         )
+        if cache_entry:
+            updated_at = cache_entry.updated_at or cache_entry.created_at
+            cache_age_s = None
+            if updated_at:
+                cache_age_s = int((datetime.now(timezone.utc) - updated_at).total_seconds())
+            logger.info(
+                "Analysis cache hit document_hash=%s cache_id=%s cache_age_s=%s",
+                document_hash,
+                cache_entry.id,
+                cache_age_s,
+            )
         if (
             cache_entry
             and isinstance(cache_entry.ai_analysis, dict)
             and isinstance(cache_entry.detected_points, dict)
             and isinstance(cache_entry.scoring_result, dict)
+            and cache_entry.ai_analysis.get("meta", {}).get("analysis_status") != "INCOMPLETE"
         ):
-            analysis_output = normalize_scoring_output(cache_entry.ai_analysis)
-            ensure_analysis_evidence(analysis_output, extracted_text)
+            analysis_output = postprocess_analysis_output(cache_entry.ai_analysis, extracted_text)
             scoring_result_payload = cache_entry.scoring_result
             scoring_result_payload["analysis_output"] = analysis_output
             detected_points_payload = cache_entry.detected_points
@@ -278,8 +292,12 @@ async def upload_report(
                 findings=findings_data,
                 ai_analysis=report.ai_analysis,
                 detected_points=report.detected_points,
-                scoring_result=report.scoring_result
+                scoring_result=report.scoring_result,
+                status=report.status,
+                message=None,
             )
+        elif cache_entry and isinstance(cache_entry.ai_analysis, dict) and cache_entry.ai_analysis.get("meta", {}).get("analysis_status") == "INCOMPLETE":
+            logger.info("Cache entry marked INCOMPLETE for document_hash=%s, bypassing cache.", document_hash)
         
         # Upload to S3 if enabled
         if settings.USE_S3_STORAGE:
@@ -341,15 +359,58 @@ async def upload_report(
         # Synchronous processing (original behavior)
         logger.info(f"Analyzing report {report.id} with AI")
         ai_analyzer = AIAnalyzer()
-        analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
-            text=extracted_text,
-            report_system=report_system,
-            building_year=building_year,
-            pdf_metadata=pdf_metadata,
-            document_title=file.filename,
-            document_id=str(report.id),
-            document_hash=document_hash,
-        )
+        try:
+            analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+                text=extracted_text,
+                report_system=report_system,
+                building_year=building_year,
+                pdf_metadata=pdf_metadata,
+                document_title=file.filename,
+                document_id=str(report.id),
+                document_hash=document_hash,
+            )
+        except IncompleteAnalysisError as e:
+            logger.warning(
+                "Analysis incomplete for report %s: %s reasons=%s",
+                report.id,
+                e.message,
+                e.reasons,
+            )
+            report.overall_score = None
+            report.quality_score = None
+            report.completeness_score = None
+            report.compliance_score = None
+            report.status = "incomplete"
+            report.ai_analysis = {
+                "meta": {
+                    "analysis_status": "INCOMPLETE",
+                    "message": e.message,
+                    "reasons": e.reasons,
+                    "run_meta": e.run_meta,
+                }
+            }
+            report.detected_points = e.detected_points_payload
+            report.scoring_result = None
+            db.commit()
+            db.refresh(report)
+            return ReportResponse(
+                id=report.id,
+                filename=report.filename,
+                report_system=report.report_system,
+                building_year=report.building_year,
+                uploaded_at=report.uploaded_at,
+                overall_score=None,
+                quality_score=None,
+                completeness_score=None,
+                compliance_score=None,
+                components=[],
+                findings=[],
+                ai_analysis=report.ai_analysis,
+                detected_points=report.detected_points,
+                scoring_result=None,
+                status=report.status,
+                message=e.message,
+            )
         
         # Store analysis results
         report.overall_score = analysis_result.overall_score
@@ -470,7 +531,9 @@ async def upload_report(
             findings=findings_data,
             ai_analysis=report.ai_analysis,
             detected_points=report.detected_points,
-            scoring_result=report.scoring_result
+            scoring_result=report.scoring_result,
+            status=report.status,
+            message=None,
         )
         
     except HTTPException:
@@ -546,7 +609,9 @@ async def get_report(
         ai_analysis=ai_analysis_payload,
         detected_points=report.detected_points,
         scoring_result=report.scoring_result,
-        extracted_text=report.extracted_text
+        extracted_text=report.extracted_text,
+        status=report.status,
+        message=None,
     )
 
 @router.get("/", response_model=list[ReportResponse])
@@ -599,7 +664,9 @@ async def list_reports(
             findings=findings_data,
             ai_analysis=report.ai_analysis,
             detected_points=report.detected_points,
-            scoring_result=report.scoring_result
+            scoring_result=report.scoring_result,
+            status=report.status,
+            message=None,
         ))
     
     return result
@@ -627,8 +694,27 @@ async def update_report_analysis(
         document_hash = None
         if isinstance(detected_points_payload, dict):
             document_hash = detected_points_payload.get("document", {}).get("document_hash")
+        if isinstance(ai_analysis_payload, dict) and ai_analysis_payload.get("meta", {}).get("analysis_status") == "INCOMPLETE":
+            report.overall_score = None
+            report.quality_score = None
+            report.completeness_score = None
+            report.compliance_score = None
+            report.ai_analysis = ai_analysis_payload
+            if detected_points_payload is not None:
+                report.detected_points = detected_points_payload
+            report.scoring_result = None
+            report.status = "incomplete"
+            db.query(Component).filter(Component.report_id == report_id).delete()
+            db.query(Finding).filter(Finding.report_id == report_id).delete()
+            db.commit()
+            logger.info("Marked report %s as incomplete from Lambda", report_id)
+            return {"status": "incomplete", "report_id": report_id}
+
         if isinstance(ai_analysis_payload, dict):
-            ai_analysis_payload = normalize_scoring_output(ai_analysis_payload)
+            if report.extracted_text:
+                ai_analysis_payload = postprocess_analysis_output(ai_analysis_payload, report.extracted_text)
+            else:
+                ai_analysis_payload = normalize_scoring_output(ai_analysis_payload)
             if not isinstance(scoring_result_payload, dict):
                 scoring_result_payload = {}
             scoring_result_payload["analysis_output"] = ai_analysis_payload

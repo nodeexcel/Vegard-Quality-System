@@ -61,6 +61,13 @@ Presisering (anti-feil for A_ARKAT.konsekvens_unclear og beslektede funn):
 - “Det anbefales å …” er korrekt også ved TG3 når nødvendigheten forklares.
 - Ikke krev “må/skal” for TG3.
 - Ved TG3 skal tiltak fremstå nødvendig gjennom faglig begrunnelse (f.eks. aktiv fukt, måledata, brannfare, alvorlige avvik, høy sannsynlighet for skjult skade), ikke gjennom imperativ språk.
+- Aksepter både "Anbefalt tiltak" og "Anbefalte tiltak". Aksepter også narrativt språk (f.eks. "må utbedres", "krever utbedring", "bør skiftes"). Vi validerer innhold, ikke etiketter.
+
+1.6 Validering per bygningsdel og kobling til oppsummering
+- Valider ARK/ARKAT per bygningsdel (segment), ikke globalt i hele dokumentet. For hver bygningsdel (punkt) må du vurdere om den segmentets tekst inneholder nødvendig ARK/ARKAT.
+- ARK/ARKAT kan stå (A) i selve bygningsdelsteksten eller (B) i en senere oppsummering (f.eks. "Takstmannens vurdering ved TG3"). Oppsummeringstekst teller KUN for et punkt dersom den er tydelig koblet til samme punkt (samme punktnummer, f.eks. "6.2" i både hovedtekst og oppsummering, eller entydig tittelmatch). Hvis flere punkter kunne matche, tell ikke oppsummeringsteksten for noen.
+- Rapporten skal IKKE få 100 % dersom: noe TG2-punkt mangler tydelig årsak ELLER risiko ELLER konsekvens; noe TG3-punkt mangler full ARKAT; noe TG3-punkt mangler kostnadshenvisning (beløp, kostnadsklasse eller definert kostnadstabell); eller ARK/ARKAT i oppsummering ikke kan kobles sikkert til ett segment.
+- Vurder semantisk innhold (årsak, risiko, konsekvens, anbefalt tiltak), ikke overskrifter eller layout.
 
 ---
 2. TG-setting og konsistens (Kategori B)
@@ -79,6 +86,7 @@ Presisering (anti-feil for A_ARKAT.konsekvens_unclear og beslektede funn):
 ---
 4. Klarspråk og struktur (Kategori D)
 - Del opp setninger når forståelsen svekkes.
+- D_LANGUAGE.long_sentences er kun veiledende nå: ingen scoretrekk og ikke som top score driver. Kan reaktiveres eller justeres senere.
 
 
 Presisering (anti-feil for D_LANGUAGE.long_sentences):
@@ -100,7 +108,11 @@ Viktig presisering for kostnadsregel:
 - E_METHOD.cost_speculation skal KUN gi trekk dersom du kan vise et konkret beløp/prisintervall i teksten (f.eks. «kr», «NOK», «€», «ca. 50 000»).
 - Evidence-snippet for denne regelen MÅ inneholde selve beløpet/prisintervallet. Hvis du ikke finner et slikt beløp i rapportteksten, skal regelen ikke trigges (0 trekk) og det skal ikke opprettes et funn.
 
-
+E_METHOD.tg3_cost_missing – hvor og hvordan søke:
+- Søk i HELE TG3-segmentet for punktet (all tekst som tilhører den bygningsdelen), ikke bare i felt merket "Estimert kostnad" eller liknende. Tekst inne i TG3-beskrivelsen teller.
+- Kostnad regnes som til stede dersom ETT av følgende finnes i segmentet: (1) kostnadsklasse lav / middels / høy (inkl. "vurderes som middels", "kostnadsklasse", "rapportens sjablonmessige kostnadsklasser", "utbedringskostnaden vurderes som …"); (2) intervall (min–maks); (3) tydelig sjablon/usikkerhet (f.eks. "kan ligge i størrelsesorden", "anslås i intervallet").
+- Matching skal være case-insensitiv og tillate skilletegn (f.eks. "middels.", "middels,"). Krev IKKE tallintervall dersom en gyldig kostnadsklasse er til stede.
+- Hvis noe av det over finnes i TG3-segmentet for punktet, skal E_METHOD.tg3_cost_missing IKKE trigges (0 trekk, ikke opprett funn).
 
 Integritetsregel for funn (anti-falske positive):
 - Ingen regel skal gi trekk dersom du ikke kan vise en konkret tekstbit som oppfyller triggeren.

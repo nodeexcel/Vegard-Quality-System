@@ -1,0 +1,421 @@
+{
+  "orchestrator_id": "validert_orchestrator_pipeline",
+  "version": "1.0.0",
+  "language": "nb-NO",
+  "purpose": "Kjører Validert sin analyse-pipeline deterministisk: detekterer punkter, kjører moduler i riktig rekkefølge, dedupliserer funn, beregner score/gate og produserer både admin- og bruker-output (med overlay/guardrails).",
+  "compatibility": {
+    "rag_scoring_model": ">=1.6.3",
+    "category_config": ">=v2",
+    "legal_compliance_rules": ">=2.0.0",
+    "age_service_life_validator": ">=2.3.0",
+    "no_prosjektering_guardrails": ">=1.2",
+    "detected_points_schema": ">=v1.0",
+    "output_schema": ">=v1.6",
+    "output_overlay_policy": ">=v1.2"
+  },
+  "inputs": {
+    "pdf": {
+      "required": true,
+      "max_size_mb": 60,
+      "store_in_s3": true,
+      "retain_policy": {
+        "enabled": true,
+        "mode": "until_report_deleted",
+        "notes": "Ingen automatisk TTL i kode per i dag. Kan innføre lifecycle senere."
+      }
+    },
+    "report_metadata": {
+      "required": false,
+      "fields_optional": [
+        "report_id",
+        "created_at",
+        "template_vendor",
+        "surveyors_company",
+        "address",
+        "gnr_bnr",
+        "building_year"
+      ]
+    }
+  },
+  "execution": {
+    "mode": "async_preferred",
+    "timeout_seconds_total": 120,
+    "max_tokens_policy": {
+      "on_truncation": "mark_incomplete",
+      "return_partial": false
+    },
+    "incomplete_behavior": {
+      "return_score": false,
+      "return_improvements": false,
+      "return_findings": true,
+      "message": "INCOMPLETE: Rapporten var for stor til å analyseres fullt uten truncation. Last opp rapporten på nytt eller prøv igjen senere."
+    }
+  },
+  "stages": [
+    {
+      "id": "S0_PRECHECK",
+      "type": "preflight",
+      "actions": [
+        {
+          "id": "validate_pdf",
+          "type": "validate_file",
+          "rules": {
+            "must_be_pdf": true,
+            "max_pages": 250,
+            "min_pages": 1
+          }
+        },
+        {
+          "id": "compute_document_hash",
+          "type": "hash",
+          "algo": "sha256",
+          "output": "document_hash"
+        }
+      ],
+      "debug": {
+        "log_inputs": true,
+        "log_pdf_meta": true
+      }
+    },
+    {
+      "id": "S1_EXTRACT_TEXT",
+      "type": "pdf_extract",
+      "actions": [
+        {
+          "id": "extract_full_text",
+          "type": "pdf_to_text",
+          "strategy": "full_document",
+          "output": "doc_text",
+          "include_page_map": true,
+          "include_images": false,
+          "notes": "OCR er eksplisitt slått av. Hvis en rapport er bildebasert kan den bli ufullstendig."
+        }
+      ],
+      "guards": [
+        {
+          "id": "ensure_nonempty_text",
+          "type": "min_chars",
+          "min_chars": 3000,
+          "on_fail": "mark_incomplete",
+          "message": "INCOMPLETE: Tekstuttrekk var for lavt (rapport kan være bildebasert)."
+        }
+      ],
+      "debug": {
+        "log_text_stats": true,
+        "log_page_map_stats": true
+      }
+    },
+    {
+      "id": "S2_DETECTED_POINTS",
+      "type": "detected_points",
+      "module": {
+        "name": "detected_points_generator",
+        "schema": "validert_detected_points_v1.2.schema.json",
+        "input": {
+          "doc_text": "$ref:S1_EXTRACT_TEXT.doc_text",
+          "page_map": "$ref:S1_EXTRACT_TEXT.page_map"
+        },
+        "output": "detected_points"
+      },
+      "policy": {
+        "canonical_mapping": {
+          "enabled": true,
+          "strategy": "keyword_sections",
+          "fallback": "full_text"
+        },
+        "ordering": {
+          "mode": "DOCUMENT_ORDER",
+          "dedupe_key": "point_key",
+          "source": "detected_points"
+        }
+      },
+      "debug": {
+        "log_detected_points_count": true,
+        "store_detected_points": true
+      }
+    },
+    {
+      "id": "S3_RAG_SCORING",
+      "type": "scoring",
+      "module": {
+        "name": "rag_scoring_model",
+        "model_ref": "rag_scoring_model_validert_v1.6.4.json",
+        "input": {
+          "doc_text": "$ref:S1_EXTRACT_TEXT.doc_text",
+          "detected_points": "$ref:S2_DETECTED_POINTS.detected_points"
+        },
+        "output": "scoring_findings"
+      },
+      "policy": {
+        "handled_categories": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "no_double_scoring": true
+      },
+      "debug": {
+        "log_findings_count": true,
+        "store_raw_llm_meta": true
+      }
+    },
+    {
+      "id": "S4_LEGAL_COMPLIANCE",
+      "type": "rules",
+      "module": {
+        "name": "legal_compliance",
+        "rules_ref": "validert_legal_compliance_rules_v2.json",
+        "input": {
+          "doc_text": "$ref:S1_EXTRACT_TEXT.doc_text",
+          "detected_points": "$ref:S2_DETECTED_POINTS.detected_points"
+        },
+        "output": "legal_findings"
+      },
+      "policy": {
+        "category": "F",
+        "enforce_consequence_markers": true,
+        "enforce_evidence_markers": true
+      },
+      "debug": {
+        "log_findings_count": true
+      }
+    },
+    {
+      "id": "S5_AGE_SERVICE_LIFE_VALIDATION",
+      "type": "validator",
+      "module": {
+        "name": "age_service_life_validator",
+        "rules_ref": "tg2_tg3_age_service_life_validation_v2_3.json",
+        "input": {
+          "doc_text": "$ref:S1_EXTRACT_TEXT.doc_text",
+          "detected_points": "$ref:S2_DETECTED_POINTS.detected_points"
+        },
+        "output": "age_findings"
+      },
+      "policy": {
+        "run_only_if_trigger_conditions_match": true,
+        "handled_by_master_scoring": true
+      },
+      "debug": {
+        "log_trigger_match": true,
+        "log_findings_count": true
+      }
+    },
+    {
+      "id": "S6_MERGE_DEDUPE",
+      "type": "merge",
+      "actions": [
+        {
+          "id": "merge_findings",
+          "type": "merge_arrays",
+          "inputs": [
+            "$ref:S3_RAG_SCORING.scoring_findings",
+            "$ref:S4_LEGAL_COMPLIANCE.legal_findings",
+            "$ref:S5_AGE_SERVICE_LIFE_VALIDATION.age_findings"
+          ],
+          "output": "all_findings_raw"
+        },
+        {
+          "id": "dedupe_findings",
+          "type": "dedupe",
+          "input": "$ref:merge_findings",
+          "output": "all_findings",
+          "dedupe_priority": [
+            "finding_id",
+            "rule_id+point_key",
+            "rule_id+numeric_id",
+            "rule_id+evidence.match"
+          ],
+          "dedupe_strategy": {
+            "keep": "most_actionable",
+            "merge_fields": [
+              "evidence",
+              "location_hint"
+            ]
+          }
+        }
+      ],
+      "debug": {
+        "log_before_after_counts": true
+      }
+    },
+    {
+      "id": "S7_NORMALIZE_SEVERITY_AND_GATE",
+      "type": "normalize",
+      "policy": {
+        "severity_model": "severity_plus_gate_effect",
+        "severity_enum": [
+          "info",
+          "minor",
+          "major"
+        ],
+        "gate_effect": {
+          "enabled": true,
+          "default": {
+            "blocks_96_gate": false,
+            "caps_total_score_to": null
+          }
+        },
+        "legacy_mapping": {
+          "critical": {
+            "severity": "major",
+            "gate_effect": {
+              "blocks_96_gate": true,
+              "caps_total_score_to": 95
+            }
+          },
+          "hard_stop": {
+            "severity": "major",
+            "gate_effect": {
+              "blocks_96_gate": true,
+              "caps_total_score_to": 95
+            }
+          },
+          "high": {
+            "severity": "major"
+          },
+          "medium": {
+            "severity": "major"
+          },
+          "low": {
+            "severity": "minor"
+          }
+        }
+      },
+      "input": "$ref:S6_MERGE_DEDUPE.all_findings",
+      "output": "all_findings_norm"
+    },
+    {
+      "id": "S8_SCORE_AND_GATE",
+      "type": "scoring_and_gate",
+      "inputs": {
+        "findings": "$ref:S7_NORMALIZE_SEVERITY_AND_GATE.all_findings_norm"
+      },
+      "policy": {
+        "category_config_ref": "validert_category_config_v2.json",
+        "gate_threshold": 96,
+        "gate_block_condition": "any_finding_with_gate_effect.blocks_96_gate == true",
+        "cap_score_condition": "min_nonnull(finding.gate_effect.caps_total_score_to)",
+        "category_caps_apply": true,
+        "score_start": 100
+      },
+      "output": {
+        "score": "score",
+        "category_breakdown": "category_breakdown",
+        "gate": "gate"
+      }
+    },
+    {
+      "id": "S9_BUILD_ADMIN_OUTPUT",
+      "type": "render",
+      "inputs": {
+        "detected_points": "$ref:S2_DETECTED_POINTS.detected_points",
+        "findings": "$ref:S7_NORMALIZE_SEVERITY_AND_GATE.all_findings_norm",
+        "score": "$ref:S8_SCORE_AND_GATE.score",
+        "gate": "$ref:S8_SCORE_AND_GATE.gate",
+        "ordering": "$ref:S2_DETECTED_POINTS.policy.ordering",
+        "document_hash": "$ref:S0_PRECHECK.compute_document_hash"
+      },
+      "policy": {
+        "schema": "validert_feedback_v1.5.schema.json",
+        "analysis_complete": true,
+        "include_internal_deductions_full_list": true,
+        "include_debug_fields": false
+      },
+      "output": "admin_feedback"
+    },
+    {
+      "id": "S10_APPLY_GUARDRAILS_USER_TEXT",
+      "type": "guardrails",
+      "inputs": {
+        "admin_feedback": "$ref:S9_BUILD_ADMIN_OUTPUT.admin_feedback"
+      },
+      "policy": {
+        "guardrails_ref": "validert_no_prosjektering_guardrails_v1_2.json",
+        "apply_to_fields": [
+          "findings[].recommended_fix_text",
+          "findings[].message"
+        ],
+        "rewrite_only_if_needed": true
+      },
+      "output": "user_feedback_guarded"
+    },
+    {
+      "id": "S11_OUTPUT_OVERLAY_USER",
+      "type": "overlay",
+      "inputs": {
+        "user_feedback": "$ref:S10_APPLY_GUARDRAILS_USER_TEXT.user_feedback_guarded"
+      },
+      "policy": {
+        "overlay_ref": "scoring_policy.validert_output_overlay.v1.2.json",
+        "hide_numeric_deductions": true,
+        "deduction_band_labels": [
+          "Lavt trekk",
+          "Middels trekk",
+          "Høyt trekk"
+        ],
+        "show_full_internal_deduction_list": true
+      },
+      "output": "user_feedback"
+    },
+    {
+      "id": "S12_RENDER_PUBLIC_OUTPUT",
+      "type": "render_public",
+      "inputs": {
+        "user_feedback": "$ref:S11_OUTPUT_OVERLAY_USER.user_feedback",
+        "schema": "output_schema_validert_v1.6.json"
+      },
+      "policy": {
+        "include": [
+          "trygghetsscore",
+          "score_band",
+          "top_issues",
+          "all_findings",
+          "disclaimers",
+          "how_to_improve"
+        ],
+        "must_match_admin_actionability": true
+      },
+      "output": "public_output"
+    }
+  ],
+  "missing_or_overflodig_policy": {
+    "schema_conflicts": [
+      {
+        "file": "validert_feedback_v1.1.schema.json",
+        "status": "overflødig_når_v1_5_i_bruk",
+        "reason": "Severity- og gate-modell er oppdatert. v1.1 matcher ikke."
+      },
+      {
+        "file": "output_schema_validert_v1.5.json",
+        "status": "overflødig_når_v1_6_i_bruk",
+        "reason": "v1.6 er ny offentlig output-kontrakt som matcher severity+gate_effect."
+      },
+      {
+        "file": "scoring_policy.validert_output_overlay.v1.1.json",
+        "status": "overflødig_når_v1_2_i_bruk",
+        "reason": "v1.2 støtter deduction_band/gate og skjuler numeriske trekk konsistent."
+      }
+    ],
+    "required_files_minimum_set": [
+      "rag_scoring_model_validert_v1.6.4.json",
+      "validert_category_config_v2.json",
+      "validert_legal_compliance_rules_v2.json",
+      "tg2_tg3_age_service_life_validation_v2_3.json",
+      "validert_no_prosjektering_guardrails_v1_2.json",
+      "validert_detected_points_v1.2.schema.json",
+      "validert_feedback_v1.5.schema.json",
+      "output_schema_validert_v1.6.json",
+      "scoring_policy.validert_output_overlay.v1.2.json"
+    ]
+  },
+  "debug_logging": {
+    "enabled": true,
+    "include_llm_meta": true,
+    "include_stop_reason": true,
+    "include_truncation_flags": true,
+    "store_preflight_stats": true
+  }
+}

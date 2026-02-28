@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_SEED: Optional[int] = 0
     PIPELINE_GIT_SHA: str = ""
+    ANALYSIS_DEBUG: bool = False
+    ANALYSIS_DEBUG_ONCE: bool = False
+    ANALYSIS_DEBUG_RUN_ID: Optional[str] = None
     
     @property
     def CORS_ORIGINS(self) -> List[str]:

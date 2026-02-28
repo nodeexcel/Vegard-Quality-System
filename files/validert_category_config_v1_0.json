@@ -1,5 +1,5 @@
 {
-  "version": "v1.0",
+  "version": "v2.0",
   "categories": {
     "A": {
       "title": "ARKAT-kvalitet (TG2/TG3)",
@@ -23,24 +23,33 @@
     },
     "F": {
       "title": "Lovlighetsmangler",
-      "max_deduction": 15,
+      "max_deduction": 20,
       "special": {
         "can_block_96_gate": true,
         "can_cap_total_score": true
       }
     }
   },
+
   "gate": {
     "threshold": 96,
-    "blocked_if_any": [
-      {
-        "rule_family": "LEGALITY",
-        "severity_in": [
-          "critical"
-        ],
-        "affects_96_gate": true
-      }
+    "block_condition": "any_finding_with_gate_effect.blocks_96_gate == true",
+    "cap_condition": "min_nonnull(finding.gate_effect.caps_total_score_to)",
+    "notes": [
+      "96%-gate styres utelukkende av finding.gate_effect.",
+      "Severity alene skal ikke blokkere gate.",
+      "Kategori F kan inneholde gate-funn, men selve blokkeringen må komme fra regelens gate_effect."
     ]
   },
-  "notes": "Kategori F vises alltid. Kritiske lovlighetsfunn kan blokkere 96%-gate og/eller sette score-tak iht. regelens score_impact."
+
+  "category_caps": {
+    "apply": true,
+    "strategy": "hard_cap_per_category"
+  },
+
+  "notes": [
+    "Severity brukes kun til faglig alvorlighetsgrad (info/minor/major).",
+    "Gate styres av gate_effect på funn-nivå.",
+    "Dobbel gating via severity skal ikke forekomme."
+  ]
 }

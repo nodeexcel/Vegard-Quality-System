@@ -13,10 +13,18 @@ from datetime import datetime
 import re
 import hashlib
 import uuid
+import unicodedata
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+
+class IncompleteAnalysisError(Exception):
+    def __init__(self, message: str, reasons: List[str]):
+        super().__init__(message)
+        self.message = message
+        self.reasons = reasons
 
 # Initialize AWS clients
 s3_client = boto3.client('s3')
@@ -58,6 +66,23 @@ SUMMARY_MARKERS = ["oppsummering", "takstmannens vurdering", "summary"]
 POINT_HEADER_RE = re.compile(r"^\s*(\d+(?:\.\d+){1,4})\s+(.*\S)?$")
 TG_RE = re.compile(r"\bTG(?:0|1|2|3|IU)\b")
 DATE_POINT_ID_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
+# Stray CJK/private-use glyphs that leak from broken PDF encodings (e.g. "Kostnadses琀椀mat")
+SUSPICIOUS_CJK_RE = re.compile(r"[\u3400-\u9FFF\uF900-\uFAFF\uE000-\uF8FF]")
+
+
+def clean_extracted_text(text: str) -> str:
+    """
+    Normalize raw PDF text before sending it to the scoring model.
+    - Strips stray CJK/private-use glyphs that appear in otherwise Latin/Norwegian words
+    - Normalizes Unicode and whitespace so patterns like
+      'Kostnadsestimat: 50 000 - 100 000' are preserved and detectable.
+    """
+    if not isinstance(text, str):
+        return ""
+    s = SUSPICIOUS_CJK_RE.sub("", text)
+    s = unicodedata.normalize("NFKC", s)
+    # Collapse excessive whitespace/newlines but preserve page markers we add explicitly
+    return s
 
 
 def _load_scoring_model() -> Dict[str, object]:
@@ -445,6 +470,11 @@ def analyze_with_bedrock(text: str) -> Dict:
     Analyze report text using Bedrock Claude
     """
     try:
+        if len(text) > 30000:
+            raise IncompleteAnalysisError(
+                "Analysis incomplete: report text exceeds Bedrock prompt limit.",
+                ["input_truncated"],
+            )
         user_message = f"""
 {PROMPT_CONTEXT}
 
@@ -454,9 +484,11 @@ Analyser følgende tilstandsrapport.
 VIKTIG: Du må analysere HELE dokumentet. Alle sider, vedlegg og bilder må vurderes.
 
 Rapporttekst:
-{text[:30000]}
+{text}
 
 Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
+Du må returnere FULLSTENDIG liste over alle påviselige avvik og alle score-trekk.
+Ikke skjul, prioriter bort eller slå sammen funn for å spare plass.
 """
         
         body = json.dumps({
@@ -482,6 +514,12 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
         )
         
         response_body = json.loads(response['body'].read())
+        stop_reason = response_body.get("stop_reason") or response_body.get("stopReason")
+        if stop_reason == "max_tokens":
+            raise IncompleteAnalysisError(
+                "Analysis incomplete: LLM response truncated.",
+                ["llm_max_tokens"],
+            )
         content = response_body.get('content', [])
         
         if content and len(content) > 0:
@@ -493,13 +531,25 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
             
             if json_start != -1 and json_end > json_start:
                 json_text = response_text[json_start:json_end]
-                analysis_data = json.loads(json_text)
+                try:
+                    analysis_data = json.loads(json_text)
+                except json.JSONDecodeError:
+                    raise IncompleteAnalysisError(
+                        "Analysis incomplete: LLM returned invalid JSON.",
+                        ["llm_parse_failed"],
+                    )
                 logger.info("Successfully analyzed report with Bedrock")
                 return analysis_data
             else:
-                raise ValueError("Could not find JSON in response")
+                raise IncompleteAnalysisError(
+                    "Analysis incomplete: LLM returned no JSON.",
+                    ["llm_parse_failed"],
+                )
         else:
-            raise ValueError("No content in Bedrock response")
+            raise IncompleteAnalysisError(
+                "Analysis incomplete: LLM returned no content.",
+                ["llm_empty_response"],
+            )
             
     except Exception as e:
         logger.error(f"Bedrock analysis error: {str(e)}")
@@ -546,19 +596,33 @@ def update_report_via_api(
     try:
         url = f"{API_ENDPOINT}/v1/reports/{report_id}/update-analysis"
         
-        score_total = analysis_data.get("score_total", 0.0)
-        findings_v14 = analysis_data.get("findings", [])
-        payload = {
-            "overall_score": score_total,
-            "quality_score": 0.0,
-            "completeness_score": 0.0,
-            "compliance_score": 0.0,
-            "components": _build_components_from_v14(findings_v14),
-            "findings": _build_findings_from_v14(findings_v14),
-            "ai_analysis": analysis_data,
-            "detected_points": detected_points_payload,
-            "scoring_result": scoring_result_payload,
-        }
+        analysis_status = analysis_data.get("meta", {}).get("analysis_status") if isinstance(analysis_data, dict) else None
+        if analysis_status == "INCOMPLETE":
+            payload = {
+                "overall_score": None,
+                "quality_score": None,
+                "completeness_score": None,
+                "compliance_score": None,
+                "components": [],
+                "findings": [],
+                "ai_analysis": analysis_data,
+                "detected_points": detected_points_payload,
+                "scoring_result": None,
+            }
+        else:
+            score_total = analysis_data.get("score_total", 0.0)
+            findings_v14 = analysis_data.get("findings", [])
+            payload = {
+                "overall_score": score_total,
+                "quality_score": 0.0,
+                "completeness_score": 0.0,
+                "compliance_score": 0.0,
+                "components": _build_components_from_v14(findings_v14),
+                "findings": _build_findings_from_v14(findings_v14),
+                "ai_analysis": analysis_data,
+                "detected_points": detected_points_payload,
+                "scoring_result": scoring_result_payload,
+            }
         
         response = requests.post(url, json=payload, timeout=30)
         
@@ -645,23 +709,37 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Step 3: Analyze with Bedrock
             logger.info("Analyzing with Bedrock Claude...")
-            analysis_data = analyze_with_bedrock(text)
-            _ensure_meta_fields(analysis_data)
-            _ensure_required_arrays(analysis_data)
-            _ensure_issue_evidence(analysis_data, text)
-            _ensure_driver_evidence(analysis_data)
-            _normalize_scoring_output(analysis_data)
-            meta = analysis_data.get("meta", {})
-            if isinstance(meta, dict):
-                meta.setdefault("scoring_model_id", scoring_model_info.get("model_id", ""))
-                meta.setdefault("scoring_model_version", scoring_model_info.get("version", ""))
-                meta.setdefault("scoring_model_updated_at", scoring_model_info.get("updated_at", ""))
-                analysis_data["meta"] = meta
-
-            scoring_result_payload = {
-                "run_meta": run_meta,
-                "analysis_output": analysis_data,
-            }
+            try:
+                analysis_data = analyze_with_bedrock(text)
+                _ensure_meta_fields(analysis_data)
+                _ensure_required_arrays(analysis_data)
+                _ensure_issue_evidence(analysis_data, text)
+                _ensure_driver_evidence(analysis_data)
+                _normalize_scoring_output(analysis_data)
+                meta = analysis_data.get("meta", {})
+                if isinstance(meta, dict):
+                    meta.setdefault("scoring_model_id", scoring_model_info.get("model_id", ""))
+                    meta.setdefault("scoring_model_version", scoring_model_info.get("version", ""))
+                    meta.setdefault("scoring_model_updated_at", scoring_model_info.get("updated_at", ""))
+                    analysis_data["meta"] = meta
+                scoring_result_payload = {
+                    "run_meta": run_meta,
+                    "analysis_output": analysis_data,
+                }
+            except IncompleteAnalysisError as e:
+                logger.warning(f"Analysis incomplete for report {report_id}: {e.message} reasons={e.reasons}")
+                analysis_data = {
+                    "meta": {
+                        "analysis_status": "INCOMPLETE",
+                        "message": e.message,
+                        "reasons": e.reasons,
+                        "run_meta": run_meta,
+                    }
+                }
+                scoring_result_payload = {
+                    "run_meta": run_meta,
+                    "analysis_output": analysis_data,
+                }
             
             # Step 4: Update database via API
             logger.info("Updating report in database...")
