@@ -15,6 +15,9 @@ from app.schemas import AnalysisResult, ComponentBase, FindingBase
 from app.services.system_prompt import SYSTEM_PROMPT
 from app.services.validert_files import (
     build_prompt_context,
+    get_building_part_whitelist,
+    get_building_part_whitelist_v21,
+    get_building_part_whitelist_v22,
     get_category_config_text,
     get_legality_arkat_map_text,
     get_legality_arkat_templates_text,
@@ -274,7 +277,14 @@ def _extract_snippet(text: str, index: int, window: int = 220) -> str:
     return text[start:end].strip()
 
 
-def _extract_detected_points(report_text: str) -> List[Dict[str, object]]:
+def _normalize_title_for_trace(title: str) -> str:
+    """Normalize title for trace output (strip, lower, collapse whitespace, truncate)."""
+    if not title or not isinstance(title, str):
+        return ""
+    return " ".join(str(title).strip().lower().split())[:80]
+
+
+def _extract_detected_points(report_text: str, trace: Optional[Dict[str, object]] = None) -> List[Dict[str, object]]:
     pages = _split_pages(report_text)
     line_index: List[Dict[str, object]] = []
     for page in pages:
@@ -282,6 +292,7 @@ def _extract_detected_points(report_text: str) -> List[Dict[str, object]]:
             line_index.append({"page": page["page"], "text": line})
 
     headings: List[Dict[str, object]] = []
+    stray_rejected: List[Dict[str, object]] = []
     for idx, line in enumerate(line_index):
         text = line["text"]
         match = POINT_HEADER_RE.match(text) or POINT_HEADER_FALLBACK_RE.match(text)
@@ -292,10 +303,21 @@ def _extract_detected_points(report_text: str) -> List[Dict[str, object]]:
                 continue
             if _looks_like_date_line(text):
                 continue
+            if _is_stray_point_header(text, raw_id, section_title):
+                if trace is not None:
+                    stray_rejected.append({
+                        "point_id": _normalize_point_id(raw_id),
+                        "normalized_title": _normalize_title_for_trace(section_title or text),
+                        "reason": "stray_title",
+                    })
+                continue
             if _is_false_point_header(text, raw_id, section_title):
                 continue
             point_id = _normalize_point_id(raw_id)
             headings.append({"idx": idx, "point_id": point_id, "section_title": section_title})
+    if trace is not None:
+        trace["stray_rejected"] = stray_rejected
+        trace["stray_rejected_count"] = len(stray_rejected)
 
     detected: List[Dict[str, object]] = []
     if headings:
@@ -384,11 +406,38 @@ def _build_detected_points_payload(
             "extraction": {
                 "engine": "validert-point-detector",
                 "engine_version": "1.0.0",
-                "notes": "Point headers detected via regex on extracted PDF text.",
+                "notes": "Point headers detected via regex; whitelist-validated building parts only.",
             },
         },
         "points": points_out,
     }
+
+
+def get_validated_detected_points_payload(
+    extracted_text: str,
+    document_hash: str = "",
+    document_title: Optional[str] = None,
+    document_id: Optional[str] = None,
+    pdf_metadata: Optional[Dict[str, object]] = None,
+) -> Dict[str, object]:
+    """
+    Single source of truth: extract → stray filter → whitelist (hard gate) → build payload.
+    Only validated building-part segments are included. Use this for points_overview, hierarchy,
+    and ARKAT/cost rules. Never use raw/stored detected_points for UI rendering.
+    """
+    if not extracted_text or not extracted_text.strip():
+        return _build_detected_points_payload(
+            [], document_hash or "", document_title, document_id, pdf_metadata
+        )
+    detected = _extract_detected_points(extracted_text)
+    validated = _validate_detected_points_against_whitelist(detected)
+    return _build_detected_points_payload(
+        validated,
+        document_hash or hashlib.sha256(extracted_text.encode("utf-8")).hexdigest(),
+        document_title=document_title,
+        document_id=document_id,
+        pdf_metadata=pdf_metadata,
+    )
 
 
 def _is_numeric_point_id(value: str) -> bool:
@@ -430,6 +479,31 @@ _FALSE_POINT_TITLES = (
     "store eller alvorlige avvik",
     "ikke undersøkt",
 )
+
+# Stray text fragments that must NOT be treated as valid points (segmentation integrity).
+_STRAY_POINT_PATTERNS = (
+    "etg:",                      # Floor/cost table row
+    "for ytterligere vurderinger",  # Continuation text, not a building part
+    "kostnadspekulasjon",         # TG1 cost section
+    "vurdering:",                 # Standalone assessment label
+)
+
+
+def _is_stray_point_header(line_text: str, raw_id: str, section_title: str) -> bool:
+    """True if this line is stray text (etg:, for ytterligere vurderinger, etc.) - not a valid building-part point."""
+    if not line_text or not isinstance(line_text, str):
+        return True
+    text_lower = line_text.strip().lower()
+    title_lower = (section_title or "").strip().lower()
+    combined = f"{text_lower} {title_lower}"
+    for p in _STRAY_POINT_PATTERNS:
+        if p in combined:
+            return True
+    if title_lower and len(title_lower) < 4 and title_lower.rstrip(".:").isdigit():
+        return True
+    if text_lower.endswith(":") and len(text_lower) < 15 and not any(c.isalpha() for c in text_lower.replace(":", "")):
+        return True
+    return False
 
 
 def _is_false_point_header(line_text: str, raw_id: str, section_title: str) -> bool:
@@ -504,6 +578,404 @@ def _point_key_for_point(point: Dict[str, object]) -> str:
     )
 
 
+@lru_cache(maxsize=1)
+def _get_building_part_whitelist() -> Dict[str, set]:
+    """Cached building-part names for segment validation."""
+    return get_building_part_whitelist()
+
+
+def _segment_matches_building_part(title: str, whitelist: Dict[str, set]) -> bool:
+    """True if title matches a known building-part (strict segment validation)."""
+    if not title or not isinstance(title, str):
+        return False
+    names = whitelist.get("names") or set()
+    norm = " ".join(title.strip().lower().split())
+    if not norm or len(norm) < 3:
+        return False
+    for bp in names:
+        if len(bp) < 4:
+            continue
+        if bp in norm or norm in bp:
+            return True
+    words = [w for w in norm.split() if len(w) >= 4]
+    for w in words:
+        if w in names:
+            return True
+        for bp in names:
+            if len(bp) >= 4 and (w in bp or bp in w):
+                return True
+    return False
+
+
+def run_segmentation_trace(report_text: str) -> Dict[str, object]:
+    """
+    Run extraction + validation with tracing. Returns trace for admin debugging.
+    """
+    trace: Dict[str, object] = {
+        "total_detected_before_stray": 0,
+        "total_after_stray": 0,
+        "total_after_whitelist": 0,
+        "stray_rejected_count": 0,
+        "stray_rejected": [],
+        "whitelist_rejected_count": 0,
+        "whitelist_rejected": [],
+    }
+    detected = _extract_detected_points(report_text or "", trace=trace)
+    total_after_stray = len(detected)
+    trace["total_after_stray"] = total_after_stray
+    trace["total_detected_before_stray"] = total_after_stray + trace.get("stray_rejected_count", 0)
+    validated = _validate_detected_points_against_whitelist(detected, trace=trace)
+    trace["total_after_whitelist"] = len(validated)
+    trace["validated_point_ids"] = [p.get("point_id") for p in validated if isinstance(p, dict) and p.get("point_id")]
+    return trace
+
+
+@lru_cache(maxsize=1)
+def _get_whitelist_v22_lookup() -> Optional[Dict]:
+    """Build compiled structures for whitelist v2.2: normalization, reject_if_regex, building_parts, instance_extract."""
+    wl = get_building_part_whitelist_v22()
+    if not wl or not wl.get("building_parts"):
+        return None
+    norm_cfg = wl.get("normalization") or {}
+    reject_patterns = [re.compile(p) for p in (norm_cfg.get("reject_if_regex") or []) if isinstance(p, str)]
+    building_parts = [bp for bp in (wl.get("building_parts") or []) if isinstance(bp, dict) and bp.get("id")]
+    instance_cfg = (wl.get("classification") or {}).get("instance_extract") or {}
+    instance_regex_order = []
+    for p in (instance_cfg.get("regex_order") or []):
+        if isinstance(p, str):
+            try:
+                instance_regex_order.append(re.compile(p))
+            except re.error:
+                pass
+    return {
+        "norm_cfg": norm_cfg,
+        "reject_patterns": reject_patterns,
+        "building_parts": building_parts,
+        "instance_regex_order": instance_regex_order,
+    }
+
+
+def _normalize_title_v22(title: str, norm_cfg: Dict) -> str:
+    """Apply whitelist v2.2 normalization: NFKC, replace_chars, remove_prefixes/suffixes, lowercase, collapse whitespace."""
+    if not title or not isinstance(title, str):
+        return ""
+    s = str(title).strip()
+    if norm_cfg.get("remove_soft_hyphen", True):
+        s = s.replace("\u00ad", "")
+    if norm_cfg.get("unicode_nfkc", True):
+        s = unicodedata.normalize("NFKC", s)
+    replace_chars = norm_cfg.get("replace_chars") or {}
+    for old, new in replace_chars.items():
+        if isinstance(old, str) and isinstance(new, str):
+            s = s.replace(old, new)
+    for pat in (norm_cfg.get("remove_prefixes_regex") or []):
+        if isinstance(pat, str):
+            try:
+                s = re.sub(pat, "", s, flags=re.IGNORECASE)
+            except re.error:
+                pass
+    for pat in (norm_cfg.get("remove_suffixes_regex") or []):
+        if isinstance(pat, str):
+            try:
+                s = re.sub(pat, "", s, flags=re.IGNORECASE)
+            except re.error:
+                pass
+    if norm_cfg.get("lowercase", True):
+        s = s.lower()
+    if norm_cfg.get("collapse_whitespace", True):
+        s = " ".join(s.split())
+    return s.strip()
+
+
+def _matches_reject_if_regex(norm_title: str, reject_patterns: List[re.Pattern]) -> bool:
+    """True if normalized title matches any reject_if_regex pattern."""
+    if not norm_title:
+        return True
+    for pat in reject_patterns:
+        if pat.search(norm_title):
+            return True
+    return False
+
+
+def _classify_to_building_part_v22(norm_title: str, building_parts: List[Dict]) -> Optional[Dict]:
+    """Match normalized title against building_parts. Returns first matching part or None."""
+    if not norm_title or not building_parts:
+        return None
+    for bp in building_parts:
+        match_cfg = bp.get("match") or {}
+        exact_list = match_cfg.get("exact") or []
+        if any(norm_title == (e or "").strip().lower() for e in exact_list if isinstance(e, str)):
+            return bp
+        contains_list = match_cfg.get("contains_any") or []
+        if any((c or "").lower() in norm_title for c in contains_list if isinstance(c, str)):
+            return bp
+        regex_list = match_cfg.get("regex_any") or []
+        for rx in regex_list:
+            if isinstance(rx, str):
+                try:
+                    if re.search(rx, norm_title):
+                        return bp
+                except re.error:
+                    pass
+    return None
+
+
+def _extract_instance_label_v22(title: str, norm_title: str, instance_regex_order: List[re.Pattern]) -> Optional[str]:
+    """Extract instance label (e.g. '1. etg > bad') from title using instance_extract regex_order."""
+    if not instance_regex_order:
+        return None
+    text = norm_title or (title or "").strip().lower()
+    if not text:
+        return None
+    for pat in instance_regex_order:
+        m = pat.search(text)
+        if m:
+            groups = m.groupdict()
+            parts = []
+            if "etasje" in groups and groups["etasje"]:
+                parts.append(groups["etasje"].strip())
+            if "rom" in groups and groups["rom"]:
+                parts.append(groups["rom"].strip())
+            if "base" in groups and groups["base"]:
+                parts.append(groups["base"].strip())
+            if parts:
+                return " / ".join(parts)
+    return None
+
+
+def _validate_detected_points_against_whitelist_v22(
+    detected: List[Dict[str, object]],
+    trace: Optional[Dict[str, object]] = None,
+) -> List[Dict[str, object]]:
+    """
+    Whitelist v2.2: normalize -> reject_if_regex -> classify_to_building_part -> extract instance.
+    Pipeline: noise rejected first, then unclassified dropped, then segments created with canonical_id + instance.
+    """
+    if not detected:
+        return detected
+    wl = _get_whitelist_v22_lookup()
+    if not wl:
+        return None  # Signal fallback to v2.1
+    norm_cfg = wl.get("norm_cfg") or {}
+    reject_patterns = wl.get("reject_patterns") or []
+    building_parts = wl.get("building_parts") or []
+    instance_regex_order = wl.get("instance_regex_order") or []
+    validated: List[Dict[str, object]] = []
+    rejected_noise: List[Dict[str, object]] = []
+    unclassified: List[Dict[str, object]] = []
+    classified_heading = 0
+    rejected_noise_count = 0
+    unclassified_count = 0
+    for p in detected:
+        if not isinstance(p, dict):
+            continue
+        point_id = p.get("point_id") or p.get("numeric_id") or p.get("native_label") or ""
+        if not point_id or not _is_numeric_point_id(point_id):
+            if trace is not None:
+                unclassified.append({"point_id": point_id or "(empty)", "normalized_title": "", "reason": "invalid_point_id"})
+                unclassified_count += 1
+            continue
+        if p.get("segmentation_fallback"):
+            validated.append({
+                **{k: v for k, v in p.items() if k != "span_text"},
+                "canonical_building_part_id": "BP_LOVLIGHET",
+                "required_by_forskrift": True,
+                "ui_badge": None,
+                "legal_status": "lovpålagt",
+            })
+            classified_heading += 1
+            continue
+        title = (p.get("title") or p.get("native_label") or p.get("excerpt") or "").strip()
+        norm_title = _normalize_title_v22(title, norm_cfg)
+        if _matches_reject_if_regex(norm_title, reject_patterns):
+            rejected_noise_count += 1
+            if trace is not None:
+                rejected_noise.append({"point_id": point_id, "normalized_title": norm_title, "reason": "rejected_noise"})
+            continue
+        bp = _classify_to_building_part_v22(norm_title, building_parts)
+        if not bp:
+            unclassified_count += 1
+            if trace is not None:
+                unclassified.append({"point_id": point_id, "normalized_title": norm_title, "reason": "unclassified_heading"})
+            continue
+        classified_heading += 1
+        instance_label = _extract_instance_label_v22(title, norm_title, instance_regex_order)
+        legal = "lovpålagt" if bp.get("required_by_forskrift", True) else "ikke lovpålagt"
+        validated.append({
+            **{k: v for k, v in p.items() if k != "span_text"},
+            "canonical_building_part_id": bp.get("id", ""),
+            "canonical_display_name": bp.get("display_name", ""),
+            "required_by_forskrift": bp.get("required_by_forskrift", True),
+            "ui_badge": bp.get("ui_badge"),
+            "legal_status": legal,
+            "instance_label": instance_label,
+        })
+    if trace is not None:
+        trace["rejected_noise"] = rejected_noise
+        trace["rejected_noise_count"] = rejected_noise_count
+        trace["unclassified_heading"] = unclassified
+        trace["unclassified_heading_count"] = unclassified_count
+        trace["classified_heading_count"] = classified_heading
+        trace["rejected_noise_sample"] = rejected_noise[:20]
+        trace["unclassified_heading_sample"] = unclassified[:20]
+        trace["whitelist_rejected"] = rejected_noise + unclassified
+        trace["whitelist_rejected_count"] = rejected_noise_count + unclassified_count
+        trace["detected_points_total"] = len(detected)
+    return validated
+
+
+@lru_cache(maxsize=1)
+def _get_whitelist_v21_lookup() -> Optional[Dict]:
+    """Build canonical + alias lookup and compiled regexes for whitelist v2.1."""
+    wl = get_building_part_whitelist_v21()
+    if not wl:
+        return None
+    canonical_index = wl.get("canonical_index") or {}
+    alias_mapping = wl.get("alias_mapping") or {}
+    canonical_parts = {c.get("id"): c for c in (wl.get("canonical_building_parts") or []) if isinstance(c, dict)}
+    # Build: normalized_name -> (canonical_id, legal_status)
+    lookup: Dict[str, tuple] = {}
+    for name, cid in canonical_index.items():
+        if isinstance(name, str) and isinstance(cid, str):
+            norm = name.strip().lower()
+            part = canonical_parts.get(cid)
+            legal = part.get("legal", "uklart/avhenger av rapporttype") if isinstance(part, dict) else "uklart/avhenger av rapporttype"
+            lookup[norm] = (cid, legal)
+    for alias, canonical_ref in alias_mapping.items():
+        if isinstance(alias, str) and isinstance(canonical_ref, str):
+            norm_alias = alias.strip().lower()
+            cid = canonical_index.get(canonical_ref) or (canonical_ref if canonical_ref in canonical_parts else None)
+            if cid:
+                part = canonical_parts.get(cid)
+                legal = part.get("legal", "uklart/avhenger av rapporttype") if isinstance(part, dict) else "uklart/avhenger av rapporttype"
+                lookup[norm_alias] = (cid, legal)
+    patterns = [re.compile(p) for p in (wl.get("hard_reject_regex") or []) if isinstance(p, str)]
+    norm_cfg = wl.get("normalization") or {}
+    canonical_names = {name.strip().lower() for name in canonical_index.keys() if isinstance(name, str)}
+    return {"lookup": lookup, "patterns": patterns, "norm_cfg": norm_cfg, "canonical_names": canonical_names}
+
+
+def _normalize_title_v21(title: str, norm_cfg: Dict) -> str:
+    """Apply whitelist v2.1 normalization: lowercase, strip, remove trailing punctuation, collapse spaces."""
+    if not title or not isinstance(title, str):
+        return ""
+    s = title.strip()
+    if norm_cfg.get("lowercase", True):
+        s = s.lower()
+    if norm_cfg.get("remove_trailing_colon", True):
+        s = s.rstrip(":")
+    if norm_cfg.get("remove_trailing_comma", True):
+        s = s.rstrip(",")
+    if norm_cfg.get("collapse_multiple_spaces", True):
+        s = " ".join(s.split())
+    return s.strip()
+
+
+def _validate_detected_points_against_whitelist(
+    detected: List[Dict[str, object]],
+    trace: Optional[Dict[str, object]] = None,
+) -> List[Dict[str, object]]:
+    """
+    Filter to only segments with valid point ID + whitelist match.
+    Prefers v2.2 (normalize -> reject_if_regex -> classify -> instance extraction), falls back to v2.1 then v1.
+    Hard gate: invalid segments never enter hierarchy.
+    """
+    if not detected:
+        return detected
+    validated = _validate_detected_points_against_whitelist_v22(detected, trace=trace)
+    if validated is not None:
+        return validated
+    wl_lookup = _get_whitelist_v21_lookup()
+    if not wl_lookup:
+        # Fallback to v1 if v2.1 not available
+        whitelist = _get_building_part_whitelist()
+        validated: List[Dict[str, object]] = []
+        whitelist_rejected: List[Dict[str, object]] = []
+        for p in detected:
+            if not isinstance(p, dict):
+                continue
+            point_id = p.get("point_id") or p.get("numeric_id") or p.get("native_label") or ""
+            if not point_id or not _is_numeric_point_id(point_id):
+                if trace is not None:
+                    whitelist_rejected.append({"point_id": point_id or "(empty)", "normalized_title": _normalize_title_for_trace(p.get("title") or p.get("excerpt") or ""), "reason": "invalid_point_id"})
+                continue
+            title = (p.get("title") or p.get("native_label") or p.get("excerpt") or "").strip()
+            if _segment_matches_building_part(title, whitelist):
+                validated.append(p)
+            elif p.get("segmentation_fallback"):
+                validated.append(p)
+            else:
+                if trace is not None:
+                    whitelist_rejected.append({"point_id": point_id, "normalized_title": _normalize_title_for_trace(title), "reason": "whitelist_no_match"})
+        if trace is not None:
+            trace["whitelist_rejected"] = whitelist_rejected
+            trace["whitelist_rejected_count"] = len(whitelist_rejected)
+        return validated
+
+    lookup = wl_lookup.get("lookup") or {}
+    patterns = wl_lookup.get("patterns") or []
+    norm_cfg = wl_lookup.get("norm_cfg") or {}
+    canonical_names = wl_lookup.get("canonical_names") or set()
+    validated: List[Dict[str, object]] = []
+    whitelist_rejected: List[Dict[str, object]] = []
+    accepted_canonical = 0
+    accepted_alias = 0
+    rejected_not_in_whitelist = 0
+    rejected_hard_regex = 0
+    for p in detected:
+        if not isinstance(p, dict):
+            continue
+        point_id = p.get("point_id") or p.get("numeric_id") or p.get("native_label") or ""
+        if not point_id or not _is_numeric_point_id(point_id):
+            if trace is not None:
+                whitelist_rejected.append({"point_id": point_id or "(empty)", "normalized_title": _normalize_title_for_trace(p.get("title") or p.get("excerpt") or ""), "reason": "invalid_point_id"})
+            continue
+        if p.get("segmentation_fallback"):
+            validated.append({
+                **{k: v for k, v in p.items() if k != "span_text"},
+                "legal_status": "lovpålagt",
+                "required_by_forskrift": True,
+                "ui_badge": None,
+            })
+            continue
+        title = (p.get("title") or p.get("native_label") or p.get("excerpt") or "").strip()
+        norm_title = _normalize_title_v21(title, norm_cfg)
+        for pat in patterns:
+            if pat.search(norm_title):
+                rejected_hard_regex += 1
+                if trace is not None:
+                    whitelist_rejected.append({"point_id": point_id, "normalized_title": norm_title, "reason": "hard_reject_regex"})
+                break
+        else:
+            match = lookup.get(norm_title)
+            if match:
+                canonical_id, legal_status = match
+                if norm_title in canonical_names:
+                    accepted_canonical += 1
+                else:
+                    accepted_alias += 1
+                validated.append({
+                    **{k: v for k, v in p.items() if k != "span_text"},
+                    "legal_status": legal_status,
+                    "canonical_building_part_id": canonical_id,
+                    "required_by_forskrift": legal_status == "lovpålagt",
+                    "ui_badge": "(ikke lovpålagt)" if legal_status == "ikke lovpålagt" else None,
+                })
+            else:
+                rejected_not_in_whitelist += 1
+                if trace is not None:
+                    whitelist_rejected.append({"point_id": point_id, "normalized_title": norm_title, "reason": "whitelist_no_match"})
+    if trace is not None:
+        trace["whitelist_rejected"] = whitelist_rejected
+        trace["whitelist_rejected_count"] = len(whitelist_rejected)
+        trace["detected_points_total"] = len(detected)
+        trace["rejected_not_in_whitelist_count"] = rejected_not_in_whitelist
+        trace["rejected_hard_regex_count"] = rejected_hard_regex
+        trace["accepted_canonical_count"] = accepted_canonical
+        trace["accepted_alias_count"] = accepted_alias
+    return validated
+
+
 # Point titles that indicate non-bygningsdel content (TG1 cost, floor summary) - exclude from punkt-for-punkt oversikt
 _NON_BYGNNINGSDEL_TITLE_PATTERNS = (
     "kostnadspekulasjon",  # Cost speculation - TG1 section
@@ -511,17 +983,44 @@ _NON_BYGNNINGSDEL_TITLE_PATTERNS = (
 
 
 def _is_non_bygningsdel_point(point: Dict[str, object]) -> bool:
-    """True if point title suggests it's not a bygningsdel (e.g. TG1 cost section)."""
+    """
+    True if point title suggests it's not a bygningsdel (e.g. TG1 cost section, etg:, for ytterligere vurderinger).
+    Used to exclude from points_overview - also catches stray titles in cached/legacy data.
+    """
     if not isinstance(point, dict):
         return False
-    title = (point.get("title") or point.get("native_label") or "").strip().lower()
+    title = (
+        point.get("title") or point.get("excerpt") or point.get("native_label") or ""
+    ).strip().lower()
     if not title:
         return False
-    # Only exclude when title is primarily cost-related (avoid filtering "etasje" in normal context)
+    # Cost-related
     if "kostnadspekulasjon" in title:
         return True
-    # "etg:" as primary content (e.g. "etg: kostnadspekulasjon") - titles starting with etg: 
+    # Stray patterns (must match _STRAY_POINT_PATTERNS) - exclude etg:, for ytterligere vurderinger, etc.
+    for p in _STRAY_POINT_PATTERNS:
+        if p in title:
+            return True
+    # "etg:" as primary content (legacy/cache edge cases)
     if title.startswith("etg:"):
+        return True
+    # Obvious junk: standalone "ukjent", cost-only (e.g. "600 000", "50 000,-")
+    if title == "ukjent":
+        return True
+    if re.match(r"^[\d\s.,\-]+(?:kroner|kr|,-)?\s*$", title) and len(title) < 40:
+        return True
+    # Meta/report text: "rapporten.", "denne rapporten er"
+    if title == "rapporten." or title == "rapporten":
+        return True
+    if "denne rapporten er" in title:
+        return True
+    # Checklist-style questions (not building parts): "Er det...", "Er der...", "Finnes det..."
+    if title.startswith(("er det ", "er der ", "finnes det ")):
+        return True
+    # Fragments: starts with comma+digit, or very short (e.g. ",2 vekt%")
+    if title.startswith(",") and len(title) < 60:
+        return True
+    if len(title) < 6 and not any(c.isalpha() for c in title.replace(".", "")):
         return True
     return False
 
@@ -618,26 +1117,28 @@ def _dedupe_points(points: List[Dict[str, object]], dedupe_key: str) -> List[Dic
 
 
 def _sort_points(points: List[Dict[str, object]]) -> Tuple[str, str, List[Dict[str, object]]]:
+    """Sort points: required_by_forskrift first, then numeric or document order."""
     mode = _detect_sort_mode(points)
+    _req_first = lambda p: (0 if (isinstance(p, dict) and p.get("required_by_forskrift", True)) else 1)
     if mode == "NUMERIC":
         unique_points = _dedupe_points(points, "numeric_id")
-        def _numeric_sort_key(point: Dict[str, object]) -> Tuple[int, List[int]]:
+        def _numeric_sort_key(point: Dict[str, object]) -> Tuple[int, int, List[int]]:
             numeric_id = _numeric_id_for_point(point)
             if numeric_id:
-                return (0, _parse_numeric_id(numeric_id))
-            return (1, [])
+                return (_req_first(point), 0, _parse_numeric_id(numeric_id))
+            return (_req_first(point), 1, [])
         sorted_points = sorted(unique_points, key=_numeric_sort_key)
         return mode, "numeric_id", sorted_points
     unique_points = _dedupe_points(points, "point_key")
     if all(isinstance(p, dict) and p.get("order_in_doc") is not None for p in unique_points):
         sorted_points = sorted(
             unique_points,
-            key=lambda p: int(p.get("order_in_doc") or 0),
+            key=lambda p: (_req_first(p), int(p.get("order_in_doc") or 0)),
         )
     else:
         sorted_points = sorted(
             unique_points,
-            key=lambda p: int(p.get("page_start") or 0),
+            key=lambda p: (_req_first(p), int(p.get("page_start") or 0)),
         )
     return mode, "point_key", sorted_points
 
@@ -1498,21 +1999,35 @@ def _build_feedback_v11(
             where["anchor_text"] = point.get("anchor_text")
         if point.get("bbox"):
             where["bbox"] = point.get("bbox")
+        parent_id = None
+        if "." in str(point_id):
+            parts = str(point_id).split(".")
+            if len(parts) >= 2:
+                parent_id = ".".join(parts[:-1])
+        title_display = point.get("title") or "Ukjent"
+        if point.get("instance_label"):
+            title_display = f"{title_display} – {point.get('instance_label')}"
         points_overview.append(
             {
                 "display_index": display_index,
                 "point_id": point_id,
                 "point_key": point_key,
+                "parent_id": parent_id,
                 "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
                 "numeric_id": point.get("numeric_id") or (_numeric_id_for_point(point) or None),
                 "native_path": point.get("native_path"),
                 "title": point.get("title") or "Ukjent",
+                "title_display": title_display,
                 "tg": tg_value,
                 "status": status,
                 "summary": summary,
                 "deduction_total": max(deduction_total, 0),
                 "finding_ids": finding_ids_by_point.get(point_id, []),
                 "where": where,
+                "legal_status": point.get("legal_status"),
+                "required_by_forskrift": point.get("required_by_forskrift", True),
+                "ui_badge": point.get("ui_badge"),
+                "instance_label": point.get("instance_label"),
             }
         )
         display_index += 1
@@ -1730,20 +2245,32 @@ def _build_feedback_v11_from_all_findings(
         summary = first_msg or ("Trekk registrert for punktet." if status == "deduction" else "OK – ingen endringer nødvendig.")
         if status == "ok":
             summary = "OK – ingen endringer nødvendig."
+        parent_id = None
+        if "." in str(point_id) and len(str(point_id).split(".")) >= 2:
+            parent_id = ".".join(str(point_id).split(".")[:-1])
+        title_display = point.get("title") or "Ukjent"
+        if point.get("instance_label"):
+            title_display = f"{title_display} – {point.get('instance_label')}"
         points_overview.append({
             "display_index": display_index,
             "point_id": point_id,
             "point_key": point_key,
+            "parent_id": parent_id,
             "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
             "numeric_id": point.get("numeric_id"),
             "native_path": point.get("native_path"),
             "title": point.get("title") or "Ukjent",
+            "title_display": title_display,
             "tg": point.get("tg") or "UNKNOWN",
             "status": status,
             "summary": summary,
             "deduction_total": max(deduction_total, 0),
             "finding_ids": fids,
             "where": {"page": int(point.get("page_start") or 1)},
+            "legal_status": point.get("legal_status"),
+            "required_by_forskrift": point.get("required_by_forskrift", True),
+            "ui_badge": point.get("ui_badge"),
+            "instance_label": point.get("instance_label"),
         })
         display_index += 1
     return {
@@ -2327,6 +2854,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
         return analysis_output
     _ensure_required_arrays(analysis_output)
     detected_points = _extract_detected_points(report_text or "")
+    detected_points = _validate_detected_points_against_whitelist(detected_points)
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
     _ensure_issue_evidence(analysis_output, report_text)
     _ensure_driver_evidence(analysis_output)
@@ -2641,6 +3169,7 @@ class AIAnalyzer:
                 incomplete_reasons.append("input_truncated")
 
             detected_points = _extract_detected_points(text)
+            detected_points = _validate_detected_points_against_whitelist(detected_points)
             detected_points_payload = _build_detected_points_payload(
                 detected_points,
                 document_hash=document_hash,

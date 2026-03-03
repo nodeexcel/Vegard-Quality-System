@@ -43,5 +43,9 @@ lambda/package/
 lambda/lambda_function.zip
 
 nohup_backend.out
+nohup.out
+
+# PDFs (large, don't commit)
+*.pdf
 
 codes.txt

@@ -13,10 +13,11 @@ from app.schemas import ReportCreate, ReportResponse, AnalysisResult
 from app.services.pdf_extractor import PDFExtractor
 from app.services.ai_analyzer import (
     AIAnalyzer,
-    IncompleteAnalysisError,
     build_analysis_result_from_output,
     build_feedback_v11,
     ensure_analysis_evidence,
+    get_validated_detected_points_payload,
+    IncompleteAnalysisError,
     normalize_scoring_output,
     postprocess_analysis_output,
     write_run_exports,
@@ -174,15 +175,21 @@ async def upload_report(
             analysis_output = postprocess_analysis_output(cache_entry.ai_analysis, extracted_text)
             scoring_result_payload = cache_entry.scoring_result
             scoring_result_payload["analysis_output"] = analysis_output
-            detected_points_payload = cache_entry.detected_points
+            # Hard gate: use validated segments only (extract → whitelist before hierarchy)
+            detected_points_payload = get_validated_detected_points_payload(
+                extracted_text,
+                document_hash=document_hash,
+                document_title=file.filename,
+                document_id=str(report.id),
+                pdf_metadata=pdf_metadata,
+            )
             if isinstance(scoring_result_payload, dict):
-                if not isinstance(scoring_result_payload.get("feedback_v11"), dict):
-                    scoring_result_payload["feedback_v11"] = build_feedback_v11(
-                        analysis_output,
-                        detected_points_payload or {},
-                        report_id=str(report.id),
-                        document_hash=document_hash,
-                    )
+                scoring_result_payload["feedback_v11"] = build_feedback_v11(
+                    analysis_output,
+                    detected_points_payload,
+                    report_id=str(report.id),
+                    document_hash=document_hash,
+                )
             analysis_result = build_analysis_result_from_output(analysis_output)
 
             report.overall_score = analysis_result.overall_score
@@ -593,6 +600,27 @@ async def get_report(
     ai_analysis_payload = report.ai_analysis
     if isinstance(ai_analysis_payload, dict):
         ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
+
+    # Always use validated segments for points_overview (lifecycle: extract → whitelist → hierarchy)
+    # Never use raw stored detected_points - re-validate from extracted_text
+    scoring_result_out = report.scoring_result
+    if isinstance(scoring_result_out, dict) and isinstance(ai_analysis_payload, dict):
+        try:
+            validated_payload = get_validated_detected_points_payload(
+                report.extracted_text or "",
+                document_hash=report.document_hash or "",
+                document_title=report.filename,
+                document_id=str(report.id),
+            )
+            scoring_result_out = dict(scoring_result_out)
+            scoring_result_out["feedback_v11"] = build_feedback_v11(
+                ai_analysis_payload,
+                validated_payload,
+                report_id=str(report.id),
+                document_hash=report.document_hash or "",
+            )
+        except Exception:
+            pass  # keep original if rebuild fails
     
     return ReportResponse(
         id=report.id,
@@ -608,7 +636,7 @@ async def get_report(
         findings=findings_data,
         ai_analysis=ai_analysis_payload,
         detected_points=report.detected_points,
-        scoring_result=report.scoring_result,
+        scoring_result=scoring_result_out,
         extracted_text=report.extracted_text,
         status=report.status,
         message=None,
@@ -694,6 +722,8 @@ async def update_report_analysis(
         document_hash = None
         if isinstance(detected_points_payload, dict):
             document_hash = detected_points_payload.get("document", {}).get("document_hash")
+        # Validated segments for storage (re-validate from extracted_text when available)
+        validated_detected_points = detected_points_payload
         if isinstance(ai_analysis_payload, dict) and ai_analysis_payload.get("meta", {}).get("analysis_status") == "INCOMPLETE":
             report.overall_score = None
             report.quality_score = None
@@ -718,9 +748,16 @@ async def update_report_analysis(
             if not isinstance(scoring_result_payload, dict):
                 scoring_result_payload = {}
             scoring_result_payload["analysis_output"] = ai_analysis_payload
+            # Hard gate: Lambda sends raw segments - we re-validate from extracted_text
+            validated_detected_points = get_validated_detected_points_payload(
+                report.extracted_text or "",
+                document_hash=document_hash or "",
+                document_title=report.filename,
+                document_id=str(report_id),
+            )
             scoring_result_payload["feedback_v11"] = build_feedback_v11(
                 ai_analysis_payload,
-                detected_points_payload or {},
+                validated_detected_points,
                 report_id=str(report_id),
                 document_hash=document_hash,
             )
@@ -730,8 +767,8 @@ async def update_report_analysis(
         report.completeness_score = analysis_data.get("completeness_score", 0.0)
         report.compliance_score = analysis_data.get("compliance_score", 0.0)
         report.ai_analysis = ai_analysis_payload
-        if detected_points_payload is not None:
-            report.detected_points = detected_points_payload
+        # Store validated segments only (never Lambda's raw payload)
+        report.detected_points = validated_detected_points if report.extracted_text else detected_points_payload
         if scoring_result_payload is not None:
             report.scoring_result = scoring_result_payload
         report.status = "completed"
@@ -746,11 +783,11 @@ async def update_report_analysis(
                 document_hash=document_hash,
                 scoring_model_sha=scoring_model_info.get("sha256"),
                 pipeline_git_sha=_get_pipeline_cache_sha(),
-                detected_points=detected_points_payload,
+                detected_points=validated_detected_points,
                 scoring_result=scoring_result_payload,
                 ai_analysis=ai_analysis_payload,
             )
-            write_run_exports(document_hash, ai_analysis_payload, detected_points_payload or {}, scoring_result_payload or {})
+            write_run_exports(document_hash, ai_analysis_payload, validated_detected_points or {}, scoring_result_payload or {})
         
         # Check for automatic refund (96%+ trygghetsscore)
         user = db.query(User).filter(User.id == report.user_id).first()

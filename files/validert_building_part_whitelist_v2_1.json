@@ -1,0 +1,244 @@
+{
+  "version": "2.1",
+  "description": "Strict canonical building-part whitelist with legal requirement tagging (lovpålagt vs ikke-lovpålagt). Exact match only + alias mapping. Includes hard reject regex to prevent stray headings/numbers from becoming segments.",
+  "normalization": {
+    "lowercase": true,
+    "strip_whitespace": true,
+    "remove_trailing_colon": true,
+    "remove_trailing_comma": true,
+    "collapse_multiple_spaces": true
+  },
+  "hard_reject_regex": [
+    "^\\d+[\\s.,-]*$",
+    "^[a-zæøå]{1,6}:$",
+    "^for\\s+",
+    "^med\\s+",
+    "^inkl\\.?\\b",
+    "^indikasjon(er)?\\b",
+    "^kostnads",
+    "^vurdering(er)?\\b",
+    "^kommentar\\b",
+    "^dokumentasjon\\b",
+    "^oppsummering\\b",
+    "^konklusjon\\b",
+    "^m\\.m\\.$",
+    "^mv\\.$",
+    "^ikke\\b",
+    "^ukjent\\b"
+  ],
+
+  "labels": {
+    "LOVPAALAGT": "lovpålagt",
+    "IKKE_LOVPAALAGT": "ikke lovpålagt",
+    "UKLART": "uklart/avhenger av rapporttype"
+  },
+
+  "canonical_building_parts": [
+    { "id": "grunn_og_fundamenter", "name": "grunn og fundamenter", "legal": "lovpålagt" },
+    { "id": "grunnmur", "name": "grunnmur", "legal": "lovpålagt" },
+    { "id": "drenering", "name": "drenering", "legal": "lovpålagt" },
+    { "id": "rom_under_terreng", "name": "rom under terreng", "legal": "lovpålagt" },
+    { "id": "krypkjeller", "name": "krypkjeller", "legal": "lovpålagt" },
+    { "id": "terrengforhold", "name": "terrengforhold", "legal": "lovpålagt" },
+
+    { "id": "baeresystem", "name": "bæresystem", "legal": "ikke lovpålagt" },
+    { "id": "etasjeskiller", "name": "etasjeskiller", "legal": "ikke lovpålagt" },
+    { "id": "gulv_mot_grunn", "name": "gulv mot grunn", "legal": "ikke lovpålagt" },
+
+    { "id": "yttervegger", "name": "yttervegger", "legal": "lovpålagt" },
+    { "id": "vinduer_og_yterdoerer", "name": "vinduer og ytterdører", "legal": "lovpålagt" },
+
+    { "id": "tak", "name": "tak", "legal": "lovpålagt" },
+    { "id": "takkonstruksjon", "name": "takkonstruksjon", "legal": "lovpålagt" },
+    { "id": "taktekking", "name": "taktekking", "legal": "lovpålagt" },
+    { "id": "takrenner_og_nedloep", "name": "takrenner og nedløp", "legal": "lovpålagt" },
+
+    { "id": "balkonger_terrasser_altaner", "name": "balkonger, terrasser og altaner", "legal": "lovpålagt" },
+    { "id": "utvendige_trapper_og_adkomst", "name": "utvendige trapper og adkomst", "legal": "lovpålagt" },
+    { "id": "stoettemur", "name": "støttemur", "legal": "lovpålagt" },
+
+    { "id": "vaatrom", "name": "våtrom", "legal": "lovpålagt" },
+    { "id": "vaatrom_bad", "name": "våtrom - bad", "legal": "lovpålagt" },
+    { "id": "vaatrom_vaskerom", "name": "våtrom - vaskerom", "legal": "lovpålagt" },
+    { "id": "sanitaerrom", "name": "sanitærrom", "legal": "ikke lovpålagt" },
+
+    { "id": "innvendige_vann_og_avloepsroer", "name": "innvendige vann- og avløpsrør", "legal": "ikke lovpålagt" },
+    { "id": "utvendige_vann_og_avloepsledninger", "name": "utvendige vann- og avløpsledninger", "legal": "ikke lovpålagt" },
+    { "id": "varmtvannsbereder", "name": "varmtvannsbereder", "legal": "ikke lovpålagt" },
+    { "id": "ventilasjon", "name": "ventilasjon", "legal": "ikke lovpålagt" },
+    { "id": "elektrisk_anlegg", "name": "elektrisk anlegg", "legal": "ikke lovpålagt" },
+    { "id": "pipe_og_ildsted", "name": "pipe og ildsted", "legal": "ikke lovpålagt" },
+
+    { "id": "brannsikkerhet", "name": "brannsikkerhet", "legal": "uklart/avhenger av rapporttype" },
+    { "id": "roemningsvei", "name": "rømningsvei", "legal": "uklart/avhenger av rapporttype" },
+
+    { "id": "lovlighet", "name": "lovlighet", "legal": "lovpålagt" },
+    { "id": "tilleggsbygninger", "name": "tilleggsbygninger", "legal": "lovpålagt" }
+  ],
+
+  "canonical_index": {
+    "grunn og fundamenter": "grunn_og_fundamenter",
+    "grunnmur": "grunnmur",
+    "drenering": "drenering",
+    "rom under terreng": "rom_under_terreng",
+    "krypkjeller": "krypkjeller",
+    "terrengforhold": "terrengforhold",
+    "bæresystem": "baeresystem",
+    "etasjeskiller": "etasjeskiller",
+    "gulv mot grunn": "gulv_mot_grunn",
+    "yttervegger": "yttervegger",
+    "vinduer og ytterdører": "vinduer_og_yterdoerer",
+    "tak": "tak",
+    "takkonstruksjon": "takkonstruksjon",
+    "taktekking": "taktekking",
+    "takrenner og nedløp": "takrenner_og_nedloep",
+    "balkonger, terrasser og altaner": "balkonger_terrasser_altaner",
+    "utvendige trapper og adkomst": "utvendige_trapper_og_adkomst",
+    "støttemur": "stoettemur",
+    "våtrom": "vaatrom",
+    "våtrom - bad": "vaatrom_bad",
+    "våtrom - vaskerom": "vaatrom_vaskerom",
+    "sanitærrom": "sanitaerrom",
+    "innvendige vann- og avløpsrør": "innvendige_vann_og_avloepsroer",
+    "utvendige vann- og avløpsledninger": "utvendige_vann_og_avloepsledninger",
+    "varmtvannsbereder": "varmtvannsbereder",
+    "ventilasjon": "ventilasjon",
+    "elektrisk anlegg": "elektrisk_anlegg",
+    "pipe og ildsted": "pipe_og_ildsted",
+    "brannsikkerhet": "brannsikkerhet",
+    "rømningsvei": "roemningsvei",
+    "lovlighet": "lovlighet",
+    "tilleggsbygninger": "tilleggsbygninger"
+  },
+
+  "alias_mapping": {
+    "fundamenter": "grunn og fundamenter",
+    "grunn": "grunn og fundamenter",
+    "grunn og fundament": "grunn og fundamenter",
+
+    "kjeller": "rom under terreng",
+    "kjellerrom": "rom under terreng",
+    "rom under terreng (kjeller)": "rom under terreng",
+
+    "etasjeskiller og bærende konstruksjoner": "etasjeskiller",
+    "bærende konstruksjoner": "bæresystem",
+    "bærende": "bæresystem",
+
+    "vinduer": "vinduer og ytterdører",
+    "vinduer og utvendige dører": "vinduer og ytterdører",
+    "ytterdører": "vinduer og ytterdører",
+    "utvendige dører": "vinduer og ytterdører",
+    "innerdører": "sanitærrom",
+
+    "takkonstruksjon/undertak/loft": "takkonstruksjon",
+    "undertak": "takkonstruksjon",
+    "loft": "takkonstruksjon",
+
+    "taktekking og beslag": "taktekking",
+    "beslag": "taktekking",
+    "takbeslag": "taktekking",
+
+    "takrenner": "takrenner og nedløp",
+    "nedløp": "takrenner og nedløp",
+
+    "balkonger": "balkonger, terrasser og altaner",
+    "terrasser": "balkonger, terrasser og altaner",
+    "altaner": "balkonger, terrasser og altaner",
+    "verandaer": "balkonger, terrasser og altaner",
+    "balkongrekkverk": "balkonger, terrasser og altaner",
+    "terrasserekkverk": "balkonger, terrasser og altaner",
+    "rekkverk / fallfare": "balkonger, terrasser og altaner",
+    "fallfare": "balkonger, terrasser og altaner",
+
+    "bad": "våtrom",
+    "dusj": "våtrom",
+    "vaskerom": "våtrom - vaskerom",
+    "wc": "sanitærrom",
+    "sanitærrom / wc (ikke våtrom)": "sanitærrom",
+    "membran": "våtrom",
+    "tettesjikt": "våtrom",
+    "sluk": "våtrom",
+    "fall": "våtrom",
+    "overflater": "våtrom",
+    "overflate gulv": "våtrom",
+
+    "vvs": "innvendige vann- og avløpsrør",
+    "vann": "innvendige vann- og avløpsrør",
+    "vannledninger": "innvendige vann- og avløpsrør",
+    "innvendige vannledninger": "innvendige vann- og avløpsrør",
+    "avløp": "innvendige vann- og avløpsrør",
+    "avløpsrør": "innvendige vann- og avløpsrør",
+    "innvendige avløpsrør": "innvendige vann- og avløpsrør",
+    "utvendige vann- og avløpsledninger / brønn / septik": "utvendige vann- og avløpsledninger",
+    "brønn": "utvendige vann- og avløpsledninger",
+    "septik": "utvendige vann- og avløpsledninger",
+
+    "elanlegg": "elektrisk anlegg",
+    "el-anlegg": "elektrisk anlegg",
+    "el-anlegg": "elektrisk anlegg",
+    "el-kontroll": "elektrisk anlegg",
+    "elkontroll": "elektrisk anlegg",
+    "sikringsskap": "elektrisk anlegg",
+    "jordfeil": "elektrisk anlegg",
+    "kurser": "elektrisk anlegg",
+
+    "ildsted": "pipe og ildsted",
+    "pipe": "pipe og ildsted",
+    "røykvarsler": "brannsikkerhet",
+    "slukkeutstyr": "brannsikkerhet",
+    "branncelle": "brannsikkerhet",
+    "brannskille": "brannsikkerhet",
+    "rømningsdør": "rømningsvei",
+    "rømningsvindu": "rømningsvei",
+
+    "garasje": "tilleggsbygninger",
+    "uthus": "tilleggsbygninger",
+    "tilleggsbygninger (garasje/uthus) med nær tilknytning": "tilleggsbygninger",
+
+    "pbl": "lovlighet",
+    "ferdigattest": "lovlighet",
+    "tegninger": "lovlighet",
+    "lovlighet/tiltak (pbl-dokumentasjon, tegninger, ferdigattest mv.)": "lovlighet",
+
+    "etasje > bad/ wc/ vaskerom": "vaatrom",
+    "bad/ wc/ vaskerom": "vaatrom",
+    "utvendig > veggkonstruksjon": "yttervegger",
+    "veggkonstruksjon": "yttervegger"
+  },
+
+  "enforcement": {
+    "tag_each_segment_with_legal_status": true,
+    "ui_show_legal_badge": true,
+    "ui_append_suffix_for_non_required": " (ikke lovpålagt)",
+    "scoring_policy": {
+      "do_not_penalize_missing_non_required_segments": true,
+      "penalize_if_non_required_is_included_but_risky_claims_made": true,
+      "non_required_risk_triggers": [
+        "TG settes",
+        "tilstandsgrad",
+        "funksjonstestet",
+        "kontrollert",
+        "avdekket",
+        "bekreftet",
+        "feil",
+        "mangel",
+        "ikke forskriftsmessig",
+        "ikke fagmessig"
+      ],
+      "remediation_text_non_required": "Bygningsdelen er ikke lovpålagt å vurdere. Hvis du likevel omtaler den, må du enten (a) beskrive undersøkelsesomfang og forbehold tydelig, eller (b) unngå TG og bastante konklusjoner uten dokumentasjon."
+    }
+  },
+
+  "validation_rules": {
+    "exact_match_required": true,
+    "allow_alias_mapping": true,
+    "reject_if_not_canonical_or_alias": true,
+    "reject_if_hard_regex_match": true
+  },
+
+  "hierarchy_rules": {
+    "build_tree_only_from_validated_segments": true,
+    "children_must_map_to_valid_parent": true,
+    "never_render_invalid_segment": true
+  }
+}

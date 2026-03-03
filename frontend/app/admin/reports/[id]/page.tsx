@@ -57,9 +57,11 @@ interface FeedbackPointOverview {
   title: string
   tg: string
   status: 'ok' | 'improve' | 'deduction' | 'blocking'
+  legal_status?: string
   summary: string
   deduction_total?: number
   finding_ids?: string[]
+  parent_id?: string | null
 }
 
 interface FeedbackV11 {
@@ -143,6 +145,16 @@ interface ReportDetail {
   findings_v14?: Array<any>
   improvements_v14?: Array<any>
   disclaimers_v14?: Array<string>
+  segmentation_trace?: {
+    total_detected_before_stray?: number
+    total_after_stray?: number
+    total_after_whitelist?: number
+    stray_rejected_count?: number
+    stray_rejected?: Array<{ point_id: string; normalized_title: string; reason: string }>
+    whitelist_rejected_count?: number
+    whitelist_rejected?: Array<{ point_id: string; normalized_title: string; reason: string }>
+    validated_point_ids?: string[]
+  } | null
   trygghetsscore?: TrygghetScore | null
   forbedringsliste?: Array<{
     nummer: number
@@ -164,7 +176,29 @@ export default function AdminReportDetail() {
   const [report, setReport] = useState<ReportDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeSection, setActiveSection] = useState<'overview' | 'arkat' | 'findings' | 'components' | 'raw' | 'points'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'arkat' | 'findings' | 'components' | 'raw' | 'points' | 'segmentation'>('overview')
+  const [segmentationTrace, setSegmentationTrace] = useState<{
+    total_detected_before_stray?: number
+    total_after_stray?: number
+    total_after_whitelist?: number
+    stray_rejected_count?: number
+    stray_rejected?: Array<{ point_id: string; normalized_title: string; reason: string }>
+    whitelist_rejected_count?: number
+    whitelist_rejected?: Array<{ point_id: string; normalized_title: string; reason: string }>
+    validated_point_ids?: string[]
+    detected_points_total?: number
+    rejected_not_in_whitelist_count?: number
+    rejected_hard_regex_count?: number
+    accepted_canonical_count?: number
+    accepted_alias_count?: number
+    rejected_noise_count?: number
+    unclassified_heading_count?: number
+    classified_heading_count?: number
+    rejected_noise_sample?: Array<{ point_id: string; normalized_title: string; reason: string }>
+    unclassified_heading_sample?: Array<{ point_id: string; normalized_title: string; reason: string }>
+  } | null>(null)
+  const [segmentationLoading, setSegmentationLoading] = useState(false)
+  const [segmentationError, setSegmentationError] = useState<string | null>(null)
 
   useEffect(() => {
     const adminToken = localStorage.getItem('admin_token')
@@ -174,6 +208,39 @@ export default function AdminReportDetail() {
     }
     fetchReport()
   }, [reportId, router])
+
+  useEffect(() => {
+    if (activeSection !== 'segmentation') return
+    // Use trace from report if already included (admin response)
+    if (report?.segmentation_trace) {
+      setSegmentationTrace(report.segmentation_trace)
+      setSegmentationLoading(false)
+      setSegmentationError(null)
+      return
+    }
+    setSegmentationLoading(true)
+    setSegmentationError(null)
+    const adminToken = localStorage.getItem('admin_token')
+    if (!adminToken) return
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    axios.get(`${apiUrl}/api/v1/admin/reports/${reportId}/segmentation-trace`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+      .then((res) => {
+        if (res.data?.error) {
+          setSegmentationTrace(null)
+          setSegmentationError(res.data.error)
+        } else {
+          setSegmentationTrace(res.data?.trace || null)
+          setSegmentationError(null)
+        }
+      })
+      .catch((err) => {
+        setSegmentationTrace(null)
+        setSegmentationError(err.response?.data?.detail || err.message || 'Failed to load segmentation trace')
+      })
+      .finally(() => setSegmentationLoading(false))
+  }, [activeSection, reportId, report?.segmentation_trace])
 
   const fetchReport = async () => {
     setLoading(true)
@@ -277,6 +344,7 @@ export default function AdminReportDetail() {
         ...(hasFeedbackV11 ? [{ id: 'points', label: `Points (${feedbackV11?.points_overview?.length || 0})` }] : []),
         { id: 'findings', label: `Findings (${findingsForDisplay.length})` },
         { id: 'components', label: `Components (${analysis?.findings?.length || 0})` },
+        { id: 'segmentation', label: 'Segmentation trace' },
         { id: 'raw', label: 'Raw Analysis' },
       ]
     : [
@@ -284,6 +352,7 @@ export default function AdminReportDetail() {
         { id: 'arkat', label: `ARKAT (Årsak–Risiko–Konsekvens–Anbefalt tiltak) (${report.forbedringsliste?.length || 0})` },
         { id: 'findings', label: `All Findings (${report.findings.length})` },
         { id: 'components', label: `Components (${report.components.length})` },
+        { id: 'segmentation', label: 'Segmentation trace' },
         { id: 'raw', label: 'Raw Analysis' },
       ]
 
@@ -910,10 +979,20 @@ export default function AdminReportDetail() {
             {activeSection === 'points' && hasFeedbackV11 && feedbackV11 && (
               <div className="space-y-4">
                 {feedbackV11.points_overview.map((point) => (
-                  <div key={point.point_id} className="border border-gray-200 rounded-lg p-4">
+                  <div
+                    key={point.point_id}
+                    className={`border border-gray-200 rounded-lg p-4 ${point.parent_id ? 'ml-4 border-l-4 border-l-blue-200' : ''}`}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="font-medium text-gray-900">{point.title}</h4>
+                        <h4 className="font-medium text-gray-900">
+                          {(point as { title_display?: string }).title_display || point.title}
+                          {(point.legal_status === 'ikke lovpålagt' || (point as { ui_badge?: string }).ui_badge) && (
+                            <span className="ml-1 text-xs font-normal text-amber-700">
+                              {(point as { ui_badge?: string }).ui_badge || '(ikke lovpålagt)'}
+                            </span>
+                          )}
+                        </h4>
                         <p className="text-xs text-gray-500">Punkt {point.point_id}</p>
                       </div>
                       <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
@@ -977,6 +1056,156 @@ export default function AdminReportDetail() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {activeSection === 'segmentation' && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Segmentation trace (admin debug)</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Total detected points, stray rejections, whitelist rejections — use to tune the whitelist safely.
+                </p>
+                {segmentationLoading && (
+                  <div className="flex items-center gap-2 text-gray-600 mb-4">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-200 border-t-blue-600 rounded-full" />
+                    <span>Loading trace...</span>
+                  </div>
+                )}
+                {segmentationError && (
+                  <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 mb-4">
+                    {segmentationError}
+                  </div>
+                )}
+                {!segmentationLoading && !segmentationError && segmentationTrace && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="text-xs text-gray-500 uppercase">Total detected</p>
+                        <p className="text-xl font-semibold text-gray-900">{segmentationTrace.total_detected_before_stray ?? 0}</p>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-xs text-amber-700 uppercase">Stray rejected</p>
+                        <p className="text-xl font-semibold text-amber-900">{segmentationTrace.stray_rejected_count ?? 0}</p>
+                      </div>
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <p className="text-xs text-orange-700 uppercase">Whitelist rejected</p>
+                        <p className="text-xl font-semibold text-orange-900">{segmentationTrace.whitelist_rejected_count ?? 0}</p>
+                      </div>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-xs text-green-700 uppercase">Validated</p>
+                        <p className="text-xl font-semibold text-green-900">{segmentationTrace.total_after_whitelist ?? 0}</p>
+                      </div>
+                    </div>
+                    {(typeof segmentationTrace.detected_points_total === 'number' || typeof segmentationTrace.classified_heading_count === 'number') && (
+                      <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                        <h4 className="text-sm font-medium text-slate-900 mb-3">Whitelist v2.2 diagnostic</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
+                          <div>
+                            <p className="text-slate-500">detected_points_total</p>
+                            <p className="font-mono font-semibold">{segmentationTrace.detected_points_total ?? '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">rejected_noise</p>
+                            <p className="font-mono font-semibold text-orange-700">{segmentationTrace.rejected_noise_count ?? '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">unclassified_heading</p>
+                            <p className="font-mono font-semibold text-orange-700">{segmentationTrace.unclassified_heading_count ?? '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">classified_heading</p>
+                            <p className="font-mono font-semibold text-green-700">{segmentationTrace.classified_heading_count ?? '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">rejected_not_in_whitelist</p>
+                            <p className="font-mono font-semibold">{segmentationTrace.rejected_not_in_whitelist_count ?? '-'}</p>
+                          </div>
+                        </div>
+                        {(segmentationTrace.rejected_noise_sample?.length ?? 0) > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-slate-500 mb-1">rejected_noise_sample (first 20)</p>
+                            <div className="text-xs font-mono bg-white p-2 rounded border border-slate-200 max-h-32 overflow-y-auto">
+                              {segmentationTrace.rejected_noise_sample!.slice(0, 20).map((r, i) => (
+                                <div key={i}>{r.point_id} | {r.reason} | {r.normalized_title}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(segmentationTrace.unclassified_heading_sample?.length ?? 0) > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-slate-500 mb-1">unclassified_heading_sample (first 20)</p>
+                            <div className="text-xs font-mono bg-white p-2 rounded border border-slate-200 max-h-32 overflow-y-auto">
+                              {segmentationTrace.unclassified_heading_sample!.slice(0, 20).map((r, i) => (
+                                <div key={i}>{r.point_id} | {r.reason} | {r.normalized_title}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {(segmentationTrace.stray_rejected?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Stray rejected (reason + normalized title)</h4>
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium text-gray-700">point_id</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-700">reason</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-700">normalized_title</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {segmentationTrace.stray_rejected!.map((r, i) => (
+                                <tr key={i} className="bg-white">
+                                  <td className="px-3 py-2 font-mono text-gray-900">{r.point_id}</td>
+                                  <td className="px-3 py-2 text-amber-700">{r.reason}</td>
+                                  <td className="px-3 py-2 text-gray-600">{r.normalized_title}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {(segmentationTrace.whitelist_rejected?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Whitelist rejected (reason + normalized title)</h4>
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium text-gray-700">point_id</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-700">reason</th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-700">normalized_title</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {segmentationTrace.whitelist_rejected!.map((r, i) => (
+                                <tr key={i} className="bg-white">
+                                  <td className="px-3 py-2 font-mono text-gray-900">{r.point_id}</td>
+                                  <td className="px-3 py-2 text-orange-700">{r.reason}</td>
+                                  <td className="px-3 py-2 text-gray-600">{r.normalized_title}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {segmentationTrace.validated_point_ids && segmentationTrace.validated_point_ids.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Validated point IDs</h4>
+                        <p className="text-xs text-gray-500 font-mono bg-gray-50 p-2 rounded border border-gray-200">
+                          {segmentationTrace.validated_point_ids.join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!segmentationLoading && !segmentationError && !segmentationTrace && (
+                  <p className="text-gray-500">No trace data available.</p>
+                )}
               </div>
             )}
 

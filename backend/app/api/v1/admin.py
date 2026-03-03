@@ -12,7 +12,7 @@ from app.auth import get_current_admin, create_access_token, verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas import ReportResponse, ComponentBase, FindingBase
 from app.config import settings
-from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence
+from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence, run_segmentation_trace, build_feedback_v11, get_validated_detected_points_payload
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,35 @@ def get_current_admin_from_token(
 # ============================================================================
 
 # IMPORTANT: More specific routes must be defined BEFORE less specific ones
-# /reports/{report_id}/download-pdf must come before /reports/{report_id}
+# /reports/{report_id}/download-pdf and /segmentation-trace must come before /reports/{report_id}
+
+@router.get("/reports/{report_id}/segmentation-trace")
+async def get_segmentation_trace(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_from_token)
+):
+    """
+    Admin-only: Run segmentation with tracing and return debug stats.
+    Shows total detected, stray rejections, whitelist rejections with reasons.
+    """
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    extracted_text = report.extracted_text
+    if not extracted_text:
+        return {
+            "report_id": report_id,
+            "error": "No extracted text available for this report",
+            "trace": None,
+        }
+    trace = run_segmentation_trace(extracted_text)
+    return {
+        "report_id": report_id,
+        "filename": report.filename,
+        "trace": trace,
+    }
+
 
 @router.get("/reports/{report_id}/download-pdf")
 async def download_report_pdf(
@@ -289,6 +317,25 @@ async def get_report_admin(
     ai_analysis = report.ai_analysis or {}
     scoring_result = report.scoring_result or {}
     
+    # Hard gate: use validated segments only (extract → whitelist before hierarchy)
+    if isinstance(scoring_result, dict) and isinstance(ai_analysis, dict):
+        try:
+            validated_payload = get_validated_detected_points_payload(
+                report.extracted_text or "",
+                document_hash=report.document_hash or "",
+                document_title=report.filename,
+                document_id=str(report.id),
+            )
+            scoring_result = dict(scoring_result)
+            scoring_result["feedback_v11"] = build_feedback_v11(
+                ai_analysis,
+                validated_payload,
+                report_id=str(report.id),
+                document_hash=report.document_hash or "",
+            )
+        except Exception as e:
+            logger.warning(f"Rebuild feedback_v11 for admin report {report.id}: {e}")
+    
     analysis_output = ai_analysis if isinstance(ai_analysis, dict) else {}
     if isinstance(analysis_output, dict):
         ensure_analysis_evidence(analysis_output, report.extracted_text or "")
@@ -326,6 +373,14 @@ async def get_report_admin(
                 prop44_deviations.append(f)
     
     risk_findings = [f for f in findings_data if f.severity in ["high", "critical"]]
+    
+    # Admin-only: segmentation trace (debug) for tuning whitelist
+    segmentation_trace = None
+    if report.extracted_text:
+        try:
+            segmentation_trace = run_segmentation_trace(report.extracted_text)
+        except Exception as e:
+            logger.warning(f"Segmentation trace failed: {e}")
     
     # Generate presigned URL for PDF if available
     pdf_download_url = None
@@ -376,6 +431,7 @@ async def get_report_admin(
         "findings_v14": findings_v14,
         "improvements_v14": improvements_v14,
         "disclaimers_v14": disclaimers_v14,
+        "segmentation_trace": segmentation_trace,
     }
 
 # ============================================================================

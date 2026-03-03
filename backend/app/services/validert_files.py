@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 import hashlib
 import json
+import re
 
 FILES_DIR = Path(__file__).resolve().parents[3] / "files"
 
@@ -35,6 +36,8 @@ META_RULE_OPTIONAL_TG_FORBIDDEN_PATH = FILES_DIR / "validert_optional_tg_forbidd
 META_RULE_NON_MANDATORY_ASSESSED_PATH = FILES_DIR / "validert_non_mandatory_assessed_meta_rule_v1_1.json"
 LOVLIGHET_PATCH_EL_TG_PATH = FILES_DIR / "validert_lovlighet_patch_el_tg_v1_2.json"
 LOVLIGHET_PATCH_HMS_TG_PATH = FILES_DIR / "validert_lovlighet_patch_hms_tg_v1_2.json"
+BUILDING_PART_WHITELIST_V21_PATH = FILES_DIR / "validert_building_part_whitelist_v2_1.json"
+BUILDING_PART_WHITELIST_V22_PATH = FILES_DIR / "validert_building_part_whitelist_v2_2.json"
 
 # Routing: if element.tg_policy == "FORBIDDEN" -> apply optional_tg_forbidden_meta_rule_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
@@ -111,6 +114,55 @@ def get_age_service_life_validation_text() -> str:
 
 def get_element_hierarchy_text() -> str:
     return _read_text(ELEMENT_HIERARCHY_PATH)
+
+
+def get_building_part_whitelist_v21() -> Dict:
+    """Load whitelist v2.1: strict canonical + alias, legal tagging, hard reject regex."""
+    try:
+        return json.loads(_read_text(BUILDING_PART_WHITELIST_V21_PATH))
+    except (json.JSONDecodeError, OSError, FileNotFoundError):
+        return {}
+
+
+def get_building_part_whitelist_v22() -> Dict:
+    """Load whitelist v2.2: normalization, reject_if_regex, canonical building parts, instance extraction."""
+    try:
+        return json.loads(_read_text(BUILDING_PART_WHITELIST_V22_PATH))
+    except (json.JSONDecodeError, OSError, FileNotFoundError):
+        return {}
+
+
+def get_building_part_whitelist() -> Dict[str, set]:
+    """Load building-part names and synonyms for segment validation. Returns dict with 'names' and 'blocklist' sets."""
+    names: set = set()
+    blocklist: set = set()
+    try:
+        hierarchy = json.loads(_read_text(ELEMENT_HIERARCHY_PATH))
+        for el in hierarchy.get("elements", []) or []:
+            if not isinstance(el, dict):
+                continue
+            name = (el.get("name") or "").strip()
+            if name:
+                name_lower = name.lower()
+                names.add(name_lower)
+                for word in re.sub(r"[-/()]", " ", name_lower).split():
+                    if len(word) >= 3:
+                        names.add(word)
+    except (json.JSONDecodeError, OSError):
+        pass
+    try:
+        syn = json.loads(_read_text(ELEMENT_HIERARCHY_SYNONYMS_PATH))
+        for key, vals in (syn.get("elements") or {}).items():
+            if isinstance(vals, list):
+                for v in vals:
+                    if isinstance(v, str) and v.strip():
+                        names.add(v.strip().lower())
+            elif isinstance(vals, str):
+                names.add(vals.strip().lower())
+    except (json.JSONDecodeError, OSError):
+        pass
+    blocklist = {"etg", "kostnadspekulasjon", "vurderinger", "yttligere"}
+    return {"names": names, "blocklist": blocklist}
 
 
 def get_element_hierarchy_synonyms_text() -> str:

@@ -112,6 +112,9 @@ interface FeedbackPointOverview {
   summary: string
   deduction_total?: number
   finding_ids?: string[]
+  parent_id?: string | null
+  /** lovpålagt | ikke lovpålagt | uklart/avhenger av rapporttype */
+  legal_status?: string
 }
 
 interface FeedbackFinding {
@@ -1002,11 +1005,21 @@ export default function ResultsPage() {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {feedbackV11.points_overview.map((point) => (
-                  <div key={point.point_id} className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm">
+                  <div
+                    key={point.point_id}
+                    className={`border border-gray-200 rounded-xl p-5 bg-white shadow-sm ${point.parent_id ? 'ml-4 md:ml-6 border-l-4 border-l-blue-200' : ''}`}
+                  >
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div>
                         <p className="text-xs font-semibold uppercase text-gray-500">Punkt {point.point_id}</p>
-                        <h3 className="text-lg font-semibold text-gray-900">{point.title}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {(point as { title_display?: string }).title_display || point.title}
+                          {(point.legal_status === 'ikke lovpålagt' || (point as { ui_badge?: string }).ui_badge) && (
+                            <span className="ml-2 text-sm font-normal text-amber-700">
+                              {(point as { ui_badge?: string }).ui_badge || '(ikke lovpålagt)'}
+                            </span>
+                          )}
+                        </h3>
                       </div>
                       <div className="text-right">
                         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pointStatusClasses(point.status)}`}>

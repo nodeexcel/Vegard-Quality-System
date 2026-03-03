@@ -1,0 +1,551 @@
+{
+  "schema": "validert.building_part_whitelist",
+  "version": "2.1.0",
+  "updated_at": "2026-03-02",
+  "notes": [
+    "Purpose: stabilize 'punkt-for-punkt oversikt' across many report templates by mapping noisy headings to canonical building parts.",
+    "This whitelist is used ONLY to decide which detected headings become segments shown in the UI and fed to ARK/ARKAT validation.",
+    "It also labels building parts as (required by forskrift) vs (ikke lovpålagt)."
+  ],
+  "normalization": {
+    "lowercase": true,
+    "strip": true,
+    "collapse_whitespace": true,
+    "remove_soft_hyphen": true,
+    "unicode_nfkc": true,
+    "replace_chars": {
+      "–": "-",
+      "—": "-",
+      "•": " ",
+      " ": " "
+    },
+    "remove_prefixes_regex": [
+      "^(pkt|punkt)\\s*",
+      "^kap(ittel)?\\s*",
+      "^del\\s*",
+      "^sone\\s*"
+    ],
+    "remove_suffixes_regex": [
+      "\\s*\\(.*?\\)\\s*$"
+    ],
+    "reject_if_regex": [
+      "^\\d{1,3}(\\s*\\d{3})+$",
+      "^ukjent$",
+      "^etg[:.]?$",
+      "^kostnadspekulasjon$",
+      "^for\\s+ytterligere\\s+vurderinger\\.?$",
+      "^vurderinger$",
+      "^dokumentasjon$"
+    ]
+  },
+  "classification": {
+    "instance_extract": {
+      "regex_order": [
+        "^(?P<etasje>(underetasje|kjeller|sokkel|loft|1\\.?\\s*etg|2\\.?\\s*etg|3\\.?\\s*etg))\\s*[>:/-]\\s*(?P<rom>.+)$",
+        "^(?P<rom>(bad|wc|toalett|vaskerom|dusj|kjøkken))\\s*(?P<etasje>(underetasje|kjeller|sokkel|loft|1\\.?\\s*etg|2\\.?\\s*etg|3\\.?\\s*etg))$",
+        "^(?P<base>.+?)\\s*[:\\-]\\s*(?P<label>.+)$"
+      ],
+      "rom_synonyms": {
+        "bad": [
+          "bad",
+          "baderom"
+        ],
+        "wc": [
+          "wc",
+          "toalett"
+        ],
+        "vaskerom": [
+          "vaskerom",
+          "laundry"
+        ],
+        "kjøkken": [
+          "kjøkken"
+        ],
+        "dusj": [
+          "dusj"
+        ]
+      }
+    }
+  },
+  "building_parts": [
+    {
+      "id": "BP_LOVLIGHET",
+      "display_name": "Lovlighet / tiltak (PBL-dokumentasjon, tegninger, ferdigattest mv.)",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "lovlighet",
+          "lovlighet/hms",
+          "lovlighet / hms"
+        ],
+        "contains_any": [
+          "ferdigattest",
+          "midlertidig brukstillatelse",
+          "tegninger",
+          "kommunepakken",
+          "pbl",
+          "bruksendring",
+          "tilbygg",
+          "påbygg"
+        ],
+        "regex_any": [
+          "\\blovlig(het| status)\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_VATROM",
+      "display_name": "Våtrom (bad/dusj/wc/vaskerom)",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "våtrom"
+        ],
+        "contains_any": [
+          "bad",
+          "baderom",
+          "wc",
+          "toalett",
+          "dusj",
+          "vaskerom",
+          "membran",
+          "tettesjikt",
+          "sluk",
+          "fall"
+        ],
+        "regex_any": [
+          "\\bvåtrom\\b",
+          "\\bmembran\\b",
+          "\\bsluk\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_KJOKKEN",
+      "display_name": "Kjøkken (innredning/overflater – teknisk del)",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "kjøkken"
+        ],
+        "contains_any": [
+          "kjøkkeninnredning",
+          "benkeplate",
+          "avtrekk",
+          "vannstoppekran"
+        ],
+        "regex_any": [
+          "\\bkjøkken\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_INNVENDIG_VANN_AVLOP",
+      "display_name": "Innvendige vann- og avløpsrør",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "avløpsrør",
+          "vannledninger",
+          "innvendige vannledninger",
+          "innvendige avløpsrør"
+        ],
+        "contains_any": [
+          "innvendige vann",
+          "innvendig avløp",
+          "wc og innvendige vann",
+          "korrosjon",
+          "lekkasje"
+        ],
+        "regex_any": [
+          "\\b(vann|avløp)s?r(ø|o)r\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_EL",
+      "display_name": "Elektrisk anlegg (begrenset vurdering)",
+      "required_by_forskrift": true,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "el-anlegg",
+          "elektrisk",
+          "elektrisk anlegg",
+          "el-kontroll",
+          "elkontroll"
+        ],
+        "contains_any": [
+          "sikringsskap",
+          "kurser",
+          "jordfeil",
+          "samsvarserklæring",
+          "el-anlegg og samsvarserklæringer"
+        ],
+        "regex_any": [
+          "\\belektrisk\\b",
+          "\\bel[- ]?anlegg\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_BRANN",
+      "display_name": "Rømningsvei / brannsikkerhet",
+      "required_by_forskrift": true,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "brannsikkerhet",
+          "rømningsvei",
+          "rømningsvei / brannsikkerhet"
+        ],
+        "contains_any": [
+          "rømningsvindu",
+          "rømningsdør",
+          "branncelle",
+          "røykvarsler",
+          "slukkeutstyr"
+        ],
+        "regex_any": [
+          "\\br(ø|o)mnings",
+          "\\bbrann"
+        ]
+      }
+    },
+    {
+      "id": "BP_GRUNN_DRENERING",
+      "display_name": "Byggegrunn, fundamenter, grunnmur, drenering og sikring mot vann og fuktighet",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "drenering",
+          "grunnmur",
+          "fundamenter",
+          "grunn og fundamenter",
+          "drenering og grunnmur"
+        ],
+        "contains_any": [
+          "byggegrunn",
+          "sikring mot vann",
+          "fuktighet",
+          "setninger"
+        ],
+        "regex_any": [
+          "\\bdrener",
+          "\\bgrunnmur\\b",
+          "\\bfundament"
+        ]
+      }
+    },
+    {
+      "id": "BP_TERRRENG_AVRENNING",
+      "display_name": "Terrengforhold og avrenning",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "terrengforhold",
+          "terreng",
+          "avrenning",
+          "terrengforhold og avrenning"
+        ],
+        "contains_any": [
+          "fall på terreng",
+          "overvann",
+          "inn mot grunnmur"
+        ],
+        "regex_any": [
+          "\\bterreng\\b",
+          "\\bavrenn"
+        ]
+      }
+    },
+    {
+      "id": "BP_YTTERVEGGER",
+      "display_name": "Yttervegger inkl. kledning",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "yttervegger",
+          "kledning",
+          "yttervegger inkl. kledning"
+        ],
+        "contains_any": [
+          "fasade",
+          "kledning",
+          "utvendig kledning"
+        ],
+        "regex_any": [
+          "\\bytervegg",
+          "\\bkledning\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_VINDUER_DORER",
+      "display_name": "Vinduer og utvendige dører",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "vinduer",
+          "dører",
+          "vinduer og dører",
+          "vinduer og utvendige dører"
+        ],
+        "contains_any": [
+          "ytterdør",
+          "terrassedør",
+          "tettelister"
+        ],
+        "regex_any": [
+          "\\bvindu",
+          "\\bytterd(ø|o)r"
+        ]
+      }
+    },
+    {
+      "id": "BP_TAK",
+      "display_name": "Takkonstruksjon / taktekking / beslag",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "tak",
+          "takkonstruksjon",
+          "taktekking",
+          "taktekking og beslag",
+          "takkonstruksjon og loft"
+        ],
+        "contains_any": [
+          "undertak",
+          "lekter",
+          "takrenner",
+          "nedløp",
+          "pipe over tak",
+          "skorstein over tak"
+        ],
+        "regex_any": [
+          "\\btak(konstruksjon|tekking)?\\b",
+          "\\bundertak\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_ROM_UNDER_TERRENG",
+      "display_name": "Rom under terreng (kjeller)",
+      "required_by_forskrift": true,
+      "ui_badge": null,
+      "match": {
+        "exact": [
+          "rom under terreng",
+          "rom under terreng (kjeller)",
+          "kjeller"
+        ],
+        "contains_any": [
+          "kjellerbod",
+          "kjellerrom",
+          "fuktsikring under terreng"
+        ],
+        "regex_any": [
+          "\\brom under terreng\\b",
+          "\\bkjeller\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_ETASJESKILLER",
+      "display_name": "Etasjeskiller / gulv mot grunn",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "etasjeskiller",
+          "etasjeskille",
+          "etasjeskille og gulv på grunn",
+          "gulv på grunn",
+          "etasjeskille/gulv mot grunn"
+        ],
+        "contains_any": [
+          "bærende konstruksjoner",
+          "svikt",
+          "skjevhet",
+          "råte i bjelkelag"
+        ],
+        "regex_any": [
+          "\\betasjeskil",
+          "\\bgulv( mot grunn| på grunn)?\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_BALKONG_TERRASSE",
+      "display_name": "Balkonger, verandaer, terrasser og altaner",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "balkonger",
+          "terrasser",
+          "altaner",
+          "balkonger, verandaer og lignende",
+          "balkong, terrasse, platting"
+        ],
+        "contains_any": [
+          "rekkverk",
+          "fallfare",
+          "terrasserekkverk",
+          "balkongrekkverk"
+        ],
+        "regex_any": [
+          "\\bbalkong",
+          "\\bterrass",
+          "\\bveranda",
+          "\\baltan"
+        ]
+      }
+    },
+    {
+      "id": "BP_TRAPPER",
+      "display_name": "Trapper og rekkverk",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "trapper",
+          "utvendige trapper og adkomst",
+          "trapper innvendig",
+          "rekkverk"
+        ],
+        "contains_any": [
+          "trapperekkverk",
+          "fallfare",
+          "håndlist"
+        ],
+        "regex_any": [
+          "\\btrapp",
+          "\\brekkverk\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_VENTILASJON",
+      "display_name": "Ventilasjon",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "ventilasjon"
+        ],
+        "contains_any": [
+          "mekanisk avtrekk",
+          "tilluft",
+          "balansert ventilasjon"
+        ],
+        "regex_any": [
+          "\\bventilas"
+        ]
+      }
+    },
+    {
+      "id": "BP_VARMTVANN",
+      "display_name": "Varmtvannsbereder",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "varmtvannsbereder"
+        ],
+        "contains_any": [
+          "bereder",
+          "sikkerhetsventil",
+          "drypp"
+        ],
+        "regex_any": [
+          "\\bvarmtvannsbereder\\b",
+          "\\bbereder\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_PIPE_ILDSTED",
+      "display_name": "Pipe og ildsted",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "pipe",
+          "ildsted",
+          "pipe og ildsted",
+          "ildsted/skorstein"
+        ],
+        "contains_any": [
+          "skorstein",
+          "feieluke",
+          "røykrør"
+        ],
+        "regex_any": [
+          "\\bpipe\\b",
+          "\\bildsted\\b",
+          "\\bskorstein\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_UTOMHUS",
+      "display_name": "Utvendige konstruksjoner / utomhus (støttemur, gjerder m.m.)",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "utomhus",
+          "utvendige konstruksjoner/utomhus",
+          "utvendige konstruksjoner",
+          "støttemur",
+          "gjerder"
+        ],
+        "contains_any": [
+          "støttemur",
+          "gjerde",
+          "port",
+          "mur",
+          "skråning"
+        ],
+        "regex_any": [
+          "\\bst(ø|o)ttemur\\b",
+          "\\bgjerde\\b"
+        ]
+      }
+    },
+    {
+      "id": "BP_GARASJE_UTHUS",
+      "display_name": "Tilleggsbygninger (garasje/uthus) med nær tilknytning",
+      "required_by_forskrift": false,
+      "ui_badge": "(ikke lovpålagt)",
+      "match": {
+        "exact": [
+          "garasje",
+          "uthus",
+          "tilleggsbygninger",
+          "tilleggsbygninger (garasje/uthus) med nær tilknytning"
+        ],
+        "contains_any": [
+          "carport",
+          "bod",
+          "anneks"
+        ],
+        "regex_any": [
+          "\\bgarasje\\b",
+          "\\buthus\\b",
+          "\\bcarport\\b"
+        ]
+      }
+    }
+  ]
+}
