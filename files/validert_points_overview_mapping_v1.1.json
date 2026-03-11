@@ -1,0 +1,973 @@
+{
+  "version": "1.6",
+  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture.",
+  "source_normalization": {
+    "lowercase": true,
+    "trim": true,
+    "collapse_whitespace": true,
+    "unicode_preserve_norwegian": true,
+    "regex_flags": [
+      "IGNORECASE",
+      "UNICODE"
+    ]
+  },
+  "status_defaults": {
+    "parent_default": "NOT_FOUND_IN_REPORT",
+    "child_default": "NOT_FOUND_IN_REPORT",
+    "not_found_text_nb": "Ikke funnet i rapport"
+  },
+  "parent_cards": [
+    {
+      "canonical_id": "P01_GROUND_AND_FOUNDATIONS",
+      "label_nb": "Grunn og fundamenter",
+      "display_order": 1,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P02_EXTERIOR_WALLS_AND_FACADES",
+      "label_nb": "Yttervegger og fasader",
+      "display_order": 2,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P03_WINDOWS_AND_EXTERIOR_DOORS",
+      "label_nb": "Vinduer og utvendige dører",
+      "display_order": 3,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P04_ROOF",
+      "label_nb": "Tak",
+      "display_order": 4,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P05_EXTERIOR_STRUCTURES",
+      "label_nb": "Utvendige konstruksjoner",
+      "display_order": 5,
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": true,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P06_ROOMS_BELOW_GRADE",
+      "label_nb": "Rom under terreng",
+      "display_order": 6,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P07_WETROOMS",
+      "label_nb": "Våtrom",
+      "display_order": 7,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P08_KITCHENS",
+      "label_nb": "Kjøkken",
+      "display_order": 8,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P09_TECHNICAL_INSTALLATIONS",
+      "label_nb": "Tekniske installasjoner",
+      "display_order": 9,
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P10_INTERIOR_CONDITIONS",
+      "label_nb": "Innvendige forhold",
+      "display_order": 10,
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P11_LAWFULNESS_AND_SAFETY",
+      "label_nb": "Lovlighet og sikkerhet",
+      "display_order": 11,
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    },
+    {
+      "canonical_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "label_nb": "Tilleggsopplysninger",
+      "display_order": 12,
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "render_mode": "PARENT_CARD"
+    }
+  ],
+  "child_mappings": [
+    {
+      "child_id": "P01A_BUILDING_SITE",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "byggegrunn",
+        "grunnforhold"
+      ],
+      "regex_any": [
+        "\\bbyggegrunn\\b",
+        "\\bgrunnforhold\\b"
+      ]
+    },
+    {
+      "child_id": "P01B_FOUNDATIONS",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "fundament",
+        "fundamenter"
+      ],
+      "regex_any": [
+        "\\bfundament"
+      ]
+    },
+    {
+      "child_id": "P01C_FOUNDATION_WALLS",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "grunnmur"
+      ],
+      "regex_any": [
+        "\\bgrunnmur\\b"
+      ]
+    },
+    {
+      "child_id": "P01D_DRAINAGE",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "drenering"
+      ],
+      "regex_any": [
+        "\\bdrener"
+      ]
+    },
+    {
+      "child_id": "P01E_TERRAIN",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "terrengforhold",
+        "terrengfall",
+        "terreng"
+      ],
+      "regex_any": [
+        "\\bterreng"
+      ]
+    },
+    {
+      "child_id": "P01F_CRAWLSPACE",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "krypekjeller",
+        "krypkjeller"
+      ],
+      "regex_any": [
+        "\\bkrypekjeller\\b",
+        "\\bkrypkjeller\\b"
+      ]
+    },
+    {
+      "child_id": "P01G_MOISTURE_PROTECTION",
+      "parent_id": "P01_GROUND_AND_FOUNDATIONS",
+      "aliases": [
+        "fuktsikring",
+        "sikring mot vann og fuktighet"
+      ],
+      "regex_any": [
+        "\\bfuktsikring\\b",
+        "\\bvann og fuktighet\\b"
+      ]
+    },
+    {
+      "child_id": "P02A_EXTERIOR_WALLS",
+      "parent_id": "P02_EXTERIOR_WALLS_AND_FACADES",
+      "aliases": [
+        "yttervegger",
+        "fasader",
+        "veggkonstruksjon"
+      ],
+      "regex_any": [
+        "\\byttervegg",
+        "\\bfasad",
+        "\\bveggkonstruksjon\\b"
+      ]
+    },
+    {
+      "child_id": "P02B_CLADDING",
+      "parent_id": "P02_EXTERIOR_WALLS_AND_FACADES",
+      "aliases": [
+        "kledning"
+      ],
+      "regex_any": [
+        "\\bkledning\\b"
+      ]
+    },
+    {
+      "child_id": "P02C_FLASHINGS",
+      "parent_id": "P02_EXTERIOR_WALLS_AND_FACADES",
+      "aliases": [
+        "beslag"
+      ],
+      "regex_any": [
+        "\\bbeslag\\b"
+      ]
+    },
+    {
+      "child_id": "P02D_SILLS",
+      "parent_id": "P02_EXTERIOR_WALLS_AND_FACADES",
+      "aliases": [
+        "vannbrett"
+      ],
+      "regex_any": [
+        "\\bvannbrett\\b"
+      ]
+    },
+    {
+      "child_id": "P03A_WINDOWS",
+      "parent_id": "P03_WINDOWS_AND_EXTERIOR_DOORS",
+      "aliases": [
+        "vinduer"
+      ],
+      "regex_any": [
+        "\\bvinduer?\\b"
+      ]
+    },
+    {
+      "child_id": "P03B_BALCONY_DOORS",
+      "parent_id": "P03_WINDOWS_AND_EXTERIOR_DOORS",
+      "aliases": [
+        "balkongdører",
+        "terrassedører"
+      ],
+      "regex_any": [
+        "\\bbalkongd",
+        "\\bterrassed"
+      ]
+    },
+    {
+      "child_id": "P03C_EXTERIOR_DOORS",
+      "parent_id": "P03_WINDOWS_AND_EXTERIOR_DOORS",
+      "aliases": [
+        "ytterdører",
+        "ytterdør",
+        "utvendige dører"
+      ],
+      "regex_any": [
+        "\\bytterd",
+        "\\butvendige dører\\b"
+      ]
+    },
+    {
+      "child_id": "P04A_ROOF_STRUCTURE",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "takkonstruksjon",
+        "takstoler",
+        "bærende takkonstruksjon"
+      ],
+      "regex_any": [
+        "\\btakkonstruksjon\\b",
+        "\\btakstoler?\\b",
+        "\\bbærende takkonstruksjon\\b"
+      ]
+    },
+    {
+      "child_id": "P04B_UNDERLAY",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "undertak"
+      ],
+      "regex_any": [
+        "\\bundertak\\b"
+      ]
+    },
+    {
+      "child_id": "P04C_ROOF_COVERING",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "taktekking"
+      ],
+      "regex_any": [
+        "\\btaktekking\\b"
+      ]
+    },
+    {
+      "child_id": "P04D_GUTTERS",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "takrenner",
+        "nedløp",
+        "takrenner og nedløp"
+      ],
+      "regex_any": [
+        "\\btakrenner\\b",
+        "\\bnedløp\\b"
+      ]
+    },
+    {
+      "child_id": "P04E_FLASHINGS",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "beslag"
+      ],
+      "regex_any": [
+        "\\bbeslag\\b"
+      ]
+    },
+    {
+      "child_id": "P04F_CHIMNEY_OVER_ROOF",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "skorstein over tak",
+        "pipe over tak"
+      ],
+      "regex_any": [
+        "\\bskorstein over tak\\b",
+        "\\bpipe over tak\\b"
+      ]
+    },
+    {
+      "child_id": "P04G_SNOW_GUARDS",
+      "parent_id": "P04_ROOF",
+      "aliases": [
+        "snøfangere",
+        "snofangere"
+      ],
+      "regex_any": [
+        "\\bsnøfang",
+        "\\bsnofang"
+      ]
+    },
+    {
+      "child_id": "P05A_BALCONY",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "balkong",
+        "balkonger"
+      ],
+      "regex_any": [
+        "\\bbalkong"
+      ]
+    },
+    {
+      "child_id": "P05B_TERRACE",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "terrasse",
+        "terrasser"
+      ],
+      "regex_any": [
+        "\\bterrass"
+      ]
+    },
+    {
+      "child_id": "P05C_ALTAN",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "altan",
+        "altaner",
+        "veranda",
+        "verandaer"
+      ],
+      "regex_any": [
+        "\\baltan",
+        "\\bveranda"
+      ]
+    },
+    {
+      "child_id": "P05D_EXTERNAL_STAIRS",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "utvendig trapp",
+        "utvendige trapper"
+      ],
+      "regex_any": [
+        "\\butvendig(e)? trap"
+      ]
+    },
+    {
+      "child_id": "P05E_RETAINING_WALL",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "støttemur",
+        "stottemur"
+      ],
+      "regex_any": [
+        "\\bstøttemur\\b",
+        "\\bstottemur\\b"
+      ]
+    },
+    {
+      "child_id": "P05F_GARAGE",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "garasje"
+      ],
+      "regex_any": [
+        "\\bgarasje\\b"
+      ]
+    },
+    {
+      "child_id": "P05G_STORAGE",
+      "parent_id": "P05_EXTERIOR_STRUCTURES",
+      "aliases": [
+        "boder",
+        "bod",
+        "uthus"
+      ],
+      "regex_any": [
+        "\\bboder?\\b",
+        "\\buthus\\b"
+      ]
+    },
+    {
+      "child_id": "P06A_BELOW_GRADE_WALLS",
+      "parent_id": "P06_ROOMS_BELOW_GRADE",
+      "aliases": [
+        "rom under terreng",
+        "kjellervegger",
+        "veggenes og himlingens overflater"
+      ],
+      "regex_any": [
+        "\\brom under terreng\\b",
+        "\\bkjellervegger\\b",
+        "\\bveggenes og himlingens\\b"
+      ]
+    },
+    {
+      "child_id": "P06B_BELOW_GRADE_FLOORS",
+      "parent_id": "P06_ROOMS_BELOW_GRADE",
+      "aliases": [
+        "kjellergulv",
+        "gulvets overflate"
+      ],
+      "regex_any": [
+        "\\bkjellergulv\\b",
+        "\\bgulvets overflate\\b"
+      ]
+    },
+    {
+      "child_id": "P06C_BELOW_GRADE_VENTILATION",
+      "parent_id": "P06_ROOMS_BELOW_GRADE",
+      "aliases": [
+        "ventilasjon"
+      ],
+      "regex_any": [
+        "\\bventilasjon\\b"
+      ]
+    },
+    {
+      "child_id": "P06D_BELOW_GRADE_MOISTURE",
+      "parent_id": "P06_ROOMS_BELOW_GRADE",
+      "aliases": [
+        "fuktforhold",
+        "fuktmåling",
+        "fuktmåing"
+      ],
+      "regex_any": [
+        "\\bfuktforhold\\b",
+        "\\bfuktmå"
+      ]
+    },
+    {
+      "child_id": "P07A_WETROOM_INSTANCE",
+      "parent_id": "P07_WETROOMS",
+      "aliases": [
+        "våtrom",
+        "bad",
+        "vaskerom",
+        "dusjrom",
+        "baderom"
+      ],
+      "regex_any": [
+        "\\bvåtrom\\b",
+        "\\bbad\\b",
+        "\\bvaskerom\\b",
+        "\\bdusjrom\\b",
+        "\\bbaderom\\b"
+      ]
+    },
+    {
+      "child_id": "P07B_MEMBRANE",
+      "parent_id": "P07_WETROOMS",
+      "aliases": [
+        "membran"
+      ],
+      "regex_any": [
+        "\\bmembran\\b"
+      ]
+    },
+    {
+      "child_id": "P07C_DRAIN",
+      "parent_id": "P07_WETROOMS",
+      "aliases": [
+        "sluk"
+      ],
+      "regex_any": [
+        "\\bsluk\\b"
+      ]
+    },
+    {
+      "child_id": "P07D_SURFACES",
+      "parent_id": "P07_WETROOMS",
+      "aliases": [
+        "overflater",
+        "overflate vegger og himling",
+        "overflate gulv"
+      ],
+      "regex_any": [
+        "\\boverflater\\b",
+        "\\boverflate"
+      ]
+    },
+    {
+      "child_id": "P07E_VENTILATION",
+      "parent_id": "P07_WETROOMS",
+      "aliases": [
+        "ventilasjon"
+      ],
+      "regex_any": [
+        "\\bventilasjon\\b"
+      ]
+    },
+    {
+      "child_id": "P07F_MOISTURE_MEASUREMENT",
+      "parent_id": "P07_WETROOMS",
+      "aliases": [
+        "fuktmåling",
+        "fuktmåing",
+        "tilliggende konstruksjoner"
+      ],
+      "regex_any": [
+        "\\bfuktmå",
+        "\\btilliggende konstruksjoner\\b"
+      ]
+    },
+    {
+      "child_id": "P08A_KITCHEN_INSTANCE",
+      "parent_id": "P08_KITCHENS",
+      "aliases": [
+        "kjøkken"
+      ],
+      "regex_any": [
+        "\\bkjøkken\\b"
+      ]
+    },
+    {
+      "child_id": "P08B_KITCHEN_FURNITURE",
+      "parent_id": "P08_KITCHENS",
+      "aliases": [
+        "kjøkkeninnredning",
+        "overflater og innredning"
+      ],
+      "regex_any": [
+        "\\bkjøkkeninnredning\\b",
+        "\\boverflater og innredning\\b"
+      ]
+    },
+    {
+      "child_id": "P08C_WATER_INSTALLATIONS",
+      "parent_id": "P08_KITCHENS",
+      "aliases": [
+        "vanninstallasjoner",
+        "vann under kjøkkenbenk"
+      ],
+      "regex_any": [
+        "\\bvanninstallasjoner\\b",
+        "\\bvann under kjøkkenbenk\\b"
+      ]
+    },
+    {
+      "child_id": "P08D_EXTRACTION",
+      "parent_id": "P08_KITCHENS",
+      "aliases": [
+        "avtrekk"
+      ],
+      "regex_any": [
+        "\\bavtrekk\\b"
+      ]
+    },
+    {
+      "child_id": "P09A_WATER_PIPES",
+      "parent_id": "P09_TECHNICAL_INSTALLATIONS",
+      "aliases": [
+        "vannledninger",
+        "vannrør",
+        "innvendige vannledninger"
+      ],
+      "regex_any": [
+        "\\bvannledninger\\b",
+        "\\bvannrør\\b",
+        "\\binnvendige vannledninger\\b"
+      ]
+    },
+    {
+      "child_id": "P09B_DRAIN_PIPES",
+      "parent_id": "P09_TECHNICAL_INSTALLATIONS",
+      "aliases": [
+        "avløpsrør",
+        "innvendige avløpsrør"
+      ],
+      "regex_any": [
+        "\\bavløpsrør\\b",
+        "\\binnvendige avløpsrør\\b"
+      ]
+    },
+    {
+      "child_id": "P09C_HOT_WATER_TANK",
+      "parent_id": "P09_TECHNICAL_INSTALLATIONS",
+      "aliases": [
+        "varmtvannsbereder",
+        "varmtvannstank",
+        "bereder"
+      ],
+      "regex_any": [
+        "\\bvarmtvannsbereder\\b",
+        "\\bvarmtvannstank\\b",
+        "\\bbereder\\b"
+      ]
+    },
+    {
+      "child_id": "P09D_VENTILATION",
+      "parent_id": "P09_TECHNICAL_INSTALLATIONS",
+      "aliases": [
+        "ventilasjon"
+      ],
+      "regex_any": [
+        "\\bventilasjon\\b"
+      ]
+    },
+    {
+      "child_id": "P09E_HEATING",
+      "parent_id": "P09_TECHNICAL_INSTALLATIONS",
+      "aliases": [
+        "oppvarming",
+        "varmeanlegg",
+        "vannbåren varme",
+        "varmesentral"
+      ],
+      "regex_any": [
+        "\\boppvarming\\b",
+        "\\bvarmeanlegg\\b",
+        "\\bvannbåren varme\\b",
+        "\\bvarmesentral\\b"
+      ]
+    },
+    {
+      "child_id": "P09F_ELECTRICAL_INSTALLATION",
+      "parent_id": "P09_TECHNICAL_INSTALLATIONS",
+      "aliases": [
+        "elektrisk anlegg",
+        "el-anlegg",
+        "samsvarserklæring"
+      ],
+      "regex_any": [
+        "\\belektrisk anlegg\\b",
+        "\\bel-anlegg\\b",
+        "\\bsamsvarserklæring\\b"
+      ]
+    },
+    {
+      "child_id": "P10A_FLOOR_SEPARATIONS",
+      "parent_id": "P10_INTERIOR_CONDITIONS",
+      "aliases": [
+        "etasjeskiller",
+        "etasjeskille"
+      ],
+      "regex_any": [
+        "\\betasjeskill"
+      ]
+    },
+    {
+      "child_id": "P10B_FLOORS",
+      "parent_id": "P10_INTERIOR_CONDITIONS",
+      "aliases": [
+        "gulv",
+        "innvendige gulv"
+      ],
+      "regex_any": [
+        "\\bgulv\\b"
+      ]
+    },
+    {
+      "child_id": "P10C_OUT_OF_LEVELNESS",
+      "parent_id": "P10_INTERIOR_CONDITIONS",
+      "aliases": [
+        "skjevheter",
+        "høydeforskjell",
+        "skeivheter"
+      ],
+      "regex_any": [
+        "\\bskjev",
+        "\\bhøydeforskjell\\b",
+        "\\bskeiv"
+      ]
+    },
+    {
+      "child_id": "P10D_INTERIOR_STAIRS",
+      "parent_id": "P10_INTERIOR_CONDITIONS",
+      "aliases": [
+        "innvendige trapper",
+        "trapp til kjeller"
+      ],
+      "regex_any": [
+        "\\binnvendige trapper\\b",
+        "\\btrapp til kjeller\\b"
+      ]
+    },
+    {
+      "child_id": "P10E_INTERIOR_DOORS",
+      "parent_id": "P10_INTERIOR_CONDITIONS",
+      "aliases": [
+        "innvendige dører"
+      ],
+      "regex_any": [
+        "\\binnvendige dører\\b"
+      ]
+    },
+    {
+      "child_id": "P11A_LAWFULNESS",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "lovlighet",
+        "bruksendring",
+        "avvik fra tegninger",
+        "ferdigattest"
+      ],
+      "regex_any": [
+        "\\blovlighet\\b",
+        "\\bbruksendring",
+        "\\bavvik fra tegninger\\b",
+        "\\bferdigattest\\b"
+      ]
+    },
+    {
+      "child_id": "P11B_FIRE_CELLS",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "brannceller",
+        "branncelle"
+      ],
+      "regex_any": [
+        "\\bbrannceller?\\b"
+      ]
+    },
+    {
+      "child_id": "P11C_ESCAPE_ROUTES",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "rømningsveier",
+        "rømningsvei"
+      ],
+      "regex_any": [
+        "\\brømningsvei"
+      ]
+    },
+    {
+      "child_id": "P11D_SMOKE_ALARMS",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "røykvarslere",
+        "røykvarsler"
+      ],
+      "regex_any": [
+        "\\brøykvarsler"
+      ]
+    },
+    {
+      "child_id": "P11E_EXTINGUISHERS",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "slokkeutstyr",
+        "slukkeutstyr",
+        "pulverapparat"
+      ],
+      "regex_any": [
+        "\\bslokkeutstyr\\b",
+        "\\bslukkeutstyr\\b",
+        "\\bpulverapparat\\b"
+      ]
+    },
+    {
+      "child_id": "P11F_RADON",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "radon",
+        "radonmåling"
+      ],
+      "regex_any": [
+        "\\bradon\\b"
+      ]
+    },
+    {
+      "child_id": "P12A_OWNER_INFORMATION",
+      "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "aliases": [
+        "opplysninger fra eier",
+        "egenerklæring"
+      ],
+      "regex_any": [
+        "\\bopplysninger fra eier\\b",
+        "\\begenerkl"
+      ]
+    },
+    {
+      "child_id": "P12B_DOCUMENTATION",
+      "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "aliases": [
+        "dokumentasjon"
+      ],
+      "regex_any": [
+        "\\bdokumentasjon\\b"
+      ]
+    },
+    {
+      "child_id": "P12C_RECENT_WORK",
+      "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "aliases": [
+        "nyere arbeider",
+        "nyere håndverkstjenester"
+      ],
+      "regex_any": [
+        "\\bnyere arbeider\\b",
+        "\\bnyere håndverkstjenester\\b"
+      ]
+    },
+    {
+      "child_id": "P12D_ATTENTION",
+      "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "aliases": [
+        "vær oppmerksom på"
+      ],
+      "regex_any": [
+        "\\bv[æa]r oppmerksom p[åa]\\b"
+      ]
+    },
+    {
+      "child_id": "P12E_OTHER_REMARKS",
+      "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "aliases": [
+        "andre merknader",
+        "tilleggsopplysninger"
+      ],
+      "regex_any": [
+        "\\bandre merknader\\b",
+        "\\btilleggsopplysninger\\b"
+      ]
+    },
+    {
+      "child_id": "P12F_TGIU_LIMITATIONS",
+      "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "aliases": [
+        "tgiu",
+        "tilstandsgrad ikke undersøkt",
+        "undersøkelsesbegrensninger"
+      ],
+      "regex_any": [
+        "\\btgiu\\b",
+        "\\btilstandsgrad ikke undersøkt\\b",
+        "\\bundersøkelsesbegrens"
+      ]
+    }
+  ],
+  "instance_policies": {
+    "P05_EXTERIOR_STRUCTURES": {
+      "supports_instances": true,
+      "anchor_child_ids": [
+        "P05A_BALCONY",
+        "P05B_TERRACE",
+        "P05C_ALTAN",
+        "P05D_EXTERNAL_STAIRS",
+        "P05E_RETAINING_WALL",
+        "P05F_GARAGE",
+        "P05G_STORAGE"
+      ],
+      "instance_labels_any": [
+        "balkong",
+        "terrasse",
+        "altan",
+        "utvendig trapp",
+        "støttemur",
+        "garasje",
+        "bod",
+        "uthus"
+      ],
+      "children_attach_to_instance": []
+    },
+    "P06_ROOMS_BELOW_GRADE": {
+      "supports_instances": true,
+      "anchor_child_ids": [
+        "P06A_BELOW_GRADE_WALLS"
+      ],
+      "instance_labels_any": [
+        "kjeller",
+        "sokkel",
+        "underetasje",
+        "rom under terreng"
+      ],
+      "children_attach_to_instance": [
+        "P06A_BELOW_GRADE_WALLS",
+        "P06B_BELOW_GRADE_FLOORS",
+        "P06C_BELOW_GRADE_VENTILATION",
+        "P06D_BELOW_GRADE_MOISTURE"
+      ]
+    },
+    "P07_WETROOMS": {
+      "supports_instances": true,
+      "anchor_child_ids": [
+        "P07A_WETROOM_INSTANCE"
+      ],
+      "instance_labels_any": [
+        "bad",
+        "vaskerom",
+        "dusjrom",
+        "baderom",
+        "wc"
+      ],
+      "children_attach_to_instance": [
+        "P07B_MEMBRANE",
+        "P07C_DRAIN",
+        "P07D_SURFACES",
+        "P07E_VENTILATION",
+        "P07F_MOISTURE_MEASUREMENT"
+      ]
+    },
+    "P08_KITCHENS": {
+      "supports_instances": true,
+      "anchor_child_ids": [
+        "P08A_KITCHEN_INSTANCE"
+      ],
+      "instance_labels_any": [
+        "kjøkken"
+      ],
+      "children_attach_to_instance": [
+        "P08B_KITCHEN_FURNITURE",
+        "P08C_WATER_INSTALLATIONS",
+        "P08D_EXTRACTION"
+      ]
+    }
+  },
+  "render_contract": {
+    "label_source": "canonical_parent_label",
+    "do_not_render_raw_detected_headings_as_cards": true,
+    "do_not_render_children_as_cards": true,
+    "render_instances_inside_parent_only": true,
+    "sort_parents_by_display_order": true
+  }
+}

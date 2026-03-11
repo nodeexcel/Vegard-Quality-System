@@ -29,13 +29,29 @@
   "updated_at": "2026-02-23",
   "rule_catalog": [
     {
-      "id": "A_ARKAT.arsak_missing",
-      "category": "A",
-      "severity": "major",
-      "deduction": 8,
-      "trigger": "Årsak/begrunnelse mangler helt i en TG2/TG3-vurdering.",
-      "remediation": "Legg til kort årsak/begrunnelse (1–2 setninger) for hvorfor TG er satt, knyttet til observert tilstand."
-    },
+  "id": "A_ARKAT.arsak_missing",
+  "category": "A",
+  "severity": "major",
+  "deduction": 8,
+  "trigger": "Årsak/begrunnelse mangler helt i en TG2/TG3-vurdering.",
+  "acceptance_criteria": [
+    "Godtas dersom TG begrunnes i samme setning som TG settes (f.eks. 'TG2 settes med bakgrunn i registrert...').",
+    "Godtas dersom formuleringer som 'med bakgrunn i', 'basert på', 'registrert', 'påvist', 'vurdert ut fra', 'konstatert', 'som følge av' brukes i direkte tilknytning til TG.",
+    "Godtas dersom TG tydelig knyttes til en konkret observert tilstand (riss, sprekk, fukt, svikt, slitasje, lekkasje, etc.).",
+    "Skal ikke trigges dersom årsak er implisitt, men tydelig koblet til faktisk registrert forhold."
+  ],
+  "trigger_if": {
+    "TG_level": ["TG2", "TG3"],
+    "no_explicit_or_implicit_reason": true
+  },
+  "does_not_accept": [
+    "TG står alene uten begrunnelse.",
+    "TG begrunnes kun med alder uten kobling til observert tilstand eller redusert funksjon.",
+    "Teksten beskriver kun tiltak eller konsekvens uten å forklare hvorfor TG er satt.",
+    "Generell formulering uten konkret kobling til faktisk tilstand."
+  ],
+  "remediation": "Legg til kort årsak/begrunnelse (1–2 setninger) for hvorfor TG er satt, knyttet til observert tilstand."
+},
     {
       "id": "A_ARKAT.konsekvens_missing",
       "category": "A",
@@ -151,22 +167,22 @@
       "remediation": "Forklar kort hva uttrykket betyr i praksis."
     },
     {
-      "id": "E_METHOD.tg3_cost_missing",
-      "category": "E",
-      "severity": "major",
-      "deduction": 6,
-      "trigger": "TG3 mangler sjablonmessig kostnadsanslag (intervall eller kostnadsklasse). Enkeltbeløp alene regnes ikke som sjablonmessig.",
-      "acceptance_criteria": [
-        "Gjelder kun TG3.",
-        "Godtas dersom punktet inneholder sjablonmessig kostnad som intervall (min–maks), f.eks. '100 000–300 000', 'kr 200.000 - 350.000' eller tilsvarende.",
-        "Godtas dersom punktet inneholder kostnadsklasse, f.eks. 'lav/middels/høy' eller tydelig klasse som er knyttet til et intervall (enten eksplisitt eller via malens standard).",
-        "Godtas dersom formulering tydelig uttrykker sjablon/usikkerhet, f.eks. 'kan ligge i størrelsesorden', 'anslås i intervallet', 'i størrelsesorden ca. X–Y'.",
-        "Skal IKKE godtas dersom punktet kun oppgir ett enkelt kr-beløp uten intervall/klasse/usikkerhetsangivelse (f.eks. 'Estimert kostnad: 50 000,-').",
-        "Skal IKKE godtas dersom beløpet fremstår som konkret tilbudspris/fastpris uten sjablonramme."
-      ],
-      "remediation": "Oppgi sjablonmessig kostnad for TG3: bruk kostnadsklasse (lav/middels/høy) eller et intervall (f.eks. '100 000–300 000'). Unngå enkeltbeløp alene uten intervall/klasse/usikkerhet.",
-      "note": "Regelen er sjablon-basert: enkeltbeløp uten intervall/klasse skal trigge trekk selv om beløpet står under 'Estimert kostnad'. Søk i hele TG3-segmentet; godta kostnadsklasse lav/middels/høy (inkl. 'vurderes som middels', 'sjablonmessige kostnadsklasser') uavhengig av feltetikett, case-insensitivt."
-    },
+"id": "E_METHOD.tg3_cost_missing",
+"category": "E",
+"severity": "major",
+"deduction": 6,
+"trigger": "TG3 mangler sjablonmessig kostnadsanslag (intervall eller kostnadsklasse). Enkeltbeløp alene regnes ikke som sjablonmessig.",
+"acceptance_criteria": [
+"Gjelder kun TG3.",
+"Godtas dersom punktet inneholder sjablonmessig kostnad som intervall (min–maks), f.eks. '100 000–300 000', 'kr 200.000 - 350.000' eller tilsvarende.",
+"Godtas dersom punktet inneholder kostnadsklasse, f.eks. 'lav/middels/høy' eller tydelig klasse som er knyttet til et intervall (enten eksplisitt eller via malens standard).",
+"Godtas dersom formulering tydelig uttrykker sjablon/usikkerhet, f.eks. 'kan ligge i størrelsesorden', 'anslås i intervallet', 'i størrelsesorden ca. X–Y'.",
+"Skal IKKE godtas dersom punktet kun oppgir ett enkelt kr-beløp uten intervall/klasse/usikkerhetsangivelse (f.eks. 'Estimert kostnad: 50 000,-').",
+"Skal IKKE godtas dersom beløpet fremstår som konkret tilbudspris/fastpris uten sjablonramme."
+],
+"remediation": "Oppgi sjablonmessig kostnad for TG3: bruk kostnadsklasse (lav/middels/høy) eller et intervall (f.eks. '100 000–300 000'). Unngå enkeltbeløp alene uten intervall/klasse/usikkerhet.",
+"note": "Regelen er sjablon-basert: enkeltbeløp uten intervall/klasse skal trigge trekk selv om beløpet står under 'Estimert kostnad'."
+},
     {
       "id": "GATE_TG2_ARK_MISSING",
       "category": "A",

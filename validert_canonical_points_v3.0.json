@@ -1,0 +1,566 @@
+{
+  "model": "VALIDERT_CANONICAL_POINTS",
+  "version": "3.0",
+  "locale": "nb-NO",
+  "principles": [
+    "Fast punkt-for-punkt oversikt bygges alltid fra canonical_points i display_order.",
+    "Hver canonical point får status FOUND eller NOT_FOUND_IN_REPORT (default).",
+    "IKKE bruk NOT_RELEVANT automatisk (kan vurderes senere via egen policy).",
+    "Room/area-varians håndteres via instances (ikke ved å endre canonical strukturen per rapport).",
+    "Komponenter som membran/sluk/fall er child-noder under Våtrom (ikke top-level).",
+    "Elektrisk anlegg, brann/HMS, lovlighet og innvendig pipe/ildsted håndteres som lovpålagt beskrivelse (årsak/konsekvens) uten TG som standard i NS3600:2025-logikk."
+  ],
+  "requirement_tags": {
+    "LOVPAALAGT_TG": "Lovpålagt – TG",
+    "LOVPAALAGT_AK_IKKE_TG": "Lovpålagt – årsak/konsekvens – ikke TG",
+    "IKKE_LOVPAALAGT": "Ikke lovpålagt"
+  },
+  "status_enum": ["FOUND", "NOT_FOUND_IN_REPORT", "NOT_RELEVANT"],
+  "canonical_points": [
+    {
+      "canonical_id": "P01_GRUNN_OG_FUNDAMENTER",
+      "display_order": 1,
+      "title_nb": "Grunn og fundamenter",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "grunn og fundamenter",
+        "byggegrunn",
+        "fundament",
+        "fundamenter",
+        "grunnforhold"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P02_GRUNNMUR_DRENERING_FUKTSIKRING",
+      "display_order": 2,
+      "title_nb": "Grunnmur, fuktsikring og drenering",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "grunnmur",
+        "drenering",
+        "fuktsikring",
+        "drenering og grunnmur",
+        "fuktsikring og drenering"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P03_TERRENGFORHOLD_AVRENNING",
+      "display_order": 3,
+      "title_nb": "Terrengforhold og avrenning",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "terrengforhold",
+        "avrenning",
+        "terreng",
+        "terrengforhold og avrenning",
+        "overvann",
+        "fall fra bygning"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P04_KRYPEKJELLER",
+      "display_order": 4,
+      "title_nb": "Krypekjeller",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "krypekjeller",
+        "krypkjeller"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P05_YTTERVEGGER_KLEDNING",
+      "display_order": 5,
+      "title_nb": "Yttervegger (inkl. kledning)",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "yttervegger",
+        "yttervegg",
+        "kledning",
+        "fasade",
+        "veggkonstruksjon"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P06_VINDUER_YTTERDORER",
+      "display_order": 6,
+      "title_nb": "Vinduer og ytterdører",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "vinduer",
+        "ytterdører",
+        "vinduer og ytterdører",
+        "dører",
+        "utvendige dører"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P07_TAKTEKKING_BESLAG_RENNER_NEDLOP",
+      "display_order": 7,
+      "title_nb": "Taktekking, beslag, takrenner og nedløp",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "taktekking",
+        "taktekking og beslag",
+        "beslag",
+        "takrenner",
+        "takrenner og nedløp",
+        "nedløp",
+        "renner"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P08_TAKKONSTRUKSJON_LOFT_UNDERTAK",
+      "display_order": 8,
+      "title_nb": "Takkonstruksjon, loft og undertak",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "takkonstruksjon",
+        "loft",
+        "undertak",
+        "takkonstruksjon/undertak/loft"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P09_SKORSTEIN_OVER_TAK",
+      "display_order": 9,
+      "title_nb": "Skorstein over tak",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "skorstein over tak",
+        "pipe over tak"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P10_BALKONG_TERRASSE_ALTAN_VERANDA",
+      "display_order": 10,
+      "title_nb": "Balkonger, terrasser, altaner og verandaer",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "instance_hint_patterns": [
+        "balkong",
+        "terrasse",
+        "altan",
+        "veranda"
+      ],
+      "match_any": [
+        "balkonger",
+        "terrasser",
+        "altaner",
+        "balkonger, terrasser og altaner",
+        "balkonger, verandaer og lignende"
+      ],
+      "children": [
+        {
+          "child_id": "P10A_REKKVERK_FALLFARE",
+          "title_nb": "Rekkverk / fallfare",
+          "component_only": true,
+          "match_any": ["rekkverk", "fallfare", "rekkverk / fallfare"]
+        }
+      ]
+    },
+    {
+      "canonical_id": "P11_ROM_UNDER_TERRENG",
+      "display_order": 11,
+      "title_nb": "Rom under terreng",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "instance_hint_patterns": [
+        "kjeller",
+        "sokkel",
+        "rom under terreng",
+        "underetasje"
+      ],
+      "match_any": [
+        "rom under terreng",
+        "kjeller",
+        "trapp til kjeller"
+      ],
+      "children": [
+        {
+          "child_id": "P11A_OVERFLATER_VEGGER_HIMLING",
+          "title_nb": "Vegger og himling (overflater)",
+          "component_only": true,
+          "match_any": ["vegger", "himling", "veggenes og himlingens overflater"]
+        },
+        {
+          "child_id": "P11B_OVERFLATER_GULV",
+          "title_nb": "Gulv (overflater)",
+          "component_only": true,
+          "match_any": ["gulv", "gulvets overflate"]
+        },
+        {
+          "child_id": "P11C_FUKT_VENTILASJON",
+          "title_nb": "Fuktmåling og ventilasjon",
+          "component_only": true,
+          "match_any": ["fuktmåling", "fuktmåing", "ventilasjon", "fukt og ventilasjon"]
+        }
+      ]
+    },
+    {
+      "canonical_id": "P12_VATROM",
+      "display_order": 12,
+      "title_nb": "Våtrom",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "instance_hint_patterns": [
+        "bad",
+        "vaskerom",
+        "dusj",
+        "wc",
+        "sanitærrom"
+      ],
+      "match_any": [
+        "våtrom",
+        "bad",
+        "vaskerom",
+        "sanitærrom"
+      ],
+      "children": [
+        {
+          "child_id": "P12A_OVERFLATER_VEGG_HIMLING",
+          "title_nb": "Overflater vegger og himling",
+          "component_only": true,
+          "match_any": ["overflate vegger", "overflater vegger", "overflater vegger og himling", "himling"]
+        },
+        {
+          "child_id": "P12B_OVERFLATER_GULV",
+          "title_nb": "Overflater gulv",
+          "component_only": true,
+          "match_any": ["overflate gulv", "overflater gulv", "gulv"]
+        },
+        {
+          "child_id": "P12C_SLUK_MEMBRAN_TETTESJIKT",
+          "title_nb": "Sluk, membran og tettesjikt",
+          "component_only": true,
+          "match_any": ["sluk", "membran", "tettesjikt", "sluk, membran og tettesjikt", "membran, tettesjikt og sluk"]
+        },
+        {
+          "child_id": "P12D_FALLFORHOLD",
+          "title_nb": "Fallforhold",
+          "component_only": true,
+          "match_any": ["fall", "fallforhold", "tilstrekkelig fall"]
+        },
+        {
+          "child_id": "P12E_VENTILASJON_VATROM",
+          "title_nb": "Ventilasjon i våtrom",
+          "component_only": true,
+          "match_any": ["ventilasjon", "avtrekk", "ventilasjon våtrom"]
+        },
+        {
+          "child_id": "P12F_TILLIGGENDE_KONSTRUKSJONER",
+          "title_nb": "Tilliggende konstruksjoner våtrom",
+          "component_only": true,
+          "match_any": ["tilliggende konstruksjoner", "tilliggende konstruksjoner våtrom"]
+        }
+      ]
+    },
+    {
+      "canonical_id": "P13_KJOKKEN_TEKNISK",
+      "display_order": 13,
+      "title_nb": "Kjøkken (teknisk del: vann/avløp/lekkasjeindikasjoner)",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "kjøkken",
+        "kjøkken (innredning/overflater) - teknisk del",
+        "avtrekk",
+        "vann under kjøkkenbenk"
+      ],
+      "children": [
+        {
+          "child_id": "P13A_AVTREKK",
+          "title_nb": "Avtrekk/ventilasjon kjøkken",
+          "component_only": true,
+          "match_any": ["avtrekk", "ventilator", "kjøkkenavtrekk"]
+        }
+      ]
+    },
+    {
+      "canonical_id": "P14_WC_UTEN_SLUK",
+      "display_order": 14,
+      "title_nb": "WC / toalettrom (ikke våtrom)",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": true,
+      "instance_hint_patterns": ["wc", "toalett", "toalettrom", "sanitærrom / wc"],
+      "match_any": [
+        "toalettrom",
+        "wc",
+        "sanitærrom / wc (ikke våtrom)"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P15_INNVENDIGE_VANNLEDNINGER",
+      "display_order": 15,
+      "title_nb": "Innvendige vannledninger",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "innvendige vannledninger",
+        "vannledninger",
+        "vann"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P16_INNVENDIGE_AVLOPSROR",
+      "display_order": 16,
+      "title_nb": "Innvendige avløpsrør",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "innvendige avløpsrør",
+        "avløpsrør",
+        "avløpsledninger"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P17_VARMTVANNSBEREDER",
+      "display_order": 17,
+      "title_nb": "Varmtvannsbereder",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "varmtvannsbereder",
+        "varmtvannstank",
+        "bereder"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P18_VENTILASJON",
+      "display_order": 18,
+      "title_nb": "Ventilasjon",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "match_any": [
+        "ventilasjon",
+        "lufting",
+        "avtrekk"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P19_VARMEANLEGG_VARMESENTRAL",
+      "display_order": 19,
+      "title_nb": "Varmesentral / vannbåren varme",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "vannbåren varme",
+        "varmesentral",
+        "varmeanlegg",
+        "fordeling",
+        "teknisk rom"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P20_ELEKTRISK_ANLEGG_FORENKLET",
+      "display_order": 20,
+      "title_nb": "Elektrisk anlegg (forenklet kontroll)",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "elektrisk anlegg",
+        "el-anlegg",
+        "elektrisk",
+        "sikringsskap",
+        "jordfeil",
+        "el-kontroll",
+        "samsvarserklæring"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P21_BRANN_HMS_ROMNING",
+      "display_order": 21,
+      "title_nb": "Brannsikkerhet, rømningsvei og HMS",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "brannsikkerhet",
+        "rømningsvei",
+        "rømningsvindu",
+        "rømningsdør",
+        "branncelle",
+        "brannskille",
+        "slukkeutstyr",
+        "røykvarsler",
+        "branntekniske forhold",
+        "personfare"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P22_PIPE_OG_ILDSTED_INNVENDIG",
+      "display_order": 22,
+      "title_nb": "Pipe og ildsted (innvendig)",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "pipe og ildsted",
+        "pipe",
+        "ildsted",
+        "skorstein",
+        "branntilsyn",
+        "feierrapport"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P23_UTVENDIGE_VA_BROENN_SEPTIK",
+      "display_order": 23,
+      "title_nb": "Utvendige vann- og avløpsledninger / brønn / septik",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "utvendige vann- og avløpsledninger",
+        "vann- og avløpsledninger",
+        "brønn",
+        "septik",
+        "septiktank",
+        "tilknytning"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P24_LOVLIGHET",
+      "display_order": 24,
+      "title_nb": "Lovlighet (tegninger, ferdigattest, bruksendring, rom til varig opphold)",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "lovlighet",
+        "lovlighetsforhold",
+        "ferdigattest",
+        "midlertidig brukstillatelse",
+        "byggetegninger",
+        "samsvar med byggetegninger",
+        "kommunale opplysninger",
+        "rom til varig opphold",
+        "bruksendring",
+        "påbygg",
+        "tilbygg"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P25_DOKUMENTASJON_NYERE_ARBEIDER",
+      "display_order": 25,
+      "title_nb": "Dokumentasjon / nyere arbeider (håndverkstjenester)",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "match_any": [
+        "dokumentasjon",
+        "nyere håndverkstjenester",
+        "nyligere arbeider",
+        "tilleggsopplysninger",
+        "andre merknader"
+      ],
+      "children": []
+    },
+
+    {
+      "canonical_id": "P26_ETASJESKILLE_BARENDE",
+      "display_order": 26,
+      "title_nb": "Etasjeskiller og bærende konstruksjoner",
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": false,
+      "match_any": [
+        "etasjeskiller",
+        "bærende",
+        "bærende konstruksjoner",
+        "etasjeskiller og bærende konstruksjoner",
+        "skjevheter",
+        "høydeforskjell"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P27_STOTTEMUR_UTOMHUSKONSTRUKSJONER",
+      "display_order": 27,
+      "title_nb": "Utvendige konstruksjoner/utomhus (støttemur, gjerder m.m.)",
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": true,
+      "instance_hint_patterns": [
+        "støttemur",
+        "mur",
+        "gjerde",
+        "utomhus"
+      ],
+      "match_any": [
+        "støttemur",
+        "utvendige konstruksjoner/utomhus (støttemur, gjerder m.m.)",
+        "gjerder",
+        "utomhus"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P28_TILLEGGSBYGNINGER_GARASJE_UTHUS",
+      "display_order": 28,
+      "title_nb": "Tilleggsbygninger (garasje/uthus) med nær tilknytning",
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": true,
+      "instance_hint_patterns": [
+        "garasje",
+        "uthus",
+        "bod",
+        "tilleggsbygg",
+        "tilleggsbygninger"
+      ],
+      "match_any": [
+        "tilleggsbygninger",
+        "garasje",
+        "uthus",
+        "andre utvendige forhold"
+      ],
+      "children": []
+    },
+    {
+      "canonical_id": "P29_RADON",
+      "display_order": 29,
+      "title_nb": "Radon",
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": false,
+      "match_any": [
+        "radon",
+        "radonmåling",
+        "radonmålt"
+      ],
+      "children": []
+    }
+  ],
+  "default_point_state": {
+    "status": "NOT_FOUND_IN_REPORT",
+    "deduction_band": "none",
+    "deduction_numeric_internal": 0
+  },
+  "notes_for_pipeline": [
+    "UI skal alltid vise canonical_points i display_order.",
+    "Mapping-laget skal mappe rapportsegmenter/headings til canonical_id via match_any og evt synonyms.",
+    "Instances: Dersom flere treff for samme canonical_id med tydelig rom/instans (bad 1/bad 2/vaskerom), legg dem i instances[] under det canonical punktet.",
+    "Child-komponenter under Våtrom skal aldri opprettes som top-level punkter.",
+    "Trekk-policy (lav/middels/høy) håndteres i overlay – end-users skal ikke se negative tall."
+  ]
+}

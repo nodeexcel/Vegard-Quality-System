@@ -1,56 +1,18 @@
 {
-  "version": "v1.0",
-  "module": "room_instances",
-  "purpose": "Represent multiple occurrences (instances) of the same room type (e.g., Bathroom #1..N) so validation (TG + ARKAT) can run per instance and coverage can be proven.",
-  "room_types": [
-    {
-      "room_type": "bathroom",
-      "element_id": "BE-20",
-      "multiplicity": "MULTI",
-      "labels": ["bad", "bad/wc", "wc/bad", "dusjrom", "baderom", "wc/dusj"]
-    },
-    {
-      "room_type": "laundry",
-      "element_id": "BE-21",
-      "multiplicity": "MULTI",
-      "labels": ["vaskerom", "teknisk rom", "bod/vask", "grovkjøkken"]
-    },
-    {
-      "room_type": "kitchen",
-      "element_id": "BE-22",
-      "multiplicity": "MULTI",
-      "labels": ["kjøkken", "kjøkken/stue", "kjøkkenavdeling"]
-    },
-    {
-      "room_type": "wc_non_wet",
-      "element_id": "BE-23",
-      "multiplicity": "MULTI",
-      "labels": ["wc", "toalett", "gjestetoalett"]
-    }
-  ],
+  "version": "1.2",
+  "purpose": "Represent multiple instances while keeping only 12 parent cards in UI.",
   "instance_object": {
-    "instance_id": "string (unique, stable within report)",
-    "room_type": "bathroom|laundry|kitchen|wc_non_wet|other",
-    "element_id": "string",
-    "label": "string",
-    "ordinal": "integer (1..N per room_type)",
-    "location": {
-      "floor": "string|null",
-      "zone": "string|null"
-    },
-    "source": {
-      "header_text": "string|null",
-      "page": "integer|null",
-      "span": {
-        "start_char": "integer",
-        "end_char": "integer"
-      }
-    },
-    "section_confidence": "number (0..1)"
+    "instance_id": "string",
+    "parent_canonical_id": "string",
+    "label_nb": "string",
+    "ordinal": "integer",
+    "source_heading": "string|null",
+    "source_page": "integer|null"
   },
-  "constraints": {
-    "assignment_must_be_exclusive": true,
-    "each_finding_chunk_assigned_to_one_instance": true,
-    "instance_spans_must_not_overlap": true
+  "parent_instance_support": {
+    "P05_EXTERIOR_STRUCTURES": true,
+    "P06_ROOMS_BELOW_GRADE": true,
+    "P07_WETROOMS": true,
+    "P08_KITCHENS": true
   }
 }

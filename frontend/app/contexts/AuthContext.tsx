@@ -49,7 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const response = await axios.get(`${apiUrl}/api/v1/auth/me`, {
-        headers: { Authorization: `Bearer ${storedToken}` }
+        headers: { Authorization: `Bearer ${storedToken}` },
+        timeout: 15000,
       })
       setUser(response.data)
       setToken(storedToken)
@@ -69,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    let authSafetyTimer: ReturnType<typeof setTimeout> | null = null
+
     // Set up axios interceptor to always include auth token
     const requestInterceptor = axios.interceptors.request.use(
       (config) => {
@@ -88,6 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken) {
       setToken(storedToken)
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
+      // Failsafe: never keep global auth loading spinner forever.
+      authSafetyTimer = setTimeout(() => {
+        setLoading(false)
+      }, 20000)
       refreshUser()
     } else {
       setLoading(false)
@@ -95,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Cleanup interceptor on unmount
     return () => {
+      if (authSafetyTimer) {
+        clearTimeout(authSafetyTimer)
+      }
       axios.interceptors.request.eject(requestInterceptor)
     }
   }, [refreshUser])
@@ -113,4 +123,3 @@ export function useAuth() {
   }
   return context
 }
-

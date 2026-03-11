@@ -1,129 +1,129 @@
 {
-    "guardrails_id": "validert_no_prosjektering_v1_2",
-    "language": "nb-NO",
-    "purpose": "Sikre at automatisk foreslått tekst ikke blir prosjekterende/utførende, og at den holder seg til nøktern 'Anbefalt tiltak' med kort og tydelig språk.",
-    "guardrails": {
-      "forbidden_verbs": [
-        "etableres",
-        "bygges",
+  "guardrails_id": "validert_no_prosjektering_v1_2",
+  "language": "nb-NO",
+  "purpose": "Sikre at automatisk foreslått tekst ikke blir prosjekterende/utførende, og at den holder seg til nøktern 'Anbefalt tiltak' med kort og tydelig språk.",
+  "guardrails": {
+    "forbidden_verbs": [
+      "etableres",
+      "bygges",
+      "rives",
+      "støpes",
+      "dimensioneres",
+      "prosjekteres",
+      "detaljprosjekteres",
+      "monteres iht",
+      "utføres iht",
+      "installeres iht",
+      "benytt produkt",
+      "bruk produkt",
+      "velg produkt"
+    ],
+    "forbidden_phrases": [
+      "som prosjektert",
+      "som prosjektering",
+      "i henhold til prosjektering",
+      "etter anvisning fra leverandør",
+      "etter leverandørens anvisning",
+      "iht. leverandør",
+      "iht leverandør",
+      "iht produsent",
+      "iht. produsent",
+      "etter prosjektering",
+      "detaljert utførelse",
+      "anbudsgrunnlag",
+      "valg av produkt",
+      "produktvalg"
+    ],
+    "forbidden_detail_patterns": [
+      "\\bmm\\b",
+      "\\bcm\\b",
+      "\\bm2\\b",
+      "\\bm\\b",
+      "\\bx\\b",
+      "\\btype\\s+[A-Z0-9-]+",
+      "\\bmodell\\s+[A-Z0-9-]+",
+      "produkt",
+      "leverandør",
+      "entreprenør",
+      "metode",
+      "pris",
+      "kr\\s*[0-9]",
+      "\\bNOK\\s*[0-9]"
+    ],
+    "allowed_modality": [
+      "anbefales",
+      "kan vurderes",
+      "bør vurderes",
+      "det anbefales å avklare",
+      "det anbefales å innhente",
+      "det anbefales å undersøke",
+      "ved avvik bør videre avklaring vurderes",
+      "det anbefales videre undersøkelser av fagperson",
+      "det anbefales utbedring av fagperson"
+    ],
+    "imperative_control": {
+      "enabled": true,
+      "imperative_keywords": [
+        "må",
+        "skal",
+        "kreves",
+        "påkrevd",
+        "umiddelbart",
+        "snarest",
+        "straks",
         "rives",
-        "støpes",
-        "dimensioneres",
-        "prosjekteres",
-        "detaljprosjekteres",
-        "monteres iht",
-        "utføres iht",
-        "installeres iht",
-        "benytt produkt",
-        "bruk produkt",
-        "velg produkt"
+        "bygges",
+        "etableres",
+        "støpes"
       ],
-      "forbidden_phrases": [
-        "som prosjektert",
-        "som prosjektering",
-        "i henhold til prosjektering",
-        "etter anvisning fra leverandør",
-        "etter leverandørens anvisning",
-        "iht. leverandør",
-        "iht leverandør",
-        "iht produsent",
-        "iht. produsent",
-        "etter prosjektering",
-        "detaljert utførelse",
-        "anbudsgrunnlag",
-        "valg av produkt",
-        "produktvalg"
-      ],
-      "forbidden_detail_patterns": [
-        "\\bmm\\b",
-        "\\bcm\\b",
-        "\\bm2\\b",
-        "\\bm\\b",
-        "\\bx\\b",
-        "\\btype\\s+[A-Z0-9-]+",
-        "\\bmodell\\s+[A-Z0-9-]+",
-        "produkt",
-        "leverandør",
-        "entreprenør",
-        "metode",
-        "pris",
-        "kr\\s*[0-9]",
-        "\\bNOK\\s*[0-9]"
-      ],
-      "allowed_modality": [
-        "anbefales",
-        "kan vurderes",
-        "bør vurderes",
-        "det anbefales å avklare",
-        "det anbefales å innhente",
-        "det anbefales å undersøke",
-        "ved avvik bør videre avklaring vurderes",
-        "det anbefales videre undersøkelser av fagperson",
-        "det anbefales utbedring av fagperson"
-      ],
-      "imperative_control": {
-        "enabled": true,
-        "imperative_keywords": [
-          "må",
-          "skal",
-          "kreves",
-          "påkrevd",
-          "umiddelbart",
-          "snarest",
-          "straks",
-          "rives",
-          "bygges",
-          "etableres",
-          "støpes"
-        ],
-        "max_imperative_ratio": 0.35,
-        "min_tokens_to_evaluate": 10,
-        "action_if_exceeded": "rewrite_to_allowed_modality"
-      },
-      "format_limits": {
-        "max_sentences_per_field": 2,
-        "max_chars_per_field": 320
-      },
-      "enforcement": {
-        "always_use_label": "Anbefalt tiltak",
-        "if_forbidden_found": "rewrite_to_allowed_modality",
-        "if_forbidden_detail_found": "rewrite_removing_details",
-        "if_too_long": "truncate_preserving_meaning",
-        "rewrite_style": {
-          "tone": "nøktern",
-          "no_product_or_method": true,
-          "no_measurements": true,
-          "no_price_or_cost": true,
-          "keep_action_general": true,
-          "avoid_professional_orders": true
-        }
-      },
-      "rewrite_templates": {
-        "default": "Det anbefales å {handling} for å avklare/utbedre forholdet.",
-        "investigation": "Det anbefales videre undersøkelser av fagperson for å avklare omfang og behov for utbedring.",
-        "repair": "Det anbefales utbedring av fagperson. Kjøper må påregne oppfølging/tiltak."
+      "max_imperative_ratio": 0.35,
+      "min_tokens_to_evaluate": 10,
+      "action_if_exceeded": "rewrite_to_allowed_modality"
+    },
+    "format_limits": {
+      "max_sentences_per_field": 2,
+      "max_chars_per_field": 320
+    },
+    "enforcement": {
+      "always_use_label": "Anbefalt tiltak",
+      "if_forbidden_found": "rewrite_to_allowed_modality",
+      "if_forbidden_detail_found": "rewrite_removing_details",
+      "if_too_long": "truncate_preserving_meaning",
+      "rewrite_style": {
+        "tone": "nøktern",
+        "no_product_or_method": true,
+        "no_measurements": true,
+        "no_price_or_cost": true,
+        "keep_action_general": true,
+        "avoid_professional_orders": true
       }
     },
-    "meta": {
-      "version": "v1.2",
-      "compatibility": {
-        "rag_scoring_model": ">=1.6.3",
-        "category_config": ">=v1.1",
-        "legal_compliance_module": ">=v1.2"
-      },
-      "schema_arkat_section_enum": [
-        "observasjon",
-        "arsak",
-        "risiko",
-        "konsekvens",
-        "anbefalt_tiltak",
-        "tg",
-        "annet"
-      ],
-      "notes": [
-        "Ordene 'må' og 'skal' er ikke automatisk forbudt. De vurderes kun via imperative_ratio for å unngå å svekke faglig presisjon.",
-        "Tekniske fagord (f.eks. 'membran', 'stenderverk') skal ikke blokkeres.",
-        "Detaljer om metode/produkt/mål/pris fjernes/omskrives for å unngå prosjektering og anbudsgrunnlag."
-      ]
+    "rewrite_templates": {
+      "default": "Det anbefales å {handling} for å avklare/utbedre forholdet.",
+      "investigation": "Det anbefales videre undersøkelser av fagperson for å avklare omfang og behov for utbedring.",
+      "repair": "Det anbefales utbedring av fagperson. Kjøper må påregne oppfølging/tiltak."
     }
+  },
+  "meta": {
+    "version": "v1.2",
+    "compatibility": {
+      "rag_scoring_model": ">=1.6.3",
+      "category_config": ">=v1.1",
+      "legal_compliance_module": ">=v1.2"
+    },
+    "schema_arkat_section_enum": [
+      "observasjon",
+      "arsak",
+      "risiko",
+      "konsekvens",
+      "anbefalt_tiltak",
+      "tg",
+      "annet"
+    ],
+    "notes": [
+      "Ordene 'må' og 'skal' er ikke automatisk forbudt. De vurderes kun via imperative_ratio for å unngå å svekke faglig presisjon.",
+      "Tekniske fagord (f.eks. 'membran', 'stenderverk') skal ikke blokkeres.",
+      "Detaljer om metode/produkt/mål/pris fjernes/omskrives for å unngå prosjektering og anbudsgrunnlag."
+    ]
   }
+}

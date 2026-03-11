@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
-import outputOverlay from '../../../../files/scoring_policy.validert_output_overlay.v1.1.json'
 import { translate } from '../../utils/translations'
 
 interface Evidence {
@@ -105,14 +104,17 @@ interface DeductionSummary {
 }
 
 interface FeedbackPointOverview {
-  point_id: string
+  point_id?: string | null
+  canonical_id?: string
   title: string
   tg: string
-  status: 'ok' | 'improve' | 'deduction' | 'blocking'
+  status: 'ok' | 'improve' | 'deduction' | 'blocking' | 'FOUND' | 'NOT_FOUND_IN_REPORT'
   summary: string
   deduction_total?: number
+  deduction_band?: 'none' | 'low' | 'medium' | 'high'
   finding_ids?: string[]
   parent_id?: string | null
+  requirement_tag?: string
   /** lovpålagt | ikke lovpålagt | uklart/avhenger av rapporttype */
   legal_status?: string
 }
@@ -294,11 +296,15 @@ export default function ResultsPage() {
     const fetchReport = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-        const response = await axios.get(`${apiUrl}/api/v1/reports/${params.id}`)
+        const response = await axios.get(`${apiUrl}/api/v1/reports/${params.id}`, {
+          timeout: 30000,
+        })
         setReport(response.data)
       } catch (err: any) {
         if (err.response?.status === 401) {
           router.push('/login')
+        } else if (err.code === 'ECONNABORTED') {
+          setError('Tidsavbrudd ved henting av rapport. Prøv igjen.')
         } else {
           setError(err.response?.data?.detail || 'Failed to load report')
         }
@@ -601,6 +607,7 @@ export default function ResultsPage() {
   const pointStatusClasses = (status: FeedbackPointOverview['status']) => {
     switch (status) {
       case 'ok':
+      case 'FOUND':
         return 'bg-green-100 text-green-800'
       case 'improve':
         return 'bg-yellow-100 text-yellow-800'
@@ -608,14 +615,24 @@ export default function ResultsPage() {
         return 'bg-red-100 text-red-800'
       case 'blocking':
         return 'bg-red-200 text-red-900'
+      case 'NOT_FOUND_IN_REPORT':
+        return 'bg-slate-100 text-slate-600'
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+  const deductionBandLabel = (band: string | undefined) => {
+    if (!band || band === 'none') return null
+    if (band === 'low') return 'Lavt trekk'
+    if (band === 'medium') return 'Middels trekk'
+    if (band === 'high') return 'Høyt trekk'
+    return null
   }
   /** Replace vague AI phrasing with precise, legally clear wording in user-facing text only. */
   const formatFeedbackText = (text: string | null | undefined): string => {
     if (text == null || typeof text !== 'string') return ''
     return text
+      .replace(/\bmed n kort setning\b/gi, 'med en kort setning')
       .replace(/Konsekvens uklar for kjøper/g, 'Konsekvens kan presiseres i forhold til kjøpers bruk, økonomi eller risiko.')
       .replace(/Konsekvens ikke eksplisitt oversatt til kjøpers situasjon\.?/g, 'Dette innebærer at kjøper må påregne utbedring før normal bruk kan anses trygg, og at det foreligger risiko for videre konstruksjonsskade dersom tiltak utsettes.')
   }
@@ -629,28 +646,6 @@ export default function ResultsPage() {
     const problemPart = text.slice(0, idx).trim()
     const fixPart = text.slice(idx).replace(marker, '').trim()
     return { problemPart, fixPart }
-  }
-
-  const renderTrekkLabel = (value: number | null | undefined) => {
-    if (value === null || value === undefined) return null
-    const policy = (outputOverlay as any)?.field_policies?.trekk
-    const prefix = policy?.prefix || 'Vurdering'
-    const format = policy?.render?.format || '{prefix}: {label}'
-    const directLabel = policy?.external_labels?.[String(value)]
-    if (directLabel) {
-      return format.replace('{prefix}', prefix).replace('{label}', directLabel)
-    }
-    const bucket =
-      value <= 1
-        ? '1'
-        : value <= 3
-          ? '2'
-          : '3'
-    const bucketLabel = policy?.external_labels?.[bucket]
-    if (bucketLabel) {
-      return format.replace('{prefix}', prefix).replace('{label}', bucketLabel)
-    }
-    return `${prefix}: ${value}`
   }
 
   const buildDeductionSummariesFromAnalysis = (analysisPayload: AnalysisV14): DeductionSummary[] => {
@@ -808,6 +803,17 @@ export default function ResultsPage() {
 
   const allFindingsV16 = (analysis as AnalysisV16)?.all_findings
   const howToImproveV16 = (analysis as AnalysisV16)?.how_to_improve
+  const sortedPointsOverview: FeedbackPointOverview[] =
+    hasFeedbackV11 && feedbackV11?.points_overview?.length
+      ? [...feedbackV11.points_overview].sort((a, b) => {
+          const ai = ((a as { display_index?: number }).display_index ?? Number.MAX_SAFE_INTEGER)
+          const bi = ((b as { display_index?: number }).display_index ?? Number.MAX_SAFE_INTEGER)
+          if (ai !== bi) return ai - bi
+          const ac = (a.canonical_id || '').toString()
+          const bc = (b.canonical_id || '').toString()
+          return ac.localeCompare(bc)
+        })
+      : []
   /** Try to extract point reference from message (e.g. "Punkt 4.2", "i punkt 5.1", "punkt 4.2") */
   const parsePointIdFromMessage = (message: string): string | undefined => {
     if (!message || typeof message !== 'string') return undefined
@@ -1000,18 +1006,20 @@ export default function ResultsPage() {
               <div className="flex items-start justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Punkt-for-punkt oversikt</h2>
-                  <p className="text-sm text-gray-500 mt-1">Alle punkter som finnes i rapporten</p>
+                  <p className="text-sm text-gray-500 mt-1">Fast liste – funnet i rapporten eller ikke funnet</p>
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                {feedbackV11.points_overview.map((point) => (
+                {sortedPointsOverview.map((point, idx) => (
                   <div
-                    key={point.point_id}
+                    key={(point as { canonical_id?: string }).canonical_id || point.point_id || `p-${idx}`}
                     className={`border border-gray-200 rounded-xl p-5 bg-white shadow-sm ${point.parent_id ? 'ml-4 md:ml-6 border-l-4 border-l-blue-200' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">Punkt {point.point_id}</p>
+                        <p className="text-xs font-semibold uppercase text-gray-500">
+                          {point.point_id ? `Punkt ${point.point_id}` : `P${String((point as { display_index?: number }).display_index || idx + 1).padStart(2, '0')}`}
+                        </p>
                         <h3 className="text-lg font-semibold text-gray-900">
                           {(point as { title_display?: string }).title_display || point.title}
                           {(point.legal_status === 'ikke lovpålagt' || (point as { ui_badge?: string }).ui_badge) && (
@@ -1023,14 +1031,16 @@ export default function ResultsPage() {
                       </div>
                       <div className="text-right">
                         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pointStatusClasses(point.status)}`}>
-                          {translate(point.status)}
+                          {point.status === 'FOUND' ? 'Funnet' : point.status === 'NOT_FOUND_IN_REPORT' ? 'Ikke funnet' : translate(point.status)}
                         </span>
-                        <p className="text-xs text-gray-500 mt-2">{translate(point.tg)}</p>
+                        {point.status !== 'NOT_FOUND_IN_REPORT' && (
+                          <p className="text-xs text-gray-500 mt-2">{translate(point.tg)}</p>
+                        )}
                       </div>
                     </div>
                     <p className="text-sm text-gray-700">{point.summary}</p>
-                    {typeof point.deduction_total === 'number' && point.deduction_total > 0 && (
-                      <p className="text-xs text-red-600 mt-2">{renderTrekkLabel(point.deduction_total)}</p>
+                    {deductionBandLabel((point as { deduction_band?: string }).deduction_band) && (
+                      <p className="text-xs text-red-600 mt-2">{deductionBandLabel((point as { deduction_band?: string }).deduction_band)}</p>
                     )}
                   </div>
                 ))}
@@ -1296,10 +1306,11 @@ export default function ResultsPage() {
                       const rawExampleFix = formatFeedbackText(item.exampleFix)
                       const combined = rawSuggestion || rawExampleFix
                       const { problemPart, fixPart } = splitProblemAndFix(combined)
-                      // Top: only the problem part when we have a separate fix part (no duplication)
+                      // If there is a distinct fix part, keep top text as problem-only.
+                      // If there is no fix/example text, still show suggestion text (prevents empty cards).
                       const suggestionText = fixPart
                         ? (item.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, item.point_id) ? '' : problemPart)
-                        : ''
+                        : (rawSuggestion && !rawExampleFix ? rawSuggestion : '')
                       const showFixInBox = fixPart || (!combined.includes('Slik retter du') && rawExampleFix)
                       return (
                         <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>

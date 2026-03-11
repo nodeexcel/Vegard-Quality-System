@@ -1,0 +1,64 @@
+{
+  "policy_id": "validert_ui_overlay_points_overview",
+  "version": "1.6",
+  "language": "nb-NO",
+  "applies_to": "points_overview",
+  "display_rules": {
+    "label_source": "canonical_label_only",
+    "show_parent_cards_only": true,
+    "show_instances_inside_parent": true,
+    "show_raw_detected_heading_title": false,
+    "show_numeric_deductions": false,
+    "show_deduction_band": true,
+    "show_requirement_suffix": true
+  },
+  "status_rendering": {
+    "FOUND": {
+      "when_deduction_band_missing_or_none": {
+        "status_badge_nb": "OK",
+        "status_text_nb": "OK – ingen endringer nødvendig."
+      },
+      "when_deduction_band_present": {
+        "status_badge_nb_from_band": true,
+        "status_text_nb_from_band": true
+      }
+    },
+    "NOT_FOUND_IN_REPORT": {
+      "status_badge_nb": "Ikke funnet i rapport",
+      "status_text_nb": "Ikke funnet i rapport.",
+      "deduction_band": null
+    },
+    "NOT_RELEVANT": {
+      "status_badge_nb": "Ikke relevant",
+      "status_text_nb": "Ikke relevant.",
+      "deduction_band": null
+    }
+  },
+  "deduction_bands": {
+    "none": {
+      "label_nb": null,
+      "min_inclusive": 0.0,
+      "max_inclusive": 0.0
+    },
+    "low": {
+      "label_nb": "Lavt trekk",
+      "min_inclusive": 0.01,
+      "max_inclusive": 3.0
+    },
+    "medium": {
+      "label_nb": "Middels trekk",
+      "min_inclusive": 3.01,
+      "max_inclusive": 6.99
+    },
+    "high": {
+      "label_nb": "Høyt trekk",
+      "min_inclusive": 7.0,
+      "max_inclusive": 9999.0
+    }
+  },
+  "requirement_suffix": {
+    "LOVPAALAGT_TG": "",
+    "LOVPAALAGT_AK_IKKE_TG": " (årsak/konsekvens – ikke TG)",
+    "IKKE_LOVPAALAGT": " (ikke lovpålagt)"
+  }
+}

@@ -1,14 +1,31 @@
 {
-  "version": "v1.1",
-  "meta_note": "PXO-02 adjusted to no-deduction by default to avoid overreach beyond FTFTA.",
-  "deductions": [
+  "version": "1.5",
+  "description_nb": "Scoring hooks aligned to original v3.4 12-parent architecture.",
+  "parent_rollup": {
+    "aggregate_child_deductions_to_parent": true,
+    "aggregate_instance_deductions_to_parent": true,
+    "parent_band_rule": "use highest applicable band after rollup",
+    "show_zero_as_ok": true
+  },
+  "special_rules": [
     {
-      "id": "PXO-02",
-      "description": "Ikke-lovpålagt bygningsdel er ikke omtalt",
-      "deduct_points": 0,
-      "severity": "info",
-      "blocks_96_gate": false,
-      "message": "Ikke-lovpålagt bygningsdel er ikke omtalt. Vis 'Ikke vurdert' uten poengtrekk."
+      "rule_id": "ELEKTRISK_TG_FORBIDDEN_2026",
+      "applies_to_child_id": "P09F_ELECTRICAL_INSTALLATION",
+      "condition": "report_date >= 2026-01-01 AND TG_is_used",
+      "deduction_band": "medium",
+      "note_nb": "Elektrisk anlegg skal beskrives uten TG etter NS3600:2025-logikk."
+    },
+    {
+      "rule_id": "LAWFULNESS_AND_SAFETY_NO_TG",
+      "applies_to_parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "condition": "TG_is_required_or_missing",
+      "effect": "ignore TG requirement; validate årsak/konsekvens instead"
+    },
+    {
+      "rule_id": "SUPPLEMENTARY_INFORMATION_NO_TG",
+      "applies_to_parent_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "condition": "TG_is_required_or_missing",
+      "effect": "ignore TG requirement; validate explanatory quality instead"
     }
   ]
 }

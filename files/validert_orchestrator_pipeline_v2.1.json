@@ -1,0 +1,64 @@
+{
+  "orchestrator_id": "VALIDERT_PIPELINE",
+  "version": "2.9",
+  "description_nb": "Canonical-first pipeline aligned to original v3.4 12-parent architecture (mode A).",
+  "inputs": {
+    "active_config": "validert_active_config_v1.9.json",
+    "canonical_points": "validert_canonical_points_v3.9.json",
+    "element_hierarchy": "validert_element_hierarchy_v1.7.json",
+    "points_overview_mapping": "validert_points_overview_mapping_v1.6.json",
+    "ui_overlay": "validert_ui_overlay_v1.6.json",
+    "forskrift_matrix": "validert_forskrift_matrix_v1.3.json",
+    "status_rules": "validert_punkt_for_punkt_status_rules_v1.6.json",
+    "scoring_hooks": "validert_punkt_for_punkt_scoring_hooks_v1.5.json",
+    "room_instances_schema": "validert_room_instances_schema_v1.2.json",
+    "room_instance_rollup_format": "validert_room_instance_rollup_format_v1.3.json"
+  },
+  "steps": [
+    {
+      "id": "S0_PRECHECK",
+      "purpose": "basic file checks and hash"
+    },
+    {
+      "id": "S1_EXTRACT_TEXT",
+      "purpose": "extract text and preserve page markers"
+    },
+    {
+      "id": "S2_EXTRACT_DETECTED_POINTS",
+      "purpose": "segment report into headings/sections"
+    },
+    {
+      "id": "S3_MAP_SEGMENTS_TO_CANONICAL_CHILDREN",
+      "purpose": "map extracted segments to canonical child nodes using aliases/regex_any with IGNORECASE"
+    },
+    {
+      "id": "S4_BUILD_INSTANCES",
+      "purpose": "build instances for parent categories that support instances"
+    },
+    {
+      "id": "S5_RUN_EXISTING_SCORING_AND_META_RULES",
+      "purpose": "run scoring model and existing meta rules unchanged"
+    },
+    {
+      "id": "S6_ROLLUP_TO_12_PARENT_CARDS",
+      "purpose": "aggregate child findings and instance findings to the 12 parent cards"
+    },
+    {
+      "id": "S7_APPLY_STATUS_AND_UI_OVERLAY",
+      "purpose": "render FOUND/NOT_FOUND and OK/Lavt/Middels/Høyt"
+    },
+    {
+      "id": "S8_RENDER_OUTPUT",
+      "purpose": "render public output using canonical parent labels only"
+    }
+  ],
+  "critical_rules": [
+    "Always render exactly 12 parent cards in display_order.",
+    "Parent labels must come from canonical points only.",
+    "Children must never render as cards.",
+    "Instances must render only inside the relevant parent card.",
+    "Score on child; roll up to parent.",
+    "Lovlighet og sikkerhet must never require TG.",
+    "NOT_FOUND_IN_REPORT is neutral by default."
+  ]
+}

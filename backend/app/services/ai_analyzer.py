@@ -18,6 +18,7 @@ from app.services.validert_files import (
     get_building_part_whitelist,
     get_building_part_whitelist_v21,
     get_building_part_whitelist_v22,
+    get_canonical_points_v30,
     get_category_config_text,
     get_legality_arkat_map_text,
     get_legality_arkat_templates_text,
@@ -25,6 +26,9 @@ from app.services.validert_files import (
     get_prompt_context_sha,
     get_scoring_model_info,
     get_scoring_model_text,
+    get_ui_overlay_config,
+    get_points_overview_mapping_config,
+    get_migration_map,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,6 +154,12 @@ POINT_ID_IN_TEXT_RE = re.compile(r"(?:Punkt|punkt)\s+(\d+(?:\.\d+)*)", re.IGNORE
 POINT_ID_SUFFIX_RE = re.compile(r"[_\-](\d+(?:\.\d+)*)$")
 # Stray glyphs from broken PDF encodings – includes CJK blocks and private-use area.
 SUSPICIOUS_CJK_RE = re.compile(r"[\u3400-\u9FFF\uF900-\uFAFF\uE000-\uF8FF]")
+_CONTROL_TEXT_RE = re.compile(r"[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]")
+_SOFT_HYPHEN_LINEBREAK_RE = re.compile(r"([A-Za-zÆØÅæøå])[\-\u00AD]\s*\n\s*([A-Za-zÆØÅæøå])")
+_NBSP_RE = re.compile(r"[\u00A0\u202F]")
+_ZERO_WIDTH_TEXT_RE = re.compile(r"[\u200B-\u200D\u2060\uFEFF]")
+_TRAILING_WS_BEFORE_NL_RE = re.compile(r"[ \t]+\n")
+_EXCESS_BLANKLINES_RE = re.compile(r"\n{3,}")
 
 
 def _strip_suspicious_cjk(text: str) -> str:
@@ -161,6 +171,28 @@ def _strip_suspicious_cjk(text: str) -> str:
     if not text or not isinstance(text, str):
         return text or ""
     return SUSPICIOUS_CJK_RE.sub("", text)
+
+
+def _normalize_report_text_for_analysis(text: str) -> str:
+    """
+    Normalize extracted PDF text before detection/scoring:
+    - remove broken-encoding glyph noise and control chars
+    - normalize Unicode/dashes/spacing
+    - merge line-break hyphenation in Latin/Norwegian words
+    """
+    if not text or not isinstance(text, str):
+        return ""
+    s = unicodedata.normalize("NFKC", text)
+    s = _strip_suspicious_cjk(s)
+    s = _ZERO_WIDTH_TEXT_RE.sub("", s)
+    s = _NBSP_RE.sub(" ", s)
+    s = s.translate(_DASH_TRANSLATION_TABLE)
+    s = _CONTROL_TEXT_RE.sub("", s)
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    s = _SOFT_HYPHEN_LINEBREAK_RE.sub(r"\1\2", s)
+    s = _TRAILING_WS_BEFORE_NL_RE.sub("\n", s)
+    s = _EXCESS_BLANKLINES_RE.sub("\n\n", s)
+    return s.strip()
 
 # Content-based ARK/ARKAT detection (semantic, no strict labels) – per-segment validation
 ARK_ÅRSAK_RE = re.compile(
@@ -356,7 +388,63 @@ def _extract_detected_points(report_text: str, trace: Optional[Dict[str, object]
                     "span_text": span_text,
                 }
             )
-    else:
+
+    # Supplement extraction with heading-like lines classified by whitelist v2.2.
+    # Some templates have partial/unstable numeric structure; keep this available
+    # even when numeric headers exist so canonical mapping can still recover.
+    wl = _get_whitelist_v22_lookup()
+    if wl and line_index:
+        norm_cfg = wl.get("norm_cfg") or {}
+        reject_patterns = wl.get("reject_patterns") or []
+        building_parts = wl.get("building_parts") or []
+        existing_norm_titles = {
+            _normalize_title_v22(str(p.get("title") or ""), norm_cfg)
+            for p in detected
+            if isinstance(p, dict) and p.get("title")
+        }
+        heading_supplement_count = 0
+        max_heading_supplements = 40
+        for line in line_index:
+            if heading_supplement_count >= max_heading_supplements:
+                break
+            raw = str(line.get("text") or "").strip()
+            if not _looks_like_section_heading_candidate(raw):
+                continue
+            if not _contains_mapping_alias_hint(raw):
+                continue
+            norm_title = _normalize_title_v22(raw, norm_cfg)
+            if not norm_title or norm_title in existing_norm_titles:
+                continue
+            if _matches_reject_if_regex(norm_title, reject_patterns):
+                continue
+            if not _classify_to_building_part_v22(norm_title, building_parts):
+                continue
+            heading_supplement_count += 1
+            synthetic_id = str(90000 + heading_supplement_count)
+            detected.append(
+                {
+                    "point_key": f"H{heading_supplement_count:04d}",
+                    "native_label": synthetic_id,
+                    "numeric_id": synthetic_id,
+                    "native_path": [],
+                    "kind": "point",
+                    "point_id": synthetic_id,
+                    "title": raw,
+                    "page_start": int(line.get("page") or 1),
+                    "page_end": int(line.get("page") or 1),
+                    "order_in_doc": len(detected) + 1,
+                    "anchor_text": raw,
+                    "span_hash": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+                    "excerpt": raw,
+                    "tg": "",
+                    "span_text": raw,
+                }
+            )
+            existing_norm_titles.add(norm_title)
+        if trace is not None:
+            trace["heading_supplement_count"] = heading_supplement_count
+
+    if not detected:
         # Fallback: no point headers found – treat whole report as one segment so we don't silently give 100%.
         full_text = "\n".join(item["text"] for item in line_index).strip()
         page_start = line_index[0]["page"] if line_index else 1
@@ -391,6 +479,7 @@ def _build_detected_points_payload(
     document_title: Optional[str],
     document_id: Optional[str],
     pdf_metadata: Optional[Dict[str, object]],
+    points_before_whitelist: Optional[List[Dict[str, object]]] = None,
 ) -> Dict[str, object]:
     page_count = 1
     if isinstance(pdf_metadata, dict):
@@ -410,6 +499,11 @@ def _build_detected_points_payload(
             },
         },
         "points": points_out,
+        # Optional debug/fallback source for canonical mapping if whitelist becomes too aggressive.
+        "points_before_whitelist": [
+            {k: v for k, v in (p if isinstance(p, dict) else {}).items() if k != "span_text"}
+            for p in (points_before_whitelist or [])
+        ],
     }
 
 
@@ -425,19 +519,32 @@ def get_validated_detected_points_payload(
     Only validated building-part segments are included. Use this for points_overview, hierarchy,
     and ARKAT/cost rules. Never use raw/stored detected_points for UI rendering.
     """
-    if not extracted_text or not extracted_text.strip():
+    normalized_text = _normalize_report_text_for_analysis(extracted_text or "")
+    if not normalized_text or not normalized_text.strip():
         return _build_detected_points_payload(
             [], document_hash or "", document_title, document_id, pdf_metadata
         )
-    detected = _extract_detected_points(extracted_text)
-    validated = _validate_detected_points_against_whitelist(detected)
-    return _build_detected_points_payload(
+    trace: Dict[str, object] = {
+        "total_detected_before_stray": 0,
+        "total_after_stray": 0,
+        "total_after_whitelist": 0,
+    }
+    detected = _extract_detected_points(normalized_text, trace=trace)
+    trace["total_after_stray"] = len(detected)
+    trace["total_detected_before_stray"] = len(detected) + int(trace.get("stray_rejected_count", 0) or 0)
+    validated = _validate_detected_points_against_whitelist(detected, trace=trace)
+    trace["total_after_whitelist"] = len(validated)
+    trace["validated_point_ids"] = [p.get("point_id") for p in validated if isinstance(p, dict) and p.get("point_id")]
+    payload = _build_detected_points_payload(
         validated,
-        document_hash or hashlib.sha256(extracted_text.encode("utf-8")).hexdigest(),
+        document_hash=document_hash or hashlib.sha256(normalized_text.encode("utf-8")).hexdigest(),
         document_title=document_title,
         document_id=document_id,
         pdf_metadata=pdf_metadata,
+        points_before_whitelist=detected,
     )
+    payload["segmentation_trace"] = trace
+    return payload
 
 
 def _is_numeric_point_id(value: str) -> bool:
@@ -499,6 +606,10 @@ def _is_stray_point_header(line_text: str, raw_id: str, section_title: str) -> b
     for p in _STRAY_POINT_PATTERNS:
         if p in combined:
             return True
+    if "etasje >" in combined or "etasje |" in combined:
+        return True
+    if _is_question_style_heading(section_title or line_text):
+        return True
     if title_lower and len(title_lower) < 4 and title_lower.rstrip(".:").isdigit():
         return True
     if text_lower.endswith(":") and len(text_lower) < 15 and not any(c.isalpha() for c in text_lower.replace(":", "")):
@@ -521,11 +632,89 @@ def _is_false_point_header(line_text: str, raw_id: str, section_title: str) -> b
         return True
     if any(t in title_lower for t in ("ingen vesentlige", "vesentlige avvik", "store eller alvorlige", "ikke undersøkt")):
         return True
+    if "etasje >" in title_lower or "etasje |" in title_lower:
+        return True
     pid = str(raw_id).strip().rstrip(".")
     if re.match(r"^\d{2}$", pid):
         n = int(pid)
         if 12 <= n <= 24 and "tg" not in line_lower:
             return True
+    return False
+
+
+def _looks_like_section_heading_candidate(line_text: str) -> bool:
+    """
+    Conservative heading detector used to supplement numeric point extraction.
+    """
+    if not line_text or not isinstance(line_text, str):
+        return False
+    s = " ".join(line_text.strip().split())
+    if len(s) < 3 or len(s) > 90:
+        return False
+    low = s.lower()
+    low_no_enum = _strip_leading_enumerator(low)
+    if "?" in low:
+        return False
+    if _is_question_style_heading(low_no_enum):
+        return False
+    if "etasje >" in low or "etasje |" in low:
+        return False
+    if " m2" in low or "m2," in low or "m2." in low:
+        return False
+    if low.startswith(("rapportansvarlig", "dette trenger du å vite", "tilstandsrapporten")):
+        return False
+    if low.startswith(("forutsetninger", "premisser", "ordforklaring", "innholdsfortegnelse")):
+        return False
+    if re.match(r"^[\d\s.,:/-]+$", low):
+        return False
+    return True
+
+
+@lru_cache(maxsize=1)
+def _get_mapping_alias_hints() -> Tuple[str, ...]:
+    """Collect normalized child aliases to keep supplemental heading extraction strict."""
+    cfg = get_points_overview_mapping_config() or {}
+    child_mappings = cfg.get("child_mappings") or []
+    hints: set = set()
+    for item in child_mappings:
+        if not isinstance(item, dict):
+            continue
+        aliases = item.get("aliases") or []
+        if not isinstance(aliases, list):
+            continue
+        for alias in aliases:
+            if not isinstance(alias, str):
+                continue
+            a = _normalize_segment_title_for_canonical_match(alias)
+            if len(a) >= 5:
+                hints.add(a)
+    return tuple(sorted(hints))
+
+
+def _contains_mapping_alias_hint(line_text: str) -> bool:
+    norm_line = _normalize_segment_title_for_canonical_match(line_text or "")
+    if not norm_line:
+        return False
+    for hint in _get_mapping_alias_hints():
+        if hint in norm_line:
+            return True
+    return False
+
+
+def _strip_leading_enumerator(text: str) -> str:
+    if not text or not isinstance(text, str):
+        return ""
+    return re.sub(r"^\s*\d+(?:[.)]|:)\s*", "", text).strip()
+
+
+def _is_question_style_heading(text: str) -> bool:
+    s = _strip_leading_enumerator((text or "").lower())
+    if not s:
+        return False
+    if s.startswith(("er det ", "har det ", "foreligger det ", "finnes det ")):
+        return True
+    if " i boligen iht. forskriftskrav" in s:
+        return True
     return False
 
 
@@ -1175,12 +1364,14 @@ def _parse_point_id_from_v16_finding(finding: Dict[str, object]) -> Optional[str
             candidate = _normalize_point_id(value)
             if candidate and candidate.upper() != "GLOBAL" and _is_numeric_point_id(candidate):
                 return candidate
+    # Avoid parsing generic suffixes like "..._001" from rule/finding IDs.
+    # Those are typically rule serials, not report point IDs.
     for key in ("rule_id", "finding_id"):
         value = finding.get(key)
         if isinstance(value, str):
-            suffix_match = POINT_ID_SUFFIX_RE.search(value)
-            if suffix_match:
-                candidate = _normalize_point_id(suffix_match.group(1))
+            m = POINT_ID_IN_TEXT_RE.search(value)
+            if m:
+                candidate = _normalize_point_id(m.group(1))
                 if candidate and _is_numeric_point_id(candidate):
                     return candidate
     message = finding.get("message") or ""
@@ -1194,6 +1385,133 @@ def _parse_point_id_from_v16_finding(finding: Dict[str, object]) -> Optional[str
             if m:
                 return m.group(1)
     return None
+
+
+def _infer_canonical_child_from_text(
+    text: str,
+    mapping_points: List[Dict[str, object]],
+) -> Optional[str]:
+    """
+    Infer canonical child id from free-form finding/evidence text using mapping aliases/regex.
+    This is used when v1.6 findings are not tied to numeric point IDs.
+    """
+    if not text or not isinstance(text, str):
+        return None
+    norm_text = _normalize_segment_title_for_canonical_match(text)
+    if not norm_text:
+        return None
+    for m in mapping_points:
+        if not isinstance(m, dict):
+            continue
+        if _segment_matches_canonical(norm_text, m, {}):
+            cid = m.get("canonical_id")
+            if isinstance(cid, str) and cid:
+                return cid
+    return None
+
+
+def _is_tg3_related_finding(payload: Dict[str, object]) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    chunks: List[str] = []
+    for key in ("rule_id", "finding_id", "title", "message"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            chunks.append(value.lower())
+    for snip in (payload.get("evidence_snippets") or []):
+        if isinstance(snip, str) and snip.strip():
+            chunks.append(snip.lower())
+    joined = " ".join(chunks)
+    return "tg3" in joined
+
+
+def _is_canonical_child_point_id(point_id: str) -> bool:
+    if not point_id or not isinstance(point_id, str):
+        return False
+    return bool(re.match(r"^P\d{2}[A-Z]_", point_id))
+
+
+def _sorted_parent_cards(parent_cards: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    def _order_of(parent: Dict[str, object]) -> int:
+        order = parent.get("display_order")
+        if isinstance(order, int):
+            return order
+        if isinstance(order, str) and order.isdigit():
+            return int(order)
+        cid = str(parent.get("canonical_id") or "")
+        m = re.match(r"^P(\d{2})_", cid)
+        if m:
+            return int(m.group(1))
+        return 999
+
+    cards = [p for p in parent_cards if isinstance(p, dict) and p.get("canonical_id")]
+    return sorted(cards, key=lambda p: (_order_of(p), str(p.get("canonical_id") or "")))
+
+
+@lru_cache(maxsize=1)
+def _get_canonical_child_title_map() -> Dict[str, str]:
+    cfg = get_canonical_points_v30()
+    child_titles: Dict[str, str] = {}
+    parents = cfg.get("parents") if isinstance(cfg, dict) else []
+    for parent in parents or []:
+        if not isinstance(parent, dict):
+            continue
+        for child in parent.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            cid = str(child.get("child_id") or child.get("id") or "").strip()
+            if not cid:
+                continue
+            title = str(child.get("title_nb") or child.get("label_nb") or "").strip()
+            if title:
+                child_titles[cid] = title
+    return child_titles
+
+
+def _resolve_child_title(child_id: str, child_meta: Dict[str, object]) -> str:
+    canonical_title = _get_canonical_child_title_map().get(str(child_id or ""))
+    raw_title = str((child_meta or {}).get("title") or "").strip()
+    title = canonical_title or raw_title or str(child_id or "Ukjent")
+    title = _strip_suspicious_cjk(title)
+    title = " ".join(title.split())
+    return title or str(child_id or "Ukjent")
+
+
+def _can_use_all_findings_fallback(
+    all_findings: List[Dict[str, object]],
+    mapping_points: List[Dict[str, object]],
+    allowed_point_ids: set,
+) -> bool:
+    """
+    Tight fallback gate:
+    only use all_findings path when we can link findings to concrete report segments.
+    """
+    if not isinstance(all_findings, list) or not all_findings:
+        return False
+    linked = 0
+    for finding in all_findings:
+        if not isinstance(finding, dict):
+            continue
+        point_id = _parse_point_id_from_v16_finding(finding)
+        if point_id and point_id in allowed_point_ids and point_id != "GLOBAL":
+            linked += 1
+            continue
+        text_candidates: List[str] = []
+        for key in ("message", "title"):
+            value = finding.get(key)
+            if isinstance(value, str) and value.strip():
+                text_candidates.append(value)
+        for snip in (finding.get("evidence_snippets") or []):
+            if isinstance(snip, str) and snip.strip():
+                text_candidates.append(snip)
+        inferred = None
+        for candidate in text_candidates:
+            inferred = _infer_canonical_child_from_text(candidate, mapping_points)
+            if inferred:
+                break
+        if inferred and _is_canonical_child_point_id(inferred):
+            linked += 1
+    return linked > 0
 
 
 def _filter_tg3_cost_missing_false_positives(
@@ -1259,6 +1577,286 @@ def _filter_tg3_cost_missing_false_positives(
             f["severity"] = "minor"
         filtered.append(f)
     analysis_output["all_findings"] = filtered
+
+
+_TG_MISMATCH_HINTS = (
+    "b_tg.inconsistent_with_text",
+    "gate_tg_text_severe_mismatch",
+    "klar motstrid",
+    "inkonsistens mellom tg og tekst",
+    "contradiction",
+)
+_PRACTICAL_CONSEQUENCE_HINTS = (
+    "a_arkat.konsekvens_unclear",
+    "gate_konsekvens_not_buyer_oriented",
+    "konsekvens_unclear",
+    "not buyer oriented",
+    "not clearly practical",
+)
+_SEVERE_TEXT_TERMS = (
+    "aktiv lekkasje",
+    "alvorlig",
+    "akutt",
+    "umiddelbar",
+    "fare",
+    "brannfare",
+    "helserisiko",
+    "muggsopp",
+    "råte",
+    "store fuktskader",
+    "bør utbedres straks",
+)
+_MILD_TEXT_TERMS = (
+    "ingen avvik",
+    "ingen symptomer",
+    "normal slitasje",
+    "mindre avvik",
+    "svak slitasje",
+    "anbefales ved behov",
+    "kan vurderes",
+)
+_PRUDENCE_CONTEXT_TERMS = (
+    "ikke krav på oppføringstidspunktet",
+    "ikke krav da bygget ble oppført",
+    "ikke krav ved oppføring",
+    "anbefales for sikkerhet",
+    "anbefales av sikkerhetsmessige årsaker",
+    "føre var",
+    "snøfanger",
+)
+_PRACTICAL_CONSEQUENCE_TERMS = (
+    "helserisiko",
+    "helsefare",
+    "fuktskade",
+    "fuktskader",
+    "muggsopp",
+    "sopp",
+    "lekkasje",
+    "følgeskade",
+    "følgeskader",
+    "kostbar",
+    "kostbare reparasjoner",
+    "utbedringsbehov",
+    "videre skade",
+    "sikkerhetsrisiko",
+    "redusert funksjon",
+    "bruksbegrensning",
+    "inneklima",
+)
+
+
+def _finding_text_blob(finding: Dict[str, object]) -> str:
+    parts: List[str] = []
+    for key in ("finding_id", "rule_id", "title", "message", "recommended_fix_text"):
+        value = finding.get(key)
+        if isinstance(value, str) and value.strip():
+            parts.append(value.strip())
+    for key in ("evidence_snippets",):
+        value = finding.get(key)
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, str) and item.strip():
+                    parts.append(item.strip())
+    return _normalize_tg3_cost_text("\n".join(parts)).lower()
+
+
+def _driver_text_blob(driver: Dict[str, object]) -> str:
+    parts: List[str] = []
+    for key in ("title", "reason"):
+        value = driver.get(key)
+        if isinstance(value, str) and value.strip():
+            parts.append(value.strip())
+    refs = driver.get("rule_refs")
+    if isinstance(refs, list):
+        parts.extend([str(r) for r in refs if isinstance(r, str)])
+    return _normalize_tg3_cost_text("\n".join(parts)).lower()
+
+
+def _is_tg_mismatch_candidate(text: str) -> bool:
+    return any(h in text for h in _TG_MISMATCH_HINTS)
+
+
+def _is_practical_consequence_candidate(text: str) -> bool:
+    return any(h in text for h in _PRACTICAL_CONSEQUENCE_HINTS)
+
+
+def _is_clear_tg_text_mismatch(segment_text: str, tg: str) -> bool:
+    if not segment_text:
+        return False
+    text = _normalize_tg3_cost_text(segment_text).lower()
+    if any(term in text for term in _PRUDENCE_CONTEXT_TERMS):
+        return False
+    has_severe = any(term in text for term in _SEVERE_TEXT_TERMS)
+    has_mild = any(term in text for term in _MILD_TEXT_TERMS)
+    tg_norm = str(tg or "").upper()
+    if tg_norm in {"TG0", "TG1"} and has_severe:
+        return True
+    if tg_norm == "TG3" and has_mild and not has_severe:
+        return True
+    if tg_norm == "TG2" and ("ingen avvik" in text or "uten avvik" in text) and not has_severe:
+        return True
+    return False
+
+
+def _has_practical_consequence_text(segment_text: str) -> bool:
+    if not segment_text:
+        return False
+    text = _normalize_tg3_cost_text(segment_text).lower()
+    return any(term in text for term in _PRACTICAL_CONSEQUENCE_TERMS)
+
+
+def _drop_tg_and_consequence_false_positives(
+    report_text: str,
+    analysis_output: Dict[str, object],
+    detected_points: List[Dict[str, object]],
+) -> None:
+    """
+    Tight post-filter for two frequently over-triggered drivers:
+    - TG/text contradiction
+    - consequence not practical/buyer-oriented
+    Keeps findings only when we can detect a clear mismatch from linked segment text.
+    """
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list) or not all_findings:
+        return
+
+    linked = _extract_linked_summary_text_per_point(report_text or "")
+    segment_by_point: Dict[str, str] = {}
+    tg_by_point: Dict[str, str] = {}
+    for p in detected_points:
+        if not isinstance(p, dict):
+            continue
+        point_id = str(p.get("point_id") or "").strip()
+        if not point_id:
+            continue
+        main = str(p.get("span_text") or "").strip()
+        summary = _get_linked_summary_for_point(linked, point_id).strip()
+        combined = (main + "\n" + summary).strip() if summary else main
+        if combined:
+            segment_by_point[point_id] = combined
+        tg_by_point[point_id] = str(p.get("tg") or "").upper()
+
+    mapping_cfg = get_points_overview_mapping_config()
+    child_mappings = mapping_cfg.get("child_mappings") if isinstance(mapping_cfg, dict) else []
+    mapping_points: List[Dict[str, object]] = []
+    if isinstance(child_mappings, list):
+        for m in child_mappings:
+            if isinstance(m, dict):
+                m_copy = dict(m)
+                if "child_id" in m_copy:
+                    m_copy["canonical_id"] = m_copy["child_id"]
+                mapping_points.append(m_copy)
+    if mapping_points:
+        canonical_map = _map_segments_to_canonical(
+            [p for p in detected_points if isinstance(p, dict)],
+            mapping_points,
+        )
+        for canonical_id, seg in canonical_map.items():
+            if not isinstance(seg, dict):
+                continue
+            pid = str(seg.get("point_id") or "").strip()
+            if not pid:
+                continue
+            seg_text = segment_by_point.get(pid)
+            if seg_text:
+                segment_by_point[canonical_id] = seg_text
+            tg_val = tg_by_point.get(pid, "")
+            if tg_val:
+                tg_by_point[canonical_id] = tg_val
+
+    filtered_findings: List[Dict[str, object]] = []
+    for finding in all_findings:
+        if not isinstance(finding, dict):
+            filtered_findings.append(finding)
+            continue
+        blob = _finding_text_blob(finding)
+        is_tg_candidate = _is_tg_mismatch_candidate(blob)
+        is_practical_candidate = _is_practical_consequence_candidate(blob)
+        if not is_tg_candidate and not is_practical_candidate:
+            filtered_findings.append(finding)
+            continue
+        point_id = _parse_point_id_from_v16_finding(finding) or ""
+        if (not point_id or point_id not in segment_by_point) and mapping_points:
+            inferred = _infer_canonical_child_from_text(blob, mapping_points)
+            if inferred:
+                point_id = inferred
+        segment_text = segment_by_point.get(point_id, "")
+        if not segment_text:
+            filtered_findings.append(finding)
+            continue
+        if is_tg_candidate:
+            tg = tg_by_point.get(point_id, "")
+            if not _is_clear_tg_text_mismatch(segment_text, tg):
+                continue
+        if is_practical_candidate:
+            if _has_practical_consequence_text(segment_text):
+                continue
+        filtered_findings.append(finding)
+    analysis_output["all_findings"] = filtered_findings
+
+    top_score_drivers = analysis_output.get("top_score_drivers")
+    if isinstance(top_score_drivers, list):
+        filtered_drivers = []
+        for driver in top_score_drivers:
+            if not isinstance(driver, dict):
+                filtered_drivers.append(driver)
+                continue
+            blob = _driver_text_blob(driver)
+            if not (_is_tg_mismatch_candidate(blob) or _is_practical_consequence_candidate(blob)):
+                filtered_drivers.append(driver)
+                continue
+            refs = driver.get("rule_refs") or []
+            point_id = ""
+            for ref in refs:
+                if isinstance(ref, str):
+                    m = POINT_ID_IN_TEXT_RE.search(ref)
+                    if m:
+                        point_id = m.group(1)
+                        break
+            if (not point_id or point_id not in segment_by_point) and mapping_points:
+                inferred = _infer_canonical_child_from_text(blob, mapping_points)
+                if inferred:
+                    point_id = inferred
+            segment_text = segment_by_point.get(point_id, "")
+            tg = tg_by_point.get(point_id, "")
+            if _is_tg_mismatch_candidate(blob):
+                if segment_text and not _is_clear_tg_text_mismatch(segment_text, tg):
+                    continue
+            if _is_practical_consequence_candidate(blob):
+                if segment_text and _has_practical_consequence_text(segment_text):
+                    continue
+            filtered_drivers.append(driver)
+        analysis_output["top_score_drivers"] = filtered_drivers
+
+    top_issues = analysis_output.get("top_issues")
+    if isinstance(top_issues, list):
+        filtered_issues: List[Dict[str, object]] = []
+        for issue in top_issues:
+            if not isinstance(issue, dict):
+                filtered_issues.append(issue)
+                continue
+            blob = _finding_text_blob(issue)
+            if _is_tg_mismatch_candidate(blob):
+                point_id = _parse_point_id_from_v16_finding(issue) or ""
+                if (not point_id or point_id not in segment_by_point) and mapping_points:
+                    inferred = _infer_canonical_child_from_text(blob, mapping_points)
+                    if inferred:
+                        point_id = inferred
+                segment_text = segment_by_point.get(point_id, "")
+                tg = tg_by_point.get(point_id, "")
+                if segment_text and not _is_clear_tg_text_mismatch(segment_text, tg):
+                    continue
+            if _is_practical_consequence_candidate(blob):
+                point_id = _parse_point_id_from_v16_finding(issue) or ""
+                if (not point_id or point_id not in segment_by_point) and mapping_points:
+                    inferred = _infer_canonical_child_from_text(blob, mapping_points)
+                    if inferred:
+                        point_id = inferred
+                segment_text = segment_by_point.get(point_id, "")
+                if segment_text and _has_practical_consequence_text(segment_text):
+                    continue
+            filtered_issues.append(issue)
+        analysis_output["top_issues"] = filtered_issues
 
 
 def _extract_linked_summary_text_per_point(report_text: str) -> Dict[str, str]:
@@ -1757,27 +2355,341 @@ def _drop_arkat_false_positives(analysis_output: Dict[str, object]) -> None:
         all_findings.pop(idx)
 
 
+def _deduction_band_from_numeric(deduction: float) -> str:
+    """Convert numeric deduction to band: none (0), low (0.01-3), medium (3.01-6.99), high (7+)."""
+    d = float(deduction or 0)
+    if d <= 0:
+        return "none"
+    if d <= 3.0:
+        return "low"
+    if d <= 6.99:
+        return "medium"
+    return "high"
+
+
+def _tg_rank(tg: str) -> int:
+    tg_norm = str(tg or "").strip().upper()
+    return {"TG0": 0, "TG1": 1, "TG2": 2, "TG3": 3}.get(tg_norm, -1)
+
+
+def _polish_feedback_text(text: object) -> str:
+    if not isinstance(text, str):
+        return ""
+    s = _strip_suspicious_cjk(text)
+    s = " ".join(s.split())
+    s = re.sub(r"\bmed n kort setning\b", "med en kort setning", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+([,.;:!?])", r"\1", s)
+    s = re.sub(r"([.?!]){2,}", r"\1", s)
+    return s.strip()
+
+
+def _polish_feedback_findings(findings: List[Dict[str, object]]) -> None:
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        message = _polish_feedback_text(finding.get("message"))
+        what_to_change = _polish_feedback_text(finding.get("what_to_change"))
+        if message:
+            finding["message"] = message
+        if what_to_change:
+            # Avoid stiff duplicate phrasing when message and action text are identical.
+            if message and what_to_change.lower() == message.lower():
+                what_to_change = f"Oppdater punktteksten slik at avviket lukkes: {message}"
+            finding["what_to_change"] = what_to_change
+        example_fix = finding.get("example_fix")
+        if isinstance(example_fix, dict):
+            good_example = _polish_feedback_text(example_fix.get("good_example"))
+            if good_example:
+                example_fix["good_example"] = good_example
+
+
+def _normalize_segment_title_for_canonical_match(title: str) -> str:
+    """
+    Normalize for canonical matching:
+    - keep Unicode text
+    - NFKC normalize
+    - trim + collapse whitespace
+    - lowercase
+    """
+    if not title or not isinstance(title, str):
+        return ""
+    s = unicodedata.normalize("NFKC", title)
+    s = " ".join(s.strip().split())
+    return s.lower()
+
+
+def _segment_matches_canonical(norm_title: str, cp: Dict, point_lookup: Dict[str, Dict]) -> bool:
+    """Check if normalized title matches canonical point via match_any, aliases, or regex_any (including children)."""
+    if not norm_title:
+        return False
+
+    def _pattern_match(pattern: str) -> bool:
+        if not pattern or not isinstance(pattern, str):
+            return False
+        try:
+            # Canonical patterns may include regex boundaries (\b...); use search, not match.
+            return re.search(pattern, norm_title, flags=re.IGNORECASE | re.UNICODE) is not None
+        except re.error:
+            # Fallback for malformed regex-like values.
+            fallback = pattern.replace("\\b", "").strip().lower()
+            return bool(fallback and fallback in norm_title)
+
+    # Collect all patterns from across different config schemas (match_any, aliases, regex_any)
+    patterns = set()
+    for field in ["match_any", "aliases", "regex_any"]:
+        val = cp.get(field) or []
+        if isinstance(val, list):
+            patterns.update([str(p) for p in val if p])
+        elif isinstance(val, str):
+            patterns.add(val)
+            
+    # Also check exact ID and Title matches
+    for field in ["canonical_id", "child_id", "title_nb", "label_nb"]:
+        val = str(cp.get(field) or "").strip().lower()
+        if val and val in norm_title:
+            return True
+
+    for p in patterns:
+        if _pattern_match(p):
+            return True
+
+    # Nested check for child technical points/components
+    for child in (cp.get("children") or []):
+        if isinstance(child, dict) and _segment_matches_canonical(norm_title, child, {}):
+            return True
+
+    return False
+
+
+def _map_segments_to_canonical(
+    points: List[Dict[str, object]],
+    canonical_points: List[Dict],
+) -> Dict[str, Dict[str, object]]:
+    """
+    Map detected segments to canonical_id. For each canonical (display order), assign first matching segment.
+    component_only children match to parent canonical via children match_any.
+    """
+    sorted_cp = sorted(
+        [c for c in canonical_points if isinstance(c, dict) and c.get("canonical_id")],
+        key=lambda c: int(c.get("display_order") or 999),
+    )
+    result: Dict[str, Dict[str, object]] = {}
+    used_point_ids: set = set()
+
+    def _candidate_score(seg: Dict[str, object]) -> Tuple[int, int]:
+        """
+        Prefer segments with explicit TG and detailed section pages over summary pages.
+        Higher is better.
+        """
+        tg = str(seg.get("tg") or "").strip().upper()
+        tg_known = 1 if tg in {"TG0", "TG1", "TG2", "TG3", "TGIU"} else 0
+        page = int(seg.get("page_start") or 1)
+        title = (seg.get("title") or seg.get("heading") or seg.get("native_label") or "").strip()
+        detail_hint = 1 if ">" in title or len(title) > 20 else 0
+        # Prioritize known TG first, then likely detail sections.
+        return (tg_known * 100 + detail_hint * 10 + min(max(page, 1), 99), -page)
+
+    for cp in sorted_cp:
+        cid = cp.get("canonical_id") or ""
+        if not cid:
+            continue
+        best_seg: Optional[Dict[str, object]] = None
+        best_score: Optional[Tuple[int, int]] = None
+        for seg in points:
+            if not isinstance(seg, dict):
+                continue
+            point_id = seg.get("point_id") or seg.get("numeric_id") or seg.get("native_label") or ""
+            if not point_id or point_id in used_point_ids:
+                continue
+            # Match canonical against heading/title, not body text.
+            title = (seg.get("title") or seg.get("heading") or seg.get("native_label") or "").strip()
+            norm_title = _normalize_segment_title_for_canonical_match(title)
+            if not norm_title:
+                continue
+            if _segment_matches_canonical(norm_title, cp, {}):
+                score = _candidate_score(seg)
+                if best_score is None or score > best_score:
+                    best_seg = seg
+                    best_score = score
+        if isinstance(best_seg, dict):
+            point_id = best_seg.get("point_id") or best_seg.get("numeric_id") or best_seg.get("native_label") or ""
+            if point_id:
+                used_point_ids.add(point_id)
+            result[cid] = best_seg
+    return result
+
+
+def _emit_canonical_mapping_debug(
+    report_id: Optional[str],
+    points: List[Dict[str, object]],
+    canonical_points: List[Dict],
+    segment_map: Dict[str, Dict[str, object]],
+    detected_points_payload: Optional[Dict[str, object]] = None,
+) -> None:
+    """Debug summary for canonical mapping outcomes (enabled only in analysis debug mode)."""
+    if not (settings.ANALYSIS_DEBUG or settings.ANALYSIS_DEBUG_ONCE or settings.ANALYSIS_DEBUG_RUN_ID):
+        return
+
+    trace = {}
+    if isinstance(detected_points_payload, dict):
+        trace = detected_points_payload.get("segmentation_trace") or {}
+    if not isinstance(trace, dict):
+        trace = {}
+
+    first_5_titles = []
+    for p in points[:5]:
+        if not isinstance(p, dict):
+            continue
+        t = (p.get("title") or p.get("heading") or p.get("native_label") or "").strip()
+        if t:
+            first_5_titles.append(t)
+
+    found_points_count = len(segment_map)
+    total_canonical = len([c for c in canonical_points if isinstance(c, dict) and c.get("canonical_id")])
+    not_found_points_count = max(total_canonical - found_points_count, 0)
+
+    sorted_cp = sorted(
+        [c for c in canonical_points if isinstance(c, dict) and c.get("canonical_id")],
+        key=lambda c: int(c.get("display_order") or 999),
+    )
+    p01_cp = next(
+        (c for c in sorted_cp if str(c.get("canonical_id") or "").upper().startswith("P01_")),
+        sorted_cp[0] if sorted_cp else {},
+    )
+    p01_canonical_id = p01_cp.get("canonical_id") if isinstance(p01_cp, dict) else None
+    p01_matched_titles: List[str] = []
+    if isinstance(p01_cp, dict) and p01_cp:
+        for seg in points:
+            if not isinstance(seg, dict):
+                continue
+            title = (seg.get("title") or seg.get("heading") or seg.get("native_label") or "").strip()
+            norm_title = _normalize_segment_title_for_canonical_match(title)
+            if title and _segment_matches_canonical(norm_title, p01_cp, {}):
+                p01_matched_titles.append(title)
+            if len(p01_matched_titles) >= 10:
+                break
+
+    logger.info(
+        "canonical_mapping_debug report_id=%s segments_extracted_count=%s segments_after_filter_count=%s first_5_segment_titles=%s found_points_count=%s not_found_points_count=%s p01_canonical_id=%s p01_matched_segment_titles=%s",
+        report_id or "unknown_report",
+        trace.get("total_detected_before_stray", len(points)),
+        trace.get("total_after_whitelist", len(points)),
+        first_5_titles,
+        found_points_count,
+        not_found_points_count,
+        p01_canonical_id,
+        p01_matched_titles,
+    )
+
+
+def _build_points_overview_from_canonical(
+    canonical_points: List[Dict],
+    segment_map: Dict[str, Dict[str, object]],
+    deduction_totals: Dict[str, int],
+    finding_ids_by_point: Dict[str, List[str]],
+    point_lookup: Dict[str, Dict[str, object]],
+    requirement_tags: Optional[Dict[str, object]] = None,
+    ui_overlay: Optional[Dict[str, object]] = None,
+) -> List[Dict[str, object]]:
+    """
+    Build points_overview from canonical list. Always all items in display_order.
+    status: FOUND or NOT_FOUND_IN_REPORT.
+    """
+    sorted_canonical = sorted(
+        [c for c in canonical_points if isinstance(c, dict) and c.get("canonical_id")],
+        key=lambda c: int(c.get("display_order") or 999),
+    )
+    points_overview: List[Dict[str, object]] = []
+    requirement_tags = requirement_tags if isinstance(requirement_tags, dict) else {}
+    ui_overlay = ui_overlay if isinstance(ui_overlay, dict) else {}
+    fallback_suffixes = (
+        ui_overlay.get("requirement_suffix_policy", {}).get("fallback", {})
+        if isinstance(ui_overlay.get("requirement_suffix_policy"), dict)
+        else {}
+    )
+    not_found_text = (
+        ui_overlay.get("not_found_policy", {}).get("ui_text_nb")
+        if isinstance(ui_overlay.get("not_found_policy"), dict)
+        else None
+    )
+    tg_missing_text = (
+        ui_overlay.get("tg_display_policy", {}).get("not_present_text_nb")
+        if isinstance(ui_overlay.get("tg_display_policy"), dict)
+        else None
+    )
+    for idx, cp in enumerate(sorted_canonical):
+        cid = cp.get("canonical_id") or ""
+        title_nb = cp.get("title_nb") or ""
+        requirement_tag = cp.get("requirement_tag") or ""
+        req_meta = requirement_tags.get(requirement_tag, {}) if isinstance(requirement_tag, str) else {}
+        suffix = ""
+        if isinstance(req_meta, dict):
+            suffix = str(req_meta.get("ui_suffix_nb") or "")
+        if not suffix and isinstance(fallback_suffixes, dict) and isinstance(requirement_tag, str):
+            suffix = str(fallback_suffixes.get(requirement_tag) or "")
+        title_display = f"{title_nb}{suffix}" if suffix else title_nb
+        display_index = idx + 1
+        seg = segment_map.get(cid)
+        if seg:
+            point_id = seg.get("point_id") or seg.get("numeric_id") or seg.get("native_label") or ""
+            deduction = int(deduction_totals.get(point_id, 0))
+            deduction_band = _deduction_band_from_numeric(deduction)
+            fids = finding_ids_by_point.get(point_id, [])
+            component = None  # would need analysis_output for issues
+            tg_value = seg.get("tg") or tg_missing_text or "UNKNOWN"
+            summary = "OK – ingen endringer nødvendig." if deduction <= 0 else "Trekk er registrert for punktet."
+            points_overview.append({
+                "display_index": display_index,
+                "canonical_id": cid,
+                "point_id": point_id,
+                "title": title_nb,
+                "title_display": title_display,
+                "requirement_tag": requirement_tag,
+                "status": "FOUND",
+                "deduction_band": deduction_band,
+                "deduction_total": deduction,
+                "tg": tg_value,
+                "summary": summary,
+                "finding_ids": fids,
+                "where": {"page": int(seg.get("page_start") or 1)},
+            })
+        else:
+            points_overview.append({
+                "display_index": display_index,
+                "canonical_id": cid,
+                "point_id": None,
+                "title": title_nb,
+                "title_display": title_display,
+                "requirement_tag": requirement_tag,
+                "status": "NOT_FOUND_IN_REPORT",
+                "deduction_band": "none",
+                "deduction_total": 0,
+                "tg": tg_missing_text or "UNKNOWN",
+                "summary": str(not_found_text or "Ikke funnet i rapport"),
+                "finding_ids": [],
+                "where": {},
+            })
+    return points_overview
+
+
 def _build_feedback_v11(
     analysis_output: Dict[str, object],
     detected_points_payload: Dict[str, object],
     report_id: Optional[str],
     document_hash: Optional[str],
 ) -> Dict[str, object]:
-    all_findings = analysis_output.get("all_findings")
-    if (
-        not analysis_output.get("findings")
-        and isinstance(all_findings, list)
-        and len(all_findings) > 0
-    ):
-        return _build_feedback_v11_from_all_findings(
-            analysis_output,
-            detected_points_payload,
-            report_id=report_id,
-            document_hash=document_hash,
-        )
     points = detected_points_payload.get("points", []) if isinstance(detected_points_payload, dict) else []
-    allowed_point_ids = set()
-    point_lookup: Dict[str, Dict[str, object]] = {}
+    # Precompute mapping + allowed IDs so fallback can be gated on real linkage.
+    pre_mapping_cfg = get_points_overview_mapping_config()
+    pre_child_mappings = pre_mapping_cfg.get("child_mappings") or []
+    pre_mapping_points: List[Dict[str, object]] = []
+    for m in pre_child_mappings:
+        if isinstance(m, dict):
+            m_copy = dict(m)
+            if "child_id" in m_copy:
+                m_copy["canonical_id"] = m_copy["child_id"]
+            pre_mapping_points.append(m_copy)
+    pre_allowed_point_ids: set = set()
     for point in points:
         if not isinstance(point, dict):
             continue
@@ -1786,10 +2698,124 @@ def _build_feedback_v11(
             point.get("numeric_id"),
             point.get("point_key"),
             point.get("native_label"),
+            point.get("title"),
         ):
+            if isinstance(key, str) and key:
+                pre_allowed_point_ids.add(key)
+
+    all_findings = analysis_output.get("all_findings")
+    if (
+        not analysis_output.get("findings")
+        and isinstance(all_findings, list)
+        and len(all_findings) > 0
+        and _can_use_all_findings_fallback(all_findings, pre_mapping_points, pre_allowed_point_ids)
+    ):
+        return _build_feedback_v11_from_all_findings(
+            analysis_output,
+            detected_points_payload,
+            report_id=report_id,
+            document_hash=document_hash,
+        )
+    points_before_whitelist = (
+        detected_points_payload.get("points_before_whitelist", [])
+        if isinstance(detected_points_payload, dict)
+        else []
+    )
+
+    # V3.9 Architecture: Align raw segments with canonical IDs
+    mapping_cfg = get_points_overview_mapping_config()
+    child_mappings = mapping_cfg.get("child_mappings") or []
+    mapping_points = []
+    if child_mappings and points:
+        for m in child_mappings:
+            if isinstance(m, dict):
+                m_copy = dict(m)
+                if "child_id" in m_copy:
+                    m_copy["canonical_id"] = m_copy["child_id"]
+                mapping_points.append(m_copy)
+
+        # Use existing matcher on both whitelist points and pre-whitelist points
+        # so strict whitelist drops can still be recovered during canonical roll-up.
+        mapping_input_points: List[Dict[str, object]] = []
+        if isinstance(points, list):
+            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+        if isinstance(points_before_whitelist, list):
+            seen_ids = {
+                str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                for p in mapping_input_points
+                if isinstance(p, dict)
+            }
+            for p in points_before_whitelist:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                if pid and pid in seen_ids:
+                    continue
+                mapping_input_points.append(p)
+
+        segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
+        for canon_id, seg in segment_map.items():
+            # Force the segment ID to match the canonical child ID so roll-up logic finds it
+            seg["point_id"] = canon_id
+
+    allowed_point_ids = set()
+    point_lookup: Dict[str, Dict[str, object]] = {}
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        # Support full titles as lookup keys (LLM often returns the title)
+        pid_keys = [
+            point.get("point_id"),
+            point.get("numeric_id"),
+            point.get("point_key"),
+            point.get("native_label"),
+            point.get("title")
+        ]
+        for key in pid_keys:
             if isinstance(key, str) and key:
                 allowed_point_ids.add(key)
                 point_lookup.setdefault(key, point)
+
+    # Recover canonical children inferred from pre-whitelist mapping (without exposing raw point IDs).
+    if mapping_points:
+        mapping_input_points: List[Dict[str, object]] = []
+        if isinstance(points, list):
+            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+        if isinstance(points_before_whitelist, list):
+            seen_ids = {
+                str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                for p in mapping_input_points
+                if isinstance(p, dict)
+            }
+            for p in points_before_whitelist:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                if pid and pid in seen_ids:
+                    continue
+                mapping_input_points.append(p)
+        pre_segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
+        for canon_id, seg in pre_segment_map.items():
+            if canon_id:
+                allowed_point_ids.add(canon_id)
+                point_lookup.setdefault(canon_id, seg)
+
+    # V3.9 Architecture: Force findings to use canonical IDs if they match aliases/regex
+    all_findings_source = (analysis_output.get("findings") or []) + (analysis_output.get("all_findings") or [])
+    for comp in all_findings_source:
+        if not isinstance(comp, dict): continue
+        raw_cid = str(comp.get("component_id") or comp.get("point_id") or "")
+        if not raw_cid: continue
+        norm_cid = _normalize_segment_title_for_canonical_match(raw_cid)
+        for m in mapping_points:
+            if _segment_matches_canonical(norm_cid, m, {}):
+                target_id = m.get("canonical_id")
+                if target_id:
+                    if "component_id" in comp: comp["component_id"] = target_id
+                    if "point_id" in comp: comp["point_id"] = target_id
+                    # Ensure this canonical ID is allowed if not already
+                    allowed_point_ids.add(target_id)
+                break
 
     score_total = analysis_output.get("score_total", 0)
     score_by_category = analysis_output.get("score_by_category", [])
@@ -1952,85 +2978,247 @@ def _build_feedback_v11(
     mode, dedupe_key, sorted_points = _sort_points(points)
     ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
 
-    # Skip parent points when child has same title (e.g. PUNKT 3 and 3.1 both "Vinduer og ytterdører" -> show only 3.1)
-    skip_parent_same_title = _compute_parent_child_same_title_skips(sorted_points)
+    mapping_cfg = get_points_overview_mapping_config()
+    canonical_cfg = get_canonical_points_v30()
+    
+    parent_cards = mapping_cfg.get("parent_cards") or canonical_cfg.get("parents") or []
+    parent_cards = _sorted_parent_cards(parent_cards)
+    child_mappings = mapping_cfg.get("child_mappings") or []
+    
+    if not child_mappings and parent_cards and any("children" in p for p in parent_cards):
+        for p in parent_cards:
+            pid = p.get("canonical_id")
+            for c in p.get("children", []):
+                child_mappings.append({
+                    "child_id": c.get("child_id") or c.get("id"),
+                    "parent_id": pid
+                })
+                
+    ui_overlay_cfg = get_ui_overlay_config()
+    
+    if parent_cards and child_mappings:
+        # 12-parent UI model roll-up logic
+        migration_map = get_migration_map().get("old_parent_to_new_parent", {})
+        
+        # Build mapping and apply migration at the same time
+        child_to_parent = {}
+        for m in child_mappings:
+            if "child_id" in m and "parent_id" in m:
+                pid = m["parent_id"]
+                # Apply migration
+                mapped_pid = migration_map.get(pid, pid)
+                child_to_parent[m["child_id"]] = mapped_pid
+        
+        parent_deductions = {p["canonical_id"]: 0 for p in parent_cards}
+        parent_finding_ids = {p["canonical_id"]: [] for p in parent_cards}
+        parent_worst_tg = {p["canonical_id"]: "" for p in parent_cards}
+        parent_found_status = {p["canonical_id"]: "NOT_FOUND_IN_REPORT" for p in parent_cards}
+        parent_where = {p["canonical_id"]: {} for p in parent_cards}
 
-    points_overview: List[Dict[str, object]] = []
-    display_index = 1
-    for point in sorted_points:
-        if not isinstance(point, dict):
-            continue
-        kind = point.get("kind")
-        if isinstance(kind, str) and kind not in ("point", "subpoint"):
-            continue
-        point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
-        if point_id in skip_parent_same_title:
-            continue
-        if _is_non_bygningsdel_point(point):
-            continue
-        point_key = point.get("point_key") or point_id
-        component = next(
-            (
-                c
-                for c in analysis_output.get("findings", [])
-                if isinstance(c, dict) and c.get("component_id") == point_id
-            ),
-            None,
-        )
-        issues = (component.get("issues", []) if isinstance(component, dict) else []) or []
-        deduction_total = int(deduction_totals.get(point_id, 0))
-        has_issues = bool(issues)
-        status = "ok"
-        if deduction_total > 0:
-            status = "deduction"
-        elif has_issues:
-            status = "improve"
-        summary = "OK – ingen endringer nødvendig."
-        if status == "improve":
-            summary = (issues[0].get("summary") if issues else "") or "Mindre forbedringer anbefales."
-        elif status == "deduction":
-            summary = (issues[0].get("summary") if issues else "") or "Trekk er registrert for punktet."
+        # Roll up values from all detected points (mark FOUND even if no findings)
+        for point_id in allowed_point_ids:
+            if parent_id := child_to_parent.get(point_id):
+                if parent_id in parent_found_status:
+                    parent_found_status[parent_id] = "FOUND"
+                    point_meta = point_lookup.get(point_id)
+                    if point_meta and not parent_where[parent_id]:
+                        parent_where[parent_id] = {"page": int(point_meta.get("page_start", 1))}
 
-        tg_value = point.get("tg") or (component.get("tg") if isinstance(component, dict) else "") or "UNKNOWN"
-        where = {
-            "page": int(point.get("page_start") or 1),
-        }
-        if point.get("anchor_text"):
-            where["anchor_text"] = point.get("anchor_text")
-        if point.get("bbox"):
-            where["bbox"] = point.get("bbox")
-        parent_id = None
-        if "." in str(point_id):
-            parts = str(point_id).split(".")
-            if len(parts) >= 2:
-                parent_id = ".".join(parts[:-1])
-        title_display = point.get("title") or "Ukjent"
-        if point.get("instance_label"):
-            title_display = f"{title_display} – {point.get('instance_label')}"
-        points_overview.append(
-            {
-                "display_index": display_index,
-                "point_id": point_id,
-                "point_key": point_key,
-                "parent_id": parent_id,
-                "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
-                "numeric_id": point.get("numeric_id") or (_numeric_id_for_point(point) or None),
-                "native_path": point.get("native_path"),
-                "title": point.get("title") or "Ukjent",
-                "title_display": title_display,
-                "tg": tg_value,
+        # Roll up values from all processed points WITH findings
+        for point_id, deduction in deduction_totals.items():
+            parent_id = child_to_parent.get(point_id)
+            if parent_id in parent_deductions:
+                parent_deductions[parent_id] += deduction
+                parent_finding_ids[parent_id].extend(finding_ids_by_point.get(point_id, []))
+                parent_found_status[parent_id] = "FOUND"
+                point_meta = point_lookup.get(point_id)
+                if point_meta:
+                    tg = str(point_meta.get("tg") or "").upper()
+                    if tg != "TGIU" and _tg_rank(tg) > _tg_rank(parent_worst_tg[parent_id]):
+                        parent_worst_tg[parent_id] = tg
+                    if not parent_where[parent_id] or point_meta.get("page_start", 999) < parent_where[parent_id].get("page", 999):
+                        parent_where[parent_id] = {"page": int(point_meta.get("page_start", 1))}
+
+        not_found_text = ui_overlay_cfg.get("not_found_policy", {}).get("ui_text_nb", "Ikke funnet i rapport")
+        points_overview = []
+        for idx, p in enumerate(parent_cards):
+            pid = p["canonical_id"]
+            status = parent_found_status[pid]
+            deduction = parent_deductions[pid]
+            tg = parent_worst_tg[pid] if status == "FOUND" else "UNKNOWN"
+            if status == "FOUND" and _tg_rank(tg) < 0:
+                tg = "N/A"
+            # Special rule: HMS/Lovlighet (LOVPAALAGT_AK_IKKE_TG) category never shows TG
+            if p.get("requirement_tag") in ("LOVPAALAGT_AK_IKKE_TG", "LOVLIGHET_OG_SIKKERHET"):
+                tg = "N/A" if status == "FOUND" else tg
+            
+            # Status should be neutral for NOT_FOUND_IN_REPORT
+            if status == "NOT_FOUND_IN_REPORT":
+                parent_summary = "Ikke vurdert i rapport" 
+                tg = "N/A"
+            else:
+                parent_summary = "Avvik funnet" if deduction > 0 else "OK"
+
+            # Reconstruct children for this parent
+            children_for_parent = []
+            for child_id, parent_val in child_to_parent.items():
+                if parent_val == pid:
+                    child_status = "FOUND" if child_id in allowed_point_ids else "NOT_FOUND_IN_REPORT"
+                    child_deduction = deduction_totals.get(child_id, 0)
+                    child_meta = point_lookup.get(child_id, {})
+                    child_tg = str(child_meta.get("tg", "")).upper() if child_status == "FOUND" else "N/A"
+                    if child_status == "FOUND" and _tg_rank(child_tg) < 0:
+                        child_tg = "N/A"
+                    if p.get("requirement_tag") in ("LOVPAALAGT_AK_IKKE_TG", "LOVLIGHET_OG_SIKKERHET"):
+                        child_tg = "N/A"
+                        
+                    children_for_parent.append({
+                        "point_id": child_id,
+                        "title": _resolve_child_title(child_id, child_meta),
+                        "status": child_status,
+                        "deduction_band": _deduction_band_from_numeric(child_deduction),
+                        "deduction_total": child_deduction,
+                        "tg": child_tg,
+                        "finding_ids": finding_ids_by_point.get(child_id, []),
+                        "where": {"page": child_meta.get("page_start", 1)} if child_meta else {}
+                    })
+
+            points_overview.append({
+                "display_index": idx + 1,
+                "canonical_id": pid,
+                "point_id": None,
+                "title": p.get("title_nb") or p.get("label_nb", "Ukjent"),
+                "title_display": p.get("title_nb") or p.get("label_nb", "Ukjent"),
+                "requirement_tag": p.get("requirement_tag", "IKKE_LOVPAALAGT"),
                 "status": status,
-                "summary": summary,
-                "deduction_total": max(deduction_total, 0),
-                "finding_ids": finding_ids_by_point.get(point_id, []),
-                "where": where,
-                "legal_status": point.get("legal_status"),
-                "required_by_forskrift": point.get("required_by_forskrift", True),
-                "ui_badge": point.get("ui_badge"),
-                "instance_label": point.get("instance_label"),
+                "deduction_band": _deduction_band_from_numeric(deduction),
+                "deduction_total": deduction,
+                "tg": tg,
+                "summary": parent_summary,
+                "finding_ids": list(set(parent_finding_ids[pid])),
+                "where": parent_where[pid],
+                "children": children_for_parent
+            })
+
+        # Keep strict canonical parent order (display_order from parent_cards).
+        ordering_note = "12-parent roll-up architecture v3.9 (canonical display_order)."
+    elif (
+        (canonical_cfg := get_canonical_points_v30()) 
+        and (canonical_points := canonical_cfg.get("canonical_points") or canonical_cfg.get("points"))
+    ):
+        canonical_requirement_tags = canonical_cfg.get("requirement_tags") if isinstance(canonical_cfg, dict) else {}
+        mapping_points: List[Dict[str, object]] = []
+        if isinstance(points, list):
+            mapping_points.extend([p for p in points if isinstance(p, dict)])
+        if isinstance(points_before_whitelist, list):
+            seen_ids = {
+                str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                for p in mapping_points
+                if isinstance(p, dict)
             }
+            for p in points_before_whitelist:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                if pid and pid in seen_ids:
+                    continue
+                mapping_points.append(p)
+        segment_map = _map_segments_to_canonical(mapping_points, canonical_points)
+        _emit_canonical_mapping_debug(
+            report_id=report_id,
+            points=mapping_points,
+            canonical_points=canonical_points,
+            segment_map=segment_map,
+            detected_points_payload=detected_points_payload if isinstance(detected_points_payload, dict) else None,
         )
-        display_index += 1
+        points_overview = _build_points_overview_from_canonical(
+            canonical_points,
+            segment_map,
+            deduction_totals,
+            finding_ids_by_point,
+            point_lookup,
+            requirement_tags=canonical_requirement_tags if isinstance(canonical_requirement_tags, dict) else {},
+            ui_overlay=ui_overlay_cfg if isinstance(ui_overlay_cfg, dict) else {},
+        )
+        ordering_note = "Fast liste fra canonical_points (display_order)."
+    else:
+        skip_parent_same_title = _compute_parent_child_same_title_skips(sorted_points)
+        points_overview = []
+        display_index = 1
+        for point in sorted_points:
+            if not isinstance(point, dict):
+                continue
+            kind = point.get("kind")
+            if isinstance(kind, str) and kind not in ("point", "subpoint"):
+                continue
+            point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
+            if point_id in skip_parent_same_title:
+                continue
+            if _is_non_bygningsdel_point(point):
+                continue
+            point_key = point.get("point_key") or point_id
+            component = next(
+                (
+                    c
+                    for c in analysis_output.get("findings", [])
+                    if isinstance(c, dict) and c.get("component_id") == point_id
+                ),
+                None,
+            )
+            issues = (component.get("issues", []) if isinstance(component, dict) else []) or []
+            deduction_total = int(deduction_totals.get(point_id, 0))
+            has_issues = bool(issues)
+            status = "ok"
+            if deduction_total > 0:
+                status = "deduction"
+            elif has_issues:
+                status = "improve"
+            summary = "OK – ingen endringer nødvendig."
+            if status == "improve":
+                summary = (issues[0].get("summary") if issues else "") or "Mindre forbedringer anbefales."
+            elif status == "deduction":
+                summary = (issues[0].get("summary") if issues else "") or "Trekk er registrert for punktet."
+
+            tg_value = point.get("tg") or (component.get("tg") if isinstance(component, dict) else "") or "UNKNOWN"
+            where = {
+                "page": int(point.get("page_start") or 1),
+            }
+            if point.get("anchor_text"):
+                where["anchor_text"] = point.get("anchor_text")
+            if point.get("bbox"):
+                where["bbox"] = point.get("bbox")
+            parent_id = None
+            if "." in str(point_id):
+                parts = str(point_id).split(".")
+                if len(parts) >= 2:
+                    parent_id = ".".join(parts[:-1])
+            title_display = point.get("title") or "Ukjent"
+            if point.get("instance_label"):
+                title_display = f"{title_display} – {point.get('instance_label')}"
+            points_overview.append(
+                {
+                    "display_index": display_index,
+                    "point_id": point_id,
+                    "point_key": point_key,
+                    "parent_id": parent_id,
+                    "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
+                    "numeric_id": point.get("numeric_id") or (_numeric_id_for_point(point) or None),
+                    "native_path": point.get("native_path"),
+                    "title": point.get("title") or "Ukjent",
+                    "title_display": title_display,
+                    "tg": tg_value,
+                    "status": status,
+                    "summary": summary,
+                    "deduction_total": max(deduction_total, 0),
+                    "finding_ids": finding_ids_by_point.get(point_id, []),
+                    "where": where,
+                    "legal_status": point.get("legal_status"),
+                    "required_by_forskrift": point.get("required_by_forskrift", True),
+                    "ui_badge": point.get("ui_badge"),
+                    "instance_label": point.get("instance_label"),
+                }
+            )
+            display_index += 1
 
     score_by_category = _ensure_score_by_category(score_by_category)
     blocked_96 = bool(blocked_by)
@@ -2099,6 +3287,7 @@ def _build_feedback_v11(
             }
         )
 
+    _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
         "report_id": str(report_id) if report_id else "unknown_report",
@@ -2106,7 +3295,7 @@ def _build_feedback_v11(
         "ordering": {
             "mode": mode,
             "dedupe_key": dedupe_key,
-            "source": "detected_points",
+            "source": "canonical_points" if canonical_points else "detected_points",
             "note": ordering_note,
         },
         "score": {
@@ -2148,20 +3337,103 @@ def _build_feedback_v11_from_all_findings(
 ) -> Dict[str, object]:
     """Build feedback v1.1 from v1.6 all_findings when legacy findings is empty (admin/user consistency)."""
     points = detected_points_payload.get("points", []) if isinstance(detected_points_payload, dict) else []
+    points_before_whitelist = (
+        detected_points_payload.get("points_before_whitelist", [])
+        if isinstance(detected_points_payload, dict)
+        else []
+    )
+
+    # V3.9 Architecture: Align raw segments with canonical IDs
+    mapping_cfg = get_points_overview_mapping_config()
+    child_mappings = mapping_cfg.get("child_mappings") or []
+    mapping_points = []
+    if child_mappings and points:
+        for m in child_mappings:
+            if isinstance(m, dict):
+                m_copy = dict(m)
+                if "child_id" in m_copy:
+                    m_copy["canonical_id"] = m_copy["child_id"]
+                mapping_points.append(m_copy)
+
+        # Use existing matcher on both whitelist points and pre-whitelist points
+        # so strict whitelist drops can still be recovered during canonical roll-up.
+        mapping_input_points: List[Dict[str, object]] = []
+        if isinstance(points, list):
+            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+        if isinstance(points_before_whitelist, list):
+            seen_ids = {
+                str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                for p in mapping_input_points
+                if isinstance(p, dict)
+            }
+            for p in points_before_whitelist:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                if pid and pid in seen_ids:
+                    continue
+                mapping_input_points.append(p)
+
+        segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
+        for canon_id, seg in segment_map.items():
+            # Force the segment ID to match the canonical child ID so roll-up logic finds it
+            seg["point_id"] = canon_id
+
     allowed_point_ids = set()
     point_lookup: Dict[str, Dict[str, object]] = {}
     for point in points:
         if not isinstance(point, dict):
             continue
-        for key in (
+        pid_keys = [
             point.get("point_id"),
             point.get("numeric_id"),
             point.get("native_label"),
-        ):
+            point.get("title")
+        ]
+        for key in pid_keys:
             if isinstance(key, str) and key:
                 allowed_point_ids.add(key)
                 point_lookup.setdefault(key, point)
+
+    # Recover canonical children inferred from pre-whitelist mapping (without exposing raw point IDs).
+    if mapping_points:
+        mapping_input_points: List[Dict[str, object]] = []
+        if isinstance(points, list):
+            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+        if isinstance(points_before_whitelist, list):
+            seen_ids = {
+                str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                for p in mapping_input_points
+                if isinstance(p, dict)
+            }
+            for p in points_before_whitelist:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                if pid and pid in seen_ids:
+                    continue
+                mapping_input_points.append(p)
+        pre_segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
+        for canon_id, seg in pre_segment_map.items():
+            if canon_id:
+                allowed_point_ids.add(canon_id)
+                point_lookup.setdefault(canon_id, seg)
+
     all_findings = analysis_output.get("all_findings") or []
+    # V3.9 Architecture: Force findings to use canonical IDs if they match aliases/regex
+    for comp in all_findings:
+        if not isinstance(comp, dict): continue
+        raw_cid = str(comp.get("component_id") or comp.get("point_id") or "")
+        if not raw_cid: continue
+        norm_cid = _normalize_segment_title_for_canonical_match(raw_cid)
+        for m in mapping_points:
+            if _segment_matches_canonical(norm_cid, m, {}):
+                target_id = m.get("canonical_id")
+                if target_id:
+                    if "component_id" in comp: comp["component_id"] = target_id
+                    if "point_id" in comp: comp["point_id"] = target_id
+                    allowed_point_ids.add(target_id)
+                break
     score_total = analysis_output.get("score_total") or analysis_output.get("trygghetsscore") or 0
     score_by_category = analysis_output.get("score_by_category") or []
     if not isinstance(score_by_category, list):
@@ -2184,12 +3456,38 @@ def _build_feedback_v11_from_all_findings(
     feedback_findings: List[Dict[str, object]] = []
     finding_ids_by_point: Dict[str, List[str]] = {}
     deduction_totals: Dict[str, int] = {}
+    linked_tg3_count = 0
     for idx, f in enumerate(all_findings):
         if not isinstance(f, dict):
             continue
+        is_tg3 = _is_tg3_related_finding(f)
         point_id = _parse_point_id_from_v16_finding(f)
-        if not point_id or point_id not in allowed_point_ids:
-            point_id = "GLOBAL"
+        text_candidates: List[str] = []
+        for key in ("message", "title"):
+            value = f.get(key)
+            if isinstance(value, str) and value.strip():
+                text_candidates.append(value)
+        for snip in (f.get("evidence_snippets") or []):
+            if isinstance(snip, str) and snip.strip():
+                text_candidates.append(snip)
+        # Try text inference when point is missing OR parsed point is not part of runtime IDs
+        # (common for v1.6 rule IDs ending in _001/_002).
+        if (not point_id) or (point_id not in allowed_point_ids):
+            for candidate in text_candidates:
+                inferred = _infer_canonical_child_from_text(candidate, mapping_points)
+                if inferred:
+                    point_id = inferred
+                    allowed_point_ids.add(inferred)
+                    break
+        point_is_linked = bool(point_id and point_id in allowed_point_ids and _is_canonical_child_point_id(point_id))
+        if is_tg3 and not point_is_linked:
+            # Never apply TG3 deductions without clear segment linkage.
+            continue
+        if not point_is_linked:
+            # Tight fallback: unresolved findings are ignored instead of becoming GLOBAL.
+            continue
+        if is_tg3:
+            linked_tg3_count += 1
         rid = f.get("finding_id") or f.get("rule_id") or f"v16-{idx}"
         if isinstance(f.get("gate_effect"), dict) and f.get("gate_effect", {}).get("blocks_96_gate") and rid not in blocked_by:
             blocked_by.append(rid)
@@ -2215,64 +3513,231 @@ def _build_feedback_v11_from_all_findings(
             "deduction": deduction_pts,
         })
         finding_ids_by_point.setdefault(point_id, []).append(finding_id)
+
+    if linked_tg3_count == 0:
+        if isinstance(top_issues, list):
+            top_issues = [
+                t for t in top_issues
+                if not (isinstance(t, dict) and _is_tg3_related_finding(t))
+            ]
+        if isinstance(top_score_drivers, list):
+            top_score_drivers = [
+                d for d in top_score_drivers
+                if not (isinstance(d, dict) and _is_tg3_related_finding(d))
+            ]
     mode, dedupe_key, sorted_points = _sort_points(points)
     ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
 
-    # Skip parent points when child has same title (avoid duplicate entries like PUNKT 3 and 3.1 with same title)
-    skip_parent_same_title = _compute_parent_child_same_title_skips(sorted_points)
+    mapping_cfg = get_points_overview_mapping_config()
+    canonical_cfg = get_canonical_points_v30()
+    
+    parent_cards = mapping_cfg.get("parent_cards") or canonical_cfg.get("parents") or []
+    parent_cards = _sorted_parent_cards(parent_cards)
+    child_mappings = mapping_cfg.get("child_mappings") or []
+    
+    if not child_mappings and parent_cards and any("children" in p for p in parent_cards):
+        for p in parent_cards:
+            pid = p.get("canonical_id")
+            for c in p.get("children", []):
+                child_mappings.append({
+                    "child_id": c.get("child_id") or c.get("id"),
+                    "parent_id": pid
+                })
+                
+    ui_overlay_cfg = get_ui_overlay_config()
+    
+    if parent_cards and child_mappings:
+        # 12-parent UI model roll-up logic (mode A)
+        migration_map = get_migration_map().get("old_parent_to_new_parent", {})
+        child_to_parent = {}
+        for m in child_mappings:
+            if "child_id" in m and "parent_id" in m:
+                pid = m["parent_id"]
+                child_to_parent[m["child_id"]] = migration_map.get(pid, pid)
+        
+        parent_deductions = {p["canonical_id"]: 0 for p in parent_cards}
+        parent_finding_ids = {p["canonical_id"]: [] for p in parent_cards}
+        parent_worst_tg = {p["canonical_id"]: "" for p in parent_cards}
+        parent_found_status = {p["canonical_id"]: "NOT_FOUND_IN_REPORT" for p in parent_cards}
+        parent_where = {p["canonical_id"]: {} for p in parent_cards}
+        
+        # Roll up values from all detected points (mark FOUND even if no findings)
+        for point_id in allowed_point_ids:
+            if parent_id := child_to_parent.get(point_id):
+                if parent_id in parent_found_status:
+                    parent_found_status[parent_id] = "FOUND"
+                    point_meta = point_lookup.get(point_id)
+                    if point_meta and not parent_where[parent_id]:
+                        parent_where[parent_id] = {"page": int(point_meta.get("page_start", 1))}
 
-    points_overview = []
-    display_index = 1
-    for point in sorted_points:
-        if not isinstance(point, dict):
-            continue
-        kind = point.get("kind")
-        if isinstance(kind, str) and kind not in ("point", "subpoint"):
-            continue
-        point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
-        if point_id in skip_parent_same_title:
-            continue
-        if _is_non_bygningsdel_point(point):
-            continue
-        point_key = point.get("point_key") or point_id
-        deduction_total = int(deduction_totals.get(point_id, 0))
-        fids = finding_ids_by_point.get(point_id, [])
-        status = "deduction" if deduction_total > 0 else ("improve" if fids else "ok")
-        first_msg = next(
-            (x.get("title") or x.get("message", "") for x in all_findings if isinstance(x, dict) and _parse_point_id_from_v16_finding(x) == point_id),
-            "",
+        # Roll up values from all processed points WITH findings
+        for point_id, deduction in deduction_totals.items():
+            parent_id = child_to_parent.get(point_id)
+            if parent_id in parent_deductions:
+                parent_deductions[parent_id] += deduction
+                parent_finding_ids[parent_id].extend(finding_ids_by_point.get(point_id, []))
+                parent_found_status[parent_id] = "FOUND"
+                point_meta = point_lookup.get(point_id)
+                if point_meta:
+                    tg = str(point_meta.get("tg") or "").upper()
+                    if tg != "TGIU" and _tg_rank(tg) > _tg_rank(parent_worst_tg[parent_id]):
+                        parent_worst_tg[parent_id] = tg
+                    if not parent_where[parent_id] or point_meta.get("page_start", 999) < parent_where[parent_id].get("page", 999):
+                        parent_where[parent_id] = {"page": int(point_meta.get("page_start", 1))}
+                        
+        not_found_text = ui_overlay_cfg.get("not_found_policy", {}).get("ui_text_nb", "Ikke funnet i rapport")
+        points_overview = []
+        for idx, p in enumerate(parent_cards):
+            pid = p["canonical_id"]
+            status = parent_found_status[pid]
+            deduction = parent_deductions[pid]
+            tg = parent_worst_tg[pid] if status == "FOUND" else "UNKNOWN"
+            if status == "FOUND" and _tg_rank(tg) < 0:
+                tg = "N/A"
+            if p.get("requirement_tag") in ("LOVPAALAGT_AK_IKKE_TG", "LOVLIGHET_OG_SIKKERHET"):
+                tg = "N/A" if status == "FOUND" else tg
+            
+            if status == "NOT_FOUND_IN_REPORT":
+                parent_summary = "Ikke vurdert i rapport" 
+                tg = "N/A"
+            else:
+                parent_summary = "Avvik funnet" if deduction > 0 else "OK"
+
+            children_for_parent = []
+            for child_id, parent_val in child_to_parent.items():
+                if parent_val == pid:
+                    child_status = "FOUND" if child_id in allowed_point_ids else "NOT_FOUND_IN_REPORT"
+                    child_deduction = deduction_totals.get(child_id, 0)
+                    child_meta = point_lookup.get(child_id, {})
+                    child_tg = str(child_meta.get("tg", "")).upper() if child_status == "FOUND" else "N/A"
+                    if child_status == "FOUND" and _tg_rank(child_tg) < 0:
+                        child_tg = "N/A"
+                    if p.get("requirement_tag") in ("LOVPAALAGT_AK_IKKE_TG", "LOVLIGHET_OG_SIKKERHET"):
+                        child_tg = "N/A"
+                        
+                    children_for_parent.append({
+                        "point_id": child_id,
+                        "title": _resolve_child_title(child_id, child_meta),
+                        "status": child_status,
+                        "deduction_band": _deduction_band_from_numeric(child_deduction),
+                        "deduction_total": child_deduction,
+                        "tg": child_tg,
+                        "finding_ids": finding_ids_by_point.get(child_id, []),
+                        "where": {"page": child_meta.get("page_start", 1)} if child_meta else {}
+                    })
+
+            points_overview.append({
+                "display_index": idx + 1,
+                "canonical_id": pid,
+                "point_id": None,
+                "title": p.get("title_nb") or p.get("label_nb", "Ukjent"),
+                "title_display": p.get("title_nb") or p.get("label_nb", "Ukjent"),
+                "requirement_tag": p.get("requirement_tag", "IKKE_LOVPAALAGT"),
+                "status": status,
+                "deduction_band": _deduction_band_from_numeric(deduction),
+                "deduction_total": deduction,
+                "tg": tg,
+                "summary": parent_summary,
+                "finding_ids": list(set(parent_finding_ids[pid])),
+                "where": parent_where[pid],
+                "children": children_for_parent
+            })
+
+        # Keep strict canonical parent order (display_order from parent_cards).
+        ordering_note = "12-parent roll-up architecture v3.9 (canonical display_order)."
+    elif (
+        (canonical_cfg := get_canonical_points_v30()) 
+        and (canonical_points := canonical_cfg.get("canonical_points") or canonical_cfg.get("points"))
+    ):
+        mapping_points: List[Dict[str, object]] = []
+        if isinstance(points, list):
+            mapping_points.extend([p for p in points if isinstance(p, dict)])
+        if isinstance(points_before_whitelist, list):
+            seen_ids = {
+                str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                for p in mapping_points
+                if isinstance(p, dict)
+            }
+            for p in points_before_whitelist:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
+                if pid and pid in seen_ids:
+                    continue
+                mapping_points.append(p)
+        segment_map = _map_segments_to_canonical(mapping_points, canonical_points)
+        _emit_canonical_mapping_debug(
+            report_id=report_id,
+            points=mapping_points,
+            canonical_points=canonical_points,
+            segment_map=segment_map,
+            detected_points_payload=detected_points_payload if isinstance(detected_points_payload, dict) else None,
         )
-        summary = first_msg or ("Trekk registrert for punktet." if status == "deduction" else "OK – ingen endringer nødvendig.")
-        if status == "ok":
-            summary = "OK – ingen endringer nødvendig."
-        parent_id = None
-        if "." in str(point_id) and len(str(point_id).split(".")) >= 2:
-            parent_id = ".".join(str(point_id).split(".")[:-1])
-        title_display = point.get("title") or "Ukjent"
-        if point.get("instance_label"):
-            title_display = f"{title_display} – {point.get('instance_label')}"
-        points_overview.append({
-            "display_index": display_index,
-            "point_id": point_id,
-            "point_key": point_key,
-            "parent_id": parent_id,
-            "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
-            "numeric_id": point.get("numeric_id"),
-            "native_path": point.get("native_path"),
-            "title": point.get("title") or "Ukjent",
-            "title_display": title_display,
-            "tg": point.get("tg") or "UNKNOWN",
-            "status": status,
-            "summary": summary,
-            "deduction_total": max(deduction_total, 0),
-            "finding_ids": fids,
-            "where": {"page": int(point.get("page_start") or 1)},
-            "legal_status": point.get("legal_status"),
-            "required_by_forskrift": point.get("required_by_forskrift", True),
-            "ui_badge": point.get("ui_badge"),
-            "instance_label": point.get("instance_label"),
-        })
-        display_index += 1
+        points_overview = _build_points_overview_from_canonical(
+            canonical_points,
+            segment_map,
+            deduction_totals,
+            finding_ids_by_point,
+            point_lookup,
+            requirement_tags=canonical_requirement_tags if isinstance(canonical_requirement_tags, dict) else {},
+            ui_overlay=ui_overlay_cfg if isinstance(ui_overlay_cfg, dict) else {},
+        )
+        ordering_note = "Fast liste fra canonical_points (display_order)."
+    else:
+        skip_parent_same_title = _compute_parent_child_same_title_skips(sorted_points)
+        points_overview = []
+        display_index = 1
+        for point in sorted_points:
+            if not isinstance(point, dict):
+                continue
+            kind = point.get("kind")
+            if isinstance(kind, str) and kind not in ("point", "subpoint"):
+                continue
+            point_id = point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""
+            if point_id in skip_parent_same_title:
+                continue
+            if _is_non_bygningsdel_point(point):
+                continue
+            point_key = point.get("point_key") or point_id
+            deduction_total = int(deduction_totals.get(point_id, 0))
+            fids = finding_ids_by_point.get(point_id, [])
+            status = "deduction" if deduction_total > 0 else ("improve" if fids else "ok")
+            first_msg = next(
+                (x.get("title") or x.get("message", "") for x in all_findings if isinstance(x, dict) and _parse_point_id_from_v16_finding(x) == point_id),
+                "",
+            )
+            summary = first_msg or ("Trekk registrert for punktet." if status == "deduction" else "OK – ingen endringer nødvendig.")
+            if status == "ok":
+                summary = "OK – ingen endringer nødvendig."
+            parent_id = None
+            if "." in str(point_id) and len(str(point_id).split(".")) >= 2:
+                parent_id = ".".join(str(point_id).split(".")[:-1])
+            title_display = point.get("title") or "Ukjent"
+            if point.get("instance_label"):
+                title_display = f"{title_display} – {point.get('instance_label')}"
+            points_overview.append({
+                "display_index": display_index,
+                "point_id": point_id,
+                "point_key": point_key,
+                "parent_id": parent_id,
+                "native_label": point.get("native_label") or point_id or point_key or "Ukjent",
+                "numeric_id": point.get("numeric_id"),
+                "native_path": point.get("native_path"),
+                "title": point.get("title") or "Ukjent",
+                "title_display": title_display,
+                "tg": point.get("tg") or "UNKNOWN",
+                "status": status,
+                "summary": summary,
+                "deduction_total": max(deduction_total, 0),
+                "finding_ids": fids,
+                "where": {"page": int(point.get("page_start") or 1)},
+                "legal_status": point.get("legal_status"),
+                "required_by_forskrift": point.get("required_by_forskrift", True),
+                "ui_badge": point.get("ui_badge"),
+                "instance_label": point.get("instance_label"),
+            })
+            display_index += 1
+    _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
         "report_id": str(report_id) if report_id else "unknown_report",
@@ -2856,6 +4321,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     detected_points = _extract_detected_points(report_text or "")
     detected_points = _validate_detected_points_against_whitelist(detected_points)
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
+    _drop_tg_and_consequence_false_positives(report_text, analysis_output, detected_points)
     _ensure_issue_evidence(analysis_output, report_text)
     _ensure_driver_evidence(analysis_output)
     _normalize_scoring_output(analysis_output)
@@ -3094,6 +4560,7 @@ class AIAnalyzer:
             Tuple of (AnalysisResult, analysis_output_dict, detected_points_payload, scoring_result_payload)
         """
         try:
+            normalized_text = _normalize_report_text_for_analysis(text or "")
             context_info = ""
             if building_year:
                 context_info += f"\nByggeår: {building_year}\n"
@@ -3105,8 +4572,8 @@ class AIAnalyzer:
                 context_info += f"Dokument-ID: {document_id}\n"
 
             if pdf_metadata is None:
-                if "[PDF METADATA]" in text:
-                    metadata_section = text.split("[PDF METADATA]")[1].split("[START RAPPORTTEKST]")[0]
+                if "[PDF METADATA]" in normalized_text:
+                    metadata_section = normalized_text.split("[PDF METADATA]")[1].split("[START RAPPORTTEKST]")[0]
                     total_pages = 0
                     if "Totalt antall sider:" in metadata_section:
                         try:
@@ -3130,7 +4597,7 @@ class AIAnalyzer:
                     }
 
             if not document_hash:
-                document_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                document_hash = hashlib.sha256(normalized_text.encode("utf-8")).hexdigest()
 
             run_id = str(uuid.uuid4())
             scoring_model_info = get_scoring_model_info()
@@ -3164,25 +4631,24 @@ class AIAnalyzer:
             else:
                 available_tokens = 100000 - system_tokens - response_tokens - context_tokens - prompt_context_tokens - buffer_tokens
 
-            text_tokens = estimate_tokens(text)
+            text_tokens = estimate_tokens(normalized_text)
             if text_tokens > available_tokens:
                 incomplete_reasons.append("input_truncated")
 
-            detected_points = _extract_detected_points(text)
-            detected_points = _validate_detected_points_against_whitelist(detected_points)
-            detected_points_payload = _build_detected_points_payload(
-                detected_points,
+            detected_points_payload = get_validated_detected_points_payload(
+                normalized_text,
                 document_hash=document_hash,
                 document_title=document_title,
                 document_id=document_id,
                 pdf_metadata=pdf_metadata,
             )
+            detected_points = detected_points_payload.get("points", []) if isinstance(detected_points_payload, dict) else []
             _log_debug(
                 run_id,
                 "preflight",
                 {
                     "document_hash": document_hash,
-                    "text_chars": len(text),
+                    "text_chars": len(normalized_text),
                     "text_tokens_est": text_tokens,
                     "available_tokens_est": available_tokens,
                     "pdf_metadata": pdf_metadata or {},
@@ -3214,7 +4680,7 @@ Analyser følgende norske tilstandsrapport.
 VIKTIG: Du må analysere HELE dokumentet. Alle sider, vedlegg og bilder må vurderes.
 
 Rapporttekst:
-{text}
+{normalized_text}
 
 FORMATKRAV: Returner kompakt JSON (ingen innrykk/linjeskift).
 Du må returnere FULLSTENDIG liste over alle påviselige avvik og alle score-trekk.
@@ -3373,7 +4839,7 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
                 raise ValueError("AI output is not a JSON object")
 
             _ensure_meta_fields(analysis_output, document_title, document_id)
-            postprocess_analysis_output(analysis_output, text)
+            postprocess_analysis_output(analysis_output, normalized_text)
             meta = analysis_output.get("meta", {})
             if isinstance(meta, dict):
                 meta.setdefault("scoring_model_id", scoring_model_info.get("model_id", ""))

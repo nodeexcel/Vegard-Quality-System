@@ -1,0 +1,460 @@
+{
+  "model": "VALIDERT_CANONICAL_POINTS",
+  "version": "3.9",
+  "locale": "nb-NO",
+  "ui_contract": {
+    "mode": "canonical_first",
+    "render_parent_cards_only": true,
+    "render_instances_inside_parent_only": true,
+    "render_children_as_cards": false,
+    "default_status_when_absent": "NOT_FOUND_IN_REPORT",
+    "not_found_is_neutral": true,
+    "show_numeric_deductions_to_user": false
+  },
+  "notes": [
+    "Locked to original v3.4 architecture basis.",
+    "Exactly 12 parent cards render in UI.",
+    "Children are analysis points only.",
+    "Components are lower-level technical points for mapping and RAG.",
+    "Score on child and roll up to parent."
+  ],
+  "parents": [
+    {
+      "canonical_id": "P01_GROUND_AND_FOUNDATIONS",
+      "display_order": 1,
+      "title_nb": "Grunn og fundamenter",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P01A_BUILDING_SITE",
+          "title_nb": "Byggegrunn",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P01B_FOUNDATIONS",
+          "title_nb": "Fundamenter",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P01C_FOUNDATION_WALLS",
+          "title_nb": "Grunnmur",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P01D_DRAINAGE",
+          "title_nb": "Drenering",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P01E_TERRAIN",
+          "title_nb": "Terrengforhold",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P01F_CRAWLSPACE",
+          "title_nb": "Krypekjeller",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P01G_MOISTURE_PROTECTION",
+          "title_nb": "Fuktsikring",
+          "role": "COMPONENT"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P02_EXTERIOR_WALLS_AND_FACADES",
+      "display_order": 2,
+      "title_nb": "Yttervegger og fasader",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P02A_EXTERIOR_WALLS",
+          "title_nb": "Yttervegger",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P02B_CLADDING",
+          "title_nb": "Kledning",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P02C_FLASHINGS",
+          "title_nb": "Beslag",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P02D_SILLS",
+          "title_nb": "Vannbrett",
+          "role": "COMPONENT"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P03_WINDOWS_AND_EXTERIOR_DOORS",
+      "display_order": 3,
+      "title_nb": "Vinduer og utvendige dører",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P03A_WINDOWS",
+          "title_nb": "Vinduer",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P03B_BALCONY_DOORS",
+          "title_nb": "Balkongdører",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P03C_EXTERIOR_DOORS",
+          "title_nb": "Ytterdører",
+          "role": "CHILD"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P04_ROOF",
+      "display_order": 4,
+      "title_nb": "Tak",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P04A_ROOF_STRUCTURE",
+          "title_nb": "Takkonstruksjon",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P04B_UNDERLAY",
+          "title_nb": "Undertak",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P04C_ROOF_COVERING",
+          "title_nb": "Taktekking",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P04D_GUTTERS",
+          "title_nb": "Takrenner",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P04E_FLASHINGS",
+          "title_nb": "Beslag",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P04F_CHIMNEY_OVER_ROOF",
+          "title_nb": "Skorstein over tak",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P04G_SNOW_GUARDS",
+          "title_nb": "Snøfangere",
+          "role": "COMPONENT"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P05_EXTERIOR_STRUCTURES",
+      "display_order": 5,
+      "title_nb": "Utvendige konstruksjoner",
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": true,
+      "instance_policy": "structure_based",
+      "children": [
+        {
+          "child_id": "P05A_BALCONY",
+          "title_nb": "Balkong",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P05B_TERRACE",
+          "title_nb": "Terrasse",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P05C_ALTAN",
+          "title_nb": "Altan",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P05D_EXTERNAL_STAIRS",
+          "title_nb": "Utvendig trapp",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P05E_RETAINING_WALL",
+          "title_nb": "Støttemur",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P05F_GARAGE",
+          "title_nb": "Garasje",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P05G_STORAGE",
+          "title_nb": "Boder",
+          "role": "CHILD"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P06_ROOMS_BELOW_GRADE",
+      "display_order": 6,
+      "title_nb": "Rom under terreng",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "instance_policy": "room_or_zone_based",
+      "children": [
+        {
+          "child_id": "P06A_BELOW_GRADE_WALLS",
+          "title_nb": "Kjellervegger",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P06B_BELOW_GRADE_FLOORS",
+          "title_nb": "Kjellergulv",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P06C_BELOW_GRADE_VENTILATION",
+          "title_nb": "Ventilasjon",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P06D_BELOW_GRADE_MOISTURE",
+          "title_nb": "Fuktforhold",
+          "role": "COMPONENT"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P07_WETROOMS",
+      "display_order": 7,
+      "title_nb": "Våtrom",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "instance_policy": "room_based",
+      "children": [
+        {
+          "child_id": "P07A_WETROOM_INSTANCE",
+          "title_nb": "Våtrom-instans",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P07B_MEMBRANE",
+          "title_nb": "Membran",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P07C_DRAIN",
+          "title_nb": "Sluk",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P07D_SURFACES",
+          "title_nb": "Overflater",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P07E_VENTILATION",
+          "title_nb": "Ventilasjon",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P07F_MOISTURE_MEASUREMENT",
+          "title_nb": "Fuktmåling",
+          "role": "COMPONENT"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P08_KITCHENS",
+      "display_order": 8,
+      "title_nb": "Kjøkken",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": true,
+      "instance_policy": "room_based",
+      "children": [
+        {
+          "child_id": "P08A_KITCHEN_INSTANCE",
+          "title_nb": "Kjøkken-instans",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P08B_KITCHEN_FURNITURE",
+          "title_nb": "Kjøkkeninnredning",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P08C_WATER_INSTALLATIONS",
+          "title_nb": "Vanninstallasjoner",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P08D_EXTRACTION",
+          "title_nb": "Avtrekk",
+          "role": "COMPONENT"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P09_TECHNICAL_INSTALLATIONS",
+      "display_order": 9,
+      "title_nb": "Tekniske installasjoner",
+      "requirement_tag": "LOVPAALAGT_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P09A_WATER_PIPES",
+          "title_nb": "Vannledninger",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P09B_DRAIN_PIPES",
+          "title_nb": "Avløpsrør",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P09C_HOT_WATER_TANK",
+          "title_nb": "Varmtvannsbereder",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P09D_VENTILATION",
+          "title_nb": "Ventilasjon",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P09E_HEATING",
+          "title_nb": "Oppvarming",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P09F_ELECTRICAL_INSTALLATION",
+          "title_nb": "Elektrisk anlegg",
+          "role": "CHILD_EXPLANATION_ONLY"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P10_INTERIOR_CONDITIONS",
+      "display_order": 10,
+      "title_nb": "Innvendige forhold",
+      "requirement_tag": "IKKE_LOVPAALAGT",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P10A_FLOOR_SEPARATIONS",
+          "title_nb": "Etasjeskiller",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P10B_FLOORS",
+          "title_nb": "Gulv",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P10C_OUT_OF_LEVELNESS",
+          "title_nb": "Skjevheter",
+          "role": "COMPONENT"
+        },
+        {
+          "child_id": "P10D_INTERIOR_STAIRS",
+          "title_nb": "Innvendige trapper",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P10E_INTERIOR_DOORS",
+          "title_nb": "Innvendige dører",
+          "role": "CHILD"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P11_LAWFULNESS_AND_SAFETY",
+      "display_order": 11,
+      "title_nb": "Lovlighet og sikkerhet",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P11A_LAWFULNESS",
+          "title_nb": "Lovlighet",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P11B_FIRE_CELLS",
+          "title_nb": "Brannceller",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P11C_ESCAPE_ROUTES",
+          "title_nb": "Rømningsveier",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P11D_SMOKE_ALARMS",
+          "title_nb": "Røykvarslere",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P11E_EXTINGUISHERS",
+          "title_nb": "Slokkeutstyr",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P11F_RADON",
+          "title_nb": "Radon",
+          "role": "CHILD"
+        }
+      ]
+    },
+    {
+      "canonical_id": "P12_SUPPLEMENTARY_INFORMATION",
+      "display_order": 12,
+      "title_nb": "Tilleggsopplysninger",
+      "requirement_tag": "LOVPAALAGT_AK_IKKE_TG",
+      "supports_instances": false,
+      "children": [
+        {
+          "child_id": "P12A_OWNER_INFORMATION",
+          "title_nb": "Opplysninger fra eier / egenerklæring",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P12B_DOCUMENTATION",
+          "title_nb": "Dokumentasjon",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P12C_RECENT_WORK",
+          "title_nb": "Nyere arbeider / håndverkstjenester",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P12D_ATTENTION",
+          "title_nb": "Vær oppmerksom på",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P12E_OTHER_REMARKS",
+          "title_nb": "Andre merknader",
+          "role": "CHILD"
+        },
+        {
+          "child_id": "P12F_TGIU_LIMITATIONS",
+          "title_nb": "TGIU / undersøkelsesbegrensninger",
+          "role": "CHILD"
+        }
+      ]
+    }
+  ]
+}

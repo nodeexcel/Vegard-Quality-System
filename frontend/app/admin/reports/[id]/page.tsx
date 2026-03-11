@@ -53,10 +53,12 @@ interface AnalysisV14 {
 }
 
 interface FeedbackPointOverview {
-  point_id: string
+  point_id?: string | null
+  canonical_id?: string
+  display_index?: number
   title: string
   tg: string
-  status: 'ok' | 'improve' | 'deduction' | 'blocking'
+  status: 'ok' | 'improve' | 'deduction' | 'blocking' | 'FOUND' | 'NOT_FOUND_IN_REPORT'
   legal_status?: string
   summary: string
   deduction_total?: number
@@ -318,7 +320,21 @@ export default function AdminReportDetail() {
   }) | null
   const feedbackV11 = report.scoring_result?.feedback_v11 || null
   const hasFeedbackV11 = Boolean(feedbackV11 && (feedbackV11.points_overview?.length || feedbackV11.findings?.length))
+  const sortedPointsOverview: FeedbackPointOverview[] =
+    hasFeedbackV11 && feedbackV11?.points_overview?.length
+      ? [...feedbackV11.points_overview].sort((a, b) => {
+          const ai = (a.display_index ?? Number.MAX_SAFE_INTEGER)
+          const bi = (b.display_index ?? Number.MAX_SAFE_INTEGER)
+          if (ai !== bi) return ai - bi
+          return (a.canonical_id || '').localeCompare(b.canonical_id || '')
+        })
+      : []
   const hasV14 = Boolean(analysis && (typeof analysis.score_total === 'number' || typeof (analysis as any).trygghetsscore === 'number'))
+  const pointStatusLabel = (status: FeedbackPointOverview['status']) => {
+    if (status === 'FOUND') return 'Funnet'
+    if (status === 'NOT_FOUND_IN_REPORT') return 'Ikke funnet'
+    return translate(status)
+  }
   const scoreByCategory = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category || []) : []
   const findingsForDisplay = (analysis?.findings?.length ? analysis.findings : null) || feedbackV11?.findings || []
   const topDriversForDisplay = analysis?.top_score_drivers?.length
@@ -978,9 +994,9 @@ export default function AdminReportDetail() {
 
             {activeSection === 'points' && hasFeedbackV11 && feedbackV11 && (
               <div className="space-y-4">
-                {feedbackV11.points_overview.map((point) => (
+                {sortedPointsOverview.map((point, idx) => (
                   <div
-                    key={point.point_id}
+                    key={point.canonical_id || point.point_id || `admin-point-${idx}`}
                     className={`border border-gray-200 rounded-lg p-4 ${point.parent_id ? 'ml-4 border-l-4 border-l-blue-200' : ''}`}
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -993,15 +1009,19 @@ export default function AdminReportDetail() {
                             </span>
                           )}
                         </h4>
-                        <p className="text-xs text-gray-500">Punkt {point.point_id}</p>
+                        <p className="text-xs text-gray-500">
+                          {point.point_id
+                            ? `Punkt ${point.point_id}`
+                            : `P${String(point.display_index || idx + 1).padStart(2, '0')}`}
+                        </p>
                       </div>
                       <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                        {translate(point.tg)}
+                        {point.status === 'NOT_FOUND_IN_REPORT' ? 'Ikke angitt' : translate(point.tg)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-gray-700">{point.summary}</p>
-                      <span className="text-xs font-medium text-gray-600">{translate(point.status)}</span>
+                      <span className="text-xs font-medium text-gray-600">{pointStatusLabel(point.status)}</span>
                     </div>
                     {typeof point.deduction_total === 'number' && point.deduction_total > 0 && (
                       <p className="text-xs text-red-600 mt-2">Trekk: {point.deduction_total}</p>

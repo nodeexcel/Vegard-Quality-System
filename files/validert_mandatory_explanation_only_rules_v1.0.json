@@ -1,0 +1,5 @@
+{
+  "rule_set": "validert_mandatory_explanation_only_rules",
+  "version": "1.0",
+  "description": "Lawfulness/HMS items must explain consequence for buyer but must not receive TG."
+}

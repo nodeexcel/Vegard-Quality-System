@@ -1,0 +1,36 @@
+{
+  "active_pipeline_file": "validert_orchestrator_pipeline_v2.1.json",
+  "active_points_overview": {
+    "canonical_points_file": "validert_canonical_points_v3_0.json",
+    "mapping_file": "validert_points_overview_mapping_v1.1.json",
+    "ui_overlay_file": "validert_ui_overlay_v1.1.json",
+    "element_hierarchy_file": "validert_element_hierarchy_v1_2.json",
+    "forskrift_matrix_file": "validert_forskrift_matrix_v1.0.json",
+    "status_rules_file": "validert_punkt_for_punkt_status_rules_v1_2.json",
+    "scoring_hooks_file": "validert_punkt_for_punkt_scoring_hooks_v1_1.json"
+  },
+  "supporting_modules": {
+    "room_instance_extraction_rules_file": "validert_room_instance_extraction_rules_v1_0.json",
+    "room_instances_schema_file": "validert_room_instances_schema_v1_0.json",
+    "room_instance_rollup_format_file": "validert_room_instance_rollup_format_v1_1.json",
+    "room_instance_arkat_coverage_rules_file": "validert_room_instance_arkat_coverage_rules_v1_1.json"
+  },
+  "existing_runtime_modules_unchanged": {
+    "scoring_model_file": "rag_scoring_model_validert_v1.6.json",
+    "output_schema_file": "output_schema_validert_v1.5.json",
+    "scoring_policy_overlay_file": "scoring_policy.validert_output_overlay.v1.1.json",
+    "category_config_file": "validert_category_config_v1_0.json",
+    "legal_compliance_rules_file": "validert_legal_compliance_rules_v1_1.json",
+    "optional_tg_forbidden_meta_rule_file": "validert_optional_tg_forbidden_meta_rule_v1_0.json",
+    "non_mandatory_assessed_meta_rule_file": "validert_non_mandatory_assessed_meta_rule_v1_1.json",
+    "age_service_life_validation_file": "tg2_tg3_age_service_life_validation_v2_3.json",
+    "no_prosjektering_guardrails_file": "validert_no_prosjektering_guardrails_v1_1.json"
+  },
+  "notes": [
+    "Single source of truth for original v3.4 12-parent architecture.",
+    "Use /active only for runtime.",
+    "Only 12 parent cards render in UI.",
+    "Instances render inside parent cards only.",
+    "NOT_FOUND_IN_REPORT is neutral by default."
+  ]
+}

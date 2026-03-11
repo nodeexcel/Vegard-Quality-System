@@ -68,6 +68,21 @@ TG_RE = re.compile(r"\bTG(?:0|1|2|3|IU)\b")
 DATE_POINT_ID_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
 # Stray CJK/private-use glyphs that leak from broken PDF encodings (e.g. "Kostnadses琀椀mat")
 SUSPICIOUS_CJK_RE = re.compile(r"[\u3400-\u9FFF\uF900-\uFAFF\uE000-\uF8FF]")
+ZERO_WIDTH_RE = re.compile(r"[\u200B-\u200D\u2060\uFEFF]")
+NBSP_RE = re.compile(r"[\u00A0\u202F]")
+CONTROL_TEXT_RE = re.compile(r"[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]")
+SOFT_HYPHEN_LINEBREAK_RE = re.compile(r"([A-Za-zÆØÅæøå])[\-\u00AD]\s*\n\s*([A-Za-zÆØÅæøå])")
+TRAILING_WS_BEFORE_NL_RE = re.compile(r"[ \t]+\n")
+EXCESS_BLANKLINES_RE = re.compile(r"\n{3,}")
+_DASH_TRANSLATION_TABLE = str.maketrans({
+    "\u2010": "-",
+    "\u2011": "-",
+    "\u2012": "-",
+    "\u2013": "-",
+    "\u2014": "-",
+    "\u2015": "-",
+    "\u2212": "-",
+})
 
 
 def clean_extracted_text(text: str) -> str:
@@ -79,10 +94,17 @@ def clean_extracted_text(text: str) -> str:
     """
     if not isinstance(text, str):
         return ""
-    s = SUSPICIOUS_CJK_RE.sub("", text)
-    s = unicodedata.normalize("NFKC", s)
-    # Collapse excessive whitespace/newlines but preserve page markers we add explicitly
-    return s
+    s = unicodedata.normalize("NFKC", text)
+    s = SUSPICIOUS_CJK_RE.sub("", s)
+    s = ZERO_WIDTH_RE.sub("", s)
+    s = NBSP_RE.sub(" ", s)
+    s = s.translate(_DASH_TRANSLATION_TABLE)
+    s = CONTROL_TEXT_RE.sub("", s)
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    s = SOFT_HYPHEN_LINEBREAK_RE.sub(r"\1\2", s)
+    s = TRAILING_WS_BEFORE_NL_RE.sub("\n", s)
+    s = EXCESS_BLANKLINES_RE.sub("\n\n", s)
+    return s.strip()
 
 
 def _load_scoring_model() -> Dict[str, object]:
@@ -672,7 +694,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Step 2: Extract text from PDF
             logger.info("Extracting text from PDF...")
-            text = extract_text_from_pdf(pdf_content)
+            text = clean_extracted_text(extract_text_from_pdf(pdf_content))
 
             if len(text.strip()) < 100:
                 raise ValueError("Insufficient text extracted from PDF")

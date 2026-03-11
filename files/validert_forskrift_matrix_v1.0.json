@@ -1,0 +1,29 @@
+{
+  "name": "validert_forskrift_matrix",
+  "version": "1.3",
+  "notes": [
+    "Aligned to original v3.4 12-parent architecture.",
+    "Elektrisk anlegg is located under Tekniske installasjoner in this architecture, but handled as explanation-only via scoring hooks after 2026 rule.",
+    "Lovlighet og sikkerhet must never require TG."
+  ],
+  "parent_buckets": {
+    "LOVPAALAGT_TG": [
+      "P01_GROUND_AND_FOUNDATIONS",
+      "P02_EXTERIOR_WALLS_AND_FACADES",
+      "P03_WINDOWS_AND_EXTERIOR_DOORS",
+      "P04_ROOF",
+      "P06_ROOMS_BELOW_GRADE",
+      "P07_WETROOMS",
+      "P08_KITCHENS",
+      "P09_TECHNICAL_INSTALLATIONS"
+    ],
+    "LOVPAALAGT_AK_IKKE_TG": [
+      "P11_LAWFULNESS_AND_SAFETY",
+      "P12_SUPPLEMENTARY_INFORMATION"
+    ],
+    "IKKE_LOVPAALAGT": [
+      "P05_EXTERIOR_STRUCTURES",
+      "P10_INTERIOR_CONDITIONS"
+    ]
+  }
+}
