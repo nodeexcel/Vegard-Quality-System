@@ -76,6 +76,8 @@ PAGE_MARKER_RE = re.compile(r"\[SIDE (\d+)\]\n", re.IGNORECASE)
 SUMMARY_MARKERS = [
     "oppsummering",
     "takstmannens vurdering",
+    "takstmannens vurdering ved tg2",
+    "takstmannens vurdering ved tg3",
     "summary",
     "vurdering av tg 2",
     "vurdering av tg 3",
@@ -88,6 +90,7 @@ POINT_HEADER_RE = re.compile(
 )
 # Fallback: line that is just a number or number.number (e.g. "6.2" or "6.2.")
 POINT_HEADER_FALLBACK_RE = re.compile(r"^\s*(\d+(?:\.\d+){0,4})\.?\s*(?:[-–—:]?\s*(.*\S)?)?$")
+SUMMARY_INLINE_POINT_RE = re.compile(r"\b(\d+(?:\.\d+){1,4})\.?\b")
 TG_RE = re.compile(r"\bTG(?:0|1|2|3|IU)\b")
 DATE_POINT_ID_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
 # TG3 cost: normalize before matching (NFKC, dash harmonization, zero-width cleanup).
@@ -127,7 +130,9 @@ TG3_INTERVAL_RE = re.compile(
 # COST CLASS (PASS): lav / middels / høy
 TG3_COST_CLASS_RE = re.compile(
     r"(?ix)"
-    r"(?:\b(?:kostnadsklasse(?:r)?|kostnadsnivå|utbedringskostnad(?:en)?|kostnad)\b[^.\n]{0,40}\b(?:lav|middels|høy)\b)"
+    r"(?:\b(?:kostnadsklasse(?:r)?|kostnadskategori(?:er)?|kostnadsnivå|kostnadsramme|utbedringskostnad(?:en)?|kostnad|prisnivå)\b[^.\n]{0,50}\b(?:lav|middels|høy)\b)"
+    r"|(?:\b(?:lav|middels|høy)\b[^.\n]{0,24}\b(?:kostnad|kostnadsnivå|kostnadsklasse|prisnivå)\b)"
+    r"|(?:\b(?:moderat|betydelig)\b[^.\n]{0,24}\b(?:kostnad|kostnadsnivå)\b)"
     r"|(?:\b(?:lav|middels|høy)\s*/\s*(?:lav|middels|høy)\b)"
 )
 # SINGLE AMOUNT (E2): one amount only, optional ca./kr.
@@ -209,7 +214,7 @@ ARK_KONSEKVENS_RE = re.compile(
 )
 # Semantic detection: actionable verbs/phrases for recommended action (not strict "Anbefalt tiltak:" heading).
 ARK_TILTAK_RE = re.compile(
-    r"anbefalt\s+tiltak|anbefalte\s+tiltak|anbefales|må\s+utbedres|krever\s+utbedring|bør\s+skiftes|"
+    r"anbefalt\s+tiltak|anbefalte\s+tiltak|(?:andre\s+)?tiltak\s*:|anbefales|må\s+utbedres|krever\s+utbedring|bør\s+skiftes|"
     r"utskiftning\s+anbefales|det\s+anbefales|anbefalt\s+å|anbefales\s+å|"
     r"bør\s+undersøkes|undersøkelse\s+(?:av|ved)|utført\s+av\s+fagperson|videre\s+undersøkelser|"
     r"etableres|utbedres|skiftes|undersøkes\s+av|må\s+undersøkes",
@@ -695,6 +700,22 @@ def _contains_mapping_alias_hint(line_text: str) -> bool:
     norm_line = _normalize_segment_title_for_canonical_match(line_text or "")
     if not norm_line:
         return False
+    # OCR-friendly fallback for E3 headings (e.g. "VER OPPMERKSOM PA", "VAER OPPMERKSOM PAA").
+    norm_ascii = (
+        norm_line.replace("æ", "ae")
+        .replace("ø", "o")
+        .replace("å", "aa")
+        .replace("ä", "a")
+        .replace("ö", "o")
+        .replace("ü", "u")
+    )
+    if (
+        "tilleggsopplysninger" in norm_line
+        or "anbefalte ytterligere unders" in norm_line
+        or "vaer oppmerksom" in norm_ascii
+        or "ver oppmerksom" in norm_ascii
+    ):
+        return True
     for hint in _get_mapping_alias_hints():
         if hint in norm_line:
             return True
@@ -966,7 +987,7 @@ def _validate_detected_points_against_whitelist_v22(
             continue
         if p.get("segmentation_fallback"):
             validated.append({
-                **{k: v for k, v in p.items() if k != "span_text"},
+                **dict(p),
                 "canonical_building_part_id": "BP_LOVLIGHET",
                 "required_by_forskrift": True,
                 "ui_badge": None,
@@ -983,6 +1004,19 @@ def _validate_detected_points_against_whitelist_v22(
             continue
         bp = _classify_to_building_part_v22(norm_title, building_parts)
         if not bp:
+            e3_parent = _match_e3_p11_p12_heading(norm_title)
+            if e3_parent:
+                classified_heading += 1
+                validated.append({
+                    **dict(p),
+                    "canonical_building_part_id": f"BP_E3_{e3_parent}",
+                    "canonical_display_name": "E3 P11/P12 heading",
+                    "required_by_forskrift": True,
+                    "ui_badge": None,
+                    "legal_status": "lovpålagt",
+                    "e3_parent_hint": e3_parent,
+                })
+                continue
             unclassified_count += 1
             if trace is not None:
                 unclassified.append({"point_id": point_id, "normalized_title": norm_title, "reason": "unclassified_heading"})
@@ -991,7 +1025,7 @@ def _validate_detected_points_against_whitelist_v22(
         instance_label = _extract_instance_label_v22(title, norm_title, instance_regex_order)
         legal = "lovpålagt" if bp.get("required_by_forskrift", True) else "ikke lovpålagt"
         validated.append({
-            **{k: v for k, v in p.items() if k != "span_text"},
+            **dict(p),
             "canonical_building_part_id": bp.get("id", ""),
             "canonical_display_name": bp.get("display_name", ""),
             "required_by_forskrift": bp.get("required_by_forskrift", True),
@@ -1121,7 +1155,7 @@ def _validate_detected_points_against_whitelist(
             continue
         if p.get("segmentation_fallback"):
             validated.append({
-                **{k: v for k, v in p.items() if k != "span_text"},
+                **dict(p),
                 "legal_status": "lovpålagt",
                 "required_by_forskrift": True,
                 "ui_badge": None,
@@ -1144,7 +1178,7 @@ def _validate_detected_points_against_whitelist(
                 else:
                     accepted_alias += 1
                 validated.append({
-                    **{k: v for k, v in p.items() if k != "span_text"},
+                    **dict(p),
                     "legal_status": legal_status,
                     "canonical_building_part_id": canonical_id,
                     "required_by_forskrift": legal_status == "lovpålagt",
@@ -1644,6 +1678,24 @@ _PRACTICAL_CONSEQUENCE_TERMS = (
     "inneklima",
 )
 
+# E3 templates often use these headings without bygningsdel classification.
+# Keep them through whitelist so canonical P11/P12 matching can mark parents as FOUND.
+E3_P11_P12_HEADING_RULES = (
+    ("P11", re.compile(r"(?i)\blovlighet(?:\s+og\s+sikkerhet)?\b")),
+    ("P12", re.compile(r"(?i)\btilleggsopplysninger\b")),
+    ("P12", re.compile(r"(?i)\b(?:v[æa]r|vaer|ver)\s+oppmerksom\s+p(?:[åa]|aa)\b")),
+    ("P12", re.compile(r"(?i)\banbefalte?\s+ytterligere\s+unders[øo]kelser\b")),
+)
+
+
+def _match_e3_p11_p12_heading(norm_title: str) -> Optional[str]:
+    if not norm_title:
+        return None
+    for parent_id, rx in E3_P11_P12_HEADING_RULES:
+        if rx.search(norm_title):
+            return parent_id
+    return None
+
 
 def _finding_text_blob(finding: Dict[str, object]) -> str:
     parts: List[str] = []
@@ -1909,6 +1961,22 @@ def _extract_linked_summary_text_per_point(report_text: str) -> Dict[str, str]:
                 i = j
             else:
                 i += 1
+        # Inline fallback for summary pages that list multiple punktnummer in running text.
+        for raw_line in lines:
+            line = (raw_line or "").strip()
+            if len(line) < 8:
+                continue
+            refs = [m.group(1) for m in SUMMARY_INLINE_POINT_RE.finditer(line)]
+            if not refs:
+                continue
+            if not (TG_RE.search(line) or ARK_ÅRSAK_RE.search(line) or ARK_RISIKO_RE.search(line) or ARK_KONSEKVENS_RE.search(line) or ARK_TILTAK_RE.search(line) or TG3_INTERVAL_RE.search(line) or TG3_COST_CLASS_RE.search(line) or TG3_SINGLE_AMOUNT_RE.search(line)):
+                continue
+            for ref in refs:
+                if _looks_like_date_point_id(ref) or _is_noise_point_id(ref):
+                    continue
+                pid = _normalize_point_id(ref)
+                existing = linked.get(pid, "")
+                linked[pid] = (existing + "\n" + line).strip() if existing else line
     return linked
 
 
@@ -1930,6 +1998,46 @@ def _get_linked_summary_for_point(linked: Dict[str, str], point_id: str) -> str:
         if pid in linked:
             return linked[pid]
     return ""
+
+
+def _merge_detected_points_with_linked_summary(
+    detected_points: List[Dict[str, object]],
+    report_text: str,
+) -> List[Dict[str, object]]:
+    """
+    Pipeline join step for E3: merge main point text with TG2/TG3 summary sections by punktnummer.
+    Preserves existing point IDs and upgrades TG when summary provides stronger TG marker.
+    """
+    if not detected_points:
+        return detected_points
+    linked = _extract_linked_summary_text_per_point(report_text or "")
+    if not linked:
+        return detected_points
+    merged: List[Dict[str, object]] = []
+    for p in detected_points:
+        if not isinstance(p, dict):
+            continue
+        point_id = _normalize_point_id(str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or ""))
+        if not point_id:
+            merged.append(p)
+            continue
+        summary_text = _get_linked_summary_for_point(linked, point_id).strip()
+        if not summary_text:
+            merged.append(p)
+            continue
+        out = dict(p)
+        main_text = str(out.get("span_text") or "").strip()
+        combined = (main_text + "\n" + summary_text).strip() if main_text else summary_text
+        out["span_text"] = combined
+        out["linked_summary_text"] = summary_text
+        summary_tg_match = TG_RE.search(summary_text)
+        if summary_tg_match:
+            existing_tg = str(out.get("tg") or "").upper()
+            summary_tg = summary_tg_match.group(0).upper()
+            if _tg_rank(summary_tg) > _tg_rank(existing_tg):
+                out["tg"] = summary_tg
+        merged.append(out)
+    return merged
 
 
 def _segment_has_ark_arkat(combined_text: str, tg: str) -> Tuple[bool, List[str]]:
@@ -2175,15 +2283,15 @@ def _ensure_finding_suggestions_differentiated(analysis_output: Dict[str, object
                 f"Presiser konsekvensen{point_ref} med én kort setning om praktisk betydning "
                 "(bruk/sikkerhet/økonomi/videre skade) for kjøper."
             )
-        elif "årsak" in title.lower() or "arkat" in fid:
-            f["recommended_fix_text"] = (
-                f"Legg inn kort og tydelig årsak{point_ref} (hva som er feil / hvorfor forholdet har oppstått), "
-                "enten i punktteksten eller i en oppsummering merket med samme punktnummer."
-            )
         elif "tiltak" in fid or "anbefalt" in title.lower():
             f["recommended_fix_text"] = (
                 f"Formuler anbefalt tiltak{point_ref} tydelig (f.eks. «Det anbefales å …» eller «Bør utføres av fagperson»), "
                 "slik at kjøper vet hva som bør gjøres."
+            )
+        elif "årsak" in title.lower() or "arkat" in fid:
+            f["recommended_fix_text"] = (
+                f"Legg inn kort og tydelig årsak{point_ref} (hva som er feil / hvorfor forholdet har oppstått), "
+                "enten i punktteksten eller i en oppsummering merket med samme punktnummer."
             )
         elif "fagspråk" in title.lower() or "jargon" in fid or "språk" in fid:
             f["recommended_fix_text"] = (
@@ -2317,6 +2425,83 @@ def _drop_tg3_cost_top_issues_if_segments_have_cost(analysis_output: Dict[str, o
                 entry["summary"] = "Metodikk og lovforankring: se øvrige funn."
 
 
+def _drop_tg2_tiltak_requirement_false_positives(analysis_output: Dict[str, object]) -> None:
+    """
+    TG2 rule guard: TG2 must not be penalized for missing recommended measure (tiltak).
+    Remove such findings/drivers/issues while keeping TG3 tiltak requirements intact.
+    """
+    def _is_tg2_tiltak_only(text: str, tg_hint: str = "") -> bool:
+        low = _normalize_tg3_cost_text(text or "").lower()
+        tg_norm = str(tg_hint or "").strip().upper()
+        has_tg2 = ("tg2" in low) or (tg_norm == "TG2")
+        has_tg3 = ("tg3" in low) or (tg_norm == "TG3")
+        has_tiltak_phrase = (
+            "mangler anbefalt tiltak" in low
+            or "tg2-punkt mangler anbefalt tiltak" in low
+            or "anbefalt tiltak mangler" in low
+            or "mangler tiltak" in low
+        )
+        if not has_tiltak_phrase:
+            return False
+        if has_tg3:
+            return False
+        return has_tg2 or has_tiltak_phrase
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            component_tg = str(component.get("tg") or "").strip().upper()
+            issues = component.get("issues")
+            if isinstance(issues, list):
+                component["issues"] = [
+                    issue for issue in issues
+                    if not (
+                        isinstance(issue, dict)
+                        and _is_tg2_tiltak_only(
+                            f"{issue.get('title', '')} {issue.get('message', '')} {' '.join([str(r) for r in (issue.get('rule_refs') or []) if isinstance(r, str)])}",
+                            component_tg,
+                        )
+                    )
+                ]
+
+    all_findings = analysis_output.get("all_findings")
+    if isinstance(all_findings, list):
+        analysis_output["all_findings"] = [
+            f for f in all_findings
+            if not (
+                isinstance(f, dict)
+                and _is_tg2_tiltak_only(
+                    f"{f.get('finding_id', '')} {f.get('rule_id', '')} {f.get('title', '')} {f.get('message', '')} {f.get('recommended_fix_text', '')}",
+                    str(f.get("tg") or ""),
+                )
+            )
+        ]
+
+    top_issues = analysis_output.get("top_issues")
+    if isinstance(top_issues, list):
+        analysis_output["top_issues"] = [
+            i for i in top_issues
+            if not (
+                isinstance(i, dict)
+                and _is_tg2_tiltak_only(f"{i.get('title', '')} {i.get('message', '')}")
+            )
+        ]
+
+    top_score_drivers = analysis_output.get("top_score_drivers")
+    if isinstance(top_score_drivers, list):
+        analysis_output["top_score_drivers"] = [
+            d for d in top_score_drivers
+            if not (
+                isinstance(d, dict)
+                and _is_tg2_tiltak_only(
+                    f"{d.get('title', '')} {d.get('reason', '')} {' '.join([str(r) for r in (d.get('rule_refs') or []) if isinstance(r, str)])}"
+                )
+            )
+        ]
+
+
 def _drop_arkat_false_positives(analysis_output: Dict[str, object]) -> None:
     """
     Remove LLM findings that claim missing anbefalt tiltak / ARKAT for a point when
@@ -2378,9 +2563,26 @@ def _polish_feedback_text(text: object) -> str:
     s = _strip_suspicious_cjk(text)
     s = " ".join(s.split())
     s = re.sub(r"\bmed n kort setning\b", "med en kort setning", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bmed n\b", "med en", s, flags=re.IGNORECASE)
     s = re.sub(r"\s+([,.;:!?])", r"\1", s)
     s = re.sub(r"([.?!]){2,}", r"\1", s)
     return s.strip()
+
+
+def _polish_analysis_text_fields(payload: object) -> None:
+    """Apply small Norwegian text fixups on analysis payload text fields."""
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if isinstance(value, (dict, list)):
+                _polish_analysis_text_fields(value)
+            elif isinstance(value, str):
+                payload[key] = _polish_feedback_text(value)
+    elif isinstance(payload, list):
+        for idx, item in enumerate(payload):
+            if isinstance(item, (dict, list)):
+                _polish_analysis_text_fields(item)
+            elif isinstance(item, str):
+                payload[idx] = _polish_feedback_text(item)
 
 
 def _polish_feedback_findings(findings: List[Dict[str, object]]) -> None:
@@ -2401,6 +2603,109 @@ def _polish_feedback_findings(findings: List[Dict[str, object]]) -> None:
             good_example = _polish_feedback_text(example_fix.get("good_example"))
             if good_example:
                 example_fix["good_example"] = good_example
+
+
+def _reconcile_feedback_deduction_consistency(
+    feedback_findings: List[Dict[str, object]],
+    score_by_category: List[Dict[str, object]],
+    top_score_drivers: List[Dict[str, object]],
+) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    """
+    Keep output internally consistent without synthetic "balance" findings.
+    """
+    if not isinstance(top_score_drivers, list):
+        top_score_drivers = []
+    filtered_findings = [
+        f for f in feedback_findings
+        if not (
+            isinstance(f, dict)
+            and str(f.get("rule_id") or "").strip().upper() == "CATEGORY_BALANCE_ADJUSTMENT"
+        )
+    ]
+    filtered_drivers = [
+        d for d in top_score_drivers
+        if not (
+            isinstance(d, dict)
+            and (
+                any(
+                    str(r).strip().upper() == "CATEGORY_BALANCE_ADJUSTMENT"
+                    for r in (d.get("rule_refs") or [])
+                    if isinstance(r, str)
+                )
+                or str(d.get("title") or "").strip().lower() == "konsistensjustering av trekk"
+            )
+        )
+    ]
+    return filtered_findings, filtered_drivers
+
+
+def _detect_e3_p11_p12_presence(
+    points: List[Dict[str, object]],
+    points_before_whitelist: List[Dict[str, object]],
+) -> Dict[str, bool]:
+    """
+    Hard fallback: if E3-specific headings are present anywhere in detected/raw headings,
+    mark P11/P12 as present so UI never shows NOT_FOUND for these sections.
+    """
+    candidates: List[str] = []
+    for src in (points, points_before_whitelist):
+        if not isinstance(src, list):
+            continue
+        for p in src:
+            if not isinstance(p, dict):
+                continue
+            for key in ("title", "excerpt", "native_label", "anchor_text"):
+                value = p.get(key)
+                if isinstance(value, str) and value.strip():
+                    candidates.append(value.strip())
+
+    if not candidates:
+        return {"P11": False, "P12": False}
+
+    def _norm(s: str) -> str:
+        t = _normalize_segment_title_for_canonical_match(s or "")
+        return (
+            t.replace("æ", "ae")
+            .replace("ø", "o")
+            .replace("å", "aa")
+        )
+
+    has_p11 = False
+    has_p12 = False
+    for text in candidates:
+        n = _norm(text)
+        if (
+            "lovlighet og sikkerhet" in n
+            or "lovlighet" in n
+            or "godkjente tegninger" in n
+            or "byggemeldte tegninger" in n
+            or "ferdigattest" in n
+            or "brukstillatelse" in n
+            or "bruksendring" in n
+        ):
+            has_p11 = True
+        if (
+            "tilleggsopplysninger" in n
+            or "anbefalte ytterligere unders" in n
+            or "vaer oppmerksom" in n
+            or "ver oppmerksom" in n
+        ):
+            has_p12 = True
+    # E3 fallback: when supplementary/attention section exists and contains legality cues,
+    # treat P11 as present even if explicit "Lovlighet" heading is absent.
+    if not has_p11 and has_p12:
+        for text in candidates:
+            n = _norm(text)
+            if (
+                "tegninger" in n
+                or "byggemeldt" in n
+                or "ferdigattest" in n
+                or "brukstillatelse" in n
+                or "bruksendring" in n
+            ):
+                has_p11 = True
+                break
+    return {"P11": has_p11, "P12": has_p12}
 
 
 def _normalize_segment_title_for_canonical_match(title: str) -> str:
@@ -3023,6 +3328,23 @@ def _build_feedback_v11(
                     point_meta = point_lookup.get(point_id)
                     if point_meta and not parent_where[parent_id]:
                         parent_where[parent_id] = {"page": int(point_meta.get("page_start", 1))}
+        # E3 heading fallback: some P11/P12 sections are detected as headings (not canonical child IDs).
+        # If whitelist preserved such a heading with explicit parent hint, mark parent as FOUND.
+        for point in points:
+            if not isinstance(point, dict):
+                continue
+            hinted_parent = str(point.get("e3_parent_hint") or "").strip().upper()
+            if hinted_parent not in {"P11", "P12"}:
+                continue
+            target_parent = (
+                "P11_LAWFULNESS_AND_SAFETY"
+                if hinted_parent == "P11"
+                else "P12_SUPPLEMENTARY_INFORMATION"
+            )
+            if target_parent in parent_found_status:
+                parent_found_status[target_parent] = "FOUND"
+                if not parent_where[target_parent]:
+                    parent_where[target_parent] = {"page": int(point.get("page_start") or 1)}
 
         # Roll up values from all processed points WITH findings
         for point_id, deduction in deduction_totals.items():
@@ -3287,6 +3609,11 @@ def _build_feedback_v11(
             }
         )
 
+    feedback_findings, top_score_drivers = _reconcile_feedback_deduction_consistency(
+        feedback_findings,
+        score_by_category,
+        top_score_drivers if isinstance(top_score_drivers, list) else [],
+    )
     _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
@@ -3560,6 +3887,7 @@ def _build_feedback_v11_from_all_findings(
         parent_worst_tg = {p["canonical_id"]: "" for p in parent_cards}
         parent_found_status = {p["canonical_id"]: "NOT_FOUND_IN_REPORT" for p in parent_cards}
         parent_where = {p["canonical_id"]: {} for p in parent_cards}
+        e3_presence = _detect_e3_p11_p12_presence(points, points_before_whitelist)
         
         # Roll up values from all detected points (mark FOUND even if no findings)
         for point_id in allowed_point_ids:
@@ -3569,6 +3897,23 @@ def _build_feedback_v11_from_all_findings(
                     point_meta = point_lookup.get(point_id)
                     if point_meta and not parent_where[parent_id]:
                         parent_where[parent_id] = {"page": int(point_meta.get("page_start", 1))}
+        # E3 heading fallback: ensure P11/P12 become FOUND when preserved heading exists
+        # but no canonical child ID was linked for that section.
+        for point in points:
+            if not isinstance(point, dict):
+                continue
+            hinted_parent = str(point.get("e3_parent_hint") or "").strip().upper()
+            if hinted_parent not in {"P11", "P12"}:
+                continue
+            target_parent = (
+                "P11_LAWFULNESS_AND_SAFETY"
+                if hinted_parent == "P11"
+                else "P12_SUPPLEMENTARY_INFORMATION"
+            )
+            if target_parent in parent_found_status:
+                parent_found_status[target_parent] = "FOUND"
+                if not parent_where[target_parent]:
+                    parent_where[target_parent] = {"page": int(point.get("page_start") or 1)}
 
         # Roll up values from all processed points WITH findings
         for point_id, deduction in deduction_totals.items():
@@ -3589,6 +3934,10 @@ def _build_feedback_v11_from_all_findings(
         points_overview = []
         for idx, p in enumerate(parent_cards):
             pid = p["canonical_id"]
+            if pid == "P11_LAWFULNESS_AND_SAFETY" and e3_presence.get("P11"):
+                parent_found_status[pid] = "FOUND"
+            if pid == "P12_SUPPLEMENTARY_INFORMATION" and e3_presence.get("P12"):
+                parent_found_status[pid] = "FOUND"
             status = parent_found_status[pid]
             deduction = parent_deductions[pid]
             tg = parent_worst_tg[pid] if status == "FOUND" else "UNKNOWN"
@@ -3737,6 +4086,11 @@ def _build_feedback_v11_from_all_findings(
                 "instance_label": point.get("instance_label"),
             })
             display_index += 1
+    feedback_findings, top_score_drivers = _reconcile_feedback_deduction_consistency(
+        feedback_findings,
+        score_by_category,
+        top_score_drivers if isinstance(top_score_drivers, list) else [],
+    )
     _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
@@ -4320,6 +4674,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _ensure_required_arrays(analysis_output)
     detected_points = _extract_detected_points(report_text or "")
     detected_points = _validate_detected_points_against_whitelist(detected_points)
+    detected_points = _merge_detected_points_with_linked_summary(detected_points, report_text or "")
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
     _drop_tg_and_consequence_false_positives(report_text, analysis_output, detected_points)
     _ensure_issue_evidence(analysis_output, report_text)
@@ -4328,8 +4683,10 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _run_ark_arkat_per_segment_validation(report_text, detected_points, analysis_output)
     _drop_arkat_false_positives(analysis_output)
     _drop_segment_arkat_for_tg2_only_points(analysis_output)
+    _drop_tg2_tiltak_requirement_false_positives(analysis_output)
     _ensure_finding_suggestions_differentiated(analysis_output)
     _drop_tg3_cost_top_issues_if_segments_have_cost(analysis_output) 
+    _polish_analysis_text_fields(analysis_output)
     _sanitize_analysis_output_text(analysis_output)
     return analysis_output
 

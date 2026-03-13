@@ -13859,3 +13859,1095 @@ INFO:     3.129.187.38:45920 - "GET / HTTP/1.1" 200 OK
 INFO:     3.129.187.38:45930 - "GET / HTTP/1.1" 200 OK
 WARNING:  Invalid HTTP request received.
 WARNING:  Invalid HTTP request received.
+INFO:     3.129.187.38:40170 - "GET / HTTP/1.1" 200 OK
+INFO:     3.129.187.38:55296 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-11 08:49:50,121 - app.api.v1.reports - INFO - Extracting text from PDF: E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-11 08:49:52,878 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-11 08:49:55,682 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-11 08:49:55,704 - app.api.v1.reports - INFO - Analysis cache hit document_hash=8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175 cache_id=573 cache_age_s=69168
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1106 HTTP/1.1" 200 OK
+2026-03-11 08:50:26,462 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     85.167.49.27:0 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+2026-03-11 08:50:40,415 - app.api.v1.reports - INFO - Extracting text from PDF: e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 08:50:42,389 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 08:50:44,447 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 08:50:44,595 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_15/report_1107/20260311_085044_e311 Ferdig.pdf
+2026-03-11 08:50:44,596 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_15/report_1107/20260311_085044_e311 Ferdig.pdf
+2026-03-11 08:50:44,596 - app.api.v1.reports - INFO - Analyzing report 1107 with AI
+2026-03-11 08:50:44,646 - app.services.ai_analyzer - INFO - analysis_debug run_id=bef16124-b0fe-4049-9c15-a2910cf9748d event=preflight payload={"available_tokens_est": 59824, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 08:50:44,659 - app.services.ai_analyzer - INFO - analysis_debug run_id=bef16124-b0fe-4049-9c15-a2910cf9748d event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 08:50:44,659 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 08:50:44,666 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 08:51:34,752 - app.services.ai_analyzer - INFO - analysis_debug run_id=bef16124-b0fe-4049-9c15-a2910cf9748d event=llm_response payload={"duration_s": 50.093, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 10895, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 08:51:34,847 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 08:51:35,028 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 78.0
+2026-03-11 08:51:35,074 - app.api.v1.reports - INFO - Successfully processed report 1107 for user 15
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1107 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-11 09:24:49,560 - app.api.v1.reports - INFO - Extracting text from PDF: fremtind-nøtterøy-03.02.26.pdf (size: 2201374 bytes)
+2026-03-11 09:24:50,877 - app.services.pdf_extractor - INFO - Processing PDF with 13 total pages
+2026-03-11 09:24:52,395 - app.services.pdf_extractor - INFO - Successfully extracted 41828 characters from PDF: 13/13 pages, 62 images
+2026-03-11 09:24:52,525 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1108/20260311_092452_fremtind-nøtterøy-03.02.26.pdf
+2026-03-11 09:24:52,526 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1108/20260311_092452_fremtind-nøtterøy-03.02.26.pdf
+2026-03-11 09:24:52,526 - app.api.v1.reports - INFO - Analyzing report 1108 with AI
+2026-03-11 09:24:52,574 - app.services.ai_analyzer - INFO - analysis_debug run_id=6de10fb7-4ad6-4ffa-b74a-23234f386ab1 event=preflight payload={"available_tokens_est": 59820, "chunking": "none", "detected_points": 40, "document_hash": "2b59df1ee01e68a623956f11cae3f7e9d7733ca0e4d2bbaf2d1446c420bea948", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 62, "pages_with_text": 13, "total_pages": 13}, "text_chars": 41779, "text_tokens_est": 10444}
+2026-03-11 09:24:52,586 - app.services.ai_analyzer - INFO - analysis_debug run_id=6de10fb7-4ad6-4ffa-b74a-23234f386ab1 event=text_encoding_diagnostics payload={"normalized_len": 41701, "raw_len": 41828}
+2026-03-11 09:24:52,586 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 09:24:52,593 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 09:25:15,631 - app.services.ai_analyzer - INFO - analysis_debug run_id=6de10fb7-4ad6-4ffa-b74a-23234f386ab1 event=llm_response payload={"duration_s": 23.045, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 3153, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 09:25:15,686 - app.services.ai_analyzer - INFO - Detected 40 points before scoring
+2026-03-11 09:25:15,794 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 95.0
+2026-03-11 09:25:15,830 - app.api.v1.reports - INFO - Successfully processed report 1108 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1108 HTTP/1.1" 200 OK
+2026-03-11 09:26:13,174 - app.api.v1.reports - INFO - Extracting text from PDF: fremtind-drammen-23.01.26-75score.pdf (size: 2100812 bytes)
+2026-03-11 09:26:16,717 - app.services.pdf_extractor - INFO - Processing PDF with 30 total pages
+2026-03-11 09:26:20,726 - app.services.pdf_extractor - INFO - Successfully extracted 79783 characters from PDF: 30/30 pages, 193 images
+2026-03-11 09:26:20,749 - app.api.v1.reports - INFO - Analysis cache hit document_hash=34d8a9eae31f2c2402c747d65b02e83175772f4f1314526db86c04ef0df10a68 cache_id=572 cache_age_s=71863
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1109 HTTP/1.1" 200 OK
+INFO:     79.160.177.77:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-11 09:52:11,989 - app.api.v1.reports - INFO - Extracting text from PDF: Norsk_Takst_Ulefoss.pdf (size: 9596680 bytes)
+2026-03-11 09:52:15,282 - app.services.pdf_extractor - INFO - Processing PDF with 31 total pages
+2026-03-11 09:52:18,838 - app.services.pdf_extractor - INFO - Successfully extracted 105767 characters from PDF: 30/31 pages, 172 images
+2026-03-11 09:52:18,849 - app.api.v1.reports - ERROR - Error processing report: name 'NOT_FOUND_IN_REPORT' is not defined
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/api/v1/reports.py", line 150, in upload_report
+    scoring_model_info = get_scoring_model_info()
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 333, in get_scoring_model_info
+    text = get_scoring_model_text()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 160, in get_scoring_model_text
+    path = _get_dynamic_file("existing_runtime_modules_unchanged", "scoring_model_file", SCORING_MODEL_PATH)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 106, in _get_dynamic_file
+    resolved = _resolve_file_from_name(filename)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 80, in _resolve_file_from_name
+    underscore_candidate = NOT_FOUND_IN_REPORT / f"{normalized_stem}{suffix}"
+                           ^^^^^^^^^^^^^^^^^^^
+NameError: name 'NOT_FOUND_IN_REPORT' is not defined
+INFO:     79.160.177.77:0 - "POST /api/v1/reports/upload HTTP/1.1" 500 Internal Server Error
+2026-03-11 09:53:52,324 - app.api.v1.reports - INFO - Extracting text from PDF: Norsk_Takst_Ulefoss.pdf (size: 9596680 bytes)
+2026-03-11 09:53:55,567 - app.services.pdf_extractor - INFO - Processing PDF with 31 total pages
+2026-03-11 09:53:59,342 - app.services.pdf_extractor - INFO - Successfully extracted 105767 characters from PDF: 30/31 pages, 172 images
+2026-03-11 09:53:59,353 - app.api.v1.reports - ERROR - Error processing report: name 'NOT_FOUND_IN_REPORT' is not defined
+Traceback (most recent call last):
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/api/v1/reports.py", line 150, in upload_report
+    scoring_model_info = get_scoring_model_info()
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 333, in get_scoring_model_info
+    text = get_scoring_model_text()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 160, in get_scoring_model_text
+    path = _get_dynamic_file("existing_runtime_modules_unchanged", "scoring_model_file", SCORING_MODEL_PATH)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 106, in _get_dynamic_file
+    resolved = _resolve_file_from_name(filename)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/Quality/Vegard-Quality-System/backend/app/services/validert_files.py", line 80, in _resolve_file_from_name
+    underscore_candidate = NOT_FOUND_IN_REPORT / f"{normalized_stem}{suffix}"
+                           ^^^^^^^^^^^^^^^^^^^
+NameError: name 'NOT_FOUND_IN_REPORT' is not defined
+INFO:     79.160.177.77:0 - "POST /api/v1/reports/upload HTTP/1.1" 500 Internal Server Error
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     Started server process [1949582]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.208:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1109 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1109 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+2026-03-11 10:05:31,077 - app.api.v1.reports - INFO - Extracting text from PDF: fremtind-drammen-23.01.26-75score.pdf (size: 2100812 bytes)
+2026-03-11 10:05:34,704 - app.services.pdf_extractor - INFO - Processing PDF with 30 total pages
+2026-03-11 10:05:38,559 - app.services.pdf_extractor - INFO - Successfully extracted 79783 characters from PDF: 30/30 pages, 193 images
+2026-03-11 10:05:38,717 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1112/20260311_100538_fremtind-drammen-23.01.26-75score.pdf
+2026-03-11 10:05:38,717 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1112/20260311_100538_fremtind-drammen-23.01.26-75score.pdf
+2026-03-11 10:05:38,717 - app.api.v1.reports - INFO - Analyzing report 1112 with AI
+2026-03-11 10:05:38,786 - app.services.ai_analyzer - INFO - analysis_debug run_id=ab053e47-ad7d-4838-9d1e-04fc19eb4a8f event=preflight payload={"available_tokens_est": 56246, "chunking": "none", "detected_points": 40, "document_hash": "34d8a9eae31f2c2402c747d65b02e83175772f4f1314526db86c04ef0df10a68", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 193, "pages_with_text": 30, "total_pages": 30}, "text_chars": 77740, "text_tokens_est": 19435}
+2026-03-11 10:05:38,807 - app.services.ai_analyzer - INFO - analysis_debug run_id=ab053e47-ad7d-4838-9d1e-04fc19eb4a8f event=text_encoding_diagnostics payload={"normalized_len": 77417, "normalized_window": "k Takst & Eiendom AS Sersert Taksngeni\u00f8r:", "normalized_window_codepoints": "U+006B U+0020 U+0054 U+0061 U+006B U+0073 U+0074 U+0020 U+0026 U+0020 U+0045 U+0069 U+0065 U+006E U+0064 U+006F U+006D U+0020 U+0041 U+0053 U+0020 U+0053 U+0065 U+0072 U+0073 U+0065 U+0072 U+0074 U+0020 U+0054 U+0061 U+006B U+0073 U+006E U+0067 U+0065 U+006E U+0069 U+00F8 U+0072 U+003A", "raw_len": 79783, "raw_window": "k Takst & Eiendom AS Ser\u7400\u6900\u6600\u6900sert Taks\u7400\u6900ngeni\u00f8r: ", "raw_window_codepoints": "U+006B U+0020 U+0054 U+0061 U+006B U+0073 U+0074 U+0020 U+0026 U+0020 U+0045 U+0069 U+0065 U+006E U+0064 U+006F U+006D U+0020 U+0041 U+0053 U+0020 U+0053 U+0065 U+0072 U+7400 U+6900 U+6600 U+6900 U+0073 U+0065 U+0072 U+0074 U+0020 U+0054 U+0061 U+006B U+0073 U+7400 U+6900 U+006E U+0067 U+0065 U+006E U+0069 U+00F8 U+0072 U+003A U+0020"}
+2026-03-11 10:05:38,807 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:05:38,834 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:06:24,270 - app.services.ai_analyzer - INFO - analysis_debug run_id=ab053e47-ad7d-4838-9d1e-04fc19eb4a8f event=llm_response payload={"duration_s": 45.463, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 7657, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:06:24,348 - app.services.ai_analyzer - INFO - Detected 40 points before scoring
+2026-03-11 10:06:24,540 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:06:24,588 - app.api.v1.reports - INFO - Successfully processed report 1112 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1112 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1107 HTTP/1.1" 200 OK
+2026-03-11 10:08:08,908 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1107 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-11 10:09:16,625 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:09:18,330 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:09:20,116 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:09:20,244 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1113/20260311_100920_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:09:20,244 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1113/20260311_100920_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:09:20,244 - app.api.v1.reports - INFO - Analyzing report 1113 with AI
+2026-03-11 10:09:20,294 - app.services.ai_analyzer - INFO - analysis_debug run_id=4513e1af-34b0-4714-8609-b194cb4219ab event=preflight payload={"available_tokens_est": 56248, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 10:09:20,306 - app.services.ai_analyzer - INFO - analysis_debug run_id=4513e1af-34b0-4714-8609-b194cb4219ab event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:09:20,307 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:09:20,313 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:10:03,032 - app.services.ai_analyzer - INFO - analysis_debug run_id=4513e1af-34b0-4714-8609-b194cb4219ab event=llm_response payload={"duration_s": 42.725, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 9642, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:10:03,155 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 10:10:03,354 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:10:03,397 - app.api.v1.reports - INFO - Successfully processed report 1113 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1113 HTTP/1.1" 200 OK
+INFO:     Started server process [1950354]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.208:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1106 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1106 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1105 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1105 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1112 HTTP/1.1" 200 OK
+2026-03-11 10:12:49,358 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1112 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1106 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1094 HTTP/1.1" 200 OK
+2026-03-11 10:13:09,627 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1094 HTTP/1.1" 200 OK
+2026-03-11 10:13:45,161 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:13:46,835 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:13:48,689 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:13:48,833 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1114/20260311_101348_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:13:48,833 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1114/20260311_101348_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:13:48,833 - app.api.v1.reports - INFO - Analyzing report 1114 with AI
+2026-03-11 10:13:48,883 - app.services.ai_analyzer - INFO - analysis_debug run_id=4e1a125a-7dfe-4fae-bb17-2a96cae8376c event=preflight payload={"available_tokens_est": 56248, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 10:13:48,896 - app.services.ai_analyzer - INFO - analysis_debug run_id=4e1a125a-7dfe-4fae-bb17-2a96cae8376c event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:13:48,896 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:13:48,923 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:14:32,191 - app.services.ai_analyzer - INFO - analysis_debug run_id=4e1a125a-7dfe-4fae-bb17-2a96cae8376c event=llm_response payload={"duration_s": 43.295, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 9795, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:14:32,316 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 10:14:32,519 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 67.0
+2026-03-11 10:14:32,566 - app.api.v1.reports - INFO - Successfully processed report 1114 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1114 HTTP/1.1" 200 OK
+INFO:     Started server process [1951180]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-11 10:20:12,362 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:20:14,079 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:20:15,949 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:20:16,103 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1115/20260311_102015_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:20:16,103 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1115/20260311_102015_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:20:16,103 - app.api.v1.reports - INFO - Analyzing report 1115 with AI
+2026-03-11 10:20:16,159 - app.services.ai_analyzer - INFO - analysis_debug run_id=24cfb58c-0377-45f5-afc2-8347c338f377 event=preflight payload={"available_tokens_est": 56235, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 10:20:16,172 - app.services.ai_analyzer - INFO - analysis_debug run_id=24cfb58c-0377-45f5-afc2-8347c338f377 event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:20:16,172 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:20:16,197 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:21:11,678 - app.services.ai_analyzer - INFO - analysis_debug run_id=24cfb58c-0377-45f5-afc2-8347c338f377 event=llm_response payload={"duration_s": 55.506, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 11078, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:21:11,812 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 10:21:12,017 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:21:12,089 - app.api.v1.reports - INFO - Successfully processed report 1115 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1115 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1115 HTTP/1.1" 200 OK
+2026-03-11 10:25:13,944 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:25:15,750 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:25:17,576 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:25:17,596 - app.api.v1.reports - INFO - Analysis cache hit document_hash=59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5 cache_id=580 cache_age_s=305
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1116 HTTP/1.1" 200 OK
+2026-03-11 10:25:33,707 - app.api.v1.reports - INFO - Extracting text from PDF: 20260310_114414_E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-11 10:25:36,334 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-11 10:25:39,208 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-11 10:25:39,343 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1117/20260311_102539_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-11 10:25:39,343 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1117/20260311_102539_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-11 10:25:39,343 - app.api.v1.reports - INFO - Analyzing report 1117 with AI
+2026-03-11 10:25:39,415 - app.services.ai_analyzer - INFO - analysis_debug run_id=db348a45-966e-4168-b8ad-70de81283f25 event=preflight payload={"available_tokens_est": 56233, "chunking": "none", "detected_points": 95, "document_hash": "8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 67, "pages_with_text": 25, "total_pages": 25}, "text_chars": 75864, "text_tokens_est": 18966}
+2026-03-11 10:25:39,435 - app.services.ai_analyzer - INFO - analysis_debug run_id=db348a45-966e-4168-b8ad-70de81283f25 event=text_encoding_diagnostics payload={"normalized_len": 75751, "raw_len": 75925, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:25:39,435 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:25:39,442 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:26:26,081 - app.services.ai_analyzer - INFO - analysis_debug run_id=db348a45-966e-4168-b8ad-70de81283f25 event=llm_response payload={"duration_s": 46.646, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 7929, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:26:26,188 - app.services.ai_analyzer - INFO - Detected 95 points before scoring
+2026-03-11 10:26:26,434 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:26:26,485 - app.api.v1.reports - INFO - Successfully processed report 1117 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1117 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1094 HTTP/1.1" 200 OK
+INFO:     Started server process [1952256]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-11 10:30:27,760 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:30:29,460 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:30:31,335 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:30:31,485 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1118/20260311_103031_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:30:31,485 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1118/20260311_103031_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:30:31,485 - app.api.v1.reports - INFO - Analyzing report 1118 with AI
+2026-03-11 10:30:31,539 - app.services.ai_analyzer - INFO - analysis_debug run_id=caca2fa1-8d33-4182-9c9d-d41b55d6b346 event=preflight payload={"available_tokens_est": 56235, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 10:30:31,551 - app.services.ai_analyzer - INFO - analysis_debug run_id=caca2fa1-8d33-4182-9c9d-d41b55d6b346 event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:30:31,552 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:30:31,576 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:31:25,040 - app.services.ai_analyzer - INFO - analysis_debug run_id=caca2fa1-8d33-4182-9c9d-d41b55d6b346 event=llm_response payload={"duration_s": 53.489, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 11278, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:31:25,179 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 10:31:25,403 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:31:25,459 - app.api.v1.reports - INFO - Successfully processed report 1118 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:31:26,595 - app.api.v1.reports - INFO - get_report rebuild report_id=1118 validated_points=73 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1118 HTTP/1.1" 200 OK
+INFO:     Started server process [1952619]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-11 10:35:01,917 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:35:03,743 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:35:05,692 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:35:05,843 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1119/20260311_103505_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:35:05,844 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1119/20260311_103505_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:35:05,844 - app.api.v1.reports - INFO - Analyzing report 1119 with AI
+2026-03-11 10:35:05,900 - app.services.ai_analyzer - INFO - analysis_debug run_id=cc030bb5-fb2f-46df-a653-845506c8877c event=preflight payload={"available_tokens_est": 56235, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 10:35:05,912 - app.services.ai_analyzer - INFO - analysis_debug run_id=cc030bb5-fb2f-46df-a653-845506c8877c event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:35:05,913 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:35:05,939 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:35:59,088 - app.services.ai_analyzer - INFO - analysis_debug run_id=cc030bb5-fb2f-46df-a653-845506c8877c event=llm_response payload={"duration_s": 53.176, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 10981, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:35:59,226 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 10:35:59,442 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 67.0
+2026-03-11 10:35:59,498 - app.api.v1.reports - INFO - Successfully processed report 1119 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:36:00,696 - app.api.v1.reports - INFO - get_report rebuild report_id=1119 validated_points=73 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1119 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1119 HTTP/1.1" 200 OK
+2026-03-11 10:36:21,871 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1119 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+2026-03-11 10:36:41,930 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1119 HTTP/1.1" 200 OK
+2026-03-11 10:36:48,936 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1119 HTTP/1.1" 200 OK
+2026-03-11 10:37:01,545 - app.api.v1.reports - INFO - Extracting text from PDF: 20260310_114414_E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-11 10:37:04,141 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-11 10:37:06,926 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-11 10:37:07,069 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1120/20260311_103706_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-11 10:37:07,070 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1120/20260311_103706_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-11 10:37:07,070 - app.api.v1.reports - INFO - Analyzing report 1120 with AI
+2026-03-11 10:37:07,139 - app.services.ai_analyzer - INFO - analysis_debug run_id=ed43b4e4-b87c-4ff6-957b-0ccd0fd5afb8 event=preflight payload={"available_tokens_est": 56233, "chunking": "none", "detected_points": 95, "document_hash": "8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 67, "pages_with_text": 25, "total_pages": 25}, "text_chars": 75864, "text_tokens_est": 18966}
+2026-03-11 10:37:07,159 - app.services.ai_analyzer - INFO - analysis_debug run_id=ed43b4e4-b87c-4ff6-957b-0ccd0fd5afb8 event=text_encoding_diagnostics payload={"normalized_len": 75751, "raw_len": 75925, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:37:07,159 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:37:07,165 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:37:55,577 - app.services.ai_analyzer - INFO - analysis_debug run_id=ed43b4e4-b87c-4ff6-957b-0ccd0fd5afb8 event=llm_response payload={"duration_s": 48.418, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 8229, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:37:55,700 - app.services.ai_analyzer - INFO - Detected 95 points before scoring
+2026-03-11 10:37:55,909 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-03-11 10:37:55,959 - app.api.v1.reports - INFO - Successfully processed report 1120 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:37:57,686 - app.api.v1.reports - INFO - get_report rebuild report_id=1120 validated_points=95 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1120 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1120 HTTP/1.1" 200 OK
+2026-03-11 10:38:12,144 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1120 HTTP/1.1" 200 OK
+INFO:     Started server process [1953268]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-11 10:40:50,823 - app.api.v1.reports - INFO - Extracting text from PDF: 20260311_085044_e311 Ferdig.pdf (size: 2475322 bytes)
+2026-03-11 10:40:52,519 - app.services.pdf_extractor - INFO - Processing PDF with 20 total pages
+2026-03-11 10:40:54,399 - app.services.pdf_extractor - INFO - Successfully extracted 47386 characters from PDF: 20/20 pages, 56 images
+2026-03-11 10:40:54,536 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1121/20260311_104054_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:40:54,536 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1121/20260311_104054_20260311_085044_e311 Ferdig.pdf
+2026-03-11 10:40:54,536 - app.api.v1.reports - INFO - Analyzing report 1121 with AI
+2026-03-11 10:40:54,591 - app.services.ai_analyzer - INFO - analysis_debug run_id=da660ca4-9788-4512-a647-566c21efcdb8 event=preflight payload={"available_tokens_est": 56235, "chunking": "none", "detected_points": 73, "document_hash": "59f43ecce83036ac74087fa8dff58e7d8a8262e30e224f7df21edb400fd2a7c5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 56, "pages_with_text": 20, "total_pages": 20}, "text_chars": 47319, "text_tokens_est": 11829}
+2026-03-11 10:40:54,603 - app.services.ai_analyzer - INFO - analysis_debug run_id=da660ca4-9788-4512-a647-566c21efcdb8 event=text_encoding_diagnostics payload={"normalized_len": 47224, "raw_len": 47386, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:40:54,604 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:40:54,630 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:41:42,682 - app.services.ai_analyzer - INFO - analysis_debug run_id=da660ca4-9788-4512-a647-566c21efcdb8 event=llm_response payload={"duration_s": 48.078, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 10647, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:41:42,817 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-11 10:41:43,030 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:41:43,084 - app.api.v1.reports - INFO - Successfully processed report 1121 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:41:44,710 - app.api.v1.reports - INFO - get_report rebuild report_id=1121 validated_points=73 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1121 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1121 HTTP/1.1" 200 OK
+2026-03-11 10:42:07,278 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1121 HTTP/1.1" 200 OK
+2026-03-11 10:46:40,457 - app.api.v1.reports - INFO - Extracting text from PDF: fremtind-drammen-23.01.26-75score.pdf (size: 2100812 bytes)
+2026-03-11 10:46:44,073 - app.services.pdf_extractor - INFO - Processing PDF with 30 total pages
+2026-03-11 10:46:48,003 - app.services.pdf_extractor - INFO - Successfully extracted 79783 characters from PDF: 30/30 pages, 193 images
+2026-03-11 10:46:48,141 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1122/20260311_104648_fremtind-drammen-23.01.26-75score.pdf
+2026-03-11 10:46:48,141 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1122/20260311_104648_fremtind-drammen-23.01.26-75score.pdf
+2026-03-11 10:46:48,141 - app.api.v1.reports - INFO - Analyzing report 1122 with AI
+2026-03-11 10:46:48,209 - app.services.ai_analyzer - INFO - analysis_debug run_id=759bd4bb-fdc3-4198-af46-4931bf8bb23f event=preflight payload={"available_tokens_est": 56233, "chunking": "none", "detected_points": 40, "document_hash": "34d8a9eae31f2c2402c747d65b02e83175772f4f1314526db86c04ef0df10a68", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 193, "pages_with_text": 30, "total_pages": 30}, "text_chars": 77740, "text_tokens_est": 19435}
+2026-03-11 10:46:48,230 - app.services.ai_analyzer - INFO - analysis_debug run_id=759bd4bb-fdc3-4198-af46-4931bf8bb23f event=text_encoding_diagnostics payload={"normalized_len": 77417, "normalized_window": "k Takst & Eiendom AS Sersert Taksngeni\u00f8r:", "normalized_window_codepoints": "U+006B U+0020 U+0054 U+0061 U+006B U+0073 U+0074 U+0020 U+0026 U+0020 U+0045 U+0069 U+0065 U+006E U+0064 U+006F U+006D U+0020 U+0041 U+0053 U+0020 U+0053 U+0065 U+0072 U+0073 U+0065 U+0072 U+0074 U+0020 U+0054 U+0061 U+006B U+0073 U+006E U+0067 U+0065 U+006E U+0069 U+00F8 U+0072 U+003A", "raw_len": 79783, "raw_window": "k Takst & Eiendom AS Ser\u7400\u6900\u6600\u6900sert Taks\u7400\u6900ngeni\u00f8r: ", "raw_window_codepoints": "U+006B U+0020 U+0054 U+0061 U+006B U+0073 U+0074 U+0020 U+0026 U+0020 U+0045 U+0069 U+0065 U+006E U+0064 U+006F U+006D U+0020 U+0041 U+0053 U+0020 U+0053 U+0065 U+0072 U+7400 U+6900 U+6600 U+6900 U+0073 U+0065 U+0072 U+0074 U+0020 U+0054 U+0061 U+006B U+0073 U+7400 U+6900 U+006E U+0067 U+0065 U+006E U+0069 U+00F8 U+0072 U+003A U+0020"}
+2026-03-11 10:46:48,230 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:46:48,238 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:47:28,391 - app.services.ai_analyzer - INFO - analysis_debug run_id=759bd4bb-fdc3-4198-af46-4931bf8bb23f event=llm_response payload={"duration_s": 40.161, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 6918, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:47:28,463 - app.services.ai_analyzer - INFO - Detected 40 points before scoring
+2026-03-11 10:47:28,639 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 10:47:28,682 - app.api.v1.reports - INFO - Successfully processed report 1122 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:47:28,826 - app.api.v1.reports - INFO - Extracting text from PDF: Norsk_Takst_Ulefoss.pdf (size: 9596680 bytes)
+2026-03-11 10:47:32,286 - app.services.pdf_extractor - INFO - Processing PDF with 31 total pages
+2026-03-11 10:47:35,815 - app.services.pdf_extractor - INFO - Successfully extracted 105767 characters from PDF: 30/31 pages, 172 images
+2026-03-11 10:47:36,234 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_1123/20260311_104735_Norsk_Takst_Ulefoss.pdf
+2026-03-11 10:47:36,234 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_1123/20260311_104735_Norsk_Takst_Ulefoss.pdf
+2026-03-11 10:47:36,234 - app.api.v1.reports - INFO - Analyzing report 1123 with AI
+2026-03-11 10:47:36,324 - app.services.ai_analyzer - INFO - analysis_debug run_id=5a95a2c5-85ec-4e85-88f8-1222614d48f5 event=preflight payload={"available_tokens_est": 56237, "chunking": "none", "detected_points": 43, "document_hash": "67f46d01290cc1af69563efc4f773090feef04939c182345f1834ac5a937f948", "incomplete_reasons": ["pdf_text_incomplete"], "pdf_metadata": {"full_document_available": false, "images_detected": 172, "pages_with_text": 30, "total_pages": 31}, "text_chars": 105668, "text_tokens_est": 26417}
+2026-03-11 10:47:36,358 - app.services.ai_analyzer - INFO - analysis_debug run_id=5a95a2c5-85ec-4e85-88f8-1222614d48f5 event=text_encoding_diagnostics payload={"normalized_len": 105452, "raw_len": 105767, "raw_window": "om det anses n\u00f8dvendig. Kostnadsestimat: 10 000 - 50 000\n\u00c5rstal", "raw_window_codepoints": "U+006F U+006D U+0020 U+0064 U+0065 U+0074 U+0020 U+0061 U+006E U+0073 U+0065 U+0073 U+0020 U+006E U+00F8 U+0064 U+0076 U+0065 U+006E U+0064 U+0069 U+0067 U+002E U+0020 U+004B U+006F U+0073 U+0074 U+006E U+0061 U+0064 U+0073 U+0065 U+0073 U+0074 U+0069 U+006D U+0061 U+0074 U+003A U+0020 U+0031 U+0030 U+0020 U+0030 U+0030 U+0030 U+0020"}
+2026-03-11 10:47:36,358 - app.api.v1.reports - WARNING - Analysis incomplete for report 1123: Analysis incomplete: full document could not be analyzed. reasons=['pdf_text_incomplete']
+INFO:     79.160.177.77:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:47:36,511 - app.api.v1.reports - INFO - get_report rebuild report_id=1122 validated_points=40 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1122 HTTP/1.1" 200 OK
+2026-03-11 10:47:36,807 - app.api.v1.reports - INFO - get_report rebuild report_id=1123 validated_points=43 e3_parent_hints=0
+2026-03-11 10:47:36,996 - app.api.v1.reports - WARNING - feedback_v11 rebuild failed for report_id=1123: cannot access local variable 'canonical_points' where it is not associated with a value
+INFO:     79.160.177.77:0 - "GET /api/v1/reports/1123 HTTP/1.1" 200 OK
+2026-03-11 10:49:03,193 - app.api.v1.reports - INFO - Extracting text from PDF: Nordagutu.pdf (size: 6532055 bytes)
+2026-03-11 10:49:07,693 - app.services.pdf_extractor - INFO - Processing PDF with 47 total pages
+2026-03-11 10:49:12,285 - app.services.pdf_extractor - INFO - Successfully extracted 110821 characters from PDF: 47/47 pages, 171 images
+2026-03-11 10:49:12,449 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_4/report_1124/20260311_104912_Nordagutu.pdf
+2026-03-11 10:49:12,449 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_4/report_1124/20260311_104912_Nordagutu.pdf
+2026-03-11 10:49:12,449 - app.api.v1.reports - INFO - Analyzing report 1124 with AI
+2026-03-11 10:49:12,548 - app.services.ai_analyzer - INFO - analysis_debug run_id=02a3ef55-d0b2-4e03-917f-4e3bab0198f4 event=preflight payload={"available_tokens_est": 56239, "chunking": "none", "detected_points": 112, "document_hash": "7e1978a9d6e1d5fb23928b383fe303f366ae871baa03bfa09f1dbb6dc7a04b61", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 171, "pages_with_text": 47, "total_pages": 47}, "text_chars": 110687, "text_tokens_est": 27671}
+2026-03-11 10:49:12,577 - app.services.ai_analyzer - INFO - analysis_debug run_id=02a3ef55-d0b2-4e03-917f-4e3bab0198f4 event=text_encoding_diagnostics payload={"normalized_len": 110468, "raw_len": 110821, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 10:49:12,577 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 10:49:12,584 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 10:50:09,992 - app.services.ai_analyzer - INFO - analysis_debug run_id=02a3ef55-d0b2-4e03-917f-4e3bab0198f4 event=llm_response payload={"duration_s": 57.415, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 11337, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 10:50:10,174 - app.services.ai_analyzer - INFO - Detected 112 points before scoring
+2026-03-11 10:50:10,495 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-03-11 10:50:10,549 - app.api.v1.reports - INFO - Successfully processed report 1124 for user 4
+INFO:     79.160.177.77:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 10:50:10,913 - app.api.v1.reports - INFO - get_report rebuild report_id=1124 validated_points=112 e3_parent_hints=0
+INFO:     79.160.177.77:0 - "GET /api/v1/reports/1124 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1123 HTTP/1.1" 200 OK
+2026-03-11 10:52:49,570 - app.api.v1.admin - WARNING - Rebuild feedback_v11 for admin report 1123: cannot access local variable 'canonical_points' where it is not associated with a value
+2026-03-11 10:52:49,673 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1123 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1124 HTTP/1.1" 200 OK
+2026-03-11 10:53:06,482 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1124 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_max=9 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_max=9 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=90&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=90&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=98&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=98&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=97&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=97&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=96&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=96&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=95&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=95&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=94&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=94&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=93&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=93&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=92&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=92&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=91&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=91&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=90&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=9&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=8&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=8&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=90 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=8 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=8 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=88 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=87 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=86 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=85 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=84 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=83 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=82 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=81 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=88 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=87 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=86 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=80 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=85 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=84 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=83 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=82 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=81 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=80 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=79 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=78 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=77 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=76 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=75 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=74 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=73 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=72 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=71 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=79 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=78 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=77 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=76 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=75 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=74 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=73 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=72 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=71 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=7 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=7 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=8 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=88 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=87 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=86 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=85 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=84 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=83 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=82 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=81 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=80 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=79 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=78 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=77 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=76 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=75 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=74 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=73 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=72 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=71 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=70 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=70 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=69 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=68 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=67 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=66 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=65 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=64 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=63 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=62 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=61 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=69 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=68 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=67 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=66 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=65 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=64 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=63 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=62 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=61 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=62 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=63 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=64 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=65 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=66 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=67 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=68 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=69 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=70 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=71 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=72 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=73 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=74 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=75 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=76 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=77 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=76 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=77 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=78 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=79 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=80 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=81 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=82 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=83 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=8 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=89&status=completed HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89&status=completed HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=89&status=processing HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89&status=processing HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=89&score_max=89&status=failed HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89&status=failed HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=89&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_min=8&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_min=8&score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_max=89 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?score_max=8 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?score_max=8 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+2026-03-11 10:57:55,296 - app.api.v1.reports - INFO - get_report rebuild report_id=1122 validated_points=40 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1122 HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     91.196.152.106:39845 - "GET / HTTP/1.1" 200 OK
+INFO:     91.196.152.8:48619 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     222.114.222.55:40770 - "GET / HTTP/1.0" 200 OK
+2026-03-11 11:44:49,819 - app.api.v1.reports - INFO - Extracting text from PDF: 20260310_114414_E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-11 11:44:52,276 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-11 11:44:55,225 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-11 11:44:55,358 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1125/20260311_114455_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-11 11:44:55,358 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1125/20260311_114455_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-11 11:44:55,358 - app.api.v1.reports - INFO - Analyzing report 1125 with AI
+2026-03-11 11:44:55,430 - app.services.ai_analyzer - INFO - analysis_debug run_id=15eee5f4-4389-4c7f-997f-773440ae69a4 event=preflight payload={"available_tokens_est": 56233, "chunking": "none", "detected_points": 95, "document_hash": "8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 67, "pages_with_text": 25, "total_pages": 25}, "text_chars": 75864, "text_tokens_est": 18966}
+2026-03-11 11:44:55,449 - app.services.ai_analyzer - INFO - analysis_debug run_id=15eee5f4-4389-4c7f-997f-773440ae69a4 event=text_encoding_diagnostics payload={"normalized_len": 75751, "raw_len": 75925, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 11:44:55,450 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 11:44:55,456 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 11:45:39,277 - app.services.ai_analyzer - INFO - analysis_debug run_id=15eee5f4-4389-4c7f-997f-773440ae69a4 event=llm_response payload={"duration_s": 43.827, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 7935, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 11:45:39,395 - app.services.ai_analyzer - INFO - Detected 95 points before scoring
+2026-03-11 11:45:39,647 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-11 11:45:39,700 - app.api.v1.reports - INFO - Successfully processed report 1125 for user 1
+INFO:     49.36.184.208:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 11:45:40,887 - app.api.v1.reports - INFO - get_report rebuild report_id=1125 validated_points=95 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1125 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-11 11:59:58,383 - app.api.v1.reports - INFO - Extracting text from PDF: E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-11 12:00:01,467 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-11 12:00:04,823 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-11 12:00:04,847 - app.api.v1.reports - INFO - Analysis cache hit document_hash=8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175 cache_id=588 cache_age_s=915
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 12:00:05,657 - app.api.v1.reports - INFO - get_report rebuild report_id=1126 validated_points=95 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1126 HTTP/1.1" 200 OK
+2026-03-11 12:04:41,637 - app.api.v1.reports - INFO - Extracting text from PDF: fremtind-fredrikstad-03.03.26.pdf (size: 1504882 bytes)
+2026-03-11 12:04:44,894 - app.services.pdf_extractor - INFO - Processing PDF with 26 total pages
+2026-03-11 12:04:48,430 - app.services.pdf_extractor - INFO - Successfully extracted 97220 characters from PDF: 26/26 pages, 173 images
+2026-03-11 12:04:48,555 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1127/20260311_120448_fremtind-fredrikstad-03.03.26.pdf
+2026-03-11 12:04:48,556 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1127/20260311_120448_fremtind-fredrikstad-03.03.26.pdf
+2026-03-11 12:04:48,556 - app.api.v1.reports - INFO - Analyzing report 1127 with AI
+2026-03-11 12:04:48,639 - app.services.ai_analyzer - INFO - analysis_debug run_id=24909590-85ef-4ac5-8669-72af16415427 event=preflight payload={"available_tokens_est": 56234, "chunking": "none", "detected_points": 51, "document_hash": "683ff1c6a963f64df57fc77fe2b7e349a3d7d3e871052389c7d778a2a34bc571", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 173, "pages_with_text": 26, "total_pages": 26}, "text_chars": 94687, "text_tokens_est": 23671}
+2026-03-11 12:04:48,664 - app.services.ai_analyzer - INFO - analysis_debug run_id=24909590-85ef-4ac5-8669-72af16415427 event=text_encoding_diagnostics payload={"normalized_len": 94472, "normalized_window": "i\u00f8r H\u00e5vard Hansen AS Sersert Taksngeni\u00f8r:", "normalized_window_codepoints": "U+0069 U+00F8 U+0072 U+0020 U+0048 U+00E5 U+0076 U+0061 U+0072 U+0064 U+0020 U+0048 U+0061 U+006E U+0073 U+0065 U+006E U+0020 U+0041 U+0053 U+0020 U+0053 U+0065 U+0072 U+0073 U+0065 U+0072 U+0074 U+0020 U+0054 U+0061 U+006B U+0073 U+006E U+0067 U+0065 U+006E U+0069 U+00F8 U+0072 U+003A", "raw_len": 97220, "raw_window": "i\u00f8r H\u00e5vard Hansen AS Ser\u7400\u6900\u6600\u6900sert Taks\u7400\u6900ngeni\u00f8r: ", "raw_window_codepoints": "U+0069 U+00F8 U+0072 U+0020 U+0048 U+00E5 U+0076 U+0061 U+0072 U+0064 U+0020 U+0048 U+0061 U+006E U+0073 U+0065 U+006E U+0020 U+0041 U+0053 U+0020 U+0053 U+0065 U+0072 U+7400 U+6900 U+6600 U+6900 U+0073 U+0065 U+0072 U+0074 U+0020 U+0054 U+0061 U+006B U+0073 U+7400 U+6900 U+006E U+0067 U+0065 U+006E U+0069 U+00F8 U+0072 U+003A U+0020"}
+2026-03-11 12:04:48,664 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 12:04:48,672 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 12:05:33,091 - app.services.ai_analyzer - INFO - analysis_debug run_id=24909590-85ef-4ac5-8669-72af16415427 event=llm_response payload={"duration_s": 44.427, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 8828, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 12:05:33,182 - app.services.ai_analyzer - INFO - Detected 51 points before scoring
+2026-03-11 12:05:33,392 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-03-11 12:05:33,438 - app.api.v1.reports - INFO - Successfully processed report 1127 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 12:05:33,732 - app.api.v1.reports - INFO - get_report rebuild report_id=1127 validated_points=51 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1127 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/login HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "POST /api/v1/admin/login HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+2026-03-11 12:11:34,688 - app.api.v1.reports - INFO - Extracting text from PDF: Eksamen_AndreSolberg_ARKAT.pdf (size: 637122 bytes)
+2026-03-11 12:11:36,240 - app.services.pdf_extractor - INFO - Processing PDF with 18 total pages
+2026-03-11 12:11:37,966 - app.services.pdf_extractor - INFO - Successfully extracted 45046 characters from PDF: 18/18 pages, 18 images
+2026-03-11 12:11:38,077 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1128/20260311_121137_Eksamen_AndreSolberg_ARKAT.pdf
+2026-03-11 12:11:38,078 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1128/20260311_121137_Eksamen_AndreSolberg_ARKAT.pdf
+2026-03-11 12:11:38,078 - app.api.v1.reports - INFO - Analyzing report 1128 with AI
+2026-03-11 12:11:38,129 - app.services.ai_analyzer - INFO - analysis_debug run_id=0b1f5c00-0dd6-4842-9be7-cfa1bab62398 event=preflight payload={"available_tokens_est": 56235, "chunking": "none", "detected_points": 71, "document_hash": "474f8cc5aa99e62ae3e62f5d2403364607e60167f3da1b00de940e2ac977ee9c", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 18, "pages_with_text": 18, "total_pages": 18}, "text_chars": 45029, "text_tokens_est": 11257}
+2026-03-11 12:11:38,141 - app.services.ai_analyzer - INFO - analysis_debug run_id=0b1f5c00-0dd6-4842-9be7-cfa1bab62398 event=text_encoding_diagnostics payload={"normalized_len": 44901, "raw_len": 45046, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-11 12:11:38,141 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-11 12:11:38,149 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-11 12:12:12,266 - app.services.ai_analyzer - INFO - analysis_debug run_id=0b1f5c00-0dd6-4842-9be7-cfa1bab62398 event=llm_response payload={"duration_s": 34.125, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 5303, "stop_reason": "end_turn", "truncated": false}
+2026-03-11 12:12:12,359 - app.services.ai_analyzer - INFO - Detected 71 points before scoring
+2026-03-11 12:12:12,504 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 85.0
+2026-03-11 12:12:12,546 - app.api.v1.reports - INFO - Successfully processed report 1128 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-11 12:12:12,811 - app.api.v1.reports - INFO - get_report rebuild report_id=1128 validated_points=71 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1128 HTTP/1.1" 200 OK
+2026-03-11 12:12:39,902 - httpx - INFO - HTTP Request: GET https://www.googleapis.com/oauth2/v2/userinfo "HTTP/1.1 200 OK"
+INFO:     49.36.184.208:0 - "POST /api/v1/auth/google HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1122 HTTP/1.1" 200 OK
+2026-03-11 12:18:03,613 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1122 HTTP/1.1" 200 OK
+2026-03-11 12:19:32,640 - app.api.v1.reports - INFO - get_report rebuild report_id=987 validated_points=44 e3_parent_hints=0
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/987 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/ HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports/1125 HTTP/1.1" 200 OK
+2026-03-11 12:20:08,171 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports/1125 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     198.235.24.251:62402 - "GET / HTTP/1.1" 200 OK
+2026-03-11 13:49:50,074 - app.api.v1.reports - INFO - get_report rebuild report_id=1 validated_points=1 e3_parent_hints=0
+2026-03-11 13:49:50,080 - app.api.v1.reports - WARNING - feedback_v11 rebuild failed for report_id=1: cannot access local variable 'canonical_points' where it is not associated with a value
+INFO:     49.36.184.208:0 - "GET /api/v1/reports/1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     45.156.129.54:57990 - "GET / HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     20.55.45.99:0 - "GET /api/.env HTTP/1.1" 404 Not Found
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=-2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=-2 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=-1 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "OPTIONS /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     49.36.184.208:0 - "GET /api/v1/admin/reports?user_id=0 HTTP/1.1" 200 OK
+INFO:     45.156.128.129:48188 - "GET / HTTP/1.1" 200 OK
+INFO:     45.156.128.155:0 - "GET /api/session/properties HTTP/1.1" 404 Not Found
+INFO:     45.156.129.65:51564 - "GET / HTTP/1.1" 200 OK
+INFO:     45.156.129.65:51574 - "POST /mcp HTTP/1.1" 404 Not Found
+INFO:     45.156.129.65:51574 - "GET /sse HTTP/1.1" 404 Not Found
+INFO:     45.156.129.66:49308 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:5070 - "GET / HTTP/1.1" 200 OK
+INFO:     204.76.203.18:37596 - "GET /bins/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:22536 - "GET /bin/ HTTP/1.1" 404 Not Found
+INFO:     204.76.203.18:3814 - "GET /backup/ HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+INFO:     162.142.125.202:17882 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     162.142.125.202:17890 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     162.142.125.202:30252 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     162.142.125.202:26082 - "GET /login HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     185.226.197.73:36940 - "GET / HTTP/1.1" 200 OK
+INFO:     211.208.133.73:50074 - "GET / HTTP/1.0" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-12 08:52:27,436 - app.api.v1.reports - INFO - Extracting text from PDF: e311 Ny.pdf (size: 2585716 bytes)
+2026-03-12 08:52:29,255 - app.services.pdf_extractor - INFO - Processing PDF with 21 total pages
+2026-03-12 08:52:31,366 - app.services.pdf_extractor - INFO - Successfully extracted 49547 characters from PDF: 21/21 pages, 58 images
+2026-03-12 08:52:31,492 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1129/20260312_085231_e311 Ny.pdf
+2026-03-12 08:52:31,492 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1129/20260312_085231_e311 Ny.pdf
+2026-03-12 08:52:31,492 - app.api.v1.reports - INFO - Analyzing report 1129 with AI
+2026-03-12 08:52:31,546 - app.services.ai_analyzer - INFO - analysis_debug run_id=0c01f894-19a5-4446-86d9-21527cdf2fae event=preflight payload={"available_tokens_est": 56240, "chunking": "none", "detected_points": 74, "document_hash": "76ecf43fc044f117e614cf02e8d0b0391c8d277cb78c562c76a5429f881ef9b5", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 58, "pages_with_text": 21, "total_pages": 21}, "text_chars": 49479, "text_tokens_est": 12369}
+2026-03-12 08:52:31,560 - app.services.ai_analyzer - INFO - analysis_debug run_id=0c01f894-19a5-4446-86d9-21527cdf2fae event=text_encoding_diagnostics payload={"normalized_len": 49379, "raw_len": 49547, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-12 08:52:31,560 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 08:52:31,567 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 08:52:59,504 - app.services.ai_analyzer - INFO - analysis_debug run_id=0c01f894-19a5-4446-86d9-21527cdf2fae event=llm_response payload={"duration_s": 27.944, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 4290, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 08:52:59,600 - app.services.ai_analyzer - INFO - Detected 74 points before scoring
+2026-03-12 08:52:59,750 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-12 08:52:59,797 - app.api.v1.reports - INFO - Successfully processed report 1129 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-12 08:53:00,112 - app.api.v1.reports - INFO - get_report rebuild report_id=1129 validated_points=74 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1129 HTTP/1.1" 200 OK
+INFO:     3.130.168.2:38698 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     Started server process [1968563]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     49.36.184.213:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+2026-03-12 12:13:40,860 - app.api.v1.reports - INFO - Extracting text from PDF: 20260310_114414_E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-12 12:13:43,676 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-12 12:13:46,654 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-12 12:13:46,816 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1130/20260312_121346_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-12 12:13:46,816 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1130/20260312_121346_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-12 12:13:46,816 - app.api.v1.reports - INFO - Analyzing report 1130 with AI
+2026-03-12 12:13:46,893 - app.services.ai_analyzer - INFO - analysis_debug run_id=17f95c78-632d-41e1-977e-fcdba9cbe92c event=preflight payload={"available_tokens_est": 55132, "chunking": "none", "detected_points": 95, "document_hash": "8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 67, "pages_with_text": 25, "total_pages": 25}, "text_chars": 75864, "text_tokens_est": 18966}
+2026-03-12 12:13:46,913 - app.services.ai_analyzer - INFO - analysis_debug run_id=17f95c78-632d-41e1-977e-fcdba9cbe92c event=text_encoding_diagnostics payload={"normalized_len": 75751, "raw_len": 75925, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-12 12:13:46,913 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 12:13:46,937 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 12:14:53,119 - app.services.ai_analyzer - INFO - analysis_debug run_id=17f95c78-632d-41e1-977e-fcdba9cbe92c event=llm_response payload={"duration_s": 66.206, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 13237, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 12:14:53,243 - app.services.ai_analyzer - INFO - Detected 95 points before scoring
+2026-03-12 12:14:53,466 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-12 12:14:53,529 - app.api.v1.reports - INFO - Successfully processed report 1130 for user 1
+INFO:     49.36.184.213:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-12 12:14:54,937 - app.api.v1.reports - INFO - get_report rebuild report_id=1130 validated_points=95 e3_parent_hints=0
+INFO:     49.36.184.213:0 - "GET /api/v1/reports/1130 HTTP/1.1" 200 OK
+INFO:     Started server process [1969886]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-12 12:47:00,928 - app.api.v1.reports - INFO - Extracting text from PDF: 20260310_114414_E3-bergen-13.02.26.pdf (size: 3096806 bytes)
+2026-03-12 12:47:03,520 - app.services.pdf_extractor - INFO - Processing PDF with 25 total pages
+2026-03-12 12:47:06,426 - app.services.pdf_extractor - INFO - Successfully extracted 75925 characters from PDF: 25/25 pages, 67 images
+2026-03-12 12:47:06,591 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_1/report_1131/20260312_124706_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-12 12:47:06,591 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_1/report_1131/20260312_124706_20260310_114414_E3-bergen-13.02.26.pdf
+2026-03-12 12:47:06,591 - app.api.v1.reports - INFO - Analyzing report 1131 with AI
+2026-03-12 12:47:06,668 - app.services.ai_analyzer - INFO - analysis_debug run_id=5e417c5c-13de-4412-82d3-d2095a4de32a event=preflight payload={"available_tokens_est": 55132, "chunking": "none", "detected_points": 95, "document_hash": "8a234a94ee7fc23070c993447b41c6751f15d9d3782c7f68ce7466e5f0dbb175", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 67, "pages_with_text": 25, "total_pages": 25}, "text_chars": 75864, "text_tokens_est": 18966}
+2026-03-12 12:47:06,688 - app.services.ai_analyzer - INFO - analysis_debug run_id=5e417c5c-13de-4412-82d3-d2095a4de32a event=text_encoding_diagnostics payload={"normalized_len": 75751, "raw_len": 75925, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-12 12:47:06,688 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 12:47:06,711 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 12:48:05,179 - app.services.ai_analyzer - INFO - analysis_debug run_id=5e417c5c-13de-4412-82d3-d2095a4de32a event=llm_response payload={"duration_s": 58.491, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 11239, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 12:48:05,303 - app.services.ai_analyzer - INFO - Detected 95 points before scoring
+2026-03-12 12:48:05,510 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-12 12:48:05,571 - app.api.v1.reports - INFO - Successfully processed report 1131 for user 1
+INFO:     49.36.184.213:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-12 12:48:06,689 - app.api.v1.reports - INFO - get_report rebuild report_id=1131 validated_points=95 e3_parent_hints=0
+INFO:     49.36.184.213:0 - "GET /api/v1/reports/1131 HTTP/1.1" 200 OK
+2026-03-12 13:22:13,910 - app.api.v1.reports - INFO - Extracting text from PDF: e311 (4).pdf (size: 2380382 bytes)
+2026-03-12 13:22:15,185 - app.services.pdf_extractor - INFO - Processing PDF with 19 total pages
+2026-03-12 13:22:16,583 - app.services.pdf_extractor - INFO - Successfully extracted 35718 characters from PDF: 19/19 pages, 55 images
+2026-03-12 13:22:16,720 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1132/20260312_132216_e311 (4).pdf
+2026-03-12 13:22:16,720 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1132/20260312_132216_e311 (4).pdf
+2026-03-12 13:22:16,720 - app.api.v1.reports - INFO - Analyzing report 1132 with AI
+2026-03-12 13:22:16,767 - app.services.ai_analyzer - INFO - analysis_debug run_id=b05e6fe4-0e01-40e0-b25c-a11cd7bff020 event=preflight payload={"available_tokens_est": 55139, "chunking": "none", "detected_points": 73, "document_hash": "c40f22824b480aa19b57c83b15533f1ad30e9ab4aa9dbc41a500d824ceb407e3", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 55, "pages_with_text": 19, "total_pages": 19}, "text_chars": 35648, "text_tokens_est": 8912}
+2026-03-12 13:22:16,776 - app.services.ai_analyzer - INFO - analysis_debug run_id=b05e6fe4-0e01-40e0-b25c-a11cd7bff020 event=text_encoding_diagnostics payload={"normalized_len": 35543, "raw_len": 35718, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-12 13:22:16,776 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 13:22:16,784 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 13:23:03,067 - app.services.ai_analyzer - INFO - analysis_debug run_id=b05e6fe4-0e01-40e0-b25c-a11cd7bff020 event=llm_response payload={"duration_s": 46.291, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 9391, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 13:23:03,157 - app.services.ai_analyzer - INFO - Detected 73 points before scoring
+2026-03-12 13:23:03,356 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 75.0
+2026-03-12 13:23:03,405 - app.api.v1.reports - INFO - Successfully processed report 1132 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+2026-03-12 13:23:04,530 - app.api.v1.reports - INFO - get_report rebuild report_id=1132 validated_points=73 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1132 HTTP/1.1" 200 OK
+2026-03-12 13:23:49,916 - app.api.v1.reports - INFO - Extracting text from PDF: Eksamen_Kim-AndreLotterud_ARKAT.pdf (size: 571144 bytes)
+2026-03-12 13:23:52,270 - app.services.pdf_extractor - INFO - Processing PDF with 27 total pages
+2026-03-12 13:23:54,929 - app.services.pdf_extractor - INFO - Successfully extracted 75614 characters from PDF: 27/27 pages, 24 images
+2026-03-12 13:23:55,048 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1133/20260312_132354_Eksamen_Kim-AndreLotterud_ARKAT.pdf
+2026-03-12 13:23:55,048 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1133/20260312_132354_Eksamen_Kim-AndreLotterud_ARKAT.pdf
+2026-03-12 13:23:55,048 - app.api.v1.reports - INFO - Analyzing report 1133 with AI
+2026-03-12 13:23:55,113 - app.services.ai_analyzer - INFO - analysis_debug run_id=d3575e96-6569-47c6-84ef-6b1ea8e036da event=preflight payload={"available_tokens_est": 55133, "chunking": "none", "detected_points": 77, "document_hash": "ab3f990f2b7067db8c0b3afe16b33a0ed09f9141033dd7731dd8df56acd487ba", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 24, "pages_with_text": 27, "total_pages": 27}, "text_chars": 75598, "text_tokens_est": 18899}
+2026-03-12 13:23:55,132 - app.services.ai_analyzer - INFO - analysis_debug run_id=d3575e96-6569-47c6-84ef-6b1ea8e036da event=text_encoding_diagnostics payload={"normalized_len": 75410, "raw_len": 75614, "raw_window": "me overskrift som over.\nKOSTNADSVURDERING VED TG3\nDersom det er a", "raw_window_codepoints": "U+006D U+0065 U+0020 U+006F U+0076 U+0065 U+0072 U+0073 U+006B U+0072 U+0069 U+0066 U+0074 U+0020 U+0073 U+006F U+006D U+0020 U+006F U+0076 U+0065 U+0072 U+002E U+000A U+004B U+004F U+0053 U+0054 U+004E U+0041 U+0044 U+0053 U+0056 U+0055 U+0052 U+0044 U+0045 U+0052 U+0049 U+004E U+0047 U+0020 U+0056 U+0045 U+0044 U+0020 U+0054 U+0047"}
+2026-03-12 13:23:55,132 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 13:23:55,140 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 13:24:27,330 - app.services.ai_analyzer - INFO - analysis_debug run_id=d3575e96-6569-47c6-84ef-6b1ea8e036da event=llm_response payload={"duration_s": 32.198, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 4968, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 13:24:27,451 - app.services.ai_analyzer - INFO - Detected 77 points before scoring
+2026-03-12 13:24:27,588 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 78.0
+2026-03-12 13:24:27,636 - app.api.v1.reports - INFO - Successfully processed report 1133 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "OPTIONS /api/v1/admin/reports/1131 HTTP/1.1" 200 OK
+2026-03-12 13:24:28,182 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports/1131 HTTP/1.1" 200 OK
+2026-03-12 13:24:28,372 - app.api.v1.reports - INFO - get_report rebuild report_id=1133 validated_points=77 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1133 HTTP/1.1" 200 OK
+2026-03-12 13:29:12,495 - app.api.v1.reports - INFO - Extracting text from PDF: fremtind-mysen-09.03.26.pdf (size: 5279814 bytes)
+2026-03-12 13:29:15,542 - app.services.pdf_extractor - INFO - Processing PDF with 33 total pages
+2026-03-12 13:29:18,928 - app.services.pdf_extractor - INFO - Successfully extracted 79757 characters from PDF: 33/33 pages, 162 images
+2026-03-12 13:29:19,121 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1134/20260312_132918_fremtind-mysen-09.03.26.pdf
+2026-03-12 13:29:19,121 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1134/20260312_132918_fremtind-mysen-09.03.26.pdf
+2026-03-12 13:29:19,121 - app.api.v1.reports - INFO - Analyzing report 1134 with AI
+2026-03-12 13:29:19,199 - app.services.ai_analyzer - INFO - analysis_debug run_id=0dc3faf0-ac2b-4db2-8104-6757f3f4ac5a event=preflight payload={"available_tokens_est": 55135, "chunking": "none", "detected_points": 44, "document_hash": "ce5e3069cc59b76bba17f7a07cee695232ae36dbac644e965561fa6b777b56d4", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 162, "pages_with_text": 33, "total_pages": 33}, "text_chars": 79592, "text_tokens_est": 19898}
+2026-03-12 13:29:19,228 - app.services.ai_analyzer - INFO - analysis_debug run_id=0dc3faf0-ac2b-4db2-8104-6757f3f4ac5a event=text_encoding_diagnostics payload={"normalized_len": 79361, "raw_len": 79757, "raw_window": "ng\nog setningsskader.\n- Kostnadsestimat gjelder kun utbedering ", "raw_window_codepoints": "U+006E U+0067 U+000A U+006F U+0067 U+0020 U+0073 U+0065 U+0074 U+006E U+0069 U+006E U+0067 U+0073 U+0073 U+006B U+0061 U+0064 U+0065 U+0072 U+002E U+000A U+002D U+0020 U+004B U+006F U+0073 U+0074 U+006E U+0061 U+0064 U+0073 U+0065 U+0073 U+0074 U+0069 U+006D U+0061 U+0074 U+0020 U+0067 U+006A U+0065 U+006C U+0064 U+0065 U+0072 U+0020"}
+2026-03-12 13:29:19,229 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 13:29:19,237 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 13:30:34,464 - app.services.ai_analyzer - INFO - analysis_debug run_id=0dc3faf0-ac2b-4db2-8104-6757f3f4ac5a event=llm_response payload={"duration_s": 75.235, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 15589, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 13:30:34,575 - app.services.ai_analyzer - INFO - Detected 44 points before scoring
+2026-03-12 13:30:34,858 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 78.0
+2026-03-12 13:30:34,904 - app.api.v1.reports - INFO - Successfully processed report 1134 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-12 13:30:35,215 - app.api.v1.reports - INFO - get_report rebuild report_id=1134 validated_points=44 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1134 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports/1125 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+2026-03-12 13:47:01,927 - app.api.v1.reports - INFO - Extracting text from PDF: ivit-stavanger-18.02.26.pdf (size: 1596908 bytes)
+2026-03-12 13:47:04,928 - app.services.pdf_extractor - INFO - Processing PDF with 31 total pages
+2026-03-12 13:47:08,402 - app.services.pdf_extractor - INFO - Successfully extracted 65293 characters from PDF: 31/31 pages, 199 images
+2026-03-12 13:47:08,532 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1135/20260312_134708_ivit-stavanger-18.02.26.pdf
+2026-03-12 13:47:08,533 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1135/20260312_134708_ivit-stavanger-18.02.26.pdf
+2026-03-12 13:47:08,533 - app.api.v1.reports - INFO - Analyzing report 1135 with AI
+2026-03-12 13:47:08,593 - app.services.ai_analyzer - INFO - analysis_debug run_id=291da61c-d5b8-4cd3-8b45-656ac8ae809b event=preflight payload={"available_tokens_est": 55135, "chunking": "none", "detected_points": 44, "document_hash": "970ff0beeb7e210f042d80ec63781dcfa25b8e61f56b4983a2780a112a78fb35", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 199, "pages_with_text": 31, "total_pages": 31}, "text_chars": 63903, "text_tokens_est": 15975}
+2026-03-12 13:47:08,609 - app.services.ai_analyzer - INFO - analysis_debug run_id=291da61c-d5b8-4cd3-8b45-656ac8ae809b event=text_encoding_diagnostics payload={"normalized_len": 63694, "normalized_window": "pporten kan brukes i innl e \u00e5r eer befarin", "normalized_window_codepoints": "U+0070 U+0070 U+006F U+0072 U+0074 U+0065 U+006E U+0020 U+006B U+0061 U+006E U+0020 U+0062 U+0072 U+0075 U+006B U+0065 U+0073 U+0020 U+0069 U+0020 U+0069 U+006E U+006E U+006C U+0020 U+0065 U+0020 U+00E5 U+0072 U+0020 U+0065 U+0065 U+0072 U+0020 U+0062 U+0065 U+0066 U+0061 U+0072 U+0069 U+006E", "raw_len": 65293, "raw_window": "pporten kan brukes i inn\u7400\u6900l e\u7400\u7400 \u00e5r e\u7400\u7400er befarin", "raw_window_codepoints": "U+0070 U+0070 U+006F U+0072 U+0074 U+0065 U+006E U+0020 U+006B U+0061 U+006E U+0020 U+0062 U+0072 U+0075 U+006B U+0065 U+0073 U+0020 U+0069 U+0020 U+0069 U+006E U+006E U+7400 U+6900 U+006C U+0020 U+0065 U+7400 U+7400 U+0020 U+00E5 U+0072 U+0020 U+0065 U+7400 U+7400 U+0065 U+0072 U+0020 U+0062 U+0065 U+0066 U+0061 U+0072 U+0069 U+006E"}
+2026-03-12 13:47:08,610 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 13:47:08,617 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 13:47:56,109 - app.services.ai_analyzer - INFO - analysis_debug run_id=291da61c-d5b8-4cd3-8b45-656ac8ae809b event=llm_response payload={"duration_s": 47.5, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 9564, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 13:47:56,208 - app.services.ai_analyzer - INFO - Detected 44 points before scoring
+2026-03-12 13:47:56,441 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-03-12 13:47:56,484 - app.api.v1.reports - INFO - Successfully processed report 1135 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-12 13:47:56,779 - app.api.v1.reports - INFO - get_report rebuild report_id=1135 validated_points=44 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1135 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-19 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-19 HTTP/1.1" 200 OK
+2026-03-12 14:30:22,912 - app.api.v1.reports - INFO - Extracting text from PDF: ivit-fetsund-03.03.26.pdf (size: 5986246 bytes)
+2026-03-12 14:30:26,866 - app.services.pdf_extractor - INFO - Processing PDF with 33 total pages
+2026-03-12 14:30:30,814 - app.services.pdf_extractor - INFO - Successfully extracted 93939 characters from PDF: 33/33 pages, 228 images
+2026-03-12 14:30:30,981 - app.services.s3_storage - INFO - Uploaded PDF to S3: reports/user_2/report_1136/20260312_143030_ivit-fetsund-03.03.26.pdf
+2026-03-12 14:30:30,981 - app.api.v1.reports - INFO - Uploaded PDF to S3: reports/user_2/report_1136/20260312_143030_ivit-fetsund-03.03.26.pdf
+2026-03-12 14:30:30,982 - app.api.v1.reports - INFO - Analyzing report 1136 with AI
+2026-03-12 14:30:31,058 - app.services.ai_analyzer - INFO - analysis_debug run_id=eca746c9-bbb2-4e51-8a67-d49b1c518044 event=preflight payload={"available_tokens_est": 55135, "chunking": "none", "detected_points": 40, "document_hash": "1a4d20ccb62e11744c21753ea2b810f4d0e71c27621a4c1713ba02e8df768754", "incomplete_reasons": [], "pdf_metadata": {"full_document_available": true, "images_detected": 228, "pages_with_text": 33, "total_pages": 33}, "text_chars": 93775, "text_tokens_est": 23443}
+2026-03-12 14:30:31,084 - app.services.ai_analyzer - INFO - analysis_debug run_id=eca746c9-bbb2-4e51-8a67-d49b1c518044 event=text_encoding_diagnostics payload={"normalized_len": 93533, "raw_len": 93939, "raw_window": "er i takkonstruksjonen.\nKostnadsestimat: 200 000 - 500 000\nLuft", "raw_window_codepoints": "U+0065 U+0072 U+0020 U+0069 U+0020 U+0074 U+0061 U+006B U+006B U+006F U+006E U+0073 U+0074 U+0072 U+0075 U+006B U+0073 U+006A U+006F U+006E U+0065 U+006E U+002E U+000A U+004B U+006F U+0073 U+0074 U+006E U+0061 U+0064 U+0073 U+0065 U+0073 U+0074 U+0069 U+006D U+0061 U+0074 U+003A U+0020 U+0032 U+0030 U+0030 U+0020 U+0030 U+0030 U+0030"}
+2026-03-12 14:30:31,084 - app.services.ai_analyzer - INFO - Using AWS Bedrock Claude for analysis
+2026-03-12 14:30:31,091 - app.services.bedrock_ai - INFO - Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic
+2026-03-12 14:31:24,733 - app.services.ai_analyzer - INFO - analysis_debug run_id=eca746c9-bbb2-4e51-8a67-d49b1c518044 event=llm_response payload={"duration_s": 53.649, "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0", "provider": "bedrock", "response_chars": 10283, "stop_reason": "end_turn", "truncated": false}
+2026-03-12 14:31:24,818 - app.services.ai_analyzer - INFO - Detected 40 points before scoring
+2026-03-12 14:31:24,955 - app.services.ai_analyzer - INFO - Successfully analyzed report. Score: 72.0
+2026-03-12 14:31:25,005 - app.api.v1.reports - INFO - Successfully processed report 1136 for user 2
+INFO:     85.167.49.27:0 - "POST /api/v1/reports/upload HTTP/1.1" 200 OK
+2026-03-12 14:31:25,287 - app.api.v1.reports - INFO - get_report rebuild report_id=1136 validated_points=40 e3_parent_hints=0
+INFO:     85.167.49.27:0 - "GET /api/v1/reports/1136 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-20 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-20 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-20 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-21 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-21 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-22 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-22 HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-22&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-22&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-23&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-23&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-22&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-22&user_id=1&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-22&user_id=1&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-21&user_id=1&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-21&user_id=1&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "OPTIONS /api/v1/admin/reports?date_to=2026-03-20&user_id=1&min_findings=0 HTTP/1.1" 200 OK
+INFO:     49.36.186.240:0 - "GET /api/v1/admin/reports?date_to=2026-03-20&user_id=1&min_findings=0 HTTP/1.1" 200 OK
+INFO:     205.210.31.170:60046 - "GET / HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "OPTIONS /api/v1/admin/reports/1124 HTTP/1.1" 200 OK
+2026-03-12 21:19:23,596 - app.services.s3_storage - INFO - S3 bucket 'validert-reports' exists
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports/1124 HTTP/1.1" 200 OK
+INFO:     3.132.26.232:51338 - "GET / HTTP/1.1" 200 OK
+INFO:     3.132.26.232:37794 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     152.32.129.154:50568 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     165.154.182.92:57054 - "GET / HTTP/1.1" 200 OK
+INFO:     165.154.182.92:57170 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     165.154.182.92:57254 - "GET /robots.txt HTTP/1.1" 404 Not Found
+INFO:     165.154.182.92:57256 - "GET /sitemap.xml HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     45.156.128.203:33462 - "GET / HTTP/1.1" 200 OK
+INFO:     159.203.174.21:51894 - "GET / HTTP/1.1" 200 OK
+INFO:     159.203.174.21:51908 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     218.148.56.168:40367 - "GET / HTTP/1.0" 200 OK
+INFO:     192.241.179.235:52063 - "GET / HTTP/1.1" 200 OK
+INFO:     34.220.138.70:36064 - "GET / HTTP/1.1" 200 OK
+WARNING:  Invalid HTTP request received.
+INFO:     85.167.49.27:0 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "OPTIONS /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK
+INFO:     85.167.49.27:0 - "GET /api/v1/admin/reports HTTP/1.1" 200 OK

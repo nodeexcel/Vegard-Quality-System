@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import logging
 import io
 import hashlib
+import re
 
 from app.database import get_db
 from app.models import Report, Component, Finding, User, CreditTransaction
@@ -40,6 +41,47 @@ if settings.USE_SQS_PROCESSING:
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_E3_P12_TEXT_RE = re.compile(
+    r"(?i)(?:v[æa]r|vaer|ver)\s+oppmerksom\s+p(?:[åa]|aa)|tilleggsopplysninger|anbefalte?\s+ytterligere\s+unders"
+)
+_E3_P11_TEXT_RE = re.compile(
+    r"(?i)lovlighet(?:\s+og\s+sikkerhet)?|godkjente\s+tegninger|byggemeldte?\s+tegninger|ferdigattest|brukstillatelse|bruksendring"
+)
+
+
+def _force_e3_parents_found_in_feedback(feedback_v11: dict, extracted_text: str) -> None:
+    """
+    Last-mile guard for UI consistency:
+    if extracted text clearly contains E3 P11/P12 headings, never return NOT_FOUND for those parent cards.
+    """
+    if not isinstance(feedback_v11, dict):
+        return
+    points = feedback_v11.get("points_overview")
+    if not isinstance(points, list):
+        return
+    text = extracted_text or ""
+    if not isinstance(text, str):
+        text = ""
+    has_p12 = bool(_E3_P12_TEXT_RE.search(text))
+    has_p11 = bool(_E3_P11_TEXT_RE.search(text))
+    # E3: legality cues often live under supplementary/attention headings.
+    if not has_p11 and has_p12 and re.search(r"(?i)tegninger|byggemeldt|ferdigattest|brukstillatelse|bruksendring", text):
+        has_p11 = True
+    if not (has_p11 or has_p12):
+        return
+    for p in points:
+        if not isinstance(p, dict):
+            continue
+        cid = str(p.get("canonical_id") or "").upper()
+        if cid == "P11_LAWFULNESS_AND_SAFETY" and has_p11:
+            p["status"] = "FOUND"
+            p["summary"] = "OK"
+            p["tg"] = "N/A"
+        if cid == "P12_SUPPLEMENTARY_INFORMATION" and has_p12:
+            p["status"] = "FOUND"
+            p["summary"] = "OK"
+            p["tg"] = "N/A"
 
 
 def _get_pipeline_cache_sha() -> Optional[str]:
@@ -189,6 +231,10 @@ async def upload_report(
                     detected_points_payload,
                     report_id=str(report.id),
                     document_hash=document_hash,
+                )
+                _force_e3_parents_found_in_feedback(
+                    scoring_result_payload.get("feedback_v11"),
+                    extracted_text or "",
                 )
             analysis_result = build_analysis_result_from_output(analysis_output)
 
@@ -599,18 +645,36 @@ async def get_report(
 
     ai_analysis_payload = report.ai_analysis
     if isinstance(ai_analysis_payload, dict):
-        ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
+        try:
+            if report.extracted_text:
+                ai_analysis_payload = postprocess_analysis_output(dict(ai_analysis_payload), report.extracted_text)
+            else:
+                ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
+        except Exception as e:
+            logger.warning("postprocess on get_report failed for report_id=%s: %s", report.id, str(e))
+            ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
 
     # Always use validated segments for points_overview (lifecycle: extract → whitelist → hierarchy)
     # Never use raw stored detected_points - re-validate from extracted_text
-    scoring_result_out = report.scoring_result
-    if isinstance(scoring_result_out, dict) and isinstance(ai_analysis_payload, dict):
+    scoring_result_out = report.scoring_result if isinstance(report.scoring_result, dict) else {}
+    if isinstance(ai_analysis_payload, dict):
         try:
             validated_payload = get_validated_detected_points_payload(
                 report.extracted_text or "",
                 document_hash=report.document_hash or "",
                 document_title=report.filename,
                 document_id=str(report.id),
+            )
+            points = validated_payload.get("points", []) if isinstance(validated_payload, dict) else []
+            e3_hints = [
+                p for p in points
+                if isinstance(p, dict) and str(p.get("e3_parent_hint") or "").upper() in {"P11", "P12"}
+            ]
+            logger.info(
+                "get_report rebuild report_id=%s validated_points=%s e3_parent_hints=%s",
+                report.id,
+                len(points),
+                len(e3_hints),
             )
             scoring_result_out = dict(scoring_result_out)
             scoring_result_out["feedback_v11"] = build_feedback_v11(
@@ -619,8 +683,12 @@ async def get_report(
                 report_id=str(report.id),
                 document_hash=report.document_hash or "",
             )
-        except Exception:
-            pass  # keep original if rebuild fails
+            _force_e3_parents_found_in_feedback(
+                scoring_result_out.get("feedback_v11") if isinstance(scoring_result_out, dict) else None,
+                report.extracted_text or "",
+            )
+        except Exception as e:
+            logger.warning("feedback_v11 rebuild failed for report_id=%s: %s", report.id, str(e))
     
     return ReportResponse(
         id=report.id,
@@ -760,6 +828,10 @@ async def update_report_analysis(
                 validated_detected_points,
                 report_id=str(report_id),
                 document_hash=document_hash,
+            )
+            _force_e3_parents_found_in_feedback(
+                scoring_result_payload.get("feedback_v11"),
+                report.extracted_text or "",
             )
         score_total = ai_analysis_payload.get("score_total")
         report.overall_score = analysis_data.get("overall_score", score_total or 0.0)

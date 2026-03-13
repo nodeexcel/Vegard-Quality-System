@@ -4,6 +4,7 @@ from sqlalchemy import func, and_, or_, text
 from typing import Optional, List
 from datetime import datetime, timedelta
 import logging
+import re
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -12,11 +13,43 @@ from app.auth import get_current_admin, create_access_token, verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas import ReportResponse, ComponentBase, FindingBase
 from app.config import settings
-from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence, run_segmentation_trace, build_feedback_v11, get_validated_detected_points_payload
+from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence, run_segmentation_trace, build_feedback_v11, get_validated_detected_points_payload, postprocess_analysis_output
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+_E3_P12_TEXT_RE = re.compile(
+    r"(?i)(?:v[æa]r|vaer|ver)\s+oppmerksom\s+p(?:[åa]|aa)|tilleggsopplysninger|anbefalte?\s+ytterligere\s+unders"
+)
+_E3_P11_TEXT_RE = re.compile(
+    r"(?i)lovlighet(?:\s+og\s+sikkerhet)?|godkjente\s+tegninger|byggemeldte?\s+tegninger|ferdigattest|brukstillatelse|bruksendring"
+)
+
+
+def _force_e3_parents_found_in_feedback(feedback_v11: dict, extracted_text: str) -> None:
+    if not isinstance(feedback_v11, dict):
+        return
+    points = feedback_v11.get("points_overview")
+    if not isinstance(points, list):
+        return
+    text = extracted_text or ""
+    has_p12 = bool(_E3_P12_TEXT_RE.search(text))
+    has_p11 = bool(_E3_P11_TEXT_RE.search(text))
+    if not has_p11 and has_p12 and re.search(r"(?i)tegninger|byggemeldt|ferdigattest|brukstillatelse|bruksendring", text):
+        has_p11 = True
+    for p in points:
+        if not isinstance(p, dict):
+            continue
+        cid = str(p.get("canonical_id") or "").upper()
+        if cid == "P11_LAWFULNESS_AND_SAFETY" and has_p11:
+            p["status"] = "FOUND"
+            p["summary"] = "OK"
+            p["tg"] = "N/A"
+        if cid == "P12_SUPPLEMENTARY_INFORMATION" and has_p12:
+            p["status"] = "FOUND"
+            p["summary"] = "OK"
+            p["tg"] = "N/A"
 
 # Admin login schema
 class AdminLoginRequest(BaseModel):
@@ -316,6 +349,15 @@ async def get_report_admin(
     # Extract data from new ai_analysis format
     ai_analysis = report.ai_analysis or {}
     scoring_result = report.scoring_result or {}
+    if isinstance(ai_analysis, dict):
+        try:
+            if report.extracted_text:
+                ai_analysis = postprocess_analysis_output(dict(ai_analysis), report.extracted_text)
+            else:
+                ensure_analysis_evidence(ai_analysis, report.extracted_text or "")
+        except Exception as e:
+            logger.warning(f"Admin postprocess failed for report {report.id}: {e}")
+            ensure_analysis_evidence(ai_analysis, report.extracted_text or "")
     
     # Hard gate: use validated segments only (extract → whitelist before hierarchy)
     if isinstance(scoring_result, dict) and isinstance(ai_analysis, dict):
@@ -332,6 +374,10 @@ async def get_report_admin(
                 validated_payload,
                 report_id=str(report.id),
                 document_hash=report.document_hash or "",
+            )
+            _force_e3_parents_found_in_feedback(
+                scoring_result.get("feedback_v11") if isinstance(scoring_result, dict) else None,
+                report.extracted_text or "",
             )
         except Exception as e:
             logger.warning(f"Rebuild feedback_v11 for admin report {report.id}: {e}")

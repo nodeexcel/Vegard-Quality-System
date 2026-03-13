@@ -77,7 +77,7 @@ def _resolve_file_from_name(filename: str) -> Path:
     suffix = Path(clean).suffix or ".json"
     # Common client naming mismatch: v3.2 <-> v3_0 file names.
     normalized_stem = stem.replace(".", "_")
-    underscore_candidate = NOT_FOUND_IN_REPORT / f"{normalized_stem}{suffix}"
+    underscore_candidate = FILES_DIR / f"{normalized_stem}{suffix}"
     if underscore_candidate.exists():
         return underscore_candidate
     return candidate
