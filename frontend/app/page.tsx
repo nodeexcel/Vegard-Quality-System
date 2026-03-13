@@ -161,6 +161,20 @@ export default function Home() {
       // Redirect to results page
       router.push(`/results/${response.data.id}`)
     } catch (err: any) {
+      const getUploadErrorMessage = (): string => {
+        const status = err?.response?.status
+        const data = err?.response?.data
+        if (typeof data === 'string') {
+          if (data.includes('<html') && status === 500) {
+            return 'Serverfeil (500) fra gateway/proxy. Prøv igjen om 10-20 sekunder. Hvis feilen fortsetter, kontakt support.'
+          }
+          return data
+        }
+        if (data?.detail && typeof data.detail === 'string') {
+          return data.detail
+        }
+        return 'Kunne ikke laste opp rapporten. Vennligst prøv igjen.'
+      }
       if (err.response?.status === 401) {
         setError('Vennligst logg inn for å laste opp rapporter. Hvis du allerede er innlogget, prøv å logge ut og inn igjen.')
       } else if (err.response?.status === 402) {
@@ -169,7 +183,7 @@ export default function Home() {
         setShowInsufficientCredits(true)
         setInsufficientCreditsMessage(err.response?.data?.detail || 'Ikke nok kreditter til å laste opp denne rapporten.')
       } else {
-        setError(err.response?.data?.detail || 'Kunne ikke laste opp rapporten. Vennligst prøv igjen.')
+        setError(getUploadErrorMessage())
       }
       setUploading(false)
     }

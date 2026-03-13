@@ -193,6 +193,8 @@ interface TopIssueV16 {
   deduction_band?: string
   message: string
   recommended_fix_text?: string
+  rewrite_strategy?: string
+  suggested_rewrite_text?: string
   gate_effect?: { blocks_96_gate?: boolean; caps_total_score_to?: number }
 }
 interface AllFindingV16 {
@@ -203,6 +205,9 @@ interface AllFindingV16 {
   message: string
   deduction_band?: string
   recommended_fix_text?: string
+  rewrite_strategy?: string
+  suggested_rewrite_text?: string
+  duplicate_safe_key?: string
   evidence_snippets?: string[]
   gate_effect?: { blocks_96_gate?: boolean; caps_total_score_to?: number }
 }
@@ -215,6 +220,8 @@ interface HowToImproveV16 {
   category: string
   title: string
   recommended_fix_text: string
+  rewrite_strategy?: string
+  suggested_rewrite_text?: string
 }
 interface GateV16 {
   active?: boolean
@@ -632,9 +639,30 @@ export default function ResultsPage() {
   const formatFeedbackText = (text: string | null | undefined): string => {
     if (text == null || typeof text !== 'string') return ''
     return text
+      .replace(/\bmed\s+n\b/gi, 'med en')
       .replace(/\bmed n kort setning\b/gi, 'med en kort setning')
       .replace(/Konsekvens uklar for kjøper/g, 'Konsekvens kan presiseres i forhold til kjøpers bruk, økonomi eller risiko.')
       .replace(/Konsekvens ikke eksplisitt oversatt til kjøpers situasjon\.?/g, 'Dette innebærer at kjøper må påregne utbedring før normal bruk kan anses trygg, og at det foreligger risiko for videre konstruksjonsskade dersom tiltak utsettes.')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  }
+
+  const isTooGenericSuggestedRewrite = (text: string | null | undefined): boolean => {
+    if (!text || typeof text !== 'string') return true
+    const low = text.toLowerCase().trim()
+    if (low.length < 40) return true
+    const genericPhrases = [
+      'forbedre teksten',
+      'presiser teksten',
+      'legg til mer informasjon',
+      'oppdater rapporten',
+      'se forbedringsforslag',
+      'vurder å',
+      'oppdater innholdet',
+      'tydelig adresserer funnet',
+      'beskriv konkret hva som mangler'
+    ]
+    return genericPhrases.some((p) => low.includes(p))
   }
 
   /** Split recommendation into problem (top) and fix (green box only). "Slik retter du:" belongs only in the green box. */
@@ -646,6 +674,29 @@ export default function ResultsPage() {
     const problemPart = text.slice(0, idx).trim()
     const fixPart = text.slice(idx).replace(marker, '').trim()
     return { problemPart, fixPart }
+  }
+
+  const normalizeForTextCompare = (text: string | undefined): string =>
+    (text || '').replace(/\s+/g, ' ').trim().toLowerCase()
+
+  const buildVisibleProblemAndFix = (
+    combinedText: string,
+    pointId?: string,
+    fallbackFix?: string
+  ): { problemText: string; fixText: string } => {
+    const { problemPart, fixPart } = splitProblemAndFix(combinedText)
+    const problemText =
+      pointId && problemPart && improvementTextRefersToDifferentPoint(problemPart, pointId)
+        ? ''
+        : problemPart
+    const fixText = formatFeedbackText(fixPart || fallbackFix || '')
+    if (!fixText || isTooGenericSuggestedRewrite(fixText)) {
+      return { problemText, fixText: '' }
+    }
+    if (normalizeForTextCompare(problemText) === normalizeForTextCompare(fixText)) {
+      return { problemText, fixText: '' }
+    }
+    return { problemText, fixText }
   }
 
   const buildDeductionSummariesFromAnalysis = (analysisPayload: AnalysisV14): DeductionSummary[] => {
@@ -820,6 +871,20 @@ export default function ResultsPage() {
     const m = message.match(/(?:Punkt|punkt)\s+(\d+(?:\.\d+)*)/i) || message.match(/(?:punkt|ved)\s+(\d+(?:\.\d+)*)/i)
     return m ? m[1] : undefined
   }
+  const parsePointFromRuleId = (ruleId: string | undefined): string | undefined => {
+    if (!ruleId || typeof ruleId !== 'string') return undefined
+    const m = ruleId.match(/\b(P\d{2}[A-Z](?:_[A-Z0-9_]+)?)\b/i)
+    return m ? m[1] : undefined
+  }
+  const resolveDisplayPointId = (pointId: string | undefined, ruleId: string | undefined): string | undefined => {
+    const fromRule = parsePointFromRuleId(ruleId)
+    if (!pointId) return fromRule
+    if (!fromRule) return pointId
+    const p = pointId.toUpperCase()
+    const r = fromRule.toUpperCase()
+    if (p.includes(r) || r.includes(p)) return pointId
+    return fromRule
+  }
   const buildDeductionSummariesFromV16 = (findings: AllFindingV16[]): DeductionSummary[] =>
     findings.map((f) => ({
       rule_id: f.finding_id,
@@ -827,8 +892,11 @@ export default function ResultsPage() {
       reason: f.title,
       severity: (f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : f.severity === 'minor' ? 'low' : 'medium') as DeductionSummary['severity'],
       suggestion: f.recommended_fix_text,
-      exampleFix: f.recommended_fix_text,
-      point_id: parsePointIdFromMessage(f.message) ?? parsePointIdFromMessage(f.title) ?? (f as { location?: string; point_id?: string }).point_id ?? (f as { location?: string }).location,
+      exampleFix: f.suggested_rewrite_text || f.recommended_fix_text,
+      point_id: resolveDisplayPointId(
+        parsePointIdFromMessage(f.message) ?? parsePointIdFromMessage(f.title) ?? (f as { location?: string; point_id?: string }).point_id ?? (f as { location?: string }).location,
+        f.finding_id
+      ),
       evidence_snippets: f.evidence_snippets?.length ? f.evidence_snippets : undefined
     }))
   const improvementsForFixes = hasV16 && howToImproveV16?.length && !analysis?.improvements?.length
@@ -836,17 +904,48 @@ export default function ResultsPage() {
         title: h.title,
         priority: 'medium' as const,
         what_to_change: h.recommended_fix_text,
-        suggested_text: h.recommended_fix_text
+        suggested_text: h.suggested_rewrite_text || h.recommended_fix_text
       }))
     : analysis?.improvements
-  const allDeductions: DeductionSummary[] =
-    feedbackV11?.findings?.length
-      ? buildDeductionSummariesFromFeedback(feedbackV11.findings)
-      : hasV16 && allFindingsV16?.length
-        ? buildDeductionSummariesFromV16(allFindingsV16)
-        : hasV14 && analysis
-          ? buildDeductionSummariesFromAnalysis(analysis)
-          : []
+  const allDeductions: DeductionSummary[] = (() => {
+    const fromV16 = hasV16 && allFindingsV16?.length ? buildDeductionSummariesFromV16(allFindingsV16) : []
+    const fromFeedback = !fromV16.length && feedbackV11?.findings?.length ? buildDeductionSummariesFromFeedback(feedbackV11.findings) : []
+    const fromV14 = (!fromFeedback.length && !fromV16.length && hasV14 && analysis)
+      ? buildDeductionSummariesFromAnalysis(analysis)
+      : []
+    const merged = fromV16.length ? fromV16 : [...fromFeedback, ...fromV14]
+    const seen = new Set<string>()
+    return merged.map((item) => ({
+      ...item,
+      point_id: resolveDisplayPointId(item.point_id, item.rule_id)
+    })).filter((item) => {
+      const key = `${item.point_id || 'GLOBAL'}|${item.rule_id}|${item.reason}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  })()
+
+  const toParentBucket = (rawPointId: string | null | undefined): string | undefined => {
+    if (!rawPointId) return undefined
+    const up = rawPointId.toUpperCase().trim()
+    const canonicalMatch = up.match(/^P(\d{2})/)
+    if (canonicalMatch) return `P${canonicalMatch[1]}`
+    const numericMatch = up.match(/^(\d{1,2})(?:\.\d+)*$/)
+    if (numericMatch) return `P${String(parseInt(numericMatch[1], 10)).padStart(2, '0')}`
+    return undefined
+  }
+
+  const deductionPointsByParentBucket = (() => {
+    const map = new Map<string, number>()
+    allDeductions.forEach((item) => {
+      if (!item || (item.points || 0) <= 0) return
+      const bucket = toParentBucket(item.point_id)
+      if (!bucket) return
+      map.set(bucket, (map.get(bucket) || 0) + (item.points || 0))
+    })
+    return map
+  })()
 
   const sortedDeductions = [...allDeductions].sort((a, b) => {
     const priorityA = improvementPriorityOrder[a.severity] ?? 99
@@ -1010,40 +1109,53 @@ export default function ResultsPage() {
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                {sortedPointsOverview.map((point, idx) => (
-                  <div
-                    key={(point as { canonical_id?: string }).canonical_id || point.point_id || `p-${idx}`}
-                    className={`border border-gray-200 rounded-xl p-5 bg-white shadow-sm ${point.parent_id ? 'ml-4 md:ml-6 border-l-4 border-l-blue-200' : ''}`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          {point.point_id ? `Punkt ${point.point_id}` : `P${String((point as { display_index?: number }).display_index || idx + 1).padStart(2, '0')}`}
-                        </p>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {(point as { title_display?: string }).title_display || point.title}
-                          {(point.legal_status === 'ikke lovpålagt' || (point as { ui_badge?: string }).ui_badge) && (
-                            <span className="ml-2 text-sm font-normal text-amber-700">
-                              {(point as { ui_badge?: string }).ui_badge || '(ikke lovpålagt)'}
-                            </span>
+                {sortedPointsOverview.map((point, idx) => {
+                  const canonical = (point as { canonical_id?: string }).canonical_id
+                  const parentBucket = toParentBucket(canonical || point.point_id)
+                  const fallbackDeduction = parentBucket ? (deductionPointsByParentBucket.get(parentBucket) || 0) : 0
+                  const pointDeductionTotal = (point as { deduction_total?: number }).deduction_total || 0
+                  const hasActiveFindings =
+                    point.status !== 'NOT_FOUND_IN_REPORT' && (pointDeductionTotal > 0 || fallbackDeduction > 0)
+                  const effectiveSummary = point.status === 'NOT_FOUND_IN_REPORT'
+                    ? point.summary
+                    : (hasActiveFindings ? 'Avvik funnet' : 'OK')
+                  const effectiveBand = deductionBandLabel((point as { deduction_band?: string }).deduction_band)
+                    || (hasActiveFindings ? 'Lavt trekk' : null)
+                  return (
+                    <div
+                      key={(point as { canonical_id?: string }).canonical_id || point.point_id || `p-${idx}`}
+                      className={`border border-gray-200 rounded-xl p-5 bg-white shadow-sm ${point.parent_id ? 'ml-4 md:ml-6 border-l-4 border-l-blue-200' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase text-gray-500">
+                            {point.point_id ? `Punkt ${point.point_id}` : `P${String((point as { display_index?: number }).display_index || idx + 1).padStart(2, '0')}`}
+                          </p>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {(point as { title_display?: string }).title_display || point.title}
+                            {(point.legal_status === 'ikke lovpålagt' || (point as { ui_badge?: string }).ui_badge) && (
+                              <span className="ml-2 text-sm font-normal text-amber-700">
+                                {(point as { ui_badge?: string }).ui_badge || '(ikke lovpålagt)'}
+                              </span>
+                            )}
+                          </h3>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pointStatusClasses(point.status)}`}>
+                            {point.status === 'FOUND' ? 'Funnet' : point.status === 'NOT_FOUND_IN_REPORT' ? 'Ikke funnet' : translate(point.status)}
+                          </span>
+                          {point.status !== 'NOT_FOUND_IN_REPORT' && (
+                            <p className="text-xs text-gray-500 mt-2">{translate(point.tg)}</p>
                           )}
-                        </h3>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pointStatusClasses(point.status)}`}>
-                          {point.status === 'FOUND' ? 'Funnet' : point.status === 'NOT_FOUND_IN_REPORT' ? 'Ikke funnet' : translate(point.status)}
-                        </span>
-                        {point.status !== 'NOT_FOUND_IN_REPORT' && (
-                          <p className="text-xs text-gray-500 mt-2">{translate(point.tg)}</p>
-                        )}
-                      </div>
+                      <p className="text-sm text-gray-700">{effectiveSummary}</p>
+                      {effectiveBand && (
+                        <p className="text-xs text-red-600 mt-2">{effectiveBand}</p>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-700">{point.summary}</p>
-                    {deductionBandLabel((point as { deduction_band?: string }).deduction_band) && (
-                      <p className="text-xs text-red-600 mt-2">{deductionBandLabel((point as { deduction_band?: string }).deduction_band)}</p>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -1186,8 +1298,14 @@ export default function ResultsPage() {
                               <p className="text-sm text-gray-700 mt-2">{formatFeedbackText(f.message)}</p>
                               {f.recommended_fix_text && (
                                 <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
-                                  <p className="font-semibold mb-1">Anbefalt tiltak:</p>
+                                  <p className="font-semibold mb-1">Forbedringsveiledning:</p>
                                   <p>{formatFeedbackText(f.recommended_fix_text)}</p>
+                                </div>
+                              )}
+                              {f.suggested_rewrite_text && !isTooGenericSuggestedRewrite(f.suggested_rewrite_text) && (
+                                <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-900">
+                                  <p className="font-semibold mb-1">Eksempeltekst du kan bruke:</p>
+                                  <p className="italic">{formatFeedbackText(f.suggested_rewrite_text)}</p>
                                 </div>
                               )}
                             </div>
@@ -1304,14 +1422,11 @@ export default function ResultsPage() {
                       const reasonText = formatFeedbackText(item.reason)
                       const rawSuggestion = formatFeedbackText(item.suggestion)
                       const rawExampleFix = formatFeedbackText(item.exampleFix)
-                      const combined = rawSuggestion || rawExampleFix
-                      const { problemPart, fixPart } = splitProblemAndFix(combined)
-                      // If there is a distinct fix part, keep top text as problem-only.
-                      // If there is no fix/example text, still show suggestion text (prevents empty cards).
-                      const suggestionText = fixPart
-                        ? (item.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, item.point_id) ? '' : problemPart)
-                        : (rawSuggestion && !rawExampleFix ? rawSuggestion : '')
-                      const showFixInBox = fixPart || (!combined.includes('Slik retter du') && rawExampleFix)
+                      const combined = rawExampleFix || rawSuggestion
+                      const visible = buildVisibleProblemAndFix(combined, item.point_id, rawExampleFix)
+                      const suggestionTextRaw = visible.problemText || (rawSuggestion && !rawExampleFix ? rawSuggestion : '')
+                      const suggestionText = suggestionTextRaw && !isTooGenericSuggestedRewrite(suggestionTextRaw) ? suggestionTextRaw : ''
+                      const showFixInBox = Boolean(visible.fixText)
                       return (
                         <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
                           <div className="flex items-start justify-between gap-4">
@@ -1338,7 +1453,7 @@ export default function ResultsPage() {
                                   {showFixInBox && (
                                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
                                       <p className="font-semibold mb-1">Slik retter du:</p>
-                                      <p className="italic">{fixPart || rawExampleFix}</p>
+                                      <p className="italic">{visible.fixText}</p>
                                     </div>
                                   )}
                                 </div>
@@ -1401,17 +1516,19 @@ export default function ResultsPage() {
                                   <p className="text-xs text-gray-500 mb-2">Punkt {improvement.point_id}</p>
                                 )}
                                 {(() => {
-                                  const combined = formatFeedbackText(improvement.suggestion || improvement.exampleFix)
-                                  const { problemPart, fixPart } = splitProblemAndFix(combined)
-                                  const safeProblem = improvement.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, improvement.point_id) ? '' : problemPart
-                                  const fixToShow = fixPart || (!combined.includes('Slik retter du') ? formatFeedbackText(improvement.exampleFix || improvement.suggestion) : '')
-                                  return (safeProblem || fixToShow) ? (
+                                  const combined = formatFeedbackText(improvement.exampleFix || improvement.suggestion)
+                                  const visible = buildVisibleProblemAndFix(
+                                    combined,
+                                    improvement.point_id,
+                                    formatFeedbackText(improvement.exampleFix || improvement.suggestion)
+                                  )
+                                  return (visible.problemText || visible.fixText) ? (
                                     <div className="space-y-2">
-                                      {safeProblem && <p className="text-sm text-gray-700">{safeProblem}</p>}
-                                      {fixToShow && (
+                                      {visible.problemText && <p className="text-sm text-gray-700">{visible.problemText}</p>}
+                                      {visible.fixText && (
                                         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
                                           <p className="font-semibold mb-1">Slik retter du:</p>
-                                          <p className="italic">{fixToShow}</p>
+                                          <p className="italic">{visible.fixText}</p>
                                         </div>
                                       )}
                                     </div>
@@ -1451,17 +1568,19 @@ export default function ResultsPage() {
                                   <p className="text-xs text-gray-500 mb-2">Punkt {improvement.point_id}</p>
                                 )}
                                 {(() => {
-                                  const combined = formatFeedbackText(improvement.suggestion || improvement.exampleFix)
-                                  const { problemPart, fixPart } = splitProblemAndFix(combined)
-                                  const safeProblem = improvement.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, improvement.point_id) ? '' : problemPart
-                                  const fixToShow = fixPart || (!combined.includes('Slik retter du') ? formatFeedbackText(improvement.exampleFix || improvement.suggestion) : '')
-                                  return (safeProblem || fixToShow) ? (
+                                  const combined = formatFeedbackText(improvement.exampleFix || improvement.suggestion)
+                                  const visible = buildVisibleProblemAndFix(
+                                    combined,
+                                    improvement.point_id,
+                                    formatFeedbackText(improvement.exampleFix || improvement.suggestion)
+                                  )
+                                  return (visible.problemText || visible.fixText) ? (
                                     <div className="space-y-2">
-                                      {safeProblem && <p className="text-sm text-gray-700">{safeProblem}</p>}
-                                      {fixToShow && (
+                                      {visible.problemText && <p className="text-sm text-gray-700">{visible.problemText}</p>}
+                                      {visible.fixText && (
                                         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
                                           <p className="font-semibold mb-1">Slik retter du:</p>
-                                          <p className="italic">{fixToShow}</p>
+                                          <p className="italic">{visible.fixText}</p>
                                         </div>
                                       )}
                                     </div>
@@ -1501,17 +1620,19 @@ export default function ResultsPage() {
                                   <p className="text-xs text-gray-500 mb-2">Punkt {improvement.point_id}</p>
                                 )}
                                 {(() => {
-                                  const combined = formatFeedbackText(improvement.suggestion || improvement.exampleFix)
-                                  const { problemPart, fixPart } = splitProblemAndFix(combined)
-                                  const safeProblem = improvement.point_id && problemPart && improvementTextRefersToDifferentPoint(problemPart, improvement.point_id) ? '' : problemPart
-                                  const fixToShow = fixPart || (!combined.includes('Slik retter du') ? formatFeedbackText(improvement.exampleFix || improvement.suggestion) : '')
-                                  return (safeProblem || fixToShow) ? (
+                                  const combined = formatFeedbackText(improvement.exampleFix || improvement.suggestion)
+                                  const visible = buildVisibleProblemAndFix(
+                                    combined,
+                                    improvement.point_id,
+                                    formatFeedbackText(improvement.exampleFix || improvement.suggestion)
+                                  )
+                                  return (visible.problemText || visible.fixText) ? (
                                     <div className="space-y-2">
-                                      {safeProblem && <p className="text-sm text-gray-700">{safeProblem}</p>}
-                                      {fixToShow && (
+                                      {visible.problemText && <p className="text-sm text-gray-700">{visible.problemText}</p>}
+                                      {visible.fixText && (
                                         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
                                           <p className="font-semibold mb-1">Slik retter du:</p>
-                                          <p className="italic">{fixToShow}</p>
+                                          <p className="italic">{visible.fixText}</p>
                                         </div>
                                       )}
                                     </div>

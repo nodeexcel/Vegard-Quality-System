@@ -140,6 +140,26 @@ TG3_SINGLE_AMOUNT_RE = re.compile(
     rf"(?ix)\b(?:kostnad(?:sestimat)?|kostnadsanslag|estimert\s+kostnad|utbedringskostnad(?:er)?)\b"
     rf"[^0-9]{{0,50}}(?:ca\.?\s*)?(?:kr\.?\s*)?{_AMOUNT_RE}(?:\s*(?:,-|kr\.?))?\b(?!\s*(?:-|til)\s*\d)"
 )
+TILTAK_HEADING_RE = re.compile(r"(?ix)\btiltak\b\s*:")
+ANDRE_TILTAK_RE = re.compile(r"(?ix)\bandre\s+tiltak\b")
+KONSEKVENS_TILTAK_RE = re.compile(r"(?ix)\bkonsekvens\s*(?:/|-|og)\s*tiltak\b")
+VAGUE_MEASURE_GUIDANCE_RE = re.compile(
+    r"(?ix)\b(?:kan|bør|anbefales)\s+(?:vurderes|ses\s+på|følges\s+opp)\b|"
+    r"\bvurder(?:es)?\s+(?:nærmere|videre)\b|"
+    r"\bom\s+ønskelig\b"
+)
+SCHEMATIC_COST_TEXT_RE = re.compile(
+    r"(?ix)\b(?:kostnadsestimat|kostnadsanslag|sjablong|kostnadsramme|utbedringskostnad(?:er)?)\b"
+)
+REPORT_COST_CLASS_MODEL_RE = re.compile(
+    r"(?ix)\b(?:kostnadsklasse(?:r)?|kostnadskategori(?:er)?)\b.{0,80}\b(?:lav|middels|høy)\b"
+)
+NO_TG_HMS_TOPIC_RE = re.compile(
+    r"(?ix)\b(?:elektrisk|el-anlegg|el anlegg|elinstallasjon|hms|brannsikkerhet|radon|asbest|lovlighet|sikkerhet)\b"
+)
+NO_TG_HMS_POLICY_RE = re.compile(
+    r"(?ix)\b(?:skal\s+ikke\s+tilstandsgradsettes|ikke\s+tilstandsgradsettes|uten\s+tg|ikke\s+tg|tg\s+ikke\s+satt)\b"
+)
 
 
 def _tg3_cost_status(text: str) -> str:
@@ -153,6 +173,97 @@ def _tg3_cost_status(text: str) -> str:
     if TG3_SINGLE_AMOUNT_RE.search(norm):
         return "medium"
     return "high"
+
+
+def _is_no_tg_hms_point(title: str, text: str) -> bool:
+    combined = _normalize_tg3_cost_text(f"{title or ''}\n{text or ''}")
+    if not combined:
+        return False
+    low = combined.lower()
+    if NO_TG_HMS_POLICY_RE.search(low):
+        return True
+    if "lovlighet og sikkerhet" in low:
+        return True
+    return bool(NO_TG_HMS_TOPIC_RE.search(low) and ("lovlighet" in low or "hms" in low or "elektr" in low))
+
+
+def _extract_runtime_scoring_signals(
+    title: str,
+    text: str,
+    report_uses_cost_class_as_schematic_model: bool,
+) -> Dict[str, bool]:
+    combined = _normalize_tg3_cost_text(f"{title or ''}\n{text or ''}")
+    low = combined.lower()
+    tiltak_present = bool(TILTAK_HEADING_RE.search(low) or "anbefalt tiltak" in low or "anbefalte tiltak" in low)
+    andre_tiltak_present = bool(ANDRE_TILTAK_RE.search(low))
+    konsekvens_tiltak_present = bool(KONSEKVENS_TILTAK_RE.search(low))
+    vague_measure_guidance_present = bool(VAGUE_MEASURE_GUIDANCE_RE.search(low))
+    concrete_recommended_measure_in_free_text = bool(
+        ARK_TILTAK_RE.search(combined)
+        and not (tiltak_present or andre_tiltak_present or konsekvens_tiltak_present)
+        and not vague_measure_guidance_present
+    )
+    cost_interval_present = bool(TG3_INTERVAL_RE.search(combined))
+    cost_class_present = bool(TG3_COST_CLASS_RE.search(combined))
+    single_amount_only_present = _tg3_cost_status(combined) == "medium"
+    other_schematic_cost_estimate_present = bool(
+        SCHEMATIC_COST_TEXT_RE.search(low)
+        and not cost_interval_present
+        and not cost_class_present
+        and not single_amount_only_present
+    )
+    return {
+        "tiltak_present": tiltak_present,
+        "andre_tiltak_present": andre_tiltak_present,
+        "konsekvens_tiltak_present": konsekvens_tiltak_present,
+        "concrete_recommended_measure_in_free_text": concrete_recommended_measure_in_free_text,
+        "vague_measure_guidance_present": vague_measure_guidance_present,
+        "cost_class_present": cost_class_present,
+        "cost_interval_present": cost_interval_present,
+        "other_schematic_cost_estimate_present": other_schematic_cost_estimate_present,
+        "single_amount_only_present": single_amount_only_present,
+        "report_uses_cost_class_as_schematic_model": bool(report_uses_cost_class_as_schematic_model),
+    }
+
+
+def _normalize_runtime_scoring_signals(points: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    if not isinstance(points, list) or not points:
+        return points
+    report_text = _normalize_tg3_cost_text(
+        "\n".join(
+            str(p.get("span_text") or p.get("linked_summary_text") or p.get("excerpt") or "")
+            for p in points
+            if isinstance(p, dict)
+        )
+    )
+    report_uses_cost_class_model = bool(REPORT_COST_CLASS_MODEL_RE.search(report_text))
+    normalized_points: List[Dict[str, object]] = []
+    for point in points:
+        if not isinstance(point, dict):
+            normalized_points.append(point)
+            continue
+        out = dict(point)
+        title = str(out.get("title") or out.get("excerpt") or "")
+        span_text = str(out.get("span_text") or out.get("linked_summary_text") or out.get("excerpt") or "")
+        signals = _extract_runtime_scoring_signals(title, span_text, report_uses_cost_class_model)
+        out["normalized_signals"] = signals
+        out.update(signals)
+        out["no_tg_hms_point"] = _is_no_tg_hms_point(title, span_text)
+        normalized_points.append(out)
+    return normalized_points
+
+
+def _point_has_accepted_tg3_cost_signal(point: Dict[str, object]) -> bool:
+    if not isinstance(point, dict):
+        return False
+    if bool(point.get("cost_interval_present")):
+        return True
+    if bool(point.get("cost_class_present")):
+        return True
+    # If template uses cost classes as schematic model, accept other schematic estimate for that exact point.
+    if bool(point.get("report_uses_cost_class_as_schematic_model")) and bool(point.get("other_schematic_cost_estimate_present")):
+        return True
+    return False
 
 
 POINT_ID_IN_TEXT_RE = re.compile(r"(?:Punkt|punkt)\s+(\d+(?:\.\d+)*)", re.IGNORECASE)
@@ -538,6 +649,7 @@ def get_validated_detected_points_payload(
     trace["total_after_stray"] = len(detected)
     trace["total_detected_before_stray"] = len(detected) + int(trace.get("stray_rejected_count", 0) or 0)
     validated = _validate_detected_points_against_whitelist(detected, trace=trace)
+    validated = _normalize_runtime_scoring_signals(validated)
     trace["total_after_whitelist"] = len(validated)
     trace["validated_point_ids"] = [p.get("point_id") for p in validated if isinstance(p, dict) and p.get("point_id")]
     payload = _build_detected_points_payload(
@@ -1563,12 +1675,15 @@ def _filter_tg3_cost_missing_false_positives(
         return
     linked = _extract_linked_summary_text_per_point(report_text or "")
     segment_by_point = {}
+    point_by_id: Dict[str, Dict[str, object]] = {}
     for p in detected_points:
         if isinstance(p, dict) and p.get("point_id"):
+            pid = str(p["point_id"])
             main = (p.get("span_text") or "").strip()
             summary = _get_linked_summary_for_point(linked, p.get("point_id") or "").strip()
             combined = (main + "\n" + summary).strip() if summary else main
-            segment_by_point[str(p["point_id"])] = combined
+            segment_by_point[pid] = combined
+            point_by_id[pid] = p
     if not segment_by_point:
         return
     filtered = []
@@ -1582,6 +1697,7 @@ def _filter_tg3_cost_missing_false_positives(
             continue
         point_id = _parse_point_id_from_v16_finding(f)
         segment_text = segment_by_point.get(point_id or "", "")
+        point_meta = point_by_id.get(point_id or "", {})
 
         evidence_parts: List[str] = []
         message = f.get("message")
@@ -1602,6 +1718,8 @@ def _filter_tg3_cost_missing_false_positives(
             status = "pass"
         elif "medium" in statuses:
             status = "medium"
+        elif _point_has_accepted_tg3_cost_signal(point_meta):
+            status = "pass"
 
         if status == "pass":
             continue
@@ -2161,8 +2279,19 @@ def _run_ark_arkat_per_segment_validation(
         tg = (point.get("tg") or "").strip().upper()
         main_text = (point.get("span_text") or "").strip()
         title = point.get("title") or point_id
+        no_tg_hms_point = bool(point.get("no_tg_hms_point")) or _is_no_tg_hms_point(str(title), main_text)
         if point_id not in merged_by_id:
-            merged_by_id[point_id] = {"point_id": point_id, "tg": tg, "title": title, "span_text": main_text}
+            merged_by_id[point_id] = {
+                "point_id": point_id,
+                "tg": tg,
+                "title": title,
+                "span_text": main_text,
+                "no_tg_hms_point": no_tg_hms_point,
+                "cost_interval_present": bool(point.get("cost_interval_present")),
+                "cost_class_present": bool(point.get("cost_class_present")),
+                "other_schematic_cost_estimate_present": bool(point.get("other_schematic_cost_estimate_present")),
+                "report_uses_cost_class_as_schematic_model": bool(point.get("report_uses_cost_class_as_schematic_model")),
+            }
         else:
             existing = merged_by_id[point_id]
             existing["span_text"] = ((existing.get("span_text") or "") + "\n" + main_text).strip()
@@ -2170,10 +2299,23 @@ def _run_ark_arkat_per_segment_validation(
                 existing["tg"] = tg
             elif "TG2" in tg and "TG2" not in (existing.get("tg") or ""):
                 existing["tg"] = tg
+            if no_tg_hms_point:
+                existing["no_tg_hms_point"] = True
+            for signal_key in (
+                "cost_interval_present",
+                "cost_class_present",
+                "other_schematic_cost_estimate_present",
+                "report_uses_cost_class_as_schematic_model",
+            ):
+                if bool(point.get(signal_key)):
+                    existing[signal_key] = True
     failed_segments = []
     segment_validation = []
     for point_id, point in merged_by_id.items():
         tg = (point.get("tg") or "").strip().upper()
+        if bool(point.get("no_tg_hms_point")):
+            segment_validation.append({"point_id": point_id, "tg": tg, "passed": True, "missing": [], "mode": "NO_TG_HMS"})
+            continue
         if "TG2" not in tg and "TG3" not in tg:
             segment_validation.append({"point_id": point_id, "tg": tg, "passed": True, "missing": []})
             continue
@@ -2181,6 +2323,9 @@ def _run_ark_arkat_per_segment_validation(
         summary_text = _get_linked_summary_for_point(linked_summary, point_id).strip()
         combined = (main_text + "\n" + summary_text).strip() if summary_text else main_text
         passed, missing = _segment_has_ark_arkat(combined, tg)
+        if "TG3" in tg and missing and _point_has_accepted_tg3_cost_signal(point):
+            missing = [m for m in missing if m not in ("kostnad", "kostnad_single_only")]
+            passed = len(missing) == 0
         segment_validation.append({"point_id": point_id, "tg": tg, "passed": passed, "missing": missing})
         if not passed:
             failed_segments.append({
@@ -2278,6 +2423,11 @@ def _ensure_finding_suggestions_differentiated(analysis_output: Dict[str, object
                 f"Legg til kort risiko{point_ref}: beskriv hva som kan skje dersom forholdet ikke håndteres, "
                 "slik at kjøper kan vurdere alvorlighetsgrad."
             )
+        elif "age_only" in fid or "hovedsakelig med alder" in title.lower() or "hovedsakelig med alder" in message.lower():
+            f["recommended_fix_text"] = (
+                f"Bytt ut aldersbegrunnelse{point_ref} med konkret tilstand: beskriv observert skade/avvik, "
+                "hvorfor forholdet gir TG, og hva kjøper må påregne."
+            )
         elif "konsekvens" in fid or "konsekvens" in title.lower():
             f["recommended_fix_text"] = (
                 f"Presiser konsekvensen{point_ref} med én kort setning om praktisk betydning "
@@ -2304,9 +2454,91 @@ def _ensure_finding_suggestions_differentiated(analysis_output: Dict[str, object
             )
         else:
             f["recommended_fix_text"] = (
-                f"Oppdater innholdet{point_ref} slik at det tydelig adresserer funnet: «{title[:80]}{'…' if len(title) > 80 else ''}». "
-                "Beskriv konkret hva som mangler eller bør forbedres."
+                f"Gjør punktteksten{point_ref} mer konkret og punktspesifikk: beskriv hva som er observert, "
+                "hvilken risiko/konsekvens dette gir, og hva som anbefales videre."
             )
+
+
+def _is_generic_guidance_text(text: str) -> bool:
+    if not text or not isinstance(text, str):
+        return True
+    low = _normalize_tg3_cost_text(text).lower()
+    if len(low) < 40:
+        return True
+    generic_patterns = (
+        "oppdater innholdet",
+        "tydelig adresserer funnet",
+        "beskriv konkret hva som mangler",
+        "forbedre teksten",
+        "presiser teksten",
+        "legg til mer informasjon",
+        "se forbedringsforslag",
+    )
+    return any(p in low for p in generic_patterns)
+
+
+def _infer_rewrite_strategy(finding: Dict[str, object]) -> str:
+    fid = str(finding.get("finding_id") or "").lower()
+    title = str(finding.get("title") or "").lower()
+    message = str(finding.get("message") or "").lower()
+    text = f"{fid} {title} {message}"
+    if "arsak" in text or "årsak" in text:
+        return "cause_specific_clarification"
+    if "risiko" in text:
+        return "risk_contextual_refinement"
+    if "konsekvens" in text:
+        return "consequence_contextual_refinement"
+    if "tiltak" in text or "anbefalt" in text:
+        return "measure_contextual_refinement"
+    if "kostnad" in text:
+        return "cost_estimate_clarification"
+    if "hms" in text or "no_tg" in text or "lovlighet" in text:
+        return "no_tg_hms_explanation"
+    return "finding_specific_rewrite"
+
+
+def _build_suggested_rewrite_text(finding: Dict[str, object]) -> str:
+    existing = str(finding.get("suggested_rewrite_text") or "").strip()
+    if existing:
+        return existing
+    point_id = _parse_point_id_from_v16_finding(finding)
+    point_prefix = f"Punkt {point_id}: " if point_id else ""
+    fix = str(finding.get("recommended_fix_text") or "").strip()
+    strategy = str(finding.get("rewrite_strategy") or "").strip()
+    if fix and not _is_generic_guidance_text(fix):
+        return f"{point_prefix}{fix}"
+    if strategy == "risk_contextual_refinement":
+        return point_prefix + "Det er risiko for videre skade dersom forholdet ikke utbedres innen normal tid."
+    if strategy == "consequence_contextual_refinement":
+        return point_prefix + "Kjøper må påregne utbedring for å unngå følgeskader og økte kostnader."
+    if strategy == "measure_contextual_refinement":
+        return point_prefix + "Det anbefales å gjennomføre målrettet utbedring utført av kvalifisert fagperson."
+    if strategy == "cost_estimate_clarification":
+        return point_prefix + "Oppgi et kostnadsintervall eller kostnadsklasse slik at økonomisk omfang blir tydelig."
+    if strategy == "cause_specific_clarification":
+        return point_prefix + "Beskriv kort hva som er årsaken til avviket og hvorfor TG er satt."
+    message = str(finding.get("message") or finding.get("title") or "").strip()
+    if message:
+        return f"{point_prefix}{message}"
+    return point_prefix + "Presiser punktteksten med konkret arsak, konsekvens og anbefalt oppfolging."
+
+
+def _ensure_writing_help_fields(analysis_output: Dict[str, object]) -> None:
+    for key in ("all_findings", "top_issues", "how_to_improve"):
+        items = analysis_output.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            recommended_fix = str(item.get("recommended_fix_text") or "").strip()
+            if not recommended_fix:
+                fallback = str(item.get("message") or item.get("title") or "").strip()
+                if fallback:
+                    item["recommended_fix_text"] = fallback
+            if not str(item.get("rewrite_strategy") or "").strip():
+                item["rewrite_strategy"] = _infer_rewrite_strategy(item)
+            item["suggested_rewrite_text"] = _build_suggested_rewrite_text(item)
 
 
 def _drop_segment_arkat_for_tg2_only_points(analysis_output: Dict[str, object]) -> None:
@@ -2435,11 +2667,15 @@ def _drop_tg2_tiltak_requirement_false_positives(analysis_output: Dict[str, obje
         tg_norm = str(tg_hint or "").strip().upper()
         has_tg2 = ("tg2" in low) or (tg_norm == "TG2")
         has_tg3 = ("tg3" in low) or (tg_norm == "TG3")
+        has_missing_marker = bool(re.search(r"\bmangl(?:er|ende|et)\b|\buten\b|\bfrav[æa]r\b", low))
         has_tiltak_phrase = (
             "mangler anbefalt tiltak" in low
+            or "manglende anbefalt tiltak" in low
             or "tg2-punkt mangler anbefalt tiltak" in low
             or "anbefalt tiltak mangler" in low
             or "mangler tiltak" in low
+            or (("anbefalt tiltak" in low or "tiltak" in low) and has_missing_marker)
+            or ("tg2-punkt" in low and "tiltak" in low and has_missing_marker)
         )
         if not has_tiltak_phrase:
             return False
@@ -2502,6 +2738,42 @@ def _drop_tg2_tiltak_requirement_false_positives(analysis_output: Dict[str, obje
         ]
 
 
+def _drop_no_tg_hms_as_regular_tg_findings(
+    analysis_output: Dict[str, object],
+    detected_points: List[Dict[str, object]],
+) -> None:
+    no_tg_points = {
+        _normalize_point_id(str(p.get("point_id") or ""))
+        for p in detected_points
+        if isinstance(p, dict) and bool(p.get("no_tg_hms_point"))
+    }
+    if not no_tg_points:
+        return
+
+    def _should_drop(item: Dict[str, object]) -> bool:
+        point_id = _parse_point_id_from_v16_finding(item) or ""
+        if _normalize_point_id(point_id) not in no_tg_points:
+            return False
+        blob = _normalize_tg3_cost_text(
+            f"{item.get('finding_id', '')} {item.get('rule_id', '')} {item.get('title', '')} {item.get('message', '')}"
+        ).lower()
+        if "a_no_tg_hms" in blob or "no_tg_hms" in blob:
+            return False
+        return ("tg2" in blob or "tg3" in blob or "arkat" in blob or "anbefalt tiltak" in blob)
+
+    all_findings = analysis_output.get("all_findings")
+    if isinstance(all_findings, list):
+        analysis_output["all_findings"] = [
+            f for f in all_findings if not (isinstance(f, dict) and _should_drop(f))
+        ]
+
+    top_issues = analysis_output.get("top_issues")
+    if isinstance(top_issues, list):
+        analysis_output["top_issues"] = [
+            i for i in top_issues if not (isinstance(i, dict) and _should_drop(i))
+        ]
+
+
 def _drop_arkat_false_positives(analysis_output: Dict[str, object]) -> None:
     """
     Remove LLM findings that claim missing anbefalt tiltak / ARKAT for a point when
@@ -2538,6 +2810,63 @@ def _drop_arkat_false_positives(analysis_output: Dict[str, object]) -> None:
             to_drop.append(idx)
     for idx in reversed(to_drop):
         all_findings.pop(idx)
+
+
+def _normalize_remediation_intent(text: str) -> str:
+    if not text or not isinstance(text, str):
+        return "unspecified"
+    normalized = re.sub(r"[^a-z0-9]+", " ", text.lower())
+    normalized = " ".join(normalized.split())
+    if len(normalized) > 96:
+        normalized = normalized[:96].strip()
+    return normalized or "unspecified"
+
+
+def _build_duplicate_safe_key(finding: Dict[str, object]) -> str:
+    point_id = _parse_point_id_from_v16_finding(finding) or "GLOBAL"
+    rule_id = str(finding.get("rule_id") or finding.get("finding_id") or "")
+    rule_family = _derive_rule_family(rule_id) or "UNKNOWN"
+    category = str(finding.get("category") or _infer_category_from_rule_id(rule_id) or "UNKNOWN")
+    remediation_intent = _normalize_remediation_intent(
+        str(finding.get("rewrite_strategy") or finding.get("recommended_fix_text") or finding.get("title") or finding.get("message") or "")
+    )
+    return f"{point_id}|{rule_family}|{category}|{remediation_intent}"
+
+
+def _dedupe_all_findings_duplicate_safe(analysis_output: Dict[str, object]) -> None:
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list) or not all_findings:
+        return
+    deduped: Dict[str, Dict[str, object]] = {}
+    severity_rank = {"info": 0, "minor": 1, "major": 2}
+    for entry in all_findings:
+        if not isinstance(entry, dict):
+            continue
+        current = dict(entry)
+        key = _build_duplicate_safe_key(current)
+        current["duplicate_safe_key"] = key
+        existing = deduped.get(key)
+        if not existing:
+            deduped[key] = current
+            continue
+        existing_rank = severity_rank.get(str(existing.get("severity") or "").lower(), 0)
+        current_rank = severity_rank.get(str(current.get("severity") or "").lower(), 0)
+        winner, other = (current, existing) if current_rank > existing_rank else (existing, current)
+        winner_snips = winner.get("evidence_snippets")
+        other_snips = other.get("evidence_snippets")
+        merged_snips: List[str] = []
+        for src in (winner_snips, other_snips):
+            if isinstance(src, list):
+                for s in src:
+                    if isinstance(s, str) and s.strip() and s not in merged_snips:
+                        merged_snips.append(s)
+        if merged_snips:
+            winner["evidence_snippets"] = merged_snips[:5]
+        for field in ("recommended_fix_text", "suggested_rewrite_text", "rewrite_strategy", "point_id"):
+            if not winner.get(field) and other.get(field):
+                winner[field] = other[field]
+        deduped[key] = winner
+    analysis_output["all_findings"] = list(deduped.values())
 
 
 def _deduction_band_from_numeric(deduction: float) -> str:
@@ -3827,7 +4156,7 @@ def _build_feedback_v11_from_all_findings(
         feedback_findings.append({
             "finding_id": finding_id,
             "rule_id": rid,
-            "rule_family": (rid.split(".")[0] if "." in str(rid) else "UNKNOWN"),
+            "rule_family": _derive_rule_family(str(rid)) or "UNKNOWN",
             "severity": "high" if f.get("severity") == "major" else "medium" if f.get("severity") == "minor" else "low",
             "affects_96_gate": bool(isinstance(f.get("gate_effect"), dict) and f.get("gate_effect", {}).get("blocks_96_gate")),
             "point_id": point_id,
@@ -3835,7 +4164,7 @@ def _build_feedback_v11_from_all_findings(
             "arkat_section": "annet",
             "message": f.get("title") or f.get("message") or "Avvik",
             "what_to_change": f.get("recommended_fix_text") or f.get("message") or "Se forbedringsforslag.",
-            "example_fix": {"good_example": f.get("recommended_fix_text") or f.get("message") or ""},
+            "example_fix": {"good_example": f.get("suggested_rewrite_text") or f.get("recommended_fix_text") or f.get("message") or ""},
             "evidence": {"page": 1, "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.", "match": "From all_findings."},
             "deduction": deduction_pts,
         })
@@ -4675,6 +5004,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     detected_points = _extract_detected_points(report_text or "")
     detected_points = _validate_detected_points_against_whitelist(detected_points)
     detected_points = _merge_detected_points_with_linked_summary(detected_points, report_text or "")
+    detected_points = _normalize_runtime_scoring_signals(detected_points)
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
     _drop_tg_and_consequence_false_positives(report_text, analysis_output, detected_points)
     _ensure_issue_evidence(analysis_output, report_text)
@@ -4684,7 +5014,10 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _drop_arkat_false_positives(analysis_output)
     _drop_segment_arkat_for_tg2_only_points(analysis_output)
     _drop_tg2_tiltak_requirement_false_positives(analysis_output)
+    _drop_no_tg_hms_as_regular_tg_findings(analysis_output, detected_points)
     _ensure_finding_suggestions_differentiated(analysis_output)
+    _ensure_writing_help_fields(analysis_output)
+    _dedupe_all_findings_duplicate_safe(analysis_output)
     _drop_tg3_cost_top_issues_if_segments_have_cost(analysis_output) 
     _polish_analysis_text_fields(analysis_output)
     _sanitize_analysis_output_text(analysis_output)
