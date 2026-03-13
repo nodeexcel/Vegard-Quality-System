@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://validert.no/schemas/output_schema_validert_v1.6.1.json",
-  "title": "VALIDERT Public Output Schema v1.6",
+  "$id": "https://validert.no/schemas/output_schema_validert_v1.7.json",
+  "title": "VALIDERT Public Output Schema v1.7",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -68,7 +68,7 @@
           "type": "null"
         }
       ],
-      "description": "Totalscore (0-100). Kan være null/utelatt ved INCOMPLETE avhengig av policy. (Kan være null/utelatt ved INCOMPLETE.)"
+      "description": "Totalscore (0-100). Kan være null/utelatt ved INCOMPLETE avhengig av policy."
     },
     "score_band": {
       "type": "string",
@@ -99,9 +99,7 @@
           "anyOf": [
             {
               "type": "integer",
-              "enum": [
-                95
-              ]
+              "enum": [95]
             },
             {
               "type": "null"
@@ -115,7 +113,7 @@
         },
         "message": {
           "type": "string",
-          "description": "Kort forklaring for bruker (f.eks. 'Rapporten kan ikke oppnå over 95 % før gate-avvik er rettet')."
+          "description": "Kort forklaring for bruker."
         }
       }
     },
@@ -168,9 +166,7 @@
           "anyOf": [
             {
               "type": "integer",
-              "enum": [
-                95
-              ]
+              "enum": [95]
             },
             {
               "type": "null"
@@ -221,6 +217,14 @@
         },
         "recommended_fix_text": {
           "type": "string"
+        },
+        "rewrite_strategy": {
+          "type": "string",
+          "description": "Intern strategi for hvordan eksempeltekst er bygget."
+        },
+        "suggested_rewrite_text": {
+          "type": "string",
+          "description": "Kort, nøktern og punktspesifikk eksempeltekst som kan brukes som utgangspunkt for copy/paste."
         },
         "gate_effect": {
           "$ref": "#/$defs/gate_effect"
@@ -275,6 +279,14 @@
         "recommended_fix_text": {
           "type": "string"
         },
+        "rewrite_strategy": {
+          "type": "string",
+          "description": "Intern strategi for hvordan eksempeltekst er bygget."
+        },
+        "suggested_rewrite_text": {
+          "type": "string",
+          "description": "Kort, nøktern og punktspesifikk eksempeltekst som kan brukes som utgangspunkt for copy/paste."
+        },
         "evidence_snippets": {
           "type": "array",
           "items": {
@@ -306,6 +318,14 @@
         "recommended_fix_text": {
           "type": "string",
           "minLength": 1
+        },
+        "rewrite_strategy": {
+          "type": "string",
+          "description": "Intern strategi for hvordan eksempeltekst er bygget."
+        },
+        "suggested_rewrite_text": {
+          "type": "string",
+          "description": "Kort, nøktern og punktspesifikk eksempeltekst som kan brukes som utgangspunkt for copy/paste."
         }
       }
     },

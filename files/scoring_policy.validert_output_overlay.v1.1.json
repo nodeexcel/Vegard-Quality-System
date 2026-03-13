@@ -1,37 +1,50 @@
 {
   "policy_id": "scoring_policy.validert_output_overlay",
-  "version": "1.2.0",
+  "version": "1.6.0",
   "language": "nb-NO",
-  "description": "Overlay for bruker-output: skjuler numeriske trekk, bruker sjablong (lav/middels/høy), og bevarer full funnliste og konkret endringstekst.",
+  "description": "Overlay for bruker-output: skjuler numeriske trekk, bruker sjablong (lav/middels/høy), dedupliserer identiske funn og forbedringspunkter, undertrykker interne og ikke-brukerrettede systemfunn, beskytter no-TG/HMS mot feil TG2/TG3-retorikk, viser punktspesifikk skrivehjelp og håndhever konsistens mellom funn, forbedringspunkter og kategorioppsummering.",
   "compatible_with": {
     "feedback_schema": ["v1.5"],
-    "public_output_schema": ["1.6"],
-    "rag_scoring_model": [">=1.6.3"]
+    "public_output_schema": ["1.7"],
+    "rag_scoring_model": [">=1.7.0"]
   },
-
   "visibility": {
     "hide_numeric_deductions": true,
     "show_deduction_band": true,
-    "show_full_internal_deduction_list": true,
+    "show_full_user_relevant_finding_list": true,
     "hide_rule_id": true,
-    "hide_source_module": true
+    "hide_source_module": true,
+    "hide_internal_balance_adjustments": true,
+    "hide_internal_system_findings": true,
+    "hide_rewrite_strategy_in_public_output": true,
+    "show_suggested_rewrite_text": true
   },
-
   "deduction_banding": {
     "enabled": true,
     "source_field": "deduction",
     "target_field": "deduction_band",
     "bands": [
-      { "label": "Lavt trekk", "min_inclusive": 0.1, "max_inclusive": 3.0 },
-      { "label": "Middels trekk", "min_inclusive": 3.01, "max_inclusive": 7.0 },
-      { "label": "Høyt trekk", "min_inclusive": 7.01, "max_inclusive": 9999 }
+      {
+        "label": "Lavt trekk",
+        "min_inclusive": 0.1,
+        "max_inclusive": 3.0
+      },
+      {
+        "label": "Middels trekk",
+        "min_inclusive": 3.01,
+        "max_inclusive": 7.0
+      },
+      {
+        "label": "Høyt trekk",
+        "min_inclusive": 7.01,
+        "max_inclusive": 9999
+      }
     ],
     "when_missing_or_zero": {
       "set": null,
-      "notes": "Hvis deduction er 0 eller mangler, settes deduction_band normalt til null."
+      "notes": "Hvis deduction er 0 eller mangler, settes deduction_band til null."
     }
   },
-
   "gate_messaging": {
     "enabled": true,
     "if_blocked_96": {
@@ -39,16 +52,80 @@
       "append_to_disclaimers": false
     }
   },
-
   "text_quality": {
     "enabled": true,
     "require_actionable_what_to_change": true,
     "require_non_contradictory_language": true,
+    "require_point_specific_rewrite_help": true,
     "notes": [
-      "Overlay skal ikke fjerne hva som må endres. Bruker skal få samme konkrete tilbakemelding som admin."
+      "Overlay skal ikke fjerne hva som må endres. Bruker skal få samme konkrete tilbakemelding som admin, men uten interne tekniske felter.",
+      "Når rapporten metodisk er dekket, skal små språkfunn vises som forbedringspunkter og ikke dominere top issues.",
+      "Skrivehjelp skal være punktspesifikk, nøktern og ikke-prosjekterende."
     ]
   },
-
+  "rewrite_help": {
+    "enabled": true,
+    "show_labels": true,
+    "public_labels": {
+      "recommended_fix_text": "Forslag til forbedring",
+      "suggested_rewrite_text": "Eksempeltekst du kan bruke"
+    },
+    "hide_rewrite_strategy_from_public_output": true,
+    "suppress_empty_or_generic_suggestions": true,
+    "generic_suggestion_patterns": [
+      "(?i)^det anbefales å undersøke forholdet nærmere og utbedre registrerte svakheter",
+      "(?i)^presiser konsekvensen med en kort setning",
+      "(?i)^legg til kort risiko",
+      "(?i)^oppgi anbefalt tiltak kort og konkret$"
+    ],
+    "notes": [
+      "Eksempeltekst skal bare vises når den er konkret nok til å gi verdi for takstmannen.",
+      "Generiske standardsatser skal undertrykkes dersom de ikke er punktspesifikke."
+    ]
+  },
+  "deduplication": {
+    "enabled": true,
+    "apply_before_projection": true,
+    "key_fields": [
+      "point_id",
+      "category",
+      "title",
+      "recommended_fix_text"
+    ],
+    "fallback_key_fields": [
+      "point_id",
+      "category",
+      "recommended_fix_text"
+    ],
+    "improvement_key_fields": [
+      "point_id",
+      "category",
+      "recommended_fix_text",
+      "suggested_rewrite_text"
+    ],
+    "notes": [
+      "Identiske funn skal bare vises én gang i all_findings.",
+      "Identiske forbedringspunkter skal bare vises én gang i how_to_improve.",
+      "Dedup skal også forhindre at samme avvik påvirker brukerrettet output flere ganger når trigger og remediation i praksis er like."
+    ]
+  },
+  "consistency_rules": {
+    "enabled": true,
+    "notes": [
+      "Kategorioppsummering i public output skal ikke fremstå med trekk dersom det ikke finnes relaterte synlige findings eller konkrete forbedringspunkter.",
+      "Alle trekk, how_to_improve og category_breakdown skal være innbyrdes konsistente etter overlay-transformasjon.",
+      "Interne balanserings- eller konsistensjusteringer skal ikke rendres som egne brukerrettede findings.",
+      "No-TG/HMS-punkter skal ikke vises med ordinær TG2/TG3-ARKAT-mangelretorikk i brukeroutput.",
+      "Skrivehjelp skal presenteres som støtte til forbedring, ikke som ny observasjon eller ny faglig konklusjon."
+    ],
+    "category_breakdown_requires_visible_support": true,
+    "suppress_category_band_when_no_visible_findings": true,
+    "suppress_empty_categories_from_public_output": false,
+    "set_empty_category_band_to": null,
+    "suppress_internal_balance_adjustment_findings": true,
+    "require_how_to_improve_to_map_to_visible_finding": true,
+    "suppress_no_tg_hms_as_ordinary_tg_missing": true
+  },
   "field_transforms": [
     {
       "path": "findings[].rule_id",
@@ -66,6 +143,51 @@
       "condition": "visibility.hide_source_module == true"
     },
     {
+      "path": "findings[].rewrite_strategy",
+      "action": "remove_if",
+      "condition": "visibility.hide_rewrite_strategy_in_public_output == true"
+    },
+    {
+      "path": "how_to_improve[].rewrite_strategy",
+      "action": "remove_if",
+      "condition": "rewrite_help.hide_rewrite_strategy_from_public_output == true"
+    },
+    {
+      "path": "top_issues[].rewrite_strategy",
+      "action": "remove_if",
+      "condition": "rewrite_help.hide_rewrite_strategy_from_public_output == true"
+    },
+    {
+      "path": "findings[].suggested_rewrite_text",
+      "action": "remove_if",
+      "condition": "rewrite_help.suppress_empty_or_generic_suggestions == true AND (findings[].suggested_rewrite_text == '' OR findings[].suggested_rewrite_text == null)"
+    },
+    {
+      "path": "how_to_improve[].suggested_rewrite_text",
+      "action": "remove_if",
+      "condition": "rewrite_help.suppress_empty_or_generic_suggestions == true AND (how_to_improve[].suggested_rewrite_text == '' OR how_to_improve[].suggested_rewrite_text == null)"
+    },
+    {
+      "path": "top_issues[].suggested_rewrite_text",
+      "action": "remove_if",
+      "condition": "rewrite_help.suppress_empty_or_generic_suggestions == true AND (top_issues[].suggested_rewrite_text == '' OR top_issues[].suggested_rewrite_text == null)"
+    },
+    {
+      "path": "findings[]",
+      "action": "remove_if",
+      "condition": "visibility.hide_internal_balance_adjustments == true AND findings[].title ~= '(?i)balance adjustment|balansejustering|category balance|kategoritrekk uten synlig detaljtrekk'"
+    },
+    {
+      "path": "findings[]",
+      "action": "remove_if",
+      "condition": "visibility.hide_internal_system_findings == true AND findings[].title ~= '(?i)internal|system finding|runtime consistency|overlay consistency|dedup check|consistency adjustment'"
+    },
+    {
+      "path": "findings[]",
+      "action": "remove_if",
+      "condition": "consistency_rules.suppress_no_tg_hms_as_ordinary_tg_missing == true AND findings[].title ~= '(?i)mangler full ARK/ARKAT-tekst' AND findings[].title ~= '(?i)punkt 11\\.|elektrisk|hms'"
+    },
+    {
       "path": "points_overview[].deduction_total",
       "action": "remove_if",
       "condition": "visibility.hide_numeric_deductions == true"
@@ -79,9 +201,37 @@
         "relation": "points_overview[].finding_ids -> findings[].finding_id",
         "output_labels": ["Lavt trekk", "Middels trekk", "Høyt trekk"]
       }
+    },
+    {
+      "path": "category_breakdown[].deduction_total",
+      "action": "remove_if",
+      "condition": "visibility.hide_numeric_deductions == true"
+    },
+    {
+      "path": "category_breakdown[].deduction_band",
+      "action": "compute_from_findings",
+      "condition": "visibility.show_deduction_band == true",
+      "compute": {
+        "mode": "max_band_by_category_findings",
+        "relation": "category_breakdown[].category_id -> findings[].category",
+        "output_labels": ["Lavt trekk", "Middels trekk", "Høyt trekk"]
+      }
+    },
+    {
+      "path": "category_breakdown[].visible_finding_count",
+      "action": "compute_from_findings",
+      "compute": {
+        "mode": "count_by_category",
+        "relation": "category_breakdown[].category_id -> findings[].category"
+      }
+    },
+    {
+      "path": "category_breakdown[].deduction_band",
+      "action": "set_if",
+      "condition": "consistency_rules.suppress_category_band_when_no_visible_findings == true AND category_breakdown[].visible_finding_count == 0",
+      "value": null
     }
   ],
-
   "output_projection": {
     "public_output": {
       "include_fields": [
@@ -100,16 +250,22 @@
         "priority_order": [
           "gate_effect.blocks_96_gate desc",
           "severity major>minor>info",
+          "category A>B>C>D>E",
           "deduction_band Høyt>Middels>Lavt",
+          "language_only_finding asc",
           "document_order"
         ]
       }
     }
   },
-
   "notes": [
     "Denne policyen forutsetter at findings inneholder gate_effect og severity (info/minor/major).",
-    "Numeriske trekk skjules for bruker, men deduction_band beholdes.",
-    "Full funnliste skal vises i første kjøring, ikke gradvis over flere runder."
+    "Numeriske trekk skjules for bruker, men deduction_band beholdes når det finnes synlige relaterte findings.",
+    "Full brukerrelevant funnliste skal vises i første kjøring, ikke gradvis over flere runder.",
+    "Kategorioppsummering skal ikke vise brukerrettet trekkbånd uten synlige relaterte funn.",
+    "Identiske funn og identiske forbedringspunkter skal dedupliseres før public output rendres.",
+    "Interne balansejusteringer og andre tekniske systemfunn skal ikke eksponeres som brukerrettede funn.",
+    "No-TG/HMS-punkter skal ikke presenteres med ordinær TG2/TG3-ARKAT-mangelretorikk.",
+    "Forslag til forbedring og eksempeltekst skal vises som skrivehjelp, ikke som ny observasjon eller ny konklusjon."
   ]
 }

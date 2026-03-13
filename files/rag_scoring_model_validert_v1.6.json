@@ -1,64 +1,124 @@
 {
   "model": "VALIDERT_TRYGGHETSSCORE",
-  "version": "1.6.4",
+  "version": "1.7.0",
   "score_start": 100,
   "no_bonus_points": true,
   "principles": [
-    "TG3 skal ha full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak).",
+    "TG3 skal ha full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak) + sjablongmessig kostnadsanslag.",
     "TG2 skal minst ha ARK (Årsak, Risiko, Konsekvens).",
     "Konsekvens skal være oversatt til kjøpers situasjon (bruk/økonomi/risiko).",
     "Alder alene er ikke tilstrekkelig grunnlag for TG3.",
     "TGIU skal være tydelig begrunnet og knyttet til hva som ikke er undersøkt.",
     "Språk skal være tydelig og ikke motstridende.",
-    "Kategori F (Lovlighetsmangler) scores av egen lovlighetsmodul (legal_compliance) og inngår via category_config. Denne modellen dekker primært A–E.",
-    "TG2 krever ARK (Årsak, Risiko, Konsekvens). TG3 krever ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak). TG2 skal ikke trekkes for manglende anbefalt tiltak.",
-    "96-gate og score-cap (til 95) styres via funn med gate_effect (blocks_96_gate/caps_total_score_to), ikke via hard_stop/hard_gates."
+    "Kategori F (Lovlighetsmangler) scores av egen lovlighetsmodul (legal_compliance) og inngår via category_config. Denne modellen dekker primært A–E. Lovlighetsopplysninger skal ikke gi trekk når takstmannen faktisk har opplyst forholdet korrekt.",
+    "TG2 krever ARK (Årsak, Risiko, Konsekvens). TG3 krever ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak) + sjablongmessig kostnadsanslag. TG2 skal ikke trekkes for manglende anbefalt tiltak.",
+    "96-gate og score-cap (til 95) styres via funn med gate_effect (blocks_96_gate/caps_total_score_to), ikke via hard_stop/hard_gates.",
+    "For E3 skal sammenkoblet hovedpunkt + korrekt lenket TG2/TG3-oppsummeringspunkt vurderes som én samlet kilde før scoring.",
+    "For TG3 kostnad er kostnadsklasse, intervall eller annet sjablongmessig kostnadsanslag gyldig oppfyllelse. Ett enkelt ca-beløp uten intervall eller kostnadsklasse skal ikke regnes som full oppfyllelse.",
+    "Konsekvens skal være praktisk forståelig for kjøper, men ordet «kjøper» behøver ikke stå eksplisitt.",
+    "For TG3 skal anbefalt tiltak anses oppfylt når rapporten inneholder en konkret anbefaling i felt merket Tiltak, Andre tiltak, Konsekvens/tiltak eller i fri løpende tekst i samme punkt.",
+    "For TG3 skal kostnadsintervall i normal tekstform, f.eks. '20 000 - 100 000' eller '200 000 - 500 000', godtas som sjablongmessig kostnadsanslag når det er tydelig knyttet til samme punkt.",
+    "I inline-maler skal strukturene Kommentar, Vurdering av avvik, Konsekvens/tiltak, Andre tiltak og Kostnadsestimat godtas som gyldig grunnlag for ARK/ARKAT-vurdering når de tydelig tilhører samme punkt.",
+    "Skillet mellom full mangel og forbedringsbehov skal håndheves tydelig: dersom årsak, risiko, konsekvens, tiltak eller kostnad finnes, men kan forbedres, skal dette som hovedregel gi et mindre forbedringsfunn og ikke et fullstendig metodebrudd.",
+    "Praktisk konsekvens for kjøper kan være tilstrekkelig uttrykt uten ordet 'kjøper' når teksten beskriver lekkasje, vanninntrenging, fuktskade, råteutvikling, følgeskader, skader på bygningskonstruksjon, redusert funksjon, økte vedlikeholds- eller utbedringskostnader, eller HMS-risiko.",
+    "Kostnadsklasse skal godtas som TG3-kostnad når rapportmalen uttrykkelig bruker kostnadsklasser som sjablongmodell for TG3-kostnader.",
+    "Elektrisk anlegg og andre HMS-forhold som etter 2026-reglene ikke skal tilstandsgradsettes, skal ikke vurderes som ordinære TG2/TG3-ARKAT-punkter. De skal vurderes særskilt ut fra om forholdet er opplyst, om konsekvens er forklart og om anbefaling/videre tiltak er gitt.",
+    "Samme underliggende avvik skal ikke produsere flere funn med lik praktisk betydning.",
+    "Når et funn gjelder svak eller manglende formulering av årsak, risiko, konsekvens, anbefalt tiltak, TGIU-beskrivelse eller no-TG/HMS-forklaring, skal modellen forsøke å generere både en kort forbedringsinstruks og en konkret, nøktern og punktspesifikk eksempeltekst som kan brukes som utgangspunkt for copy/paste.",
+    "Eksempeltekst skal være kort, ikke-prosjekterende, basert på opplysninger som allerede finnes i rapporten, og tilpasses både funntype, avvikstype og bygningsdel.",
+    "Eksempeltekst skal ikke være universell standardsats. Den skal være punktspesifikk og ikke finne opp nye fakta."
   ],
   "categories": [
-    { "id": "A", "name": "ARKAT-kvalitet (TG2/TG3)", "max_deduction": 40 },
-    { "id": "B", "name": "TG-setting og konsistens", "max_deduction": 20 },
-    { "id": "C", "name": "TGIU og undersøkelsesbegrensninger", "max_deduction": 15 },
-    { "id": "D", "name": "Klarspråk og struktur", "max_deduction": 15 },
-    { "id": "E", "name": "Metodikk og lovforankring", "max_deduction": 10 }
+    {
+      "id": "A",
+      "name": "ARKAT-kvalitet (TG2/TG3)",
+      "max_deduction": 40
+    },
+    {
+      "id": "B",
+      "name": "TG-setting og konsistens",
+      "max_deduction": 20
+    },
+    {
+      "id": "C",
+      "name": "TGIU og undersøkelsesbegrensninger",
+      "max_deduction": 15
+    },
+    {
+      "id": "D",
+      "name": "Klarspråk og struktur",
+      "max_deduction": 15
+    },
+    {
+      "id": "E",
+      "name": "Metodikk og lovforankring",
+      "max_deduction": 10
+    }
   ],
   "output_requirements": {
-    "include": ["score", "deductions", "findings", "improvements", "category_breakdown"],
-    "must_include": ["evidence_snippets", "recommended_fix_text"],
+    "include": [
+      "score",
+      "deductions",
+      "findings",
+      "improvements",
+      "category_breakdown"
+    ],
+    "must_include": [
+      "evidence_snippets",
+      "recommended_fix_text",
+      "rewrite_strategy",
+      "suggested_rewrite_text"
+    ],
     "language": "nb-NO"
   },
-  "updated_at": "2026-02-23",
+  "updated_at": "2026-03-12",
   "rule_catalog": [
     {
-  "id": "A_ARKAT.arsak_missing",
-  "category": "A",
-  "severity": "major",
-  "deduction": 8,
-  "trigger": "Årsak/begrunnelse mangler helt i en TG2/TG3-vurdering.",
-  "acceptance_criteria": [
-    "Godtas dersom TG begrunnes i samme setning som TG settes (f.eks. 'TG2 settes med bakgrunn i registrert...').",
-    "Godtas dersom formuleringer som 'med bakgrunn i', 'basert på', 'registrert', 'påvist', 'vurdert ut fra', 'konstatert', 'som følge av' brukes i direkte tilknytning til TG.",
-    "Godtas dersom TG tydelig knyttes til en konkret observert tilstand (riss, sprekk, fukt, svikt, slitasje, lekkasje, etc.).",
-    "Skal ikke trigges dersom årsak er implisitt, men tydelig koblet til faktisk registrert forhold."
-  ],
-  "trigger_if": {
-    "TG_level": ["TG2", "TG3"],
-    "no_explicit_or_implicit_reason": true
-  },
-  "does_not_accept": [
-    "TG står alene uten begrunnelse.",
-    "TG begrunnes kun med alder uten kobling til observert tilstand eller redusert funksjon.",
-    "Teksten beskriver kun tiltak eller konsekvens uten å forklare hvorfor TG er satt.",
-    "Generell formulering uten konkret kobling til faktisk tilstand."
-  ],
-  "remediation": "Legg til kort årsak/begrunnelse (1–2 setninger) for hvorfor TG er satt, knyttet til observert tilstand."
-},
+      "id": "A_ARKAT.arsak_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "Årsak/begrunnelse mangler helt i en TG2/TG3-vurdering.",
+      "acceptance_criteria": [
+        "Godtas dersom TG begrunnes i samme setning som TG settes (f.eks. 'TG2 settes med bakgrunn i registrert...').",
+        "Godtas dersom formuleringer som 'med bakgrunn i', 'basert på', 'registrert', 'påvist', 'vurdert ut fra', 'konstatert', 'som følge av' brukes i direkte tilknytning til TG.",
+        "Godtas dersom TG tydelig knyttes til en konkret observert tilstand (riss, sprekk, fukt, svikt, slitasje, lekkasje, etc.).",
+        "Godtas i inline-maler dersom årsak/observasjon fremgår i Kommentar, Vurdering av avvik eller tilsvarende felt for samme punkt.",
+        "Skal ikke trigges dersom årsak er implisitt, men tydelig koblet til faktisk registrert forhold.",
+        "Skal ikke trigges dersom årsak fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG2/TG3) for samme punkt."
+      ],
+      "trigger_if": {
+        "TG_level": [
+          "TG2",
+          "TG3"
+        ],
+        "no_explicit_or_implicit_reason": true
+      },
+      "does_not_accept": [
+        "TG står alene uten begrunnelse.",
+        "TG begrunnes kun med alder eller passert brukstid uten kobling til observert tilstand, redusert funksjon, dokumentert skade eller konkret risiko.",
+        "Teksten beskriver kun tiltak eller konsekvens uten å forklare hvorfor TG er satt.",
+        "Generell formulering uten konkret kobling til faktisk tilstand."
+      ],
+      "remediation": "Legg til kort årsak/begrunnelse (1–2 setninger) for hvorfor TG er satt, knyttet til observert tilstand.",
+      "rewrite_strategy": "cause_specific_clarification",
+      "suggested_rewrite_logic": "Lag én kort setning som knytter observert forhold direkte til hvorfor TG er satt, uten å legge til nye fakta."
+    },
     {
       "id": "A_ARKAT.konsekvens_missing",
       "category": "A",
       "severity": "major",
       "deduction": 10,
       "trigger": "Konsekvensfelt mangler helt i en TG2/TG3-vurdering.",
-      "remediation": "Beskriv konsekvens kort og kjøperorientert (bruk/økonomi/risiko)."
+      "remediation": "Beskriv konsekvens kort og kjøperorientert (bruk/økonomi/risiko).",
+      "acceptance_criteria": [
+        "Skal ikke trigges dersom konsekvens fremgår tydelig i hovedpunktet.",
+        "Skal ikke trigges dersom konsekvens fremgår i inline-felt som Konsekvens/tiltak eller tilsvarende for samme punkt.",
+        "Skal ikke trigges dersom konsekvens fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG2/TG3) for samme punkt.",
+        "Skal ikke trigges når konsekvens er implisitt, men praktisk tydelig uttrykt gjennom bruk, økonomi, sikkerhet eller videre skade."
+      ],
+      "rewrite_strategy": "consequence_contextual_missing",
+      "suggested_rewrite_logic": "Lag én kort konsekvenssetning basert på avvikstype og bygningsdel, med praktisk betydning for bruk, sikkerhet, økonomi eller videre skade."
     },
     {
       "id": "A_ARKAT.konsekvens_unclear",
@@ -68,11 +128,14 @@
       "trigger": "Konsekvens finnes, men er ikke tydelig praktisk presisert (bruk/sikkerhet/økonomi/videre skade). Skal ikke trigges kun fordi ordet «kjøper» mangler.",
       "acceptance_criteria": [
         "Ikke krev at ordet «kjøper» brukes eksplisitt.",
-        "Ikke trigge når konsekvens allerede inneholder praktisk implikasjon, f.eks. behov for utbedring/utskifting/rehabilitering/overvåkning/vedlikehold.",
-        "Ikke trigge når videre skade, bruksbegrensning, helse/sikkerhet eller kostnadsimplikasjon er tydelig eller implisitt uttrykt.",
+        "Ikke trigge når konsekvens allerede inneholder praktisk implikasjon, f.eks. behov for utbedring, utskifting, rehabilitering, overvåkning eller vedlikehold.",
+        "Ikke trigge når videre skade, vanninntrenging, lekkasje, fuktskade, råteutvikling, følgeskade, bygningsskade, bruksbegrensning, helse/sikkerhet eller kostnadsimplikasjon er tydelig eller implisitt uttrykt.",
+        "Ikke trigge når rapporten beskriver økte vedlikeholdskostnader, økt risiko for skade eller redusert funksjon som praktisk følge.",
         "Trigges kun når konsekvens i hovedsak er ren teknisk gjentakelse uten praktisk betydning."
       ],
-      "remediation": "Presiser konsekvens med 1 kort setning om praktisk betydning (bruk/sikkerhet/økonomi/videre skade)."
+      "remediation": "Presiser konsekvens med 1 kort setning om praktisk betydning (bruk/sikkerhet/økonomi/videre skade).",
+      "rewrite_strategy": "consequence_contextual_refinement",
+      "suggested_rewrite_logic": "Omskriv eksisterende konsekvens til en kortere og mer praktisk setning uten å endre faktainnholdet."
     },
     {
       "id": "A_ARKAT.risiko_missing",
@@ -80,7 +143,15 @@
       "severity": "major",
       "deduction": 6,
       "trigger": "Risiko mangler helt ved TG2/TG3 der det er relevant.",
-      "remediation": "Legg til kort risiko (hva kan skje hvis forholdet ikke håndteres)."
+      "remediation": "Legg til kort risiko (hva kan skje hvis forholdet ikke håndteres).",
+      "acceptance_criteria": [
+        "Skal ikke trigges dersom risiko fremgår tydelig i hovedpunktet.",
+        "Skal ikke trigges dersom risiko fremgår i inline-felt for samme punkt.",
+        "Skal ikke trigges dersom risiko fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG2/TG3) for samme punkt.",
+        "Skal bare trigges når risiko faktisk er relevant og mangler helt."
+      ],
+      "rewrite_strategy": "risk_contextual_missing",
+      "suggested_rewrite_logic": "Lag én kort risikosetning som beskriver hva som kan skje dersom forholdet ikke følges opp, basert på rapportens eksisterende observasjon."
     },
     {
       "id": "A_ARKAT.observasjon_unclear",
@@ -88,7 +159,9 @@
       "severity": "minor",
       "deduction": 3,
       "trigger": "Observasjon er uklar eller ikke målbar/beskrivende nok.",
-      "remediation": "Presiser hva som er observert (lokasjon, omfang, type avvik)."
+      "remediation": "Presiser hva som er observert (lokasjon, omfang, type avvik).",
+      "rewrite_strategy": "observation_clarification",
+      "suggested_rewrite_logic": "Lag én kort setning som gjør observasjonen mer konkret med lokasjon, omfang eller type avvik, uten å legge til nye fakta."
     },
     {
       "id": "A_ARKAT.tiltak_imperativ",
@@ -97,7 +170,9 @@
       "deduction": 3,
       "trigger": "Anbefalt tiltak er formulert som ordre/pålegg eller fremstår prosjekterende.",
       "note": "Ikke hard gate. Kun trekk ved tydelig prosjekterende/ordrepreget språk.",
-      "remediation": "Omformuler til nøkternt anbefalt tiltak (f.eks. 'Det anbefales å…')."
+      "remediation": "Omformuler til nøkternt anbefalt tiltak (f.eks. 'Det anbefales å…').",
+      "rewrite_strategy": "measure_tone_refinement",
+      "suggested_rewrite_logic": "Omskriv tiltaket til nøktern anbefalingsstil uten prosjekterende språk."
     },
     {
       "id": "A_ARKAT.TG3.tiltak_vague_without_necessity",
@@ -105,20 +180,29 @@
       "severity": "minor",
       "deduction": 3,
       "trigger": "TG3-tiltak er vagt uten behov (f.eks. 'vurder forbedring', 'bør sees på').",
-      "remediation": "Gjør tiltaket konkret og realistisk (f.eks. utskiftning/utbedring/videre undersøkelser)."
+      "remediation": "Gjør tiltaket konkret og realistisk (f.eks. utskiftning/utbedring/videre undersøkelser).",
+      "rewrite_strategy": "measure_contextual_refinement",
+      "suggested_rewrite_logic": "Lag ett konkret og nøkternt tiltak som passer avvikstypen og bygningsdelen, uten å prosjektere detaljløsninger."
     },
     {
       "id": "A_ARKAT.TG3.tiltak_missing",
       "category": "A",
       "severity": "major",
       "deduction": 10,
-      "trigger": "TG3-vurdering mangler anbefalt tiltak.",
+      "trigger": "TG3-vurdering mangler anbefalt tiltak. Skal bare trigges når konkret anbefaling faktisk mangler i samlet punkttekst.",
       "acceptance_criteria": [
         "Gjelder kun TG3.",
-        "Tiltak skal være konkret og realistisk (ikke 'forbedre drenering').",
-        "Tiltak skal ikke være prosjekterende; hold det nøkternt og anbefal avklaring/utbedring."
+        "Tiltak skal være konkret og realistisk (ikke bare generell oppfordring uten innhold).",
+        "Tiltak skal ikke være prosjekterende; hold det nøkternt og anbefal avklaring/utbedring.",
+        "Skal ikke trigges dersom anbefalt tiltak fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG3) for samme punkt.",
+        "Skal ikke trigges dersom konkret anbefaling står under felt merket Tiltak eller Andre tiltak.",
+        "Skal ikke trigges dersom konkret anbefaling fremgår i felt merket Konsekvens/tiltak for samme punkt.",
+        "Skal ikke trigges dersom konkret anbefaling fremgår som fri løpende tekst i samme punkt, f.eks. totalrenovering, utskiftning, utbedring, videre undersøkelser, fjerning av skadet konstruksjon, montering eller etablering av riktig løsning.",
+        "Dersom tiltak finnes, men kan være tydeligere eller mer forbrukervennlig, skal dette som hovedregel gi et mindre forbedringsfunn og ikke TG3-tiltak-mangel."
       ],
-      "remediation": "Oppgi anbefalt tiltak kort og konkret, f.eks. 'Utskiftning av drenering' / 'Etablere dokumentert tettesjikt' / 'Videre undersøkelser av fagperson'."
+      "remediation": "Oppgi anbefalt tiltak kort og konkret, f.eks. 'Utskiftning av drenering' / 'Etablere dokumentert tettesjikt' / 'Videre undersøkelser av fagperson'.",
+      "rewrite_strategy": "measure_contextual_missing",
+      "suggested_rewrite_logic": "Lag ett kort og konkret tiltak som passer den beskrevne skaden eller svakheten, uten å finne opp nye tekniske løsninger."
     },
     {
       "id": "B_TG.inconsistent_with_text",
@@ -133,8 +217,17 @@
       "category": "B",
       "severity": "major",
       "deduction": 10,
-      "trigger": "TG2/TG3 begrunnet hovedsakelig med alder uten tilstrekkelig faglig begrunnelse.",
-      "remediation": "Knytt TG til observert tilstand, redusert brukstid eller dokumentert skade/funksjonssvikt."
+      "trigger": "TG2/TG3 begrunnet hovedsakelig med alder eller passert brukstid uten tilstrekkelig faglig begrunnelse.",
+      "acceptance_criteria": [
+        "Skal bare trigges når alder, levetid eller passert brukstid faktisk er hovedbegrunnelsen for TG.",
+        "Skal ikke trigges når punktet i tillegg har tydelig observert skade, funksjonssvikt, lekkasje, fukt, slitasje, svekket funksjon eller annen konkret tilstandsobservasjon.",
+        "Skal ikke trigges når risiko og konsekvens er tydelig forklart utover ren aldershenvisning.",
+        "Skal ikke trigges bare fordi alder nevnes som en del av en ellers faglig dekket vurdering.",
+        "Skal heller ikke trigges når aldershenvisning suppleres med konkret anbefaling om overvåkning, vedlikehold eller videre undersøkelser og teksten ellers gir en faglig bærebjelke."
+      ],
+      "remediation": "Knytt TG til observert tilstand, redusert brukstid, dokumentert skade, funksjonssvikt eller konkret risiko. Ikke bruk alder alene som hovedbegrunnelse.",
+      "rewrite_strategy": "age_only_contextual_refinement",
+      "suggested_rewrite_logic": "Lag en kort setning som kobler eksisterende observasjon, risiko eller funksjonsvurdering tydeligere til TG, uten å finne opp nye skader."
     },
     {
       "id": "C_TGIU.missing_limitations",
@@ -142,7 +235,32 @@
       "severity": "major",
       "deduction": 6,
       "trigger": "Relevant undersøkelsesbegrensning er ikke opplyst.",
-      "remediation": "Oppgi hva som ikke er undersøkt og hvorfor, samt mulig betydning."
+      "remediation": "Oppgi hva som ikke er undersøkt og hvorfor, samt mulig betydning.",
+      "acceptance_criteria": [
+        "Skal trigges når undersøkelsesbegrensning er relevant, men det ikke er opplyst hva som ikke er undersøkt eller hvorfor.",
+        "Skal ikke trigges når rapporten tydelig opplyser hva som ikke er undersøkt, hvorfor undersøkelsen ikke lot seg gjennomføre, eller hvilke begrensninger som forelå.",
+        "TGIU skal vurderes særskilt og ikke blandes med ordinær TG2/TG3-logikk.",
+        "Dersom begrensningen er opplyst, men kan beskrives tydeligere, skal dette normalt gi et mindre forbedringsfunn og ikke full TGIU-mangel."
+      ],
+      "rewrite_strategy": "tgiu_limitations_clarification",
+      "suggested_rewrite_logic": "Lag en kort TGIU-tekst som sier hva som ikke ble undersøkt, hvorfor det ikke lot seg gjøre og hva konsekvensen av dette er."
+    },
+    {
+      "id": "A_NO_TG_HMS.explanation_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Elektrisk anlegg eller annet HMS-forhold som ikke skal tilstandsgradsettes er opplyst, men konsekvens og/eller anbefaling er for svakt forklart.",
+      "acceptance_criteria": [
+        "Gjelder punkter som etter 2026-reglene ikke skal ha TG, men som fortsatt skal beskrives faglig.",
+        "Skal ikke vurderes som ordinært TG2/TG3-ARKAT-punkt.",
+        "Skal ikke trigges når forholdet er opplyst, konsekvensen er forklart og anbefaling eller videre oppfølging er gitt på en forståelig måte.",
+        "Skal ikke trigges når rapporten har egen struktur med årsak, risiko, konsekvens og anbefalte tiltak for samme no-TG/HMS-punkt.",
+        "Skal bare trigges når beskrivelsen er så knapp eller teknisk at kjøper ikke forstår praktisk betydning eller anbefalt oppfølging."
+      ],
+      "remediation": "Forklar kort hva forholdet gjelder, hva konsekvensen/praktisk risikoen er, og hva som anbefales videre.",
+      "rewrite_strategy": "no_tg_hms_explanation",
+      "suggested_rewrite_logic": "Lag en kort og nøktern tekst som forklarer forholdet, praktisk konsekvens og anbefalt oppfølging uten å bruke TG-retorikk."
     },
     {
       "id": "D_LANGUAGE.long_sentences",
@@ -164,33 +282,70 @@
       "severity": "minor",
       "deduction": 2,
       "trigger": "Fagspråk brukes uten forklaring for kjøper.",
-      "remediation": "Forklar kort hva uttrykket betyr i praksis."
+      "remediation": "Forklar kort hva uttrykket betyr i praksis.",
+      "rewrite_strategy": "jargon_clarification",
+      "suggested_rewrite_logic": "Forklar det tekniske uttrykket i én kort setning med praktisk betydning."
     },
     {
-"id": "E_METHOD.tg3_cost_missing",
-"category": "E",
-"severity": "major",
-"deduction": 6,
-"trigger": "TG3 mangler sjablonmessig kostnadsanslag (intervall eller kostnadsklasse). Enkeltbeløp alene regnes ikke som sjablonmessig.",
-"acceptance_criteria": [
-"Gjelder kun TG3.",
-"Godtas dersom punktet inneholder sjablonmessig kostnad som intervall (min–maks), f.eks. '100 000–300 000', 'kr 200.000 - 350.000' eller tilsvarende.",
-"Godtas dersom punktet inneholder kostnadsklasse, f.eks. 'lav/middels/høy' eller tydelig klasse som er knyttet til et intervall (enten eksplisitt eller via malens standard).",
-"Godtas dersom formulering tydelig uttrykker sjablon/usikkerhet, f.eks. 'kan ligge i størrelsesorden', 'anslås i intervallet', 'i størrelsesorden ca. X–Y'.",
-"Skal IKKE godtas dersom punktet kun oppgir ett enkelt kr-beløp uten intervall/klasse/usikkerhetsangivelse (f.eks. 'Estimert kostnad: 50 000,-').",
-"Skal IKKE godtas dersom beløpet fremstår som konkret tilbudspris/fastpris uten sjablonramme."
-],
-"remediation": "Oppgi sjablonmessig kostnad for TG3: bruk kostnadsklasse (lav/middels/høy) eller et intervall (f.eks. '100 000–300 000'). Unngå enkeltbeløp alene uten intervall/klasse/usikkerhet.",
-"note": "Regelen er sjablon-basert: enkeltbeløp uten intervall/klasse skal trigge trekk selv om beløpet står under 'Estimert kostnad'."
-},
+      "id": "E_METHOD.tg3_cost_missing",
+      "category": "E",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "TG3 mangler sjablongmessig kostnadsanslag helt. Kostnadsklasse, intervall eller annet sjablongmessig kostnadsanslag oppfyller kravet. Enkeltbeløp alene regnes ikke som full oppfyllelse.",
+      "acceptance_criteria": [
+        "Gjelder kun TG3.",
+        "Godtas dersom punktet inneholder sjablongmessig kostnad som intervall (min–maks), inkludert vanlig tekstform som '20 000 - 100 000', '200 000 - 500 000', 'kr 200.000 - 350.000' eller tilsvarende.",
+        "Godtas dersom punktet har felt merket Kostnadsestimat med intervall eller tilsvarende sjablongtekst.",
+        "Godtas dersom punktet inneholder kostnadsklasse, f.eks. lav/middels/høy eller tydelig klasse som er knyttet til malens standard kostnadsramme.",
+        "Godtas dersom rapportmalen uttrykkelig bruker kostnadsklasser som sjablongmodell for TG3-kostnader.",
+        "Godtas dersom formulering tydelig uttrykker sjablong/usikkerhet, f.eks. kan ligge i størrelsesorden, anslås i intervallet eller i størrelsesorden ca. X–Y.",
+        "Godtas også når kostnaden fremgår i korrekt lenket E3-oppsummering for samme TG3-punkt.",
+        "Skal IKKE trigges dersom punktet har kostnadsklasse eller intervall selv om dette står i hovedteksten, kostnadsestimat-feltet, inline-strukturen eller på oppsummeringssiden.",
+        "Skal trigges bare når kostnadsanslag mangler helt.",
+        "Dersom kostnad finnes, men er unøyaktig formulert innenfor en gyldig sjablongmodell, skal dette normalt gi et mindre forbedringsfunn og ikke full kostmangel."
+      ],
+      "remediation": "Oppgi sjablongmessig kostnad for TG3: bruk kostnadsklasse (lav/middels/høy) eller et intervall (f.eks. «100 000–300 000»).",
+      "rewrite_strategy": "cost_estimate_clarification",
+      "suggested_rewrite_logic": "Lag et kort forslag som ber om kostnadsklasse eller intervall, men ikke oppgi nye tall hvis rapporten ikke allerede gir grunnlag for det."
+    },
+    {
+      "id": "E_METHOD.tg3_cost_single_amount_only",
+      "category": "E",
+      "severity": "minor",
+      "deduction": 4,
+      "trigger": "TG3 har kun ett enkeltbeløp eller ca-beløp som kostnadsanslag, uten intervall eller kostnadsklasse.",
+      "acceptance_criteria": [
+        "Gjelder kun TG3.",
+        "Trigges når rapporten bare oppgir ett enkelt kr-beløp eller omtrent-beløp uten intervall, kostnadsklasse eller annen tydelig sjablongramme.",
+        "Skal ikke trigges dersom rapporten i tillegg oppgir kostnadsklasse, intervall eller annet sjablongmessig kostnadsanslag.",
+        "Skal ikke trigges dersom kostnadsklasse eller intervall fremgår i korrekt lenket E3-oppsummering for samme punkt.",
+        "Skal ikke trigges når rapporten bruker vanlig intervalltekst som '20 000 - 100 000' eller tilsvarende.",
+        "Skal ikke trigges når rapportmalen bruker kostnadsklasse som eksplisitt sjablongmodell."
+      ],
+      "remediation": "Erstatt enkeltbeløp alene med kostnadsklasse (lav/middels/høy) eller intervall.",
+      "rewrite_strategy": "cost_estimate_single_amount_refinement",
+      "suggested_rewrite_logic": "Be om at enkeltbeløpet omgjøres til kostnadsklasse eller intervall uten å foreslå nye tall."
+    },
     {
       "id": "GATE_TG2_ARK_MISSING",
       "category": "A",
       "severity": "major",
       "deduction": 0,
-      "gate_effect": { "blocks_96_gate": true, "caps_total_score_to": 95 },
-      "trigger": "TG2 mangler en eller flere av ARK-delene (Årsak/Risiko/Konsekvens).",
-      "trigger_if": { "TG_level": ["TG2"], "missing_any": ["arsak", "risiko", "konsekvens"] },
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "TG2 mangler en eller flere av ARK-delene (Årsak/Risiko/Konsekvens) etter vurdering av samlet punkttekst og korrekt lenket oppsummering.",
+      "trigger_if": {
+        "TG_level": [
+          "TG2"
+        ],
+        "missing_any": [
+          "arsak",
+          "risiko",
+          "konsekvens"
+        ]
+      },
       "remediation": "For TG2: legg til kort Årsak, Risiko og Konsekvens (køper-orientert)."
     },
     {
@@ -198,9 +353,22 @@
       "category": "A",
       "severity": "major",
       "deduction": 0,
-      "gate_effect": { "blocks_96_gate": true, "caps_total_score_to": 95 },
-      "trigger": "TG3 mangler en eller flere av ARKAT-delene (Årsak/Risiko/Konsekvens/Anbefalt tiltak).",
-      "trigger_if": { "TG_level": ["TG3"], "missing_any": ["arsak", "risiko", "konsekvens", "anbefalt_tiltak"] },
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "TG3 mangler en eller flere av ARKAT-delene (Årsak/Risiko/Konsekvens/Anbefalt tiltak) etter vurdering av samlet punkttekst og korrekt lenket oppsummering.",
+      "trigger_if": {
+        "TG_level": [
+          "TG3"
+        ],
+        "missing_any": [
+          "arsak",
+          "risiko",
+          "konsekvens",
+          "anbefalt_tiltak"
+        ]
+      },
       "remediation": "For TG3: legg til Årsak, Risiko, Konsekvens og Anbefalt tiltak (kort og konkret)."
     },
     {
@@ -208,9 +376,18 @@
       "category": "A",
       "severity": "major",
       "deduction": 0,
-      "gate_effect": { "blocks_96_gate": true, "caps_total_score_to": 95 },
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
       "trigger": "Konsekvens er mangelfull eller kun teknisk – ikke oversatt til kjøpers situasjon. Skal ikke trigges bare fordi ordet «kjøper» mangler.",
-      "trigger_if": { "TG_level": ["TG2", "TG3"], "konsekvens_missing_or_only_technical": true },
+      "trigger_if": {
+        "TG_level": [
+          "TG2",
+          "TG3"
+        ],
+        "konsekvens_missing_or_only_technical": true
+      },
       "remediation": "Presiser konsekvens for kjøper: bruk/økonomi/risiko (1 setning)."
     },
     {
@@ -218,9 +395,14 @@
       "category": "B",
       "severity": "major",
       "deduction": 0,
-      "gate_effect": { "blocks_96_gate": true, "caps_total_score_to": 95 },
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
       "trigger": "Alvorlig inkonsistens mellom TG og tekstlig alvorlighetsgrad.",
-      "trigger_if": { "tg_text_mismatch": "severe" },
+      "trigger_if": {
+        "tg_text_mismatch": "severe"
+      },
       "remediation": "Harmoniser TG og tekst: enten juster TG, eller juster teksten slik at den samsvarer."
     },
     {
@@ -228,9 +410,16 @@
       "category": "D",
       "severity": "major",
       "deduction": 0,
-      "gate_effect": { "blocks_96_gate": true, "caps_total_score_to": 95 },
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
       "trigger": "Systematisk blanding av observasjon og vurdering som gir utydelig språk for kjøper.",
-      "trigger_if": { "observation_contains_evaluation": { "repeated": true } },
+      "trigger_if": {
+        "observation_contains_evaluation": {
+          "repeated": true
+        }
+      },
       "remediation": "Skill tydelig mellom hva som er observert og hva som er vurdert/konkludert."
     }
   ],
@@ -240,15 +429,41 @@
     "score_ceiling": 100,
     "deduct_per_occurrence": true,
     "aggregate_level": "bygningsdel",
-    "category_caps": { "A": 40, "B": 20, "C": 15, "D": 15, "E": 10 },
-    "severity_weights": { "info": 0, "minor": 1, "major": 1 },
+    "category_caps": {
+      "A": 40,
+      "B": 20,
+      "C": 15,
+      "D": 15,
+      "E": 10
+    },
+    "severity_weights": {
+      "info": 0,
+      "minor": 1,
+      "major": 1
+    },
     "notes": [
       "TG2 skal ikke trekkes for manglende anbefalt tiltak.",
       "Dobbelttrekk skal unngås hvis samme avvik fanges av flere moduler.",
-      "Gate/cap er gate_effect-basert; gate-funn har deduction=0."
+      "Samme underliggende avvik skal ikke gi flere funn med lik praktisk betydning.",
+      "Gate/cap er gate_effect-basert; gate-funn har deduction=0.",
+      "For E3 skal korrekt lenket TG2/TG3-oppsummering vurderes sammen med hovedpunktet før ARK/ARKAT- og kostnadsregler trigges.",
+      "For inline-maler skal Kommentar, Vurdering av avvik, Konsekvens/tiltak, Andre tiltak og Kostnadsestimat vurderes samlet før ARK/ARKAT- og kostnadsregler trigges.",
+      "TG3 kostnad: mangler helt = høyt trekk; kun enkeltbeløp uten intervall/klasse = middels trekk; intervall eller kostnadsklasse = OK.",
+      "For TG3 skal konkret anbefaling i feltet Tiltak, Andre tiltak, Konsekvens/tiltak eller i fri løpende tekst godtas som anbefalt tiltak når den tydelig er knyttet til samme punkt.",
+      "Vanlige kostnadsintervaller i løpende tekst, f.eks. '20 000 - 100 000', og Kostnadsestimat-felt med intervall skal godtas som TG3-kostnad når de tydelig gjelder samme punkt.",
+      "Kostnadsklasse skal godtas som TG3-kostnad når rapporten uttrykkelig bruker kostnadsklasser som sjablongmodell.",
+      "Når konsekvens finnes, men kan forbedres språklig, skal dette normalt gi et lite forbedringsfunn og ikke full metode-mangel.",
+      "Elektrisk anlegg og andre HMS-forhold uten TG skal vurderes særskilt og ikke som ordinære TG2/TG3-ARKAT-avvik.",
+      "For relevante funn skal modellen produsere både en forbedringsinstruks og en konkret, kort og punktspesifikk eksempeltekst som kan brukes som skrivehjelp."
     ]
   },
-  "handled_categories": ["A", "B", "C", "D", "E"],
+  "handled_categories": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
   "external_modules": [
     {
       "module_id": "validert_lovlighet",

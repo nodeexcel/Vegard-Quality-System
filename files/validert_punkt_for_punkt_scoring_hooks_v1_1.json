@@ -1,6 +1,6 @@
 {
-  "version": "1.5",
-  "description_nb": "Scoring hooks aligned to original v3.4 12-parent architecture.",
+  "version": "1.8",
+  "description_nb": "Scoring hooks aligned to original v3.4 12-parent architecture, with locked TG2/TG3 ARKAT logic, neutral NOT_FOUND handling, TGIU special handling, no-TG HMS handling, inline measure/cost acceptance and stronger duplicate protection.",
   "parent_rollup": {
     "aggregate_child_deductions_to_parent": true,
     "aggregate_instance_deductions_to_parent": true,
@@ -16,16 +16,109 @@
       "note_nb": "Elektrisk anlegg skal beskrives uten TG etter NS3600:2025-logikk."
     },
     {
+      "rule_id": "NO_TG_HMS_SPECIAL_HANDLING",
+      "applies_to_child_ids": [
+        "P09F_ELECTRICAL_INSTALLATION"
+      ],
+      "condition": "report_date >= 2026-01-01",
+      "effect": "do not evaluate as ordinary TG2/TG3 ARKAT finding; evaluate explanatory quality, consequence clarity and recommendation quality separately; suppress ordinary TG2/TG3 missing logic",
+      "note_nb": "Elektrisk anlegg og tilsvarende HMS-forhold uten TG skal ikke vurderes som ordinære TG2/TG3-punkter."
+    },
+    {
       "rule_id": "LAWFULNESS_AND_SAFETY_NO_TG",
       "applies_to_parent_id": "P11_LAWFULNESS_AND_SAFETY",
       "condition": "TG_is_required_or_missing",
-      "effect": "ignore TG requirement; validate årsak/konsekvens instead"
+      "effect": "ignore TG requirement; do not deduct when lawful or safety-related information is actually disclosed in report text"
     },
     {
       "rule_id": "SUPPLEMENTARY_INFORMATION_NO_TG",
       "applies_to_parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "condition": "TG_is_required_or_missing",
-      "effect": "ignore TG requirement; validate explanatory quality instead"
+      "effect": "ignore TG requirement; validate explanatory quality only"
+    },
+    {
+      "rule_id": "NOT_FOUND_IN_REPORT_IS_NEUTRAL",
+      "condition": "status == NOT_FOUND_IN_REPORT",
+      "effect": "do not deduct unless a separate explicit mandatory-rule violation is present",
+      "note_nb": "Ikke funnet i rapport er nøytralt som utgangspunkt."
+    },
+    {
+      "rule_id": "TG2_REQUIRE_ARK_ONLY",
+      "condition": "TG == 2",
+      "effect": "require årsak, risiko and konsekvens only; do not require anbefalt tiltak",
+      "note_nb": "TG2 skal kun vurderes mot ARK."
+    },
+    {
+      "rule_id": "TG2_MISSING_ANBEFALT_TILTAK_NO_DEDUCTION",
+      "condition": "TG == 2 AND anbefalt_tiltak_missing == true",
+      "effect": "do not deduct",
+      "note_nb": "Manglende ANBEFALT TILTAK på TG2 skal ikke gi trekk."
+    },
+    {
+      "rule_id": "TG3_REQUIRE_FULL_ARKAT_AND_COST",
+      "condition": "TG == 3",
+      "effect": "require årsak, risiko, konsekvens, anbefalt_tiltak and schematic_cost_estimate",
+      "note_nb": "TG3 skal vurderes mot full ARKAT og sjablongmessig kostnadsanslag."
+    },
+    {
+      "rule_id": "TG3_TILTAK_ACCEPT_TILTAK_OR_ANDRE_TILTAK_OR_KONSEKVENS_TILTAK_OR_FREE_TEXT",
+      "condition": "TG == 3 AND (tiltak_present == true OR andre_tiltak_present == true OR konsekvens_tiltak_present == true OR concrete_recommended_measure_in_free_text == true)",
+      "effect": "treat tiltak requirement as satisfied",
+      "note_nb": "For TG3 skal konkret anbefaling i Tiltak, Andre tiltak, Konsekvens/tiltak eller tydelig fri tekst godtas som ANBEFALT TILTAK."
+    },
+    {
+      "rule_id": "TG3_TILTAK_WEAK_ONLY_IS_MINOR",
+      "condition": "TG == 3 AND tiltak_present != true AND andre_tiltak_present != true AND konsekvens_tiltak_present != true AND concrete_recommended_measure_in_free_text != true AND vague_measure_guidance_present == true",
+      "effect": "do not treat as full tiltak missing; allow only minor improvement finding",
+      "note_nb": "Når tiltak finnes i svak eller lite presis form, skal dette normalt gi forbedringsfunn og ikke full tiltaksmangel."
+    },
+    {
+      "rule_id": "TG3_COST_ACCEPT_COST_CLASS",
+      "condition": "TG == 3 AND cost_class_present == true",
+      "effect": "treat cost requirement as satisfied",
+      "note_nb": "Kostnadsklasse lav/middels/høy oppfyller kravet til sjablongmessig kostnadsanslag."
+    },
+    {
+      "rule_id": "TG3_COST_ACCEPT_INTERVAL",
+      "condition": "TG == 3 AND cost_interval_present == true",
+      "effect": "treat cost requirement as satisfied",
+      "note_nb": "Kostnadsintervall oppfyller kravet til sjablongmessig kostnadsanslag, også når intervallet står i vanlig løpende tekst eller i feltet Kostnadsestimat."
+    },
+    {
+      "rule_id": "TG3_COST_ACCEPT_OTHER_SCHEMATIC_ESTIMATE",
+      "condition": "TG == 3 AND other_schematic_cost_estimate_present == true",
+      "effect": "treat cost requirement as satisfied",
+      "note_nb": "Annet sjablongmessig kostnadsanslag oppfyller kostnadskravet."
+    },
+    {
+      "rule_id": "TG3_COST_ACCEPT_COST_CLASS_MODEL",
+      "condition": "TG == 3 AND report_uses_cost_class_as_schematic_model == true AND cost_class_present == true",
+      "effect": "treat cost requirement as satisfied",
+      "note_nb": "Når rapportmalen uttrykkelig bruker kostnadsklasser som sjablongmodell, skal kostnadsklasse alltid godtas som oppfylt TG3-kostnad."
+    },
+    {
+      "rule_id": "TG3_COST_MISSING_ONLY_WHEN_TRULY_ABSENT",
+      "condition": "TG == 3 AND cost_class_present != true AND cost_interval_present != true AND other_schematic_cost_estimate_present != true",
+      "deduction_band": "high",
+      "note_nb": "Manglende sjablongmessig kostnadsanslag på TG3 skal bare gi trekk når kostnad faktisk mangler."
+    },
+    {
+      "rule_id": "TG3_COST_SINGLE_AMOUNT_ONLY_IS_MEDIUM",
+      "condition": "TG == 3 AND single_amount_only_present == true AND cost_class_present != true AND cost_interval_present != true AND other_schematic_cost_estimate_present != true",
+      "deduction_band": "medium",
+      "note_nb": "Kun enkeltbeløp uten intervall eller kostnadsklasse skal gi middels trekk, ikke høyt trekk."
+    },
+    {
+      "rule_id": "TGIU_SPECIAL_HANDLING",
+      "condition": "TG == TGIU",
+      "effect": "evaluate TGIU separately and do not treat TGIU as ordinary TG2 or TG3",
+      "note_nb": "TGIU skal alltid vurderes særskilt."
+    },
+    {
+      "rule_id": "DEDUP_IDENTICAL_FINDINGS",
+      "condition": "same_point_id == true AND same_rule_family == true AND same_category == true AND same_remediation_intent == true",
+      "effect": "collapse duplicate findings into one visible finding and one scoring event",
+      "note_nb": "Identiske funn skal ikke rendres eller trekkes flere ganger."
     }
   ]
 }

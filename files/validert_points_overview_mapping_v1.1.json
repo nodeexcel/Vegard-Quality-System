@@ -1,6 +1,6 @@
 {
-  "version": "1.6",
-  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture.",
+  "version": "1.7",
+  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture, with strengthened E3 heading coverage for P11/P12 and E3-specific composite headings.",
   "source_normalization": {
     "lowercase": true,
     "trim": true,
@@ -120,11 +120,13 @@
       "parent_id": "P01_GROUND_AND_FOUNDATIONS",
       "aliases": [
         "byggegrunn",
-        "grunnforhold"
+        "grunnforhold",
+        "byggegrunn, fundamenter, grunnmur og sikring mot vann og fuktighet"
       ],
       "regex_any": [
         "\\bbyggegrunn\\b",
-        "\\bgrunnforhold\\b"
+        "\\bgrunnforhold\\b",
+        "\\bbyggegrunn, fundamenter, grunnmur og sikring mot vann og fuktighet\\b"
       ]
     },
     {
@@ -142,10 +144,12 @@
       "child_id": "P01C_FOUNDATION_WALLS",
       "parent_id": "P01_GROUND_AND_FOUNDATIONS",
       "aliases": [
-        "grunnmur"
+        "grunnmur",
+        "grunn og fundamenter"
       ],
       "regex_any": [
-        "\\bgrunnmur\\b"
+        "\\bgrunnmur\\b",
+        "\\bgrunn og fundamenter\\b"
       ]
     },
     {
@@ -191,7 +195,8 @@
       ],
       "regex_any": [
         "\\bfuktsikring\\b",
-        "\\bvann og fuktighet\\b"
+        "\\bvann og fuktighet\\b",
+        "\\bsikring mot vann og fuktighet\\b"
       ]
     },
     {
@@ -200,12 +205,14 @@
       "aliases": [
         "yttervegger",
         "fasader",
-        "veggkonstruksjon"
+        "veggkonstruksjon",
+        "yttervegger og veggkonstruksjon"
       ],
       "regex_any": [
         "\\byttervegg",
         "\\bfasad",
-        "\\bveggkonstruksjon\\b"
+        "\\bveggkonstruksjon\\b",
+        "\\byttervegger og veggkonstruksjon\\b"
       ]
     },
     {
@@ -266,11 +273,13 @@
       "aliases": [
         "ytterdører",
         "ytterdør",
-        "utvendige dører"
+        "utvendige dører",
+        "vinduer og ytterdører"
       ],
       "regex_any": [
         "\\bytterd",
-        "\\butvendige dører\\b"
+        "\\butvendige dører\\b",
+        "\\bvinduer og ytterdører\\b"
       ]
     },
     {
@@ -279,22 +288,28 @@
       "aliases": [
         "takkonstruksjon",
         "takstoler",
-        "bærende takkonstruksjon"
+        "bærende takkonstruksjon",
+        "takkonstruksjon, taktekking og skorstein over tak"
       ],
       "regex_any": [
         "\\btakkonstruksjon\\b",
         "\\btakstoler?\\b",
-        "\\bbærende takkonstruksjon\\b"
+        "\\bbærende takkonstruksjon\\b",
+        "\\btakkonstruksjon, taktekking og skorstein over tak\\b"
       ]
     },
     {
       "child_id": "P04B_UNDERLAY",
       "parent_id": "P04_ROOF",
       "aliases": [
-        "undertak"
+        "undertak",
+        "undertak, lekter og yttertekking",
+        "undertak, lekter og yttertekking (taktekkingen)"
       ],
       "regex_any": [
-        "\\bundertak\\b"
+        "\\bundertak\\b",
+        "\\bundertak, lekter og yttertekking\\b",
+        "\\bundertak, lekter og yttertekking \\(taktekkingen\\)\\b"
       ]
     },
     {
@@ -359,10 +374,12 @@
       "parent_id": "P05_EXTERIOR_STRUCTURES",
       "aliases": [
         "balkong",
-        "balkonger"
+        "balkonger",
+        "balkonger, verandaer og lignende"
       ],
       "regex_any": [
-        "\\bbalkong"
+        "\\bbalkong",
+        "\\bbalkonger, verandaer og lignende\\b"
       ]
     },
     {
@@ -493,14 +510,18 @@
         "bad",
         "vaskerom",
         "dusjrom",
-        "baderom"
+        "baderom",
+        "bad/wc/vaskerom",
+        "bad / wc / vaskerom"
       ],
       "regex_any": [
         "\\bvåtrom\\b",
         "\\bbad\\b",
         "\\bvaskerom\\b",
         "\\bdusjrom\\b",
-        "\\bbaderom\\b"
+        "\\bbaderom\\b",
+        "\\bbad\\/wc\\/vaskerom\\b",
+        "\\bbad\\s*\\/\\s*wc\\s*\\/\\s*vaskerom\\b"
       ]
     },
     {
@@ -609,12 +630,14 @@
       "aliases": [
         "vannledninger",
         "vannrør",
-        "innvendige vannledninger"
+        "innvendige vannledninger",
+        "wc og innvendige vann- og avløpsrør"
       ],
       "regex_any": [
         "\\bvannledninger\\b",
         "\\bvannrør\\b",
-        "\\binnvendige vannledninger\\b"
+        "\\binnvendige vannledninger\\b",
+        "\\bwc og innvendige vann- og avløpsrør\\b"
       ]
     },
     {
@@ -622,11 +645,13 @@
       "parent_id": "P09_TECHNICAL_INSTALLATIONS",
       "aliases": [
         "avløpsrør",
-        "innvendige avløpsrør"
+        "innvendige avløpsrør",
+        "wc og innvendige vann- og avløpsrør"
       ],
       "regex_any": [
         "\\bavløpsrør\\b",
-        "\\binnvendige avløpsrør\\b"
+        "\\binnvendige avløpsrør\\b",
+        "\\bwc og innvendige vann- og avløpsrør\\b"
       ]
     },
     {
@@ -660,13 +685,15 @@
         "oppvarming",
         "varmeanlegg",
         "vannbåren varme",
-        "varmesentral"
+        "varmesentral",
+        "varmesentraler"
       ],
       "regex_any": [
         "\\boppvarming\\b",
         "\\bvarmeanlegg\\b",
         "\\bvannbåren varme\\b",
-        "\\bvarmesentral\\b"
+        "\\bvarmesentral\\b",
+        "\\bvarmesentraler\\b"
       ]
     },
     {
@@ -675,12 +702,14 @@
       "aliases": [
         "elektrisk anlegg",
         "el-anlegg",
-        "samsvarserklæring"
+        "samsvarserklæring",
+        "elektrisk anlegg og samsvarserklæring"
       ],
       "regex_any": [
         "\\belektrisk anlegg\\b",
         "\\bel-anlegg\\b",
-        "\\bsamsvarserklæring\\b"
+        "\\bsamsvarserklæring\\b",
+        "\\belektrisk anlegg og samsvarserklæring\\b"
       ]
     },
     {
@@ -748,13 +777,23 @@
         "lovlighet",
         "bruksendring",
         "avvik fra tegninger",
-        "ferdigattest"
+        "ferdigattest",
+        "vær oppmerksom på",
+        "godkjente tegninger",
+        "byggemeldte tegninger",
+        "byggetegninger",
+        "godkjente byggetegninger"
       ],
       "regex_any": [
         "\\blovlighet\\b",
         "\\bbruksendring",
         "\\bavvik fra tegninger\\b",
-        "\\bferdigattest\\b"
+        "\\bferdigattest\\b",
+        "\\bv[æa]r oppmerksom p[åa]\\b",
+        "\\bgodkjente tegninger\\b",
+        "\\bbyggemeldte tegninger\\b",
+        "\\bbyggetegninger\\b",
+        "\\bgodkjente byggetegninger\\b"
       ]
     },
     {
@@ -809,10 +848,12 @@
       "parent_id": "P11_LAWFULNESS_AND_SAFETY",
       "aliases": [
         "radon",
-        "radonmåling"
+        "radonmåling",
+        "radonmålinger"
       ],
       "regex_any": [
-        "\\bradon\\b"
+        "\\bradon\\b",
+        "\\bradonmålinger\\b"
       ]
     },
     {
@@ -820,21 +861,31 @@
       "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "aliases": [
         "opplysninger fra eier",
-        "egenerklæring"
+        "egenerklæring",
+        "egenerklæringsskjema",
+        "opplysninger gitt av eier"
       ],
       "regex_any": [
         "\\bopplysninger fra eier\\b",
-        "\\begenerkl"
+        "\\begenerkl",
+        "\\begenerklæringsskjema\\b",
+        "\\bopplysninger gitt av eier\\b"
       ]
     },
     {
       "child_id": "P12B_DOCUMENTATION",
       "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "aliases": [
-        "dokumentasjon"
+        "dokumentasjon",
+        "godkjente tegninger",
+        "byggemeldte tegninger",
+        "byggetegninger"
       ],
       "regex_any": [
-        "\\bdokumentasjon\\b"
+        "\\bdokumentasjon\\b",
+        "\\bgodkjente tegninger\\b",
+        "\\bbyggemeldte tegninger\\b",
+        "\\bbyggetegninger\\b"
       ]
     },
     {
@@ -842,21 +893,25 @@
       "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "aliases": [
         "nyere arbeider",
-        "nyere håndverkstjenester"
+        "nyere håndverkstjenester",
+        "vesentlige endringer etter byggeår"
       ],
       "regex_any": [
         "\\bnyere arbeider\\b",
-        "\\bnyere håndverkstjenester\\b"
+        "\\bnyere håndverkstjenester\\b",
+        "\\bvesentlige endringer etter byggeår\\b"
       ]
     },
     {
       "child_id": "P12D_ATTENTION",
       "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "aliases": [
-        "vær oppmerksom på"
+        "vær oppmerksom på",
+        "anbefalte ytterligere undersøkelser"
       ],
       "regex_any": [
-        "\\bv[æa]r oppmerksom p[åa]\\b"
+        "\\bv[æa]r oppmerksom p[åa]\\b",
+        "\\banbefalte ytterligere undersøkelser\\b"
       ]
     },
     {
@@ -864,11 +919,15 @@
       "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "aliases": [
         "andre merknader",
-        "tilleggsopplysninger"
+        "tilleggsopplysninger",
+        "merknader om areal",
+        "merknader om andre rom"
       ],
       "regex_any": [
         "\\bandre merknader\\b",
-        "\\btilleggsopplysninger\\b"
+        "\\btilleggsopplysninger\\b",
+        "\\bmerknader om areal\\b",
+        "\\bmerknader om andre rom\\b"
       ]
     },
     {
@@ -906,7 +965,8 @@
         "støttemur",
         "garasje",
         "bod",
-        "uthus"
+        "uthus",
+        "balkonger, verandaer og lignende"
       ],
       "children_attach_to_instance": []
     },
@@ -938,7 +998,9 @@
         "vaskerom",
         "dusjrom",
         "baderom",
-        "wc"
+        "wc",
+        "bad/wc/vaskerom",
+        "bad / wc / vaskerom"
       ],
       "children_attach_to_instance": [
         "P07B_MEMBRANE",
