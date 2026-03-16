@@ -314,9 +314,9 @@ export default function AdminReportDetail() {
 
   const analysis = report.ai_analysis as (AnalysisV14 & {
     trygghetsscore?: number
-    top_issues?: Array<{ title: string; message: string; recommended_fix_text?: string; deduction_band?: string }>
-    all_findings?: Array<{ finding_id: string; title: string; message: string; recommended_fix_text?: string; point_id?: string; deduction_band?: string; evidence_snippets?: string[] }>
-    how_to_improve?: Array<{ title: string; recommended_fix_text: string }>
+    top_issues?: Array<{ title: string; message: string; recommended_fix_text?: string; suggested_rewrite_text?: string; deduction_band?: string }>
+    all_findings?: Array<{ finding_id: string; title: string; message: string; recommended_fix_text?: string; suggested_rewrite_text?: string; point_id?: string; deduction_band?: string; evidence_snippets?: string[] }>
+    how_to_improve?: Array<{ title: string; recommended_fix_text: string; suggested_rewrite_text?: string }>
   }) | null
   const feedbackV11 = report.scoring_result?.feedback_v11 || null
   const hasFeedbackV11 = Boolean(feedbackV11 && (feedbackV11.points_overview?.length || feedbackV11.findings?.length))
@@ -342,6 +342,8 @@ export default function AdminReportDetail() {
     : (analysis as any)?.top_issues?.map((t: any) => ({
         title: t.title,
         reason: t.message,
+        suggested_text: t.suggested_rewrite_text,
+        recommended_fix_text: t.recommended_fix_text,
         deduction_points: t.deduction_band === 'Høyt trekk' ? 5 : t.deduction_band === 'Middels trekk' ? 3 : t.deduction_band === 'Lavt trekk' ? 1 : 0,
         rule_refs: [t.category],
         evidence: []
@@ -351,7 +353,7 @@ export default function AdminReportDetail() {
     : (analysis as any)?.how_to_improve?.map((h: any) => ({
         title: h.title,
         what_to_change: h.recommended_fix_text,
-        suggested_text: h.recommended_fix_text,
+        suggested_text: h.suggested_rewrite_text ?? h.recommended_fix_text,
         priority: 'medium'
       })) || []
   const tabs = hasV14
@@ -646,6 +648,9 @@ export default function AdminReportDetail() {
                             <span className="text-sm font-semibold text-red-600">-{driver.deduction_points ?? 0}</span>
                           </div>
                           <p className="text-sm text-gray-700">{driver.reason ?? driver.message}</p>
+                          {(driver.suggested_text ?? driver.recommended_fix_text) && (
+                            <p className="text-sm text-green-700 mt-2 italic">{driver.suggested_text ?? driver.recommended_fix_text}</p>
+                          )}
                           {driver.evidence && driver.evidence.length > 0 && driver.evidence[0]?.snippet && (
                             <div className="mt-3 text-sm text-gray-600">
                               <p>

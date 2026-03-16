@@ -192,6 +192,8 @@ interface TopIssueV16 {
   severity: string
   deduction_band?: string
   message: string
+  point_id?: string
+  rule_id?: string
   recommended_fix_text?: string
   rewrite_strategy?: string
   suggested_rewrite_text?: string
@@ -460,9 +462,11 @@ export default function ResultsPage() {
   )
   const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
   const scoreTotal = hasV14
-    ? (hasV16 && typeof (analysis as AnalysisV16).trygghetsscore === 'number'
-        ? (analysis as AnalysisV16).trygghetsscore
-        : analysis?.score_total ?? null)
+    ? (typeof analysis?.score_total === 'number'
+        ? analysis.score_total
+        : hasV16 && typeof (analysis as AnalysisV16).trygghetsscore === 'number'
+          ? (analysis as AnalysisV16).trygghetsscore
+          : null)
     : feedbackV11?.score?.total ?? report.overall_score
   const improvementPriorityOrder: Record<string, number> = {
     critical: 0,
@@ -484,11 +488,13 @@ export default function ResultsPage() {
       }
     ]
   }
+  const allFindingsV16 = (analysis as AnalysisV16)?.all_findings
+  const topIssuesV16 = (analysis as AnalysisV16)?.top_issues
+  const howToImproveV16 = (analysis as AnalysisV16)?.how_to_improve
   const categoryBreakdown = (analysis as AnalysisV16)?.category_breakdown
   const scoreByCategoryRaw = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category || []) : []
   const allCategoryDeductionsZero = scoreByCategoryRaw.every((c) => c.deduction === 0)
-  const trygghetsscoreNum = hasV16 && typeof (analysis as AnalysisV16)?.trygghetsscore === 'number' ? (analysis as AnalysisV16).trygghetsscore! : null
-  const totalDeductionFromScore = trygghetsscoreNum != null ? Math.max(0, 100 - trygghetsscoreNum) : 0
+  const totalDeductionFromScore = typeof scoreTotal === 'number' ? Math.max(0, 100 - scoreTotal) : 0
   const bandToWeight: Record<string, number> = {
     'Høyt trekk': 3,
     'Høy påvirkning': 3,
@@ -499,8 +505,44 @@ export default function ResultsPage() {
     'Ikke scoretrekk': 0,
     'Lavere trekk': 0
   }
+  const publicBandToPoints = (band?: string | null): number => {
+    if (band === 'Høyt trekk') return 5
+    if (band === 'Middels trekk') return 3
+    if (band === 'Lavt trekk') return 1
+    return 0
+  }
+  const scoredFindingsV16 = (allFindingsV16 || []).filter((f) => publicBandToPoints(f.deduction_band) > 0)
+  const scoredCategoryBreakdown = (() => {
+    if (!hasV16 || !scoredFindingsV16.length) return null
+    const byCategory = new Map<string, { deduction: number; deduction_band?: string; summary?: string }>()
+    scoredFindingsV16.forEach((finding) => {
+      const category = finding.category
+      if (!category) return
+      const existing = byCategory.get(category) || { deduction: 0, deduction_band: 'Ikke scoretrekk', summary: '' }
+      const findingPoints = publicBandToPoints(finding.deduction_band)
+      const existingPoints = publicBandToPoints(existing.deduction_band)
+      byCategory.set(category, {
+        deduction: existing.deduction + findingPoints,
+        deduction_band: findingPoints > existingPoints ? finding.deduction_band : existing.deduction_band,
+        summary: existing.summary || finding.title || finding.message,
+      })
+    })
+    return ensureCategoryF(
+      scoreByCategoryRaw.map((category) => {
+        const grouped = byCategory.get(category.category_id)
+        return {
+          ...category,
+          deduction: grouped?.deduction ?? 0,
+          deduction_band: grouped?.deduction_band ?? 'Ikke scoretrekk',
+          summary: grouped?.summary ?? (grouped ? '' : 'Ingen synlige funn i denne kategorien.'),
+        }
+      }) as ScoreByCategory[]
+    )
+  })()
   const scoreByCategory =
-    hasV16 && allCategoryDeductionsZero && totalDeductionFromScore > 0
+    scoredCategoryBreakdown
+      ? scoredCategoryBreakdown
+      : hasV16 && allCategoryDeductionsZero && totalDeductionFromScore > 0
       ? categoryBreakdown?.length
         ? (() => {
             const totalWeight = categoryBreakdown.reduce((sum, cb) => sum + (bandToWeight[cb.deduction_band] ?? 0), 0)
@@ -573,15 +615,42 @@ export default function ResultsPage() {
   type ScoreByCategoryDisplay = ScoreByCategory & { deduction_band?: string; summary?: string }
   const scoreByCategoryDisplay = scoreByCategory as ScoreByCategoryDisplay[]
   const topScoreDriversSource =
-    hasV16 && analysis && (!analysis.top_score_drivers?.length) && (analysis as AnalysisV16).top_issues?.length
-      ? (analysis as AnalysisV16).top_issues!.map((t) => ({
-          title: t.title,
-          severity: (t.severity || 'medium') as TopScoreDriver['severity'],
-          reason: t.message,
-          deduction_points: t.gate_effect?.caps_total_score_to ? 100 - t.gate_effect.caps_total_score_to : 0,
-          rule_refs: [t.category],
-          evidence: [] as Evidence[]
-        }))
+    topIssuesV16?.length
+      ? topIssuesV16
+          .slice()
+          .sort((a, b) => publicBandToPoints(b.deduction_band) - publicBandToPoints(a.deduction_band))
+          .slice(0, 5)
+          .map((f) => ({
+            title: f.title,
+            severity: (f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : f.severity === 'minor' ? 'low' : 'medium') as TopScoreDriver['severity'],
+            reason: f.message,
+            deduction_points: publicBandToPoints(f.deduction_band),
+            rule_refs: [f.category],
+            evidence: [],
+            recommended_fix_text: undefined,
+          }))
+      : scoredFindingsV16.length
+      ? scoredFindingsV16
+          .slice()
+          .sort((a, b) => publicBandToPoints(b.deduction_band) - publicBandToPoints(a.deduction_band))
+          .slice(0, 5)
+          .map((f) => ({
+            title: f.title,
+            severity: (f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : f.severity === 'minor' ? 'low' : 'medium') as TopScoreDriver['severity'],
+            reason: f.message,
+            deduction_points: publicBandToPoints(f.deduction_band),
+            rule_refs: [f.category],
+            evidence: (f.evidence_snippets || []).slice(0, 1).map((snippet) => ({
+              point_id: (f as { point_id?: string }).point_id || '',
+              tg: '',
+              page: 1,
+              heading: f.title,
+              source: 'LOCAL' as const,
+              snippet,
+              match_explain: 'Fra scored all_findings.',
+            })),
+            recommended_fix_text: undefined,
+          }))
       : analysis?.top_score_drivers ?? []
   const improvementBadgeClasses = (priority: string) => {
     switch (priority) {
@@ -639,8 +708,10 @@ export default function ResultsPage() {
   const formatFeedbackText = (text: string | null | undefined): string => {
     if (text == null || typeof text !== 'string') return ''
     return text
+      .replace(/\bmed\s+[nN]\s+kort\s+setning\b/gi, 'med en kort setning')
       .replace(/\bmed\s+n\b/gi, 'med en')
       .replace(/\bmed n kort setning\b/gi, 'med en kort setning')
+      .replace(/\b n kort setning\b/gi, ' en kort setning')
       .replace(/Konsekvens uklar for kjøper/g, 'Konsekvens kan presiseres i forhold til kjøpers bruk, økonomi eller risiko.')
       .replace(/Konsekvens ikke eksplisitt oversatt til kjøpers situasjon\.?/g, 'Dette innebærer at kjøper må påregne utbedring før normal bruk kan anses trygg, og at det foreligger risiko for videre konstruksjonsskade dersom tiltak utsettes.')
       .replace(/\s{2,}/g, ' ')
@@ -852,8 +923,6 @@ export default function ResultsPage() {
     })
   }
 
-  const allFindingsV16 = (analysis as AnalysisV16)?.all_findings
-  const howToImproveV16 = (analysis as AnalysisV16)?.how_to_improve
   const sortedPointsOverview: FeedbackPointOverview[] =
     hasFeedbackV11 && feedbackV11?.points_overview?.length
       ? [...feedbackV11.points_overview].sort((a, b) => {
@@ -899,6 +968,21 @@ export default function ResultsPage() {
       ),
       evidence_snippets: f.evidence_snippets?.length ? f.evidence_snippets : undefined
     }))
+  const buildDeductionSummariesFromTopIssuesV16 = (issues: TopIssueV16[]): DeductionSummary[] =>
+    issues
+      .map((issue) => ({
+        rule_id: issue.rule_id || issue.title,
+        points: publicBandToPoints(issue.deduction_band),
+        reason: issue.title,
+        severity: (issue.severity === 'critical' ? 'critical' : issue.severity === 'major' ? 'high' : issue.severity === 'minor' ? 'low' : 'medium') as DeductionSummary['severity'],
+        suggestion: issue.recommended_fix_text,
+        exampleFix: issue.suggested_rewrite_text || issue.recommended_fix_text,
+        point_id: resolveDisplayPointId(
+          issue.point_id ?? parsePointIdFromMessage(issue.message) ?? parsePointIdFromMessage(issue.title),
+          issue.rule_id || issue.title
+        ),
+      }))
+      .filter((item) => (item.points || 0) > 0)
   const improvementsForFixes = hasV16 && howToImproveV16?.length && !analysis?.improvements?.length
     ? howToImproveV16.map((h) => ({
         title: h.title,
@@ -906,14 +990,22 @@ export default function ResultsPage() {
         what_to_change: h.recommended_fix_text,
         suggested_text: h.suggested_rewrite_text || h.recommended_fix_text
       }))
+    : hasV16 && topIssuesV16?.length && !analysis?.improvements?.length
+    ? topIssuesV16.map((h) => ({
+        title: h.title,
+        priority: 'medium' as const,
+        what_to_change: h.recommended_fix_text || h.message,
+        suggested_text: h.suggested_rewrite_text || h.recommended_fix_text || h.message
+      }))
     : analysis?.improvements
   const allDeductions: DeductionSummary[] = (() => {
     const fromV16 = hasV16 && allFindingsV16?.length ? buildDeductionSummariesFromV16(allFindingsV16) : []
-    const fromFeedback = !fromV16.length && feedbackV11?.findings?.length ? buildDeductionSummariesFromFeedback(feedbackV11.findings) : []
-    const fromV14 = (!fromFeedback.length && !fromV16.length && hasV14 && analysis)
+    const fromTopIssuesV16 = !fromV16.length && hasV16 && topIssuesV16?.length ? buildDeductionSummariesFromTopIssuesV16(topIssuesV16) : []
+    const fromFeedback = !fromV16.length && !fromTopIssuesV16.length && feedbackV11?.findings?.length ? buildDeductionSummariesFromFeedback(feedbackV11.findings) : []
+    const fromV14 = (!fromFeedback.length && !fromTopIssuesV16.length && !fromV16.length && hasV14 && analysis)
       ? buildDeductionSummariesFromAnalysis(analysis)
       : []
-    const merged = fromV16.length ? fromV16 : [...fromFeedback, ...fromV14]
+    const merged = fromV16.length ? fromV16 : fromTopIssuesV16.length ? fromTopIssuesV16 : [...fromFeedback, ...fromV14]
     const seen = new Set<string>()
     return merged.map((item) => ({
       ...item,
@@ -943,6 +1035,22 @@ export default function ResultsPage() {
       const bucket = toParentBucket(item.point_id)
       if (!bucket) return
       map.set(bucket, (map.get(bucket) || 0) + (item.points || 0))
+    })
+    return map
+  })()
+  const deductionBandByParentBucket = (() => {
+    const map = new Map<string, 'high' | 'medium' | 'low'>()
+    allDeductions.forEach((item) => {
+      if (!item || (item.points || 0) <= 0) return
+      const bucket = toParentBucket(item.point_id)
+      if (!bucket) return
+      const nextBand: 'high' | 'medium' | 'low' =
+        (item.points || 0) >= 5 ? 'high' : (item.points || 0) >= 3 ? 'medium' : 'low'
+      const existing = map.get(bucket)
+      const rank = { low: 1, medium: 2, high: 3 }
+      if (!existing || rank[nextBand] > rank[existing]) {
+        map.set(bucket, nextBand)
+      }
     })
     return map
   })()
@@ -978,12 +1086,24 @@ export default function ResultsPage() {
 
   const deductionsForAlleTrekk = enrichWithImprovements(sortedDeductions, improvementsForFixes)
   const enrichedDedupedFixes = enrichWithImprovements(dedupedFixes, improvementsForFixes)
+  const visibleDeductionPointsTotal = deductionsForAlleTrekk.reduce((sum, item) => sum + (item.points || 0), 0)
+  const hiddenDeductionGap = totalDeductionFromScore > visibleDeductionPointsTotal
+    ? totalDeductionFromScore - visibleDeductionPointsTotal
+    : 0
 
-  const highPriorityDeductions = enrichedDedupedFixes.filter(
-    (item) => item.severity === 'critical' || item.severity === 'high'
-  )
-  const mediumPriorityDeductions = enrichedDedupedFixes.filter((item) => item.severity === 'medium')
-  const lowPriorityDeductions = enrichedDedupedFixes.filter((item) => item.severity === 'low')
+  const impactLevel = (item: DeductionSummary): 'high' | 'medium' | 'low' => {
+    if ((item.points || 0) >= 5) return 'high'
+    if ((item.points || 0) >= 3) return 'medium'
+    return 'low'
+  }
+  const impactLabel = (level: 'high' | 'medium' | 'low') => {
+    if (level === 'high') return 'Høy påvirkning'
+    if (level === 'medium') return 'Middels påvirkning'
+    return 'Lav påvirkning'
+  }
+  const highPriorityDeductions = enrichedDedupedFixes.filter((item) => impactLevel(item) === 'high')
+  const mediumPriorityDeductions = enrichedDedupedFixes.filter((item) => impactLevel(item) === 'medium')
+  const lowPriorityDeductions = enrichedDedupedFixes.filter((item) => impactLevel(item) === 'low')
 
 
   return (
@@ -1119,7 +1239,9 @@ export default function ResultsPage() {
                   const effectiveSummary = point.status === 'NOT_FOUND_IN_REPORT'
                     ? point.summary
                     : (hasActiveFindings ? 'Avvik funnet' : 'OK')
+                  const fallbackBand = parentBucket ? deductionBandLabel(deductionBandByParentBucket.get(parentBucket)) : null
                   const effectiveBand = deductionBandLabel((point as { deduction_band?: string }).deduction_band)
+                    || fallbackBand
                     || (hasActiveFindings ? 'Lavt trekk' : null)
                   return (
                     <div
@@ -1283,12 +1405,47 @@ export default function ResultsPage() {
 
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  {allFindingsV16?.length && !analysis.findings?.length ? 'Alle funn' : 'Funn per bygningsdel'}
+                  {scoredFindingsV16?.length && !analysis.findings?.length ? 'Alle funn' : 'Funn per bygningsdel'}
                 </h2>
                 <div className="space-y-6">
-                  {allFindingsV16?.length && !analysis.findings?.length ? (
-                    allFindingsV16.map((f, index) => {
+                  {scoredFindingsV16?.length && !analysis.findings?.length ? (
+                    scoredFindingsV16.map((f, index) => {
                       const severityConfig = getSeverityConfig(f.severity)
+                      const pointId = resolveDisplayPointId(
+                        parsePointIdFromMessage(f.message) ?? parsePointIdFromMessage(f.title) ?? (f as { point_id?: string }).point_id,
+                        f.finding_id
+                      )
+                      const normalizedTitle = normalizeForTextCompare(f.title)
+                      const normalizedMessage = normalizeForTextCompare(f.message)
+                      const guidanceFromImprove = (howToImproveV16 || []).find((item) => {
+                        const itemPointId = resolveDisplayPointId(
+                          parsePointIdFromMessage(item.title) ?? (item as { point_id?: string }).point_id,
+                          item.title
+                        )
+                        if (pointId && itemPointId && pointId !== itemPointId) return false
+                        const itemTitle = normalizeForTextCompare(item.title)
+                        const itemFix = normalizeForTextCompare(item.recommended_fix_text)
+                        return (
+                          (normalizedTitle && itemTitle && (itemTitle.includes(normalizedTitle) || normalizedTitle.includes(itemTitle))) ||
+                          (normalizedMessage && itemTitle && (itemTitle.includes(normalizedMessage) || normalizedMessage.includes(itemTitle))) ||
+                          (normalizedTitle && itemFix && itemFix.includes(normalizedTitle))
+                        )
+                      })
+                      const guidanceFromTopIssue = (topIssuesV16 || []).find((item) => {
+                        const itemPointId = resolveDisplayPointId(
+                          item.point_id ?? parsePointIdFromMessage(item.message) ?? parsePointIdFromMessage(item.title),
+                          item.rule_id || item.title
+                        )
+                        if (pointId && itemPointId && pointId !== itemPointId) return false
+                        const itemTitle = normalizeForTextCompare(item.title)
+                        const itemMessage = normalizeForTextCompare(item.message)
+                        return (
+                          (normalizedTitle && itemTitle && (itemTitle.includes(normalizedTitle) || normalizedTitle.includes(itemTitle))) ||
+                          (normalizedMessage && itemMessage && (itemMessage.includes(normalizedMessage) || normalizedMessage.includes(itemMessage)))
+                        )
+                      })
+                      const recommendedFixText = f.recommended_fix_text || guidanceFromImprove?.recommended_fix_text || guidanceFromTopIssue?.recommended_fix_text || ''
+                      const suggestedRewriteText = f.suggested_rewrite_text || guidanceFromImprove?.suggested_rewrite_text || guidanceFromTopIssue?.suggested_rewrite_text || guidanceFromTopIssue?.recommended_fix_text || ''
                       return (
                         <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
                           <div className="flex items-start justify-between gap-4">
@@ -1296,16 +1453,16 @@ export default function ResultsPage() {
                               <p className="text-xs font-semibold uppercase text-gray-500">Kategori {f.category}</p>
                               <h3 className="text-lg font-bold text-gray-900 mt-1">{formatFeedbackText(f.title)}</h3>
                               <p className="text-sm text-gray-700 mt-2">{formatFeedbackText(f.message)}</p>
-                              {f.recommended_fix_text && (
+                              {recommendedFixText && (
                                 <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
                                   <p className="font-semibold mb-1">Forbedringsveiledning:</p>
-                                  <p>{formatFeedbackText(f.recommended_fix_text)}</p>
+                                  <p>{formatFeedbackText(recommendedFixText)}</p>
                                 </div>
                               )}
-                              {f.suggested_rewrite_text && !isTooGenericSuggestedRewrite(f.suggested_rewrite_text) && (
+                              {suggestedRewriteText && !isTooGenericSuggestedRewrite(suggestedRewriteText) && (
                                 <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-900">
                                   <p className="font-semibold mb-1">Eksempeltekst du kan bruke:</p>
-                                  <p className="italic">{formatFeedbackText(f.suggested_rewrite_text)}</p>
+                                  <p className="italic">{formatFeedbackText(suggestedRewriteText)}</p>
                                 </div>
                               )}
                             </div>
@@ -1396,16 +1553,21 @@ export default function ResultsPage() {
                   )))}
                 </div>
               </div>
-
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
                 <div className="flex items-start justify-between mb-6">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">Alle trekk</h2>
                     <p className="text-sm text-gray-500 mt-1">Fullstendig oversikt over poengtrekk som påvirker score</p>
                     {hasV16 && scoreTotal != null && (
-                      <p className="text-xs text-amber-700 mt-1">
-                        Total score ({scoreTotal}%) er satt av analysen og kategoritak; summen av enkelttrekk kan derfor avvike.
-                      </p>
+                      hiddenDeductionGap > 0 ? (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Total score ({scoreTotal}%) tilsvarer {totalDeductionFromScore} poeng samlet trekk. Synlige trekk under summerer til {visibleDeductionPointsTotal} poeng, så {hiddenDeductionGap} poeng ligger fortsatt i backend-score/kategoritak og vises ikke som egne trekk her.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Total score ({scoreTotal}%) stemmer med de synlige poengtrekkene under.
+                        </p>
+                      )
                     )}
                   </div>
                   <div className="px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 text-center">
@@ -1509,7 +1671,7 @@ export default function ResultsPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="text-lg font-bold text-gray-900">{formatFeedbackText(improvement.reason)}</h4>
                                   <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.severity)}`}>
-                                    {translate(improvement.severity)}
+                                    {impactLabel(impactLevel(improvement))}
                                   </span>
                                 </div>
                                 {improvement.point_id && (
@@ -1561,7 +1723,7 @@ export default function ResultsPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="text-lg font-bold text-gray-900">{formatFeedbackText(improvement.reason)}</h4>
                                   <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.severity)}`}>
-                                    {translate(improvement.severity)}
+                                    {impactLabel(impactLevel(improvement))}
                                   </span>
                                 </div>
                                 {improvement.point_id && (
@@ -1613,7 +1775,7 @@ export default function ResultsPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="text-lg font-bold text-gray-900">{formatFeedbackText(improvement.reason)}</h4>
                                   <span className={`text-xs uppercase font-semibold px-2 py-1 rounded-full ${improvementBadgeClasses(improvement.severity)}`}>
-                                    {translate(improvement.severity)}
+                                    {impactLabel(impactLevel(improvement))}
                                   </span>
                                 </div>
                                 {improvement.point_id && (

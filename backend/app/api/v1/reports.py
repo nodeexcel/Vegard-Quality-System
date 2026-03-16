@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timezone
@@ -89,6 +90,29 @@ def _get_pipeline_cache_sha() -> Optional[str]:
     if settings.PIPELINE_GIT_SHA:
         return f"{settings.PIPELINE_GIT_SHA}:{prompt_sha}"
     return prompt_sha
+
+
+def _build_report_processing_error(e: Exception) -> HTTPException:
+    message = str(e)
+    lowered = message.lower()
+
+    if isinstance(e, DBAPIError) and (
+        "diskfull" in lowered
+        or "no space left on device" in lowered
+        or "could not extend file" in lowered
+    ):
+        return HTTPException(
+            status_code=507,
+            detail=(
+                "Serveren har ikke nok lagringsplass til aa fullfore analysen naa. "
+                "Prov igjen senere eller kontakt support hvis feilen fortsetter."
+            ),
+        )
+
+    return HTTPException(
+        status_code=500,
+        detail="Rapporten kunne ikke behandles. Prov igjen. Hvis feilen fortsetter, kontakt support.",
+    )
 
 @router.post("/upload", response_model=ReportResponse)
 async def upload_report(
@@ -606,7 +630,7 @@ async def upload_report(
                 db.commit()
         except:
             pass
-        raise HTTPException(status_code=500, detail=f"Error processing report: {str(e)}")
+        raise _build_report_processing_error(e)
 
 @router.get("/{report_id}", response_model=ReportResponse)
 async def get_report(

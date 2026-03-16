@@ -164,16 +164,56 @@ export default function Home() {
       const getUploadErrorMessage = (): string => {
         const status = err?.response?.status
         const data = err?.response?.data
+        const responseText = typeof err?.request?.response === 'string' ? err.request.response : ''
+        let parsedResponseText: any = null
+        let detail = ''
+
+        if (responseText) {
+          try {
+            parsedResponseText = JSON.parse(responseText)
+          } catch {
+            parsedResponseText = null
+          }
+        }
+
+        if (typeof data?.detail === 'string') {
+          detail = data.detail
+        } else if (typeof parsedResponseText?.detail === 'string') {
+          detail = parsedResponseText.detail
+        }
+        const rawMessage = typeof err?.message === 'string' ? err.message : ''
+
+        if (
+          status === 507 ||
+          detail.toLowerCase().includes('no space left on device') ||
+          detail.toLowerCase().includes('could not extend file') ||
+          detail.toLowerCase().includes('diskfull') ||
+          rawMessage.toLowerCase().includes('no space left on device')
+        ) {
+          return 'Serveren har ikke nok lagringsplass til aa fullfore analysen naa. Prov igjen senere eller kontakt support.'
+        }
+
         if (typeof data === 'string') {
           if (data.includes('<html') && status === 500) {
             return 'Serverfeil (500) fra gateway/proxy. Prøv igjen om 10-20 sekunder. Hvis feilen fortsetter, kontakt support.'
           }
           return data
         }
-        if (data?.detail && typeof data.detail === 'string') {
-          return data.detail
+        if (responseText) {
+          if (responseText.includes('<html') && status === 500) {
+            return 'Serverfeil (500) fra gateway/proxy. Prøv igjen om 10-20 sekunder. Hvis feilen fortsetter, kontakt support.'
+          }
+          if (!detail) {
+            return responseText
+          }
         }
-        return 'Kunne ikke laste opp rapporten. Vennligst prøv igjen.'
+        if (detail) {
+          return detail
+        }
+        if (!err?.response) {
+          return 'Kunne ikke kontakte serveren for aa analysere rapporten. Kontroller nettverket og prov igjen.'
+        }
+        return 'Rapporten kunne ikke behandles. Prov igjen. Hvis feilen fortsetter, kontakt support.'
       }
       if (err.response?.status === 401) {
         setError('Vennligst logg inn for å laste opp rapporter. Hvis du allerede er innlogget, prøv å logge ut og inn igjen.')
