@@ -3,7 +3,6 @@
   "version": "3.1",
   "description_nb": "Canonical-first pipeline aligned to original v3.4 12-parent architecture (mode A), with explicit E3 TG2/TG3 summary join, runtime signal normalization and pre-scoring preparation for no-TG HMS handling and duplicate-safe output.",
   "inputs": {
-    "manifest": "MANIFEST.json",
     "active_config": "validert_active_config_v1.0.json",
     "canonical_points": "validert_canonical_points_v3_0.json",
     "element_hierarchy": "validert_element_hierarchy_v1_2.json",

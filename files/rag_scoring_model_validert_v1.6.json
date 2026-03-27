@@ -1,6 +1,6 @@
 {
   "model": "VALIDERT_TRYGGHETSSCORE",
-  "version": "1.6.10",
+  "version": "1.6.13",
   "score_start": 100,
   "no_bonus_points": true,
   "principles": [
@@ -21,7 +21,7 @@
     "Elektrisk anlegg skal ikke tilstandsgradsettes. Dette er en presisering av gjeldende rett — ikke en lovendring. TG på el-anlegg var aldri et forskriftskrav, men fra 01.01.2026 er det eksplisitt forbudt via forskriften (§ 2-23 + NS 3600:2025 pkt 12.5). Rapporter FØR 01.01.2026 skal ikke få trekk for TG på el-anlegg. Rapporter FRA 01.01.2026 skal få trekk dersom TG er satt — uavhengig av om rapporten bruker NS 3600:2018 eller NS 3600:2025.",
     "Egenerklæring som ikke er levert skal alltid flagges som metodikk-avvik (kategori E), uavhengig av NS-versjon. Hjemlet i NS 3600:2018 pkt 9 og NS 3600:2025 pkt 14.4 f).",
     "Arealmåling ved rapportdato fra og med 01.01.2026 skal være i samsvar med NS 3940:2023. Bruk av eldre måleregelformulering er et metodikk-avvik (kategori E). Hjemlet i forskriften § 2-20 (2026-endring).",
-    "Frittstående bygninger UTEN varig opphold (garasje, uthus, bod, naust) skal ha en helhetsvurdering med samlet TG basert på høyeste enkelt-TG, jf. NS 3600:2025 A.3.22.8 og NS 3600:2018 pkt 6. Frittstående bygninger MED varig opphold (anneks med hybel e.l.) skal ha full tilstandsanalyse på bygningsdelsnivå som for boligen, jf. NS 3600:2025 A.3.22.9. Avvik uten TG i begge kategorier er et metodikk-avvik. Gjelder uavhengig av NS-versjon.",
+    "Garasje, uthus og naust (uten varig opphold): Takstmannen har undersøkelsesplikt, men IKKE krav om å sette TG. Dette er ikke et direkte forskriftskrav — TG er en NS 3600-anbefaling. Åpenbare avvik skal beskrives med full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak). Dersom takstmannen likevel setter TG, skal ARKAT være komplett — ellers trekk. Anneks med varig opphold er en selvstendig boenhet og skal ha full tilstandsanalyse med TG på bygningsdelsnivå, jf. forskriften § 1-2 + § 2-22 og NS 3600:2025 A.3.22.9.",
     "Aldersbasert TG2 er kun tillatt for bygningsdeler på den eksplisitte listen i NS 3600:2025 tillegg C (membran, undertak, drenering, varmtvannsbereder, vann- og avløpsrør m.fl.). For rapporter som bruker NS 3600:2018 er aldersbasert TG2 tillatt for de samme bygningsdelene, men årsak skal likevel knyttes til observert tilstand eller konkret levetidsvurdering."
   ],
   "categories": [
@@ -65,7 +65,7 @@
     ],
     "language": "nb-NO"
   },
-  "updated_at": "2026-03-25",
+  "updated_at": "2026-03-26",
   "rule_catalog": [
     {
       "id": "A_ARKAT.arsak_missing",
@@ -316,21 +316,23 @@
       "category": "E",
       "severity": "major",
       "deduction": 5,
-      "trigger": "Egenerklæring fra eier er ikke levert og dette fremgår av rapporten, men konsekvensen for analysen er ikke forklart.",
+      "trigger": "Egenerklæring fra eier er ikke levert og dette fremgår av rapporten, men konsekvensen for analysens faglige grunnlag er ikke forklart.",
       "acceptance_criteria": [
         "Trigges kun når rapporten eksplisitt opplyser at egenerklæring ikke er levert eller ikke foreligger.",
-        "Skal ikke trigges dersom rapporten forklarer at analysen er gjennomført uten egenerklæring og beskriver hvilken usikkerhet dette medfører.",
+        "Skal ikke trigges dersom rapporten forklarer at analysen er gjennomført uten egenerklæring og beskriver hvilken usikkerhet og risiko dette medfører for kjøper.",
         "Skal ikke trigges dersom egenerklæring faktisk er fremlagt og gjennomgått.",
-        "Gjelder uavhengig av NS-versjon. Hjemlet i NS 3600:2018 pkt 9 og NS 3600:2025 pkt 14.4 f)."
+        "Egenerklæring er ikke et direkte forskriftskrav, men et krav i NS 3600 (begge versjoner). Trekk gis fordi manglende egenerklæring uten forklaring svekker rapportens faglige grunnlag og eksponerer takstmannen for ansvar — ikke fordi det er et forskriftsbrudd.",
+        "Gjelder uavhengig av NS-versjon. Hjemlet i NS 3600:2018 pkt 5 og 9, NS 3600:2025 pkt 8 c) og 14.4 f)."
       ],
       "gate_effect": {
         "blocks_96_gate": false,
         "caps_total_score_to": null
       },
-      "remediation": "Rapporten bør presisere at egenerklæring ikke er levert og hvilken konsekvens dette har for analysen – takstmannens mulighet til å avdekke kjente forhold er svekket, og kjøper bør gjøres oppmerksom på dette.",
+      "remediation": "Rapporten bør presisere at egenerklæring ikke er levert og forklare konsekvensen: Takstmannen har ikke hatt tilgang til eierens kjente opplysninger om feil, mangler og arbeider på boligen. Dette svekker analysens faglige grunnlag og kjøper bør gjøres oppmerksom på at vesentlige forhold kan ha blitt oversett. Jf. NS 3600:2025 pkt 14.4 f).",
       "legal_reference": {
-        "standard_2018": "NS 3600:2018 pkt 9",
-        "standard_2025": "NS 3600:2025 pkt 14.4 f)"
+        "note": "Egenerklæring er IKKE et direkte forskriftskrav. Hjemmelen er NS 3600:2018 pkt 5 og 9 (skal foreligge forut for analysen) og NS 3600:2025 pkt 8 c) (skal senest foreligge før rapporten ferdigstilles) og pkt 14.4 f) (skal fremgå om egenerklæring ikke er fylt ut). Trekk begrunnes i faglig metodikk og takstmannens ansvar — ikke i forskriften.",
+        "standard_2018": "NS 3600:2018 pkt 5 og pkt 9",
+        "standard_2025": "NS 3600:2025 pkt 8 c) og pkt 14.4 f)"
       }
     },
     {
@@ -338,19 +340,21 @@
       "category": "E",
       "severity": "major",
       "deduction": 5,
-      "trigger": "Arealmåling er ikke utført i samsvar med NS 3940:2023 ved rapportdato fra og med 01.01.2026.",
+      "trigger": "Arealmåling ved rapportdato fra og med 01.01.2026 er ikke utført i samsvar med NS 3940:2023 — basert på faktisk feil målemetode eller manglende BRA-fordeling, ikke bare manglende årstallsreferanse i teksten.",
       "acceptance_criteria": [
         "Gjelder kun rapporter med rapportdato fra og med 01.01.2026.",
-        "Trigges dersom rapporten bruker formulering som 'slik målereglene var praktisert i bransjen på måletidspunktet' eller tilsvarende eldre formulering.",
-        "Trigges dersom rapporten ikke oppgir fordeling mellom BRA-i, BRA-e og BRA-b slik § 2-20 andre ledd krever.",
-        "Skal ikke trigges dersom rapporten eksplisitt viser til NS 3940:2023 og oppgir korrekt BRA-fordeling.",
+        "Trigges dersom rapporten bruker P-ROM / S-ROM i stedet for BRA-i / BRA-e / BRA-b — dette er en faktisk feil målemetode.",
+        "Trigges dersom rapporten mangler BRA-fordeling (BRA-i, BRA-e, BRA-b) helt.",
+        "Trigges dersom rapporten eksplisitt sier «slik målereglene var praktisert i bransjen på måletidspunktet» eller tilsvarende gammel formulering.",
+        "Skal IKKE trigges dersom rapporten oppgir BRA-fordeling korrekt (BRA-i, BRA-e, BRA-b) selv om «NS 3940:2023» ikke er eksplisitt nevnt med årstall.",
+        "Skal IKKE trigges dersom rapporten skriver «NS 3940» uten årstall — årstallet alene er ikke avgjørende, det er selve målemetoden og BRA-fordelingen som teller.",
         "Hjemlet i den oppdaterte forskriften § 2-20 første og andre ledd (ikrafttreden 01.01.2026)."
       ],
       "gate_effect": {
         "blocks_96_gate": false,
         "caps_total_score_to": null
       },
-      "remediation": "Arealmålingen skal utføres i samsvar med NS 3940:2023 og rapporten skal oppgi total BRA samt fordeling mellom BRA-i, BRA-e og BRA-b, jf. forskriften § 2-20.",
+      "remediation": "Arealmålingen skal følge NS 3940:2023 og rapporten skal oppgi total BRA samt fordeling mellom BRA-i (internt bruksareal), BRA-e (eksternt bruksareal) og BRA-b (innglasset balkong), jf. forskriften § 2-20. Bruk av P-ROM / S-ROM er ikke lenger korrekt fra 01.01.2026.",
       "legal_reference": {
         "law": "Forskrift til avhendingslova",
         "section": "§ 2-20",
@@ -358,28 +362,75 @@
       }
     },
     {
-      "id": "E_METHOD.fritstaaende_bygg_avvik_uten_tg",
+      "id": "E_METHOD.garasje_avvik_uten_arkat",
       "category": "E",
-      "severity": "minor",
-      "deduction": 3,
-      "trigger": "Avvik er beskrevet i frittstående bygg på eiendommen (garasje, uthus, bod, naust) uten at det er satt tilstandsgrad på avviket.",
+      "severity": "major",
+      "deduction": 5,
+      "trigger": "Åpenbart avvik er beskrevet i frittstående bygg uten varig opphold (garasje, uthus, bod, naust) uten full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak).",
       "acceptance_criteria": [
-        "Trigges kun når et konkret avvik eller anbefalt tiltak beskrives i tekst for frittstående bygg uten tilhørende TG.",
-        "Skal ikke trigges dersom frittstående bygg er beskrevet uten avvik (TG1 eller TG0 er implisitt).",
-        "Skal ikke trigges dersom TGIU er benyttet med tydelig begrunnelse for manglende undersøkelse.",
-        "Frittstående garasje, uthus og naust skal tilstandsanalyseres på tilsvarende måte som boligen, jf. NS 3600:2018 pkt 6 og NS 3600:2025 A.3.22.8.",
-        "Terrengforhold rundt frittstående bygg er et selvstendig lovpålagt undersøkelsespunkt (§ 2-17) og skal tilstandsgradsettes dersom avvik påvises.",
-        "Skillet A.3.22.8 (uten varig opphold: helhetsvurdering med samlet TG) vs A.3.22.9 (med varig opphold: full bygningsdelsnivå-analyse) gjelder for NS 3600:2025. I NS 3600:2018 pkt 6 stilles tilsvarende krav uten dette formelle skillet, men begge kategorier frittstående bygg skal undersøkes og tilstandsgradsettes."
+        "Takstmannen har undersøkelsesplikt for garasje/uthus/naust, men IKKE krav om TG. Åpenbare avvik skal likevel ha full ARKAT.",
+        "Trigges når et konkret avvik beskrives i garasje/uthus/naust uten at alle fire ARKAT-elementer er til stede.",
+        "Skal ikke trigges dersom avvik ikke er observert og bygget beskrives uten avvik.",
+        "Skal ikke trigges dersom TGIU er benyttet med tydelig begrunnelse.",
+        "Systemet skal IKKE gi trekk for manglende TG alene på garasje/uthus/naust — TG er ikke et forskriftskrav for disse bygningene. Trekk gis kun for manglende ARKAT ved beskrevet avvik.",
+        "Gjelder uavhengig av NS-versjon og rapportdato."
       ],
       "gate_effect": {
         "blocks_96_gate": false,
         "caps_total_score_to": null
       },
-      "remediation": "Skillet er viktig: (1) Frittstående bygg UTEN varig opphold (garasje, uthus, bod, naust) — NS 3600:2025 A.3.22.8 / NS 3600:2018 pkt 6 — skal ha helhetsvurdering med samlet TG basert på høyeste enkelt-TG. Avvik skal ha Årsak og Konsekvens. (2) Frittstående bygg MED varig opphold (anneks med hybel e.l.) — NS 3600:2025 A.3.22.9 — skal ha full tilstandsanalyse på bygningsdelsnivå som for boligen. Gjelder uavhengig av om rapporten bruker NS 3600:2018 eller NS 3600:2025.",
+      "remediation": "Åpenbare avvik i garasje, uthus eller naust skal beskrives med full ARKAT: Årsak (hva er observert), Risiko (hva kan skje videre), Konsekvens (hva betyr dette for kjøper) og Anbefalt tiltak. TG er ikke påkrevd for disse bygningene, men avvik skal alltid beskrives faglig.",
       "legal_reference": {
-        "standard_2018": "NS 3600:2018 pkt 6",
-        "standard_2025": "NS 3600:2025 A.3.22.8",
-        "law": "Forskrift til avhendingslova § 2-17 (terrengforhold)"
+        "law": "Ingen direkte hjemmel for TG-krav i forskriften for garasje/uthus/naust",
+        "standard_2025": "NS 3600:2025 A.3.22.8 — undersøkelsesplikt, men TG er standardens anbefaling",
+        "standard_2018": "NS 3600:2018 pkt 6 — tilsvarende",
+        "note": "TG på garasje/uthus/naust er IKKE et forskriftskrav. Undersøkelsesplikten er reell, men TG-kravet kommer fra NS 3600, ikke fra forskriften. Åpenbare avvik skal alltid ha full ARKAT uavhengig av om TG settes eller ikke."
+      }
+    },
+    {
+      "id": "E_METHOD.garasje_tg_uten_full_arkat",
+      "category": "E",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Takstmannen har satt TG på frittstående bygg uten varig opphold (garasje, uthus, naust), men ARKAT er ikke komplett.",
+      "acceptance_criteria": [
+        "Trigges kun når TG faktisk er satt på garasje/uthus/naust og ARKAT ikke er komplett.",
+        "Når takstmannen velger å sette TG, påtar han seg samme ARKAT-krav som for boligen.",
+        "Skal ikke trigges dersom TG ikke er satt — TG er ikke et krav for disse bygningene.",
+        "Full ARKAT betyr: Årsak, Risiko, Konsekvens og Anbefalt tiltak.",
+        "Gjelder uavhengig av NS-versjon og rapportdato."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "remediation": "Når TG er satt på garasje, uthus eller naust, skal full ARKAT følge med: Årsak, Risiko, Konsekvens og Anbefalt tiltak. Alternativt kan TG fjernes og avviket beskrives som en observasjon med ARKAT uten TG.",
+      "legal_reference": {
+        "note": "TG på garasje/uthus/naust er ikke et forskriftskrav, men når takstmannen velger å sette TG gjelder samme ARKAT-krav som for øvrige bygningsdeler i boligen."
+      }
+    },
+    {
+      "id": "E_METHOD.anneks_varig_opphold_mangler_tg",
+      "category": "E",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "Frittstående anneks godkjent for varig opphold er omtalt i rapporten uten tilstandsanalyse på bygningsdelsnivå med TG.",
+      "acceptance_criteria": [
+        "Trigges kun når et anneks med varig opphold er beskrevet uten TG på bygningsdelsnivå.",
+        "Et anneks godkjent for varig opphold er en selvstendig boenhet og skal ha full tilstandsanalyse med TG på bygningsdelsnivå, jf. forskriften § 1-2 + § 2-22.",
+        "Skal ikke trigges dersom annekset beskrives uten avvik (TG0/TG1 er implisitt OK).",
+        "Skal ikke trigges for anneks uten godkjenning for varig opphold — disse behandles som garasje/uthus etter E_METHOD.garasje_avvik_uten_arkat.",
+        "Gjelder uavhengig av NS-versjon og rapportdato."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "remediation": "Anneks godkjent for varig opphold er en selvstendig boenhet og skal ha full tilstandsanalyse med TG på bygningsdelsnivå — på samme måte som boligen. Jf. forskriften § 1-2 + § 2-22 og NS 3600:2025 A.3.22.9.",
+      "legal_reference": {
+        "law": "Forskrift til avhendingslova § 1-2 + § 2-22",
+        "standard_2025": "NS 3600:2025 A.3.22.9",
+        "note": "Et anneks med varig opphold er en selvstendig boenhet. Kjøper har krav på tilstandsanalyse av alle boliger på eiendommen, jf. forskriftens formål og virkeområde."
       }
     },
     {

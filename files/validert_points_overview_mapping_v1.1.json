@@ -1,6 +1,6 @@
 {
-  "version": "1.8",
-  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture, with strengthened E3 heading coverage for P11/P12 and E3-specific composite headings. v1.8: Lagt til P11G_SAFETY_RAILINGS mapping og utvidet P05F_GARAGE aliases for å fange garasjebeskrivelser med avvik.",
+  "version": "1.9",
+  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture, with strengthened E3 heading coverage for P11/P12 and E3-specific composite headings. v1.9: Lagt til P11G_SAFETY_RAILINGS mapping og utvidet P05F_GARAGE aliases for å fange garasjebeskrivelser med avvik.",
   "source_normalization": {
     "lowercase": true,
     "trim": true,
@@ -445,7 +445,7 @@
         "\\bfrittstående garasje\\b",
         "\\bgarasje og uthus\\b"
       ],
-      "scoring_note": "Avvik beskrevet i garasjebeskrivelse uten TG skal trigge E_METHOD.fritstaaende_bygg_avvik_uten_tg. Garasje skal tilstandsgradsettes jf. NS 3600:2025 A.3.22.8."
+      "scoring_note": "Takstmannen har undersøkelsesplikt, men IKKE krav om TG for garasje/uthus/naust. Åpenbare avvik skal ha full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak). Trekk via E_METHOD.garasje_avvik_uten_arkat ved avvik uten ARKAT. Trekk via E_METHOD.garasje_tg_uten_full_arkat dersom TG er satt uten full ARKAT. Manglende TG alene gir IKKE trekk — TG er ikke et forskriftskrav for disse bygningene."
     },
     {
       "child_id": "P05G_STORAGE",
@@ -462,7 +462,8 @@
         "\\buthus\\b",
         "\\bnaust\\b",
         "\\banneks\\b"
-      ]
+      ],
+      "scoring_note": "Samme regler som P05F_GARAGE for uthus/bod/naust. For anneks med varig opphold gjelder E_METHOD.anneks_varig_opphold_mangler_tg — disse er selvstendige boenheter og skal ha full tilstandsanalyse med TG."
     },
     {
       "child_id": "P06A_BELOW_GRADE_WALLS",
