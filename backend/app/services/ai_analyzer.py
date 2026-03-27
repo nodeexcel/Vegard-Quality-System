@@ -160,6 +160,17 @@ NO_TG_HMS_TOPIC_RE = re.compile(
 NO_TG_HMS_POLICY_RE = re.compile(
     r"(?ix)\b(?:skal\s+ikke\s+tilstandsgradsettes|ikke\s+tilstandsgradsettes|uten\s+tg|ikke\s+tg|tg\s+ikke\s+satt)\b"
 )
+REPORT_DATE_LABEL_RE = re.compile(
+    r"(?ix)\b(?:rapportdato|rapport\s*dato|dato\s+for\s+rapport|rapporteringsdato|signeringsdato|dato)\b"
+    r"[^0-9\n]{0,20}(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}|\d{4}[.\-/]\d{2}[.\-/]\d{2})"
+)
+GENERIC_DATE_RE = re.compile(r"\b(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}|\d{4}[.\-/]\d{2}[.\-/]\d{2})\b")
+RAILINGS_TOPIC_RE = re.compile(r"(?ix)\b(?:rekkverk|håndrekker|handrekker|håndløper|handloper|håndløpere|handlopere)\b")
+FREESTANDING_BUILDING_RE = re.compile(r"(?ix)\b(?:garasje|garage|uthus|bod|naust)\b")
+DEVIATION_KEYWORD_RE = re.compile(
+    r"(?ix)\b(?:avvik|skade|svikt|lekk|fukt|råte|sprek|mangler|manglende|ikke\s+i\s+henhold|utbedr|"
+    r"anbefales|anbefalt|bor\b|bør\b|kontroll|tiltak|vedlikehold|slitasje|fare|risiko)\b"
+)
 
 
 def _page_has_summary_marker(page_text: str) -> bool:
@@ -625,39 +636,6 @@ def estimate_tokens(text: str) -> int:
     Rough approximation: 1 token ≈ 4 characters for Norwegian text.
     """
     return len(text) // 4
-
-
-def truncate_text_smart(text: str, max_tokens: int = 5000) -> str:
-    """
-    Truncate text intelligently to fit within token limit.
-    Keeps the beginning and end of the text, removing middle sections.
-    NOTE: For Validert, we should try to process full document, but if too large,
-    we need to indicate this in the prompt context.
-    """
-    max_chars = max_tokens * 4
-
-    if len(text) <= max_chars:
-        return text
-
-    first_part_chars = int(max_chars * 0.6)
-    last_part_chars = int(max_chars * 0.4)
-
-    first_part = text[:first_part_chars]
-    last_part = text[-last_part_chars:]
-
-    truncated = (
-        f"{first_part}\n\n"
-        "[... midtdel av rapporten utelatt for a spare tokens - FULL DOKUMENTANALYSE IKKE MULIG ...]\n\n"
-        f"{last_part}"
-    )
-
-    logger.warning(
-        "Text truncated from %s to %s characters (estimated %s tokens)",
-        len(text),
-        len(truncated),
-        estimate_tokens(truncated),
-    )
-    return truncated
 
 
 def _split_pages(report_text: str) -> List[Dict[str, str]]:
@@ -1153,26 +1131,6 @@ def _normalize_point_id(raw: str) -> str:
 
 def _parse_numeric_id(value: str) -> List[int]:
     return [int(part) for part in value.split(".") if part.isdigit()]
-
-
-def _compare_numeric_ids(a: str, b: str) -> int:
-    arr_a = _parse_numeric_id(a)
-    arr_b = _parse_numeric_id(b)
-    max_len = max(len(arr_a), len(arr_b))
-    for i in range(max_len):
-        val_a = arr_a[i] if i < len(arr_a) else None
-        val_b = arr_b[i] if i < len(arr_b) else None
-        if val_a is None and val_b is not None:
-            return -1
-        if val_a is not None and val_b is None:
-            return 1
-        if val_a is None and val_b is None:
-            return 0
-        if val_a < val_b:
-            return -1
-        if val_a > val_b:
-            return 1
-    return 0
 
 
 def _numeric_id_for_point(point: Dict[str, object]) -> str:
@@ -2707,6 +2665,122 @@ def _detect_ns_standard_version(report_text: str) -> str:
     return ""
 
 
+def _detect_ns_version(report_text: str) -> str:
+    version = _detect_ns_standard_version(report_text)
+    return f"NS 3600:{version}" if version else ""
+
+
+def _parse_report_date_token(value: str) -> str:
+    token = (value or "").strip()
+    if not token:
+        return ""
+    normalized = token.replace("/", "-").replace(".", "-")
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(normalized, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return ""
+
+
+def _detect_report_date(report_text: str) -> str:
+    if not report_text:
+        return ""
+    pages = _split_pages(report_text)
+    header_text = "\n".join((page.get("text") or "") for page in pages[:4]).strip()
+    search_text = _normalize_tg3_cost_text(header_text or report_text[:8000])
+    if not search_text:
+        return ""
+    labeled_match = REPORT_DATE_LABEL_RE.search(search_text)
+    if labeled_match:
+        parsed = _parse_report_date_token(labeled_match.group(1))
+        if parsed:
+            return parsed
+    for match in GENERIC_DATE_RE.finditer(search_text):
+        parsed = _parse_report_date_token(match.group(1))
+        if parsed:
+            return parsed
+    return ""
+
+
+def _iso_date_at_or_after(report_date: str, threshold: str) -> bool:
+    if not report_date:
+        return False
+    return report_date >= threshold
+
+
+def _detect_report_regime(report_date: str, ns_version: str) -> str:
+    if not report_date:
+        return "UNKNOWN"
+    if report_date < "2025-12-17":
+        return "PRE_2025"
+    if report_date < "2026-01-01":
+        return "TRANSITION_DEC_2025"
+    if report_date < "2026-07-01":
+        return "TRANSITION_2026"
+    if ns_version and ns_version != "NS 3600:2025":
+        return "TRANSITION_2026"
+    return "FULL_2026"
+
+
+def _extract_report_regime_context(report_text: str) -> Dict[str, str]:
+    report_date = _detect_report_date(report_text)
+    ns_version = _detect_ns_version(report_text)
+    return {
+        "report_date": report_date,
+        "ns_version": ns_version,
+        "report_regime": _detect_report_regime(report_date, ns_version),
+    }
+
+
+def _point_is_freestanding_building_without_tg(point: Dict[str, object]) -> bool:
+    if not isinstance(point, dict):
+        return False
+    title = str(point.get("title") or point.get("excerpt") or "")
+    text = str(point.get("effective_span_text") or point.get("exact_span_text") or point.get("span_text") or "")
+    combined = _normalize_tg3_cost_text(f"{title}\n{text}").lower()
+    if not combined or not FREESTANDING_BUILDING_RE.search(combined):
+        return False
+    if not DEVIATION_KEYWORD_RE.search(combined):
+        return False
+    tg_label = _effective_point_tg(point)
+    return tg_label not in {"TG0", "TG1", "TG2", "TG3", "TGIU"}
+
+
+def _apply_regime_to_detected_points(
+    report_text: str,
+    detected_points: List[Dict[str, object]],
+) -> List[Dict[str, object]]:
+    context = _extract_report_regime_context(report_text)
+    report_date = context.get("report_date") or ""
+    ns_version = context.get("ns_version") or ""
+    out: List[Dict[str, object]] = []
+    for point in detected_points:
+        if not isinstance(point, dict):
+            out.append(point)
+            continue
+        item = dict(point)
+        title = str(item.get("title") or item.get("excerpt") or "")
+        text = str(item.get("effective_span_text") or item.get("exact_span_text") or item.get("span_text") or "")
+        combined = _normalize_tg3_cost_text(f"{title}\n{text}").lower()
+        no_tg_hms_point = bool(item.get("no_tg_hms_point"))
+        if _iso_date_at_or_after(report_date, "2026-01-01") and ("elektr" in combined or "sikringsskap" in combined):
+            no_tg_hms_point = True
+        if ns_version == "NS 3600:2025" and RAILINGS_TOPIC_RE.search(combined):
+            no_tg_hms_point = True
+        item["no_tg_hms_point"] = no_tg_hms_point
+        freestanding_signal = _point_is_freestanding_building_without_tg(item)
+        item["freestanding_building_deviation_without_tg"] = freestanding_signal
+        normalized_signals = dict(item.get("normalized_signals") or {})
+        normalized_signals["freestanding_building_deviation_without_tg"] = freestanding_signal
+        item["normalized_signals"] = normalized_signals
+        exact_point_signals = dict(item.get("exact_point_signals") or normalized_signals)
+        exact_point_signals["freestanding_building_deviation_without_tg"] = freestanding_signal
+        item["exact_point_signals"] = exact_point_signals
+        out.append(item)
+    return out
+
+
 _NS_2025_APPENDIX_C_COMPONENT_PATTERNS = (
     re.compile(r"(?ix)\bdrener"),
     re.compile(r"(?ix)\bundertak\b"),
@@ -2753,87 +2827,20 @@ def _segment_has_qualifying_cause(
     has_observation = bool(_segment_content_signals(segment_text).get("observation_present"))
     has_concrete_non_age_support = _segment_has_concrete_non_age_support(segment_text)
     age_only_cause = _segment_relies_on_age_only_reason(segment_text)
+    hot_water_relief = _point_allows_age_based_risk_relief(
+        point_title,
+        segment_text,
+        standard_version=standard_version,
+    )
     if standard_version == "2018":
+        if age_only_cause and hot_water_relief:
+            return True
         if age_only_cause:
             return False
         return has_concrete_non_age_support or _point_has_explicit_section_text(segment_text, "årsak")
     if standard_version == "2025" and age_only_cause and not _point_allows_age_only_under_ns2025(point_title, segment_text):
         return False
     return has_observation or has_concrete_non_age_support or _point_has_explicit_section_text(segment_text, "årsak")
-
-
-def _segment_has_ark_arkat(
-    combined_text: str,
-    tg: str,
-    standard_version: str = "",
-    point_title: str = "",
-) -> Tuple[bool, List[str]]:
-    """
-    Content-based check: does combined segment text (main + linked summary) contain
-    required ARK/ARKAT elements.
-
-    Guardrail:
-    - TG2: requires ARK (årsak, risiko, konsekvens). Manglende anbefalt tiltak eller kostnad
-      skal ikke alene gi trekk.
-    - TG3: requires full ARKAT + kostnad (årsak, risiko, konsekvens, anbefalt tiltak, kostnad).
-
-    Returns (passed, list of missing internal element keys).
-    """
-    if not tg or ("TG2" not in tg.upper() and "TG3" not in tg.upper()):
-        return True, []
-    if not (combined_text or "").strip():
-        missing = ["årsak", "risiko", "konsekvens"]
-        if "TG3" in tg.upper():
-            missing.extend(["anbefalt_tiltak", "kostnad"])
-        return False, missing
-    signals = _segment_content_signals(combined_text)
-    low = _normalize_tg3_cost_text(combined_text or "").lower()
-    missing: List[str] = []
-    if "TG2" in tg.upper():
-        if not _segment_has_qualifying_cause(
-            combined_text,
-            standard_version=standard_version,
-            point_title=point_title,
-        ):
-            missing.append("årsak")
-        if not _point_has_qualifying_risk_text(combined_text):
-            missing.append("risiko")
-        if not _point_has_buyer_oriented_consequence_text(combined_text):
-            missing.append("konsekvens")
-    if "TG3" in tg.upper():
-        wetroom_upgrade_basis = bool(
-            re.search(
-                r"(?ix)\bv[aå]trommet\b[^.\n]{0,120}\b(?:må\s+oppgraderes|må\s+totalrenoveres|totalrenovering)\b",
-                low,
-            )
-        )
-        tg3_semantic_pass = (
-            wetroom_upgrade_basis
-            and (signals["risk_present"] or signals["consequence_present"])
-            and signals["recommendation_present"]
-        )
-        if not (
-            _segment_has_qualifying_cause(
-                combined_text,
-                standard_version=standard_version,
-                point_title=point_title,
-            ) or tg3_semantic_pass
-        ):
-            missing.append("årsak")
-        if not (_point_has_qualifying_risk_text(combined_text) or tg3_semantic_pass):
-            missing.append("risiko")
-        if not (_point_has_buyer_oriented_consequence_text(combined_text) or tg3_semantic_pass):
-            missing.append("konsekvens")
-        if not (signals["recommendation_present"] or signals["documentation_ok"] or tg3_semantic_pass):
-            missing.append("anbefalt_tiltak")
-        cost_status = _tg3_cost_status(combined_text)
-        if cost_status == "high":
-            missing.append("kostnad")
-        elif cost_status == "medium":
-            missing.append("kostnad_single_only")
-    if missing:
-        return False, missing
-    return True, []
 
 
 def _segment_present_keys(
@@ -2884,6 +2891,22 @@ def _segment_present_keys_from_sources(
     combined_text: str = "",
 ) -> set:
     present = set()
+
+    def _explicit_keys(text: str, tg_value: str) -> set:
+        explicit = set()
+        if not str(text or "").strip():
+            return explicit
+        if _point_has_explicit_section_text(text, "årsak"):
+            explicit.add("årsak")
+        if _point_has_explicit_section_text(text, "risiko"):
+            explicit.add("risiko")
+        if _point_has_explicit_section_text(text, "konsekvens"):
+            explicit.add("konsekvens")
+        if "TG3" in str(tg_value or "").upper():
+            if _point_has_explicit_section_text(text, "anbefalt_tiltak") or _point_has_explicit_section_text(text, "tiltak"):
+                explicit.add("anbefalt_tiltak")
+        return explicit
+
     for source_text in (exact_text, linked_text):
         if not str(source_text or "").strip():
             continue
@@ -2895,6 +2918,7 @@ def _segment_present_keys_from_sources(
                 point_title=point_title,
             )
         )
+        present.update(_explicit_keys(str(source_text), tg))
     # Fallback only when the merged point text itself clearly carries explicit ARKAT labels.
     # This protects point-level sourcing while avoiding regressions where detailed subpoint
     # text is present in the merged span but was not preserved as exact_text.
@@ -2910,6 +2934,7 @@ def _segment_present_keys_from_sources(
                 point_title=point_title,
             )
         )
+        present.update(_explicit_keys(str(combined_text), tg))
     return present
 
 
@@ -4082,17 +4107,55 @@ def _drop_no_tg_hms_as_regular_tg_findings(
     if not no_tg_points:
         return
 
+    def _is_regular_tg_blob(blob: str) -> bool:
+        low = _normalize_tg3_cost_text(blob).lower()
+        if "a_no_tg_hms" in low or "no_tg_hms" in low:
+            return False
+        return ("tg2" in low or "tg3" in low or "arkat" in low or "anbefalt tiltak" in low)
+
     def _should_drop(item: Dict[str, object]) -> bool:
         point_id = str(item.get("exact_point_id") or _parse_point_id_from_v16_finding(item) or "")
         if _normalize_point_id(point_id) not in no_tg_points:
             return False
-        blob = _normalize_tg3_cost_text(
+        blob = (
             f"{item.get('finding_id', '')} {item.get('rule_id', '')} {item.get('title', '')} "
             f"{item.get('message', '')} {item.get('exact_point_title', '')} {item.get('exact_point_text', '')}"
-        ).lower()
-        if "a_no_tg_hms" in blob or "no_tg_hms" in blob:
-            return False
-        return ("tg2" in blob or "tg3" in blob or "arkat" in blob or "anbefalt tiltak" in blob)
+        )
+        return _is_regular_tg_blob(blob)
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            component_id = _normalize_point_id(str(component.get("component_id") or ""))
+            if component_id not in no_tg_points:
+                continue
+            issues = component.get("issues")
+            if isinstance(issues, list):
+                component["issues"] = [
+                    issue
+                    for issue in issues
+                    if not (
+                        isinstance(issue, dict)
+                        and _is_regular_tg_blob(
+                            f"{issue.get('summary', '')} {issue.get('details', '')} "
+                            f"{' '.join([str(r) for r in (issue.get('rule_refs') or []) if isinstance(r, str)])}"
+                        )
+                    )
+                ]
+            deductions = component.get("deductions")
+            if isinstance(deductions, list):
+                component["deductions"] = [
+                    deduction
+                    for deduction in deductions
+                    if not (
+                        isinstance(deduction, dict)
+                        and _is_regular_tg_blob(
+                            f"{deduction.get('rule_id', '')} {deduction.get('reason', '')}"
+                        )
+                    )
+                ]
 
     all_findings = analysis_output.get("all_findings")
     if isinstance(all_findings, list):
@@ -4105,6 +4168,150 @@ def _drop_no_tg_hms_as_regular_tg_findings(
         analysis_output["top_issues"] = [
             i for i in top_issues if not (isinstance(i, dict) and _should_drop(i))
         ]
+
+
+def _get_legality_rule_date_constraints(rule_id: str) -> Dict[str, str]:
+    rules_payload = _load_legality_rules()
+    rules = rules_payload.get("rules", []) if isinstance(rules_payload, dict) else []
+    for rule in rules:
+        if isinstance(rule, dict) and str(rule.get("id") or "") == rule_id:
+            return {
+                "applies_from_rapportdato": str(rule.get("applies_from_rapportdato") or ""),
+                "suppress_if_rapportdato_before": str(rule.get("suppress_if_rapportdato_before") or ""),
+            }
+    return {}
+
+
+def _legality_rule_is_active(rule_id: str, report_date: str) -> bool:
+    if not rule_id:
+        return True
+    constraints = _get_legality_rule_date_constraints(rule_id)
+    suppress_before = constraints.get("suppress_if_rapportdato_before") or ""
+    applies_from = constraints.get("applies_from_rapportdato") or ""
+    if suppress_before and report_date and report_date < suppress_before:
+        return False
+    if applies_from and report_date and report_date < applies_from:
+        return False
+    return True
+
+
+def _filter_regime_conditioned_rules(
+    report_text: str,
+    analysis_output: Dict[str, object],
+    detected_points: List[Dict[str, object]],
+) -> None:
+    context = _extract_report_regime_context(report_text)
+    report_date = context.get("report_date") or ""
+    ns_version = context.get("ns_version") or ""
+    no_tg_points = {
+        _normalize_point_id(str(point.get("point_id") or ""))
+        for point in detected_points
+        if isinstance(point, dict) and bool(point.get("no_tg_hms_point"))
+    }
+    freestanding_points = {
+        _normalize_point_id(str(point.get("point_id") or ""))
+        for point in detected_points
+        if isinstance(point, dict) and bool(point.get("freestanding_building_deviation_without_tg"))
+    }
+
+    def _is_rule_active(rule_id: str, point_id: str, blob: str) -> bool:
+        rid = str(rule_id or "").strip()
+        norm_point_id = _normalize_point_id(point_id)
+        low_blob = _normalize_tg3_cost_text(blob).lower()
+        if not rid:
+            return True
+        if rid == "B_TG.el_anlegg_tg_forbudt":
+            return _iso_date_at_or_after(report_date, "2026-01-01")
+        if rid == "E_METHOD.areal_ns3940_2023":
+            return _iso_date_at_or_after(report_date, "2026-01-01")
+        if rid == "E_METHOD.fritstaaende_bygg_avvik_uten_tg":
+            return bool(freestanding_points) if not norm_point_id else norm_point_id in freestanding_points
+        if rid.startswith("A_NO_TG_HMS") or rid == "A_NO_TG_HMS_ELEKTRISK":
+            return bool(no_tg_points) if not norm_point_id else norm_point_id in no_tg_points
+        if rid == "L-RK-01":
+            return _legality_rule_is_active(rid, report_date)
+        if "rekkverk" in low_blob and ("no_tg_hms" in low_blob or "skal ikke gis tilstandsgrad" in low_blob):
+            return ns_version == "NS 3600:2025"
+        return True
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            component_id = str(component.get("component_id") or "")
+            issues = component.get("issues")
+            if isinstance(issues, list):
+                component["issues"] = [
+                    issue
+                    for issue in issues
+                    if not (
+                        isinstance(issue, dict)
+                        and any(
+                            not _is_rule_active(
+                                str(rule_ref),
+                                component_id,
+                                f"{issue.get('summary', '')} {issue.get('details', '')} {rule_ref}",
+                            )
+                            for rule_ref in (issue.get("rule_refs") or [])
+                            if isinstance(rule_ref, str)
+                        )
+                    )
+                ]
+            deductions = component.get("deductions")
+            if isinstance(deductions, list):
+                component["deductions"] = [
+                    deduction
+                    for deduction in deductions
+                    if not (
+                        isinstance(deduction, dict)
+                        and not _is_rule_active(
+                            str(deduction.get("rule_id") or ""),
+                            component_id,
+                            f"{deduction.get('rule_id', '')} {deduction.get('reason', '')}",
+                        )
+                    )
+                ]
+
+    def _filter_items(items: object) -> object:
+        if not isinstance(items, list):
+            return items
+        filtered = []
+        for item in items:
+            if not isinstance(item, dict):
+                filtered.append(item)
+                continue
+            evidence = item.get("evidence")
+            evidence_point_id = ""
+            if isinstance(evidence, list) and evidence and isinstance(evidence[0], dict):
+                evidence_point_id = str(evidence[0].get("point_id") or "")
+            point_id = str(
+                item.get("exact_point_id")
+                or item.get("point_id")
+                or item.get("component_id")
+                or evidence_point_id
+                or _parse_runtime_point_ref_from_v16_finding(item)
+                or _parse_point_id_from_v16_finding(item)
+                or ""
+            )
+            rule_ids = []
+            if isinstance(item.get("rule_refs"), list):
+                rule_ids = [str(rule_id) for rule_id in item.get("rule_refs") if isinstance(rule_id, str)]
+            elif item.get("rule_id"):
+                rule_ids = [str(item.get("rule_id"))]
+            elif item.get("finding_id"):
+                rule_ids = [str(item.get("finding_id"))]
+            blob = (
+                f"{item.get('finding_id', '')} {item.get('rule_id', '')} "
+                f"{item.get('title', '')} {item.get('message', '')} {item.get('reason', '')}"
+            )
+            if any(not _is_rule_active(rule_id, point_id, blob) for rule_id in rule_ids):
+                continue
+            filtered.append(item)
+        return filtered
+
+    for key in ("all_findings", "top_issues", "top_score_drivers"):
+        analysis_output[key] = _filter_items(analysis_output.get(key))
 
 
 def _soften_no_tg_hms_findings(
@@ -4263,6 +4470,433 @@ def _ensure_electrical_no_tg_hms_findings(
                 "evidence_snippets": [str(point.get("effective_span_text") or point.get("exact_span_text") or point.get("span_text") or "")],
             }
         )
+
+
+def _append_unique_all_finding(analysis_output: Dict[str, object], finding: Dict[str, object]) -> None:
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        all_findings = []
+        analysis_output["all_findings"] = all_findings
+    candidate_rule = str(finding.get("rule_id") or finding.get("finding_id") or "")
+    candidate_point = _normalize_point_id(str(finding.get("point_id") or finding.get("exact_point_id") or ""))
+    for existing in all_findings:
+        if not isinstance(existing, dict):
+            continue
+        existing_rule = str(existing.get("rule_id") or existing.get("finding_id") or "")
+        existing_point = _normalize_point_id(
+            str(
+                existing.get("point_id")
+                or existing.get("exact_point_id")
+                or _parse_runtime_point_ref_from_v16_finding(existing)
+                or _parse_point_id_from_v16_finding(existing)
+                or ""
+            )
+        )
+        if existing_rule == candidate_rule and existing_point == candidate_point:
+            return
+    all_findings.append(finding)
+
+
+def _finding_already_present(
+    analysis_output: Dict[str, object],
+    rule_id: str,
+    point_id: str = "",
+) -> bool:
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        return False
+    target_point = _normalize_point_id(point_id)
+    for existing in all_findings:
+        if not isinstance(existing, dict):
+            continue
+        existing_rule = str(existing.get("rule_id") or existing.get("finding_id") or "")
+        if existing_rule != rule_id:
+            continue
+        if not target_point:
+            return True
+        existing_point = _normalize_point_id(
+            str(
+                existing.get("point_id")
+                or existing.get("exact_point_id")
+                or _parse_runtime_point_ref_from_v16_finding(existing)
+                or _parse_point_id_from_v16_finding(existing)
+                or ""
+            )
+        )
+        if existing_point == target_point:
+            return True
+    return False
+
+
+def _point_requires_l_se_01(point: Dict[str, object]) -> bool:
+    if not isinstance(point, dict):
+        return False
+    point_text = str(
+        point.get("effective_span_text")
+        or point.get("exact_span_text")
+        or point.get("span_text")
+        or ""
+    )
+    title = str(point.get("title") or point.get("excerpt") or "")
+    combined = _normalize_tg3_cost_text(f"{title}\n{point_text}").lower()
+    if "samsvarserkl" not in combined:
+        return False
+    missing_match = re.search(
+        r"(?ix)\b(?:ikke\s+(?:fremlagt|frem?lagt|foreligger)|mangler|manglende|ikke\s+samsvar)\b[^.\n]{0,120}\bsamsvarserkl",
+        combined,
+    )
+    if not missing_match:
+        return False
+    if _point_has_explicit_section_text(point_text, "konsekvens") or _point_has_buyer_oriented_consequence_text(point_text):
+        return False
+    sentence_start = combined.rfind(".", 0, missing_match.start())
+    sentence_start = 0 if sentence_start < 0 else sentence_start + 1
+    sentence_end = combined.find(".", missing_match.end())
+    if sentence_end < 0:
+        sentence_end = len(combined)
+    consequence_window = combined[sentence_start:sentence_end]
+    if re.search(
+        r"(?ix)\b(?:konsekvens|risiko|fare|sikkerhetsrisiko|utbedring|oppf[oø]lging|usikkerhet)\b",
+        consequence_window,
+    ):
+        return False
+    return True
+
+
+def _report_excerpt(report_text: str, pattern: str, window: int = 260) -> str:
+    normalized = _normalize_tg3_cost_text(report_text or "")
+    match = re.search(pattern, normalized, re.IGNORECASE)
+    if not match:
+        return ""
+    start = max(0, match.start() - 40)
+    end = min(len(normalized), match.end() + window)
+    excerpt = normalized[start:end].strip()
+    return excerpt
+
+
+def _report_requires_egenerklaring_missing(report_text: str) -> bool:
+    normalized = _normalize_tg3_cost_text(report_text or "").lower()
+    if "egenerkl" not in normalized:
+        return False
+    match = re.search(
+        r"(?ix)\begenerkl[^\n.]{0,120}\b(?:ikke\s+levert|foreligger\s+ikke|ikke\s+foreligger|mangler)\b",
+        normalized,
+    )
+    if not match:
+        return False
+    window = normalized[match.start(): min(len(normalized), match.end() + 220)]
+    if re.search(r"(?ix)\b(?:konsekvens|betydning\s+for\s+analysen|usikkerhet\s+for\s+kj[oø]per)\b", window):
+        return False
+    return True
+
+
+def _report_requires_l_rk_01(report_text: str, report_date: str) -> bool:
+    if not _legality_rule_is_active("L-RK-01", report_date):
+        return False
+    normalized = _normalize_tg3_cost_text(report_text or "").lower()
+    match = re.search(
+        r"(?ix)\b(?:innvendige\s+)?rekkverk(?:\s+og\s+h[aå]ndrekker?)?\b[^\n.]{0,160}\bikke\s+i\s+henhold\s+til",
+        normalized,
+    )
+    if not match:
+        return False
+    window = normalized[match.start(): min(len(normalized), match.end() + 220)]
+    if re.search(
+        r"(?ix)\b(?:konsekvens|sikkerhetsrisiko|fare\s+for\s+fall|kan\s+medf[oø]re|kan\s+f[oø]re\s+til|kj[oø]per\s+m[aå]\s+p[aå]regne)\b",
+        window,
+    ):
+        return False
+    return True
+
+
+def _report_l_se_01_excerpt(report_text: str) -> str:
+    normalized = _normalize_tg3_cost_text(report_text or "")
+    match = re.search(
+        r"(?ix)\bdet\s+er\s+ikke\s+fremlagt\s+samsvarserkl[æa]ring\b[^.]{0,260}",
+        normalized,
+    )
+    if not match:
+        match = re.search(
+            r"(?ix)\b(?:ikke\s+fremlagt|mangler|manglende)\s+samsvarserkl[æa]ring\b[^.]{0,260}",
+            normalized,
+        )
+    if not match:
+        return ""
+    return match.group(0).strip()
+
+
+def _report_requires_l_se_01(report_text: str, report_date: str) -> bool:
+    if not _legality_rule_is_active("L-SE-01", report_date):
+        return False
+    excerpt = _report_l_se_01_excerpt(report_text)
+    if not excerpt:
+        return False
+    low = excerpt.lower()
+    if re.search(r"(?ix)\b(?:konsekvens|risiko|fare|sikkerhetsrisiko|utbedring|oppf[oø]lging|usikkerhet)\b", low):
+        return False
+    return True
+
+
+def _report_freestanding_finding(report_text: str) -> Tuple[str, str]:
+    normalized = _normalize_tg3_cost_text(report_text or "")
+    lowered = normalized.lower()
+    sentence_chunks = [chunk.strip() for chunk in re.split(r"(?<=[.!?])\s+", normalized) if chunk.strip()]
+    for idx, sentence in enumerate(sentence_chunks):
+        low = sentence.lower()
+        if not re.search(r"(?ix)\b(?:garasje|frittstående garasje)\b", low):
+            continue
+        window = " ".join(sentence_chunks[idx: min(len(sentence_chunks), idx + 4)]).strip()
+        window_low = window.lower()
+        if not DEVIATION_KEYWORD_RE.search(window_low):
+            continue
+        if re.search(r"(?ix)\bTG\s*(?:0|1|2|3|iu)\b", window_low):
+            continue
+        return "P05F_GARAGE", window
+    for idx, sentence in enumerate(sentence_chunks):
+        low = sentence.lower()
+        if not re.search(r"(?ix)\b(?:uthus|bod|naust|anneks)\b", low):
+            continue
+        window = " ".join(sentence_chunks[idx: min(len(sentence_chunks), idx + 4)]).strip()
+        window_low = window.lower()
+        if not DEVIATION_KEYWORD_RE.search(window_low):
+            continue
+        if re.search(r"(?ix)\bTG\s*(?:0|1|2|3|iu)\b", window_low):
+            continue
+        return "P05G_STORAGE", window
+    patterns = (
+        ("P05F_GARAGE", r"(?is)\b(?:garasje(?:\s*/\s*uthus)?|frittstående garasje)\b.{0,900}"),
+        ("P05G_STORAGE", r"(?is)\b(?:uthus|bod|naust|anneks)\b.{0,900}"),
+    )
+    for point_id, pattern in patterns:
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        block = match.group(0)
+        block_low = block.lower()
+        if not DEVIATION_KEYWORD_RE.search(block_low):
+            continue
+        if re.search(r"(?ix)\bTG\s*(?:0|1|2|3|iu)\b", block_low):
+            continue
+        return point_id, block.strip()
+    if "garasje" in lowered and DEVIATION_KEYWORD_RE.search(lowered) and "tg" not in lowered:
+        return "P05F_GARAGE", _report_excerpt(report_text, r"(?i)\bgarasje\b")
+    return "", ""
+
+
+def _canonical_backstop_point_id(point_title: str, point_text: str, fallback_point_id: str) -> str:
+    blob = _normalize_tg3_cost_text(f"{point_title}\n{point_text}").lower()
+    if "samsvarserkl" in blob or "elektr" in blob or "sikringsskap" in blob:
+        return "P09F_ELECTRICAL_INSTALLATION"
+    if "garasje" in blob:
+        return "P05F_GARAGE"
+    if re.search(r"(?ix)\b(?:uthus|bod|naust|anneks)\b", blob):
+        return "P05G_STORAGE"
+    return fallback_point_id
+
+
+def _drop_unexpected_jargon_findings(analysis_output: Dict[str, object]) -> None:
+    def _is_jargon_item(item: Dict[str, object]) -> bool:
+        blob = _normalize_tg3_cost_text(
+            f"{item.get('rule_id', '')} {item.get('finding_id', '')} {item.get('title', '')} "
+            f"{item.get('message', '')} {item.get('reason', '')}"
+        ).lower()
+        return "fagspråk uten forklaring" in blob or "faguttrykk" in blob
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            issues = component.get("issues")
+            if isinstance(issues, list):
+                component["issues"] = [
+                    issue for issue in issues
+                    if not (isinstance(issue, dict) and _is_jargon_item(issue))
+                ]
+            deductions = component.get("deductions")
+            if isinstance(deductions, list):
+                component["deductions"] = [
+                    deduction for deduction in deductions
+                    if not (isinstance(deduction, dict) and _is_jargon_item(deduction))
+                ]
+
+    for key in ("all_findings", "top_issues", "top_score_drivers"):
+        items = analysis_output.get(key)
+        if isinstance(items, list):
+            analysis_output[key] = [
+                item for item in items
+                if not (isinstance(item, dict) and _is_jargon_item(item))
+            ]
+
+
+def _ensure_generic_backstop_findings(
+    report_text: str,
+    analysis_output: Dict[str, object],
+    detected_points: List[Dict[str, object]],
+) -> None:
+    context = _extract_report_regime_context(report_text)
+    report_date = context.get("report_date") or ""
+    if (
+        not _finding_already_present(analysis_output, "E_METHOD.egenerklaring_missing", "P12A_OWNER_INFORMATION")
+        and _report_requires_egenerklaring_missing(report_text)
+    ):
+        excerpt = _report_excerpt(report_text, r"(?i)\begenerkl")
+        _append_unique_all_finding(
+            analysis_output,
+            {
+                "finding_id": "E_METHOD_egenerklaring_missing_P12A_OWNER_INFORMATION",
+                "rule_id": "E_METHOD.egenerklaring_missing",
+                "point_id": "P12A_OWNER_INFORMATION",
+                "exact_point_id": "P12A_OWNER_INFORMATION",
+                "exact_point_title": "Opplysninger fra eier",
+                "exact_point_text": excerpt,
+                "category": "E",
+                "severity": "major",
+                "deduction_band": "Middels trekk",
+                "title": "Egenerklæring ikke levert",
+                "message": "Egenerklæring fra eier er ikke levert og dette fremgår av rapporten, men konsekvensen for analysen er ikke forklart.",
+                "recommended_fix_text": "Forklar hva manglende egenerklæring betyr for analysen og hvilken usikkerhet dette skaper for kjøper.",
+                "suggested_rewrite_text": "Egenerklæringsskjema er ikke levert i forbindelse med oppdraget. Dette svekker grunnlaget for analysen fordi forhold som bare eier kjenner til kan være utelatt, og kjøper bør gjøres oppmerksom på denne usikkerheten.",
+                "evidence_snippets": [excerpt] if excerpt else [],
+            },
+        )
+    if (
+        not _finding_already_present(analysis_output, "L-RK-01", "P11G_SAFETY_RAILINGS")
+        and _report_requires_l_rk_01(report_text, report_date)
+    ):
+        excerpt = _report_excerpt(
+            report_text,
+            r"(?i)\binnvendige\s+rekkverk(?:\s+og\s+h[aå]ndrekker?)?\b[^\n.]{0,220}",
+        ) or _report_excerpt(report_text, r"(?i)\brekkverk\b")
+        _append_unique_all_finding(
+            analysis_output,
+            {
+                "finding_id": "L_RK_01_P11G_SAFETY_RAILINGS",
+                "rule_id": "L-RK-01",
+                "point_id": "P11G_SAFETY_RAILINGS",
+                "exact_point_id": "P11G_SAFETY_RAILINGS",
+                "exact_point_title": "Rekkverk og håndrekker",
+                "exact_point_text": excerpt,
+                "category": "F",
+                "severity": "major",
+                "deduction_band": "Lavt trekk",
+                "title": "Rekkverk eller håndrekker ikke iht. forskrift uten konsekvens for kjøper",
+                "message": "Rekkverk eller håndrekker som ikke er i henhold til forskriftskrav er omtalt uten at sikkerhetskonsekvensen for kjøper er forklart.",
+                "recommended_fix_text": "Legg til hva avviket betyr for kjøper i praksis, for eksempel sikkerhetsrisiko og forventet behov for oppfølging eller utbedring.",
+                "suggested_rewrite_text": "Innvendige rekkverk og håndrekker er ikke i henhold til dagens forskrifter. Dette utgjør en sikkerhetsrisiko og kjøper må påregne behov for utbedring. Forholdet skal beskrives som et HMS-avvik uten tilstandsgrad.",
+                "evidence_snippets": [excerpt] if excerpt else [],
+            },
+        )
+    if (
+        not _finding_already_present(analysis_output, "L-SE-01", "P09F_ELECTRICAL_INSTALLATION")
+        and _report_requires_l_se_01(report_text, report_date)
+    ):
+        excerpt = _report_l_se_01_excerpt(report_text)
+        _append_unique_all_finding(
+            analysis_output,
+            {
+                "finding_id": "L_SE_01_P09F_ELECTRICAL_INSTALLATION",
+                "rule_id": "L-SE-01",
+                "point_id": "P09F_ELECTRICAL_INSTALLATION",
+                "exact_point_id": "P09F_ELECTRICAL_INSTALLATION",
+                "exact_point_title": "Elektrisk anlegg og samsvarserklæring",
+                "exact_point_text": excerpt,
+                "category": "F",
+                "severity": "major",
+                "deduction_band": "Lavt trekk",
+                "title": "Manglende samsvarserklæring for elektrisk arbeid uten konsekvens for kjøper",
+                "message": "Rapporten opplyser om manglende samsvarserklæring for deler av det elektriske anlegget, men forklarer ikke den praktiske konsekvensen for kjøper.",
+                "recommended_fix_text": "Forklar hva manglende samsvarserklæring betyr for kjøper i praksis, for eksempel usikkerhet om forskriftsmessig utførelse og behov for videre kontroll eller dokumentasjon.",
+                "suggested_rewrite_text": "Det er ikke fremlagt samsvarserklæring for deler av det elektriske anlegget i tilbygg og garasje. Dette gir usikkerhet om arbeidet er forskriftsmessig utført, og kjøper bør påregne videre kontroll og mulig dokumentasjons- eller utbedringsbehov.",
+                "evidence_snippets": [excerpt] if excerpt else [],
+            },
+        )
+    for point in detected_points:
+        if not isinstance(point, dict):
+            continue
+        point_id = str(point.get("point_id") or "")
+        point_title = str(point.get("title") or point.get("excerpt") or "")
+        point_text = str(
+            point.get("effective_span_text")
+            or point.get("exact_span_text")
+            or point.get("span_text")
+            or ""
+        ).strip()
+        if not point_text:
+            continue
+        canonical_point_id = _canonical_backstop_point_id(point_title, point_text, point_id)
+
+        if (
+            _legality_rule_is_active("L-SE-01", report_date)
+            and not _finding_already_present(analysis_output, "L-SE-01", canonical_point_id)
+            and _point_requires_l_se_01(point)
+        ):
+            _append_unique_all_finding(
+                analysis_output,
+                {
+                    "finding_id": f"L_SE_01_{_normalize_point_id(canonical_point_id).replace('.', '_') or 'global'}",
+                    "rule_id": "L-SE-01",
+                    "point_id": canonical_point_id,
+                    "exact_point_id": canonical_point_id,
+                    "exact_point_title": point_title,
+                    "exact_point_text": point_text,
+                    "category": "F",
+                    "severity": "major",
+                    "deduction_band": "Lavt trekk",
+                    "title": "Manglende samsvarserklæring for elektrisk arbeid uten konsekvens for kjøper",
+                    "message": "Rapporten opplyser om manglende samsvarserklæring for deler av det elektriske anlegget, men forklarer ikke den praktiske konsekvensen for kjøper.",
+                    "recommended_fix_text": "Forklar hva manglende samsvarserklæring betyr for kjøper i praksis, for eksempel usikkerhet om forskriftsmessig utførelse og behov for videre kontroll eller dokumentasjon.",
+                    "suggested_rewrite_text": "Det er ikke fremlagt samsvarserklæring for deler av det elektriske anlegget. Dette gir usikkerhet om arbeidet er forskriftsmessig utført, og kjøper bør påregne videre kontroll og mulig dokumentasjons- eller utbedringsbehov.",
+                    "evidence_snippets": [point_text],
+                },
+            )
+
+        if (
+            not _finding_already_present(analysis_output, "E_METHOD.fritstaaende_bygg_avvik_uten_tg", canonical_point_id)
+            and bool(point.get("freestanding_building_deviation_without_tg"))
+        ):
+            _append_unique_all_finding(
+                analysis_output,
+                {
+                    "finding_id": f"E_METHOD_fritstaaende_bygg_avvik_uten_tg_{_normalize_point_id(canonical_point_id).replace('.', '_') or 'global'}",
+                    "rule_id": "E_METHOD.fritstaaende_bygg_avvik_uten_tg",
+                    "point_id": canonical_point_id,
+                    "exact_point_id": canonical_point_id,
+                    "exact_point_title": point_title or "Garasje / uthus",
+                    "exact_point_text": point_text,
+                    "category": "E",
+                    "severity": "minor",
+                    "deduction_band": "Middels trekk",
+                    "title": "Avvik beskrevet i frittstående bygg uten tilstandsgrad",
+                    "message": "Rapporten beskriver avvik i frittstående bygg med anbefalt oppfølging, uten at forholdet er tilstandsvurdert med TG eller tilsvarende metodisk markering.",
+                    "recommended_fix_text": "Gi avviket i det frittstående bygget en tydelig metodisk vurdering, enten med relevant tilstandsgrad eller en eksplisitt faglig markering av hvordan forholdet er vurdert.",
+                    "suggested_rewrite_text": "Garasjen/uthuset er omtalt med avvik og anbefalt tiltak. Forholdet bør vurderes tydelig med relevant TG eller samlet metodisk vurdering for frittstående bygg.",
+                    "evidence_snippets": [point_text],
+                },
+            )
+    if not _finding_already_present(analysis_output, "E_METHOD.fritstaaende_bygg_avvik_uten_tg"):
+        fallback_point_id, fallback_text = _report_freestanding_finding(report_text)
+        if fallback_point_id and fallback_text:
+            fallback_title = "Garasje / uthus" if fallback_point_id == "P05F_GARAGE" else "Bod / uthus / naust"
+            _append_unique_all_finding(
+                analysis_output,
+                {
+                    "finding_id": f"E_METHOD_fritstaaende_bygg_avvik_uten_tg_{fallback_point_id}",
+                    "rule_id": "E_METHOD.fritstaaende_bygg_avvik_uten_tg",
+                    "point_id": fallback_point_id,
+                    "exact_point_id": fallback_point_id,
+                    "exact_point_title": fallback_title,
+                    "exact_point_text": fallback_text,
+                    "category": "E",
+                    "severity": "minor",
+                    "deduction_band": "Middels trekk",
+                    "title": "Avvik beskrevet i frittstående bygg uten tilstandsgrad",
+                    "message": "Rapporten beskriver avvik i frittstående bygg med anbefalt oppfølging, uten at forholdet er tilstandsvurdert med TG eller tilsvarende metodisk markering.",
+                    "recommended_fix_text": "Gi avviket i det frittstående bygget en tydelig metodisk vurdering, enten med relevant tilstandsgrad eller en eksplisitt faglig markering av hvordan forholdet er vurdert.",
+                    "suggested_rewrite_text": "Garasjen/uthuset er omtalt med avvik og anbefalt tiltak. Forholdet bør vurderes tydelig med relevant TG eller samlet metodisk vurdering for frittstående bygg.",
+                    "evidence_snippets": [fallback_text],
+                },
+            )
 
 
 def _drop_arkat_false_positives(analysis_output: Dict[str, object]) -> None:
@@ -4652,6 +5286,53 @@ def _drop_good_enough_content_false_positives(
         if "survey_limitation" in claims and _point_has_survey_limitation_text(point_text):
             claims.discard("survey_limitation")
         return len(claims) > 0
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            component_id = _normalize_point_id(str(component.get("component_id") or ""))
+            if not component_id or component_id not in point_texts:
+                continue
+            issues = component.get("issues")
+            if isinstance(issues, list):
+                filtered_issues = []
+                for issue in issues:
+                    if not isinstance(issue, dict):
+                        filtered_issues.append(issue)
+                        continue
+                    proxy_item = {
+                        "point_id": component_id,
+                        "exact_point_id": component_id,
+                        "title": issue.get("summary") or "",
+                        "message": issue.get("details") or issue.get("summary") or "",
+                        "reason": issue.get("details") or "",
+                        "recommended_fix_text": issue.get("details") or "",
+                        "rule_id": " ".join(str(r) for r in (issue.get("rule_refs") or []) if isinstance(r, str)),
+                    }
+                    if _keep_item(proxy_item):
+                        filtered_issues.append(issue)
+                component["issues"] = filtered_issues
+            deductions = component.get("deductions")
+            if isinstance(deductions, list):
+                filtered_deductions = []
+                for deduction in deductions:
+                    if not isinstance(deduction, dict):
+                        filtered_deductions.append(deduction)
+                        continue
+                    proxy_item = {
+                        "point_id": component_id,
+                        "exact_point_id": component_id,
+                        "title": deduction.get("reason") or "",
+                        "message": deduction.get("reason") or "",
+                        "reason": deduction.get("reason") or "",
+                        "recommended_fix_text": deduction.get("reason") or "",
+                        "rule_id": deduction.get("rule_id") or "",
+                    }
+                    if _keep_item(proxy_item):
+                        filtered_deductions.append(deduction)
+                component["deductions"] = filtered_deductions
 
     all_findings = analysis_output.get("all_findings")
     if isinstance(all_findings, list):
@@ -5853,6 +6534,70 @@ def _build_feedback_v11(
         finding_ids_by_point,
         point_lookup,
     )
+
+    existing_feedback_keys = {
+        (
+            _normalize_point_id(str(item.get("point_id") or "")),
+            str(item.get("rule_id") or ""),
+        )
+        for item in feedback_findings
+        if isinstance(item, dict)
+    }
+    for idx, item in enumerate(analysis_output.get("all_findings") or []):
+        if not isinstance(item, dict):
+            continue
+        point_id = _normalize_point_id(
+            str(
+                item.get("exact_point_id")
+                or item.get("point_id")
+                or _parse_runtime_point_ref_from_v16_finding(item)
+                or _parse_point_id_from_v16_finding(item)
+                or ""
+            )
+        )
+        rule_id = str(item.get("rule_id") or item.get("finding_id") or "")
+        if not point_id or point_id not in allowed_point_ids or not rule_id:
+            continue
+        if (point_id, rule_id) in existing_feedback_keys:
+            continue
+        if not _is_public_scored_finding(item):
+            continue
+        point_meta = point_lookup.get(point_id) or {}
+        evidence_snippets = item.get("evidence_snippets") or []
+        snippet = (
+            str(item.get("exact_point_text") or "").strip()
+            or (evidence_snippets[0] if evidence_snippets and isinstance(evidence_snippets[0], str) else "")
+            or str(item.get("message") or item.get("title") or "Ikke tilgjengelig.")
+        )
+        deduction_points = {"Lavt trekk": 1, "Middels trekk": 3, "Høyt trekk": 5}.get(
+            str(item.get("deduction_band") or "").strip(),
+            0,
+        )
+        feedback_id = f"f-backstop-{point_id}-{idx + 1:03d}"
+        feedback_findings.append(
+            {
+                "finding_id": feedback_id,
+                "rule_id": rule_id,
+                "rule_family": _derive_rule_family(rule_id) or "UNKNOWN",
+                "severity": "high" if item.get("severity") == "major" else "medium" if item.get("severity") == "minor" else "low",
+                "affects_96_gate": bool(isinstance(item.get("gate_effect"), dict) and item.get("gate_effect", {}).get("blocks_96_gate")),
+                "point_id": point_id,
+                "point_key": point_meta.get("point_key") or point_id,
+                "arkat_section": "annet",
+                "message": item.get("title") or item.get("message") or "Avvik",
+                "what_to_change": item.get("recommended_fix_text") or item.get("message") or "Se forbedringsforslag.",
+                "example_fix": {"good_example": item.get("suggested_rewrite_text") or item.get("recommended_fix_text") or item.get("message") or ""},
+                "evidence": {
+                    "page": int(point_meta.get("page_start", 1) or 1),
+                    "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.",
+                    "match": "From exact point source." if item.get("exact_point_text") else "From all_findings.",
+                },
+                "deduction": deduction_points,
+            }
+        )
+        finding_ids_by_point.setdefault(point_id, []).append(feedback_id)
+        deduction_totals[point_id] = deduction_totals.get(point_id, 0) + deduction_points
+        existing_feedback_keys.add((point_id, rule_id))
 
     mode, dedupe_key, sorted_points = _sort_points(points)
     ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
@@ -7338,16 +8083,26 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     if not isinstance(meta, dict):
         meta = {}
         analysis_output["meta"] = meta
+    regime_context = _extract_report_regime_context(report_text or "")
+    if regime_context.get("report_date"):
+        meta["report_date"] = regime_context["report_date"]
     ns_standard_version = _detect_ns_standard_version(report_text or "")
     if ns_standard_version:
         meta["ns_standard_version"] = ns_standard_version
+    if regime_context.get("ns_version"):
+        meta["ns_version"] = regime_context["ns_version"]
+    if regime_context.get("report_regime"):
+        meta["report_regime"] = regime_context["report_regime"]
     detected_points = _extract_detected_points(report_text or "")
     detected_points = _validate_detected_points_against_whitelist(detected_points)
     detected_points = _merge_detected_points_with_linked_summary(detected_points, report_text or "")
     detected_points = _normalize_runtime_scoring_signals(detected_points)
+    detected_points = _apply_regime_to_detected_points(report_text or "", detected_points)
     _attach_exact_point_sources_to_findings(analysis_output, detected_points)
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
     _drop_tg_and_consequence_false_positives(report_text, analysis_output, detected_points)
+    _filter_regime_conditioned_rules(report_text, analysis_output, detected_points)
+    _drop_no_tg_hms_as_regular_tg_findings(analysis_output, detected_points)
     _ensure_issue_evidence(analysis_output, report_text)
     _ensure_driver_evidence(analysis_output)
     _normalize_scoring_output(analysis_output)
@@ -7356,10 +8111,11 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _drop_good_enough_content_false_positives(report_text, analysis_output, detected_points)
     _drop_segment_arkat_for_tg2_only_points(analysis_output)
     _drop_tg2_tiltak_requirement_false_positives(analysis_output)
-    _drop_no_tg_hms_as_regular_tg_findings(analysis_output, detected_points)
     _soften_no_tg_hms_findings(report_text, analysis_output, detected_points)
     _ensure_electrical_no_tg_hms_findings(analysis_output, detected_points)
+    _ensure_generic_backstop_findings(report_text, analysis_output, detected_points)
     _drop_age_only_false_positives(report_text, analysis_output, detected_points)
+    _drop_unexpected_jargon_findings(analysis_output)
     _ensure_finding_suggestions_differentiated(analysis_output)
     _ensure_writing_help_fields(analysis_output)
     _dedupe_all_findings_duplicate_safe(analysis_output)
@@ -7611,6 +8367,12 @@ class AIAnalyzer:
                 context_info += f"Dokumenttittel: {document_title}\n"
             if document_id:
                 context_info += f"Dokument-ID: {document_id}\n"
+            report_regime_context = _extract_report_regime_context(normalized_text)
+            if any(report_regime_context.values()):
+                context_info += "Rapportmetadata utledet av backend før scoring:\n"
+                context_info += f"- report_date: {report_regime_context.get('report_date') or 'UNKNOWN'}\n"
+                context_info += f"- ns_version: {report_regime_context.get('ns_version') or 'UNKNOWN'}\n"
+                context_info += f"- report_regime: {report_regime_context.get('report_regime') or 'UNKNOWN'}\n"
 
             if pdf_metadata is None:
                 if "[PDF METADATA]" in normalized_text:
@@ -7652,6 +8414,9 @@ class AIAnalyzer:
                 "text_sha256": document_hash,
                 "scoring_model": scoring_model_info,
                 "pipeline_git_sha": f"{settings.PIPELINE_GIT_SHA}:{get_prompt_context_sha()}" if settings.PIPELINE_GIT_SHA else get_prompt_context_sha(),
+                "report_date": report_regime_context.get("report_date") or "",
+                "ns_version": report_regime_context.get("ns_version") or "",
+                "report_regime": report_regime_context.get("report_regime") or "",
             }
 
             incomplete_reasons: List[str] = []

@@ -3,7 +3,7 @@
   "effective_from": "2026-01-01",
   "scope": "tilstandsrapport_avhendingslova",
   "module": "legal_compliance",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "notes": [
     "Lovlighetsmodul (kategori F) for vurdering av lovlighetsforhold og konsekvens for kjøper.",
     "Severity er faglig alvorlighet (info/minor/major). Gate styres utelukkende av gate_effect.",
@@ -11,9 +11,10 @@
     "Score-cap (til 95) styres kun dersom gate_effect.caps_total_score_to=95.",
     "Ferdigattest forankres i PBL §21-10.",
     "Ferdigattest utstedes ikke for tiltak søkt før 01.01.1998 – dette skal hensyntas.",
-    "Konsekvens regnes som tilstrekkelig dersom kommunal oppfølging, søknadsplikt, pålegg, tilbakeføring eller kostnadsrisiko er eksplisitt eller implisitt beskrevet."
+    "Konsekvens regnes som tilstrekkelig dersom kommunal oppfølging, søknadsplikt, pålegg, tilbakeføring eller kostnadsrisiko er eksplisitt eller implisitt beskrevet.",
+    "v2.3.0: Lagt til L-SE-01 (manglende samsvarserklæring el-anlegg uten konsekvens, hjemlet i forskriften § 2-18 og NS 3600 tabell 1) og L-RK-01 (rekkverk ikke iht. forskrift uten konsekvens, hjemlet i forskriften § 2-21 tredje ledd og NS 3600:2025 pkt 12.9).",
+    "v2.4.0: Lagt til regime_context som klargjør hvilke regler som er regimebetingede. L-RK-01 er nå eksplisitt begrenset til rapporter med rapportdato fra og med 01.01.2026 (§ 2-21 tredje ledd). L-FA-01, L-BU-01, L-AV-01 og L-SE-01 gjelder alle regimer."
   ],
-
   "definitions": {
     "legal_topics": [
       "ferdigattest",
@@ -21,7 +22,9 @@
       "bruksendring",
       "søknadsplikt",
       "avvik_fra_tegning",
-      "dokumentasjon"
+      "dokumentasjon",
+      "samsvarserklæring",
+      "rekkverk"
     ],
     "consequence_markers": [
       "kan medføre",
@@ -40,12 +43,16 @@
       "lovlig bruk",
       "ikke godkjent",
       "godkjenning ikke garantert",
-      "må påregne"
+      "må påregne",
+      "ukjent kvalitet",
+      "ikke dokumentert",
+      "bør kontrolleres",
+      "anbefales kontroll",
+      "fare for",
+      "sikkerhetsrisiko"
     ]
   },
-
   "rules": [
-
     {
       "id": "L-FA-01",
       "category": "F",
@@ -87,7 +94,6 @@
         ]
       }
     },
-
     {
       "id": "L-BU-01",
       "category": "F",
@@ -120,7 +126,6 @@
         "caps_total_score_to": 95
       }
     },
-
     {
       "id": "L-AV-01",
       "category": "F",
@@ -149,10 +154,97 @@
         "blocks_96_gate": true,
         "caps_total_score_to": 95
       }
+    },
+    {
+      "id": "L-SE-01",
+      "category": "F",
+      "topic": "samsvarserklæring",
+      "severity": "major",
+      "title": "Manglende samsvarserklæring for elektrisk anlegg uten konsekvens for kjøper",
+      "trigger": {
+        "any_phrase": [
+          "ikke fremlagt samsvarserklæring",
+          "mangler samsvarserklæring",
+          "samsvarserklæring foreligger ikke",
+          "ingen samsvarserklæring",
+          "samsvarserklæring ikke fremlagt",
+          "ikke dokumentert samsvarserklæring"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true
+      },
+      "acceptance_criteria": [
+        "Ikke trigge dersom teksten forklarer at manglende samsvarserklæring medfører ukjent kvalitet på el-installasjonen og anbefaler kontroll av kvalifisert elektriker.",
+        "Ikke trigge dersom teksten beskriver risiko for feil eller mangler ved el-anlegget som konsekvens av manglende dokumentasjon.",
+        "Trigges kun dersom manglende samsvarserklæring nevnes uten at konsekvensen for kjøper (ukjent kvalitet, behov for kontroll, mulig kostnad) er forklart.",
+        "Skal ikke trigge på samsvarserklæringer som faktisk er fremlagt – kun på eksplisitt omtalte mangler.",
+        "Gjelder elektriske arbeider utført etter 01.01.1999, jf. forskriften § 2-18."
+      ],
+      "message": "Manglende samsvarserklæring for elektrisk anlegg er omtalt uten at konsekvensen for kjøper er forklart. Kjøper bør informeres om at kvaliteten på el-installasjonen er udokumentert og at kontroll av kvalifisert elektriker anbefales.",
+      "score_impact": {
+        "deduct_points": 8
+      },
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "legal_reference": {
+        "law": "Forskrift til avhendingslova",
+        "section": "§ 2-18",
+        "standard": "NS 3600 tabell 1, punkt 5"
+      },
+      "recommended_fix_text": "Legg til konsekvens: Manglende samsvarserklæring innebærer at kvaliteten på det elektriske anlegget ikke er dokumentert. Kjøper bør påregne kostnad til kontroll av kvalifisert elektriker for å avklare om anlegget er forskriftsmessig utført.",
+      "regime_note": "§ 2-18 har gjeldt siden 1999 og er ikke et 2026-krav. Gjelder alle regimer — kravet om samsvarserklæring for el-arbeider etter 01.01.1999 er ikke nytt og skal trigges uavhengig av rapportdato og NS-versjon."
+    },
+    {
+      "id": "L-RK-01",
+      "category": "F",
+      "topic": "rekkverk",
+      "severity": "major",
+      "title": "Rekkverk eller håndrekker ikke iht. forskrift uten konsekvens for kjøper",
+      "trigger": {
+        "any_phrase": [
+          "rekkverk og håndrekker er ikke i henhold til",
+          "rekkverk er ikke i henhold til",
+          "håndrekker er ikke i henhold til",
+          "rekkverk ikke i henhold til",
+          "ikke i henhold til dagens forskrifter",
+          "ikke i henhold til gjeldende forskrift",
+          "mangler rekkverk",
+          "rekkverkshøyde ikke i henhold"
+        ]
+      },
+      "requirements": {
+        "must_include_consequence": true
+      },
+      "acceptance_criteria": [
+        "Ikke trigge dersom teksten forklarer at forholdet utgjør en sikkerhetsrisiko eller fare for fall.",
+        "Ikke trigge dersom teksten beskriver at forholdet gjelder fare for helse, miljø og sikkerhet.",
+        "Ikke trigge dersom teksten angir at utbedring anbefales og beskriver praktisk konsekvens for kjøper.",
+        "Trigges kun dersom rekkverk som ikke møter forskriftskrav nevnes uten at sikkerhetskonsekvensen for kjøper er forklart.",
+        "Gjelder for innvendige trapper (A.2.10.1), utvendige trapper (A.3.22.1), balkonger/terrasser (A.3.19.1, A.3.20.1) og forstøtningsmurer (A.3.22.2) i henhold til NS 3600:2025 pkt 12.9.",
+        "Skal ikke sette TG – dette er et HMS-punkt uten TG etter 2026-regimet, jf. § 2-21 tredje ledd."
+      ],
+      "message": "Rekkverk eller håndrekker som ikke er i henhold til forskriftskrav er omtalt uten at sikkerhetskonsekvensen for kjøper er forklart. Forholdet skal beskrives som et HMS-avvik med konsekvens, men skal ikke gis tilstandsgrad.",
+      "score_impact": {
+        "deduct_points": 6
+      },
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "legal_reference": {
+        "law": "Forskrift til avhendingslova",
+        "section": "§ 2-21 tredje ledd",
+        "standard": "NS 3600:2025 pkt 12.9 og A.2.10.1"
+      },
+      "recommended_fix_text": "Legg til konsekvens: Rekkverk som ikke oppfyller gjeldende forskriftskrav utgjør en sikkerhetsrisiko, særlig for barn. Forholdet skal beskrives som et HMS-avvik uten tilstandsgrad, og konsekvensen for kjøper (sikkerhetsrisiko, behov for utbedring) skal fremgå tydelig.",
+      "applies_from_rapportdato": "2026-01-01",
+      "suppress_if_rapportdato_before": "2026-01-01",
+      "regime_note": "Hjemlet i § 2-21 TREDJE LEDD som trådte i kraft 01.01.2026. Skal ikke trigges for rapporter med rapportdato før 01.01.2026 — konsekvenskravet for HMS-avvik fantes ikke i forskriften før denne datoen. Gjelder uavhengig av NS-versjon (2018 eller 2025) i overgangsperioden."
     }
-
   ],
-
   "evaluation": {
     "how_to_find_consequence_text": {
       "method": "regex_or_semantic",
@@ -160,15 +252,33 @@
       "min_length_chars": 60
     }
   },
-
   "recommended_fix_text_library": {
     "consequence_template": "Konsekvens bør presiseres: Manglende eller uavklart godkjenning kan medføre krav om søknad, dokumentasjon eller tilbakeføring fra kommunen. Kjøper må påregne mulig tidsbruk og kostnader, samt risiko for begrenset bruk dersom forholdet ikke er godkjent.",
-    "lovlighets_standard": "Lovlighetsforhold er ikke tilstrekkelig presisert. Manglende eller uavklart dokumentasjon kan medføre kommunal oppfølging, søknadsplikt eller økonomisk/praktisk risiko for kjøper."
+    "lovlighets_standard": "Lovlighetsforhold er ikke tilstrekkelig presisert. Manglende eller uavklart dokumentasjon kan medføre kommunal oppfølging, søknadsplikt eller økonomisk/praktisk risiko for kjøper.",
+    "samsvarserklæring_standard": "Manglende samsvarserklæring innebærer at kvaliteten på det elektriske anlegget ikke er dokumentert. Kjøper bør påregne kostnad til kontroll av kvalifisert elektriker for å avklare om anlegget er forskriftsmessig utført.",
+    "rekkverk_standard": "Rekkverk som ikke oppfyller gjeldende forskriftskrav utgjør en sikkerhetsrisiko. Forholdet beskrives som HMS-avvik uten tilstandsgrad. Kjøper må påregne kostnad til utbedring."
   },
-
   "meta": {
     "ui_category": "F",
     "ui_category_title": "Lovlighetsmangler",
     "standard_quality_text_key": "lovlighets_standard"
+  },
+  "regime_context": {
+    "description": "Angir hvilke regler som er regimebetingede og hvordan rapportdato styrer aktivering.",
+    "always_active": [
+      "L-FA-01",
+      "L-BU-01",
+      "L-AV-01",
+      "L-SE-01"
+    ],
+    "regime_conditional": [
+      "L-RK-01"
+    ],
+    "notes": [
+      "L-FA-01, L-BU-01, L-AV-01: Hjemlet i PBL og avhendingslova — gjelder alle regimer.",
+      "L-SE-01: § 2-18 har gjeldt siden 1999. Kravet om samsvarserklæring for el-arbeider etter 01.01.1999 er ikke nytt.",
+      "L-RK-01: § 2-21 TREDJE LEDD er nytt fra 01.01.2026. Kravet om å forklare KONSEKVENS av rekkverk-avvik gjelder kun rapporter med rapportdato fra og med 01.01.2026. Styres av rapportdato, ikke NS-versjon.",
+      "Rekkverk uten TG (ikke trekk for manglende TG) gjelder fra NS 3600:2025. Men kravet om konsekvens er et forskriftskrav fra 01.01.2026 uavhengig av NS-versjon."
+    ]
   }
 }

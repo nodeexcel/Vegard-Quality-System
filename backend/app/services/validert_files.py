@@ -5,6 +5,7 @@ import json
 import re
 
 FILES_DIR = Path(__file__).resolve().parents[3] / "files"
+MANIFEST_PATH = FILES_DIR / "MANIFEST.json"
 
 SYSTEM_PROMPT_PATH = FILES_DIR / "system_prompt_validert_v1.6.txt"
 RAG_LEGAL_PATH = FILES_DIR / "rag_legal_framework_validert_v1.4.txt"
@@ -65,6 +66,14 @@ def _load_json_file(path: Path) -> Dict:
         return {}
 
 
+def _manifest_entries() -> list[Dict]:
+    manifest = _load_json_file(MANIFEST_PATH)
+    files = manifest.get("files") if isinstance(manifest, dict) else None
+    if not isinstance(files, list):
+        return []
+    return [entry for entry in files if isinstance(entry, dict)]
+
+
 def _resolve_file_from_name(filename: str) -> Path:
     """Resolve configured filename in files/ with safe fallbacks for dot/underscore variants."""
     clean = (filename or "").strip()
@@ -83,8 +92,30 @@ def _resolve_file_from_name(filename: str) -> Path:
     return candidate
 
 
+def _resolve_manifest_file(*name_parts: str) -> Path:
+    required_parts = [part.strip().lower() for part in name_parts if part and part.strip()]
+    if not required_parts:
+        return Path("")
+
+    for entry in _manifest_entries():
+        raw_path = entry.get("path")
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            continue
+        normalized_name = Path(raw_path.strip()).name.lower()
+        if all(part in normalized_name for part in required_parts):
+            resolved = _resolve_file_from_name(raw_path)
+            if resolved.exists():
+                return resolved
+    return Path("")
+
+
 def get_active_config() -> Dict:
-    return _load_json_file(ACTIVE_CONFIG_PATH)
+    if ACTIVE_CONFIG_PATH.exists():
+        return _load_json_file(ACTIVE_CONFIG_PATH)
+    manifest_path = _resolve_manifest_file("active", "config")
+    if manifest_path.exists():
+        return _load_json_file(manifest_path)
+    return {}
 
 
 def get_active_pipeline_file_path() -> Path:
@@ -94,7 +125,21 @@ def get_active_pipeline_file_path() -> Path:
         resolved = _resolve_file_from_name(configured)
         if resolved.exists():
             return resolved
+    manifest_path = _resolve_manifest_file("orchestrator", "pipeline")
+    if manifest_path.exists():
+        return manifest_path
     return ORCHESTRATOR_PIPELINE_PATH
+
+
+def get_manifest() -> Dict:
+    return _load_json_file(MANIFEST_PATH)
+
+
+def get_manifest_text() -> str:
+    manifest = get_manifest()
+    if manifest:
+        return json.dumps(manifest, ensure_ascii=False, sort_keys=True)
+    return _read_text(MANIFEST_PATH)
 
 def _get_dynamic_file(category: str, key: str, fallback_path: Path) -> Path:
     cfg = get_active_config()
@@ -360,6 +405,7 @@ def build_prompt_context() -> str:
             "===== LEGALITY ARKAT TEMPLATES =====\n" + get_legality_arkat_templates_text(),
             "===== LEGALITY ARKAT MAP =====\n" + get_legality_arkat_map_text(),
             "===== LEGALITY GUARDRAILS =====\n" + get_legality_guardrails_text(),
+            "===== MANIFEST =====\n" + get_manifest_text(),
             "===== ORCHESTRATOR PIPELINE =====\n" + get_orchestrator_pipeline_text(),
             "===== ACTIVE CONFIG =====\n" + json.dumps(get_active_config(), ensure_ascii=False, sort_keys=True),
             "===== CANONICAL POINTS (ACTIVE) =====\n" + json.dumps(get_canonical_points_v30(), ensure_ascii=False, sort_keys=True),

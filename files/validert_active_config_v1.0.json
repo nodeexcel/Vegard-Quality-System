@@ -32,7 +32,8 @@
     "Only 12 parent cards render in UI.",
     "Instances render inside parent cards only.",
     "NOT_FOUND_IN_REPORT is neutral by default.",
-    "Runtime uses points overview mapping v1.1.",
-    "Runtime uses orchestrator pipeline v2.1 with explicit E3 TG2/TG3 summary join before scoring."
+    "Runtime uses points overview mapping v1.8.",
+    "Runtime uses orchestrator pipeline v3.1 with explicit E3 TG2/TG3 summary join before scoring.",
+    "Updated file references: canonical_points v3.11, mapping v1.8, scoring_model v1.6.10."
   ]
 }

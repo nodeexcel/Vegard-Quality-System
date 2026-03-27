@@ -1,6 +1,6 @@
 {
   "model": "VALIDERT_CANONICAL_POINTS",
-  "version": "3.9",
+  "version": "3.11",
   "locale": "nb-NO",
   "ui_contract": {
     "mode": "canonical_first",
@@ -16,7 +16,9 @@
     "Exactly 12 parent cards render in UI.",
     "Children are analysis points only.",
     "Components are lower-level technical points for mapping and RAG.",
-    "Score on child and roll up to parent."
+    "Score on child and roll up to parent.",
+    "v3.10: Lagt til P11G_SAFETY_RAILINGS under P11_LAWFULNESS_AND_SAFETY. Rekkverk og håndløper er et HMS-punkt uten TG etter 2026-regimet, jf. NS 3600:2025 pkt 12.9 og § 2-21 tredje ledd. Skal scores via optional_tg_forbidden_meta_rule.",
+    "v3.11: Lagt til regime_notes på P09F og P11G. El-anlegg TG-forbud styres av rapportdato (fra 01.01.2026). Rekkverk TG-forbud styres av NS-versjon (NS 3600:2025). Konsekvenskrav for HMS-avvik styres av rapportdato (§ 2-21 tredje ledd fra 01.01.2026)."
   ],
   "parents": [
     {
@@ -340,7 +342,8 @@
         {
           "child_id": "P09F_ELECTRICAL_INSTALLATION",
           "title_nb": "Elektrisk anlegg",
-          "role": "CHILD_EXPLANATION_ONLY"
+          "role": "CHILD_EXPLANATION_ONLY",
+          "regime_note": "TG på el-anlegg var aldri et forskriftskrav — kun en bransjeanbefaling i NS 3600:2018 tabell B.2. Fra 01.01.2026 er TG på el-anlegg eksplisitt forbudt via forskriften (§ 2-23 + NS 3600:2025 pkt 12.5). Trekk for TG på el-anlegg gis kun for rapporter med rapportdato fra og med 01.01.2026. Gjelder uavhengig av NS-versjon i overgangsperioden."
         }
       ]
     },
@@ -414,6 +417,16 @@
           "child_id": "P11F_RADON",
           "title_nb": "Radon",
           "role": "CHILD"
+        },
+        {
+          "child_id": "P11G_SAFETY_RAILINGS",
+          "title_nb": "Rekkverk og håndløper",
+          "role": "CHILD",
+          "tg_policy": "FORBIDDEN",
+          "scoring_module": "optional_tg_forbidden_meta_rule",
+          "note": "HMS-punkt. TG-policy og konsekvenskrav styres av ulike faktorer: (1) TG-forbud: Styres av NS-VERSJON. NS 3600:2025 pkt 12.9 forbyr TG på rekkverk. NS 3600:2018-rapporter kan ha TG på rekkverk. (2) Konsekvenskrav: Styres av RAPPORTDATO. Fra 01.01.2026 skal konsekvens av rekkverk-avvik alltid forklares, jf. § 2-21 tredje ledd — uavhengig av NS-versjon. Hjemlet i NS 3600:2025 pkt 12.9, A.2.10.1, A.3.19.1, A.3.20.1, A.3.22.2 og forskriften § 2-21 tredje ledd.",
+          "tg_policy_applies_to_ns_version": "NS 3600:2025",
+          "konsekvens_krav_applies_from_rapportdato": "2026-01-01"
         }
       ]
     },
@@ -456,5 +469,23 @@
         }
       ]
     }
-  ]
+  ],
+  "regime_context": {
+    "description": "Angir hvordan regime styrer TG-policy og konsekvenskrav for HMS-punkter.",
+    "el_anlegg_tg_forbidden": {
+      "rule": "Styres av RAPPORTDATO — ikke NS-versjon.",
+      "before_2026-01-01": "TG på el-anlegg var aldri et forskriftskrav. Ingen trekk for TG satt eller manglende TG.",
+      "from_2026-01-01": "TG på el-anlegg er nå eksplisitt forbudt via forskriften. Trekk gis dersom TG settes. Jf. § 2-23 + NS 3600:2025 pkt 12.5."
+    },
+    "rekkverk_tg_forbidden": {
+      "rule": "Styres av NS-VERSJON — ikke rapportdato.",
+      "NS 3600:2018": "Rekkverk kan ha TG under NS 3600:2018.",
+      "NS 3600:2025": "Rekkverk skal ikke ha TG. Jf. NS 3600:2025 pkt 12.9."
+    },
+    "hms_konsekvens_krav": {
+      "rule": "Styres av RAPPORTDATO — ikke NS-versjon.",
+      "before_2026-01-01": "Konsekvenskrav for HMS-avvik fantes ikke i forskriften.",
+      "from_2026-01-01": "Konsekvens av avvik skal forklares for alle HMS-punkter, jf. § 2-21 tredje ledd. Gjelder uavhengig av NS-versjon."
+    }
+  }
 }

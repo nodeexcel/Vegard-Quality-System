@@ -1,6 +1,6 @@
 {
-  "version": "1.7",
-  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture, with strengthened E3 heading coverage for P11/P12 and E3-specific composite headings.",
+  "version": "1.8",
+  "description_nb": "Points overview mapping aligned to original v3.4 12-parent architecture, with strengthened E3 heading coverage for P11/P12 and E3-specific composite headings. v1.8: Lagt til P11G_SAFETY_RAILINGS mapping og utvidet P05F_GARAGE aliases for å fange garasjebeskrivelser med avvik.",
   "source_normalization": {
     "lowercase": true,
     "trim": true,
@@ -434,11 +434,18 @@
       "child_id": "P05F_GARAGE",
       "parent_id": "P05_EXTERIOR_STRUCTURES",
       "aliases": [
-        "garasje"
+        "garasje",
+        "garasje / uthus",
+        "frittstående garasje",
+        "garasje og uthus"
       ],
       "regex_any": [
-        "\\bgarasje\\b"
-      ]
+        "\\bgarasje\\b",
+        "\\bgarasje\\s*/\\s*uthus\\b",
+        "\\bfrittstående garasje\\b",
+        "\\bgarasje og uthus\\b"
+      ],
+      "scoring_note": "Avvik beskrevet i garasjebeskrivelse uten TG skal trigge E_METHOD.fritstaaende_bygg_avvik_uten_tg. Garasje skal tilstandsgradsettes jf. NS 3600:2025 A.3.22.8."
     },
     {
       "child_id": "P05G_STORAGE",
@@ -446,11 +453,15 @@
       "aliases": [
         "boder",
         "bod",
-        "uthus"
+        "uthus",
+        "naust",
+        "anneks"
       ],
       "regex_any": [
         "\\bboder?\\b",
-        "\\buthus\\b"
+        "\\buthus\\b",
+        "\\bnaust\\b",
+        "\\banneks\\b"
       ]
     },
     {
@@ -857,6 +868,28 @@
       ]
     },
     {
+      "child_id": "P11G_SAFETY_RAILINGS",
+      "parent_id": "P11_LAWFULNESS_AND_SAFETY",
+      "aliases": [
+        "rekkverk",
+        "håndrekker",
+        "håndløper",
+        "innvendige rekkverk og håndrekker",
+        "rekkverk og håndrekker",
+        "rekkverk og håndløper",
+        "rekkverkshøyde"
+      ],
+      "regex_any": [
+        "\\brekkverk\\b",
+        "\\bhåndrekk",
+        "\\bhåndløper\\b",
+        "\\brekkverkshøyde\\b",
+        "\\binnvendige rekkverk\\b"
+      ],
+      "tg_policy": "FORBIDDEN",
+      "scoring_note": "HMS-punkt uten TG. Skal scores via optional_tg_forbidden_meta_rule. Krever årsak og konsekvens ved avvik. Hjemlet i NS 3600:2025 pkt 12.9 og § 2-21 tredje ledd."
+    },
+    {
       "child_id": "P12A_OWNER_INFORMATION",
       "parent_id": "P12_SUPPLEMENTARY_INFORMATION",
       "aliases": [
@@ -966,6 +999,8 @@
         "garasje",
         "bod",
         "uthus",
+        "naust",
+        "anneks",
         "balkonger, verandaer og lignende"
       ],
       "children_attach_to_instance": []

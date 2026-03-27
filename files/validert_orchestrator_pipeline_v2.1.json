@@ -1,18 +1,19 @@
 {
   "orchestrator_id": "VALIDERT_PIPELINE",
   "version": "3.1",
-  "description_nb": "Canonical-first pipeline aligned to original v3.4 12-parent architecture (mode A), with explicit E3 TG2/TG3 summary join, expanded runtime signal normalization for inline and E3 report logic, and duplicate-safe scoring/output preparation.",
+  "description_nb": "Canonical-first pipeline aligned to original v3.4 12-parent architecture (mode A), with explicit E3 TG2/TG3 summary join, runtime signal normalization and pre-scoring preparation for no-TG HMS handling and duplicate-safe output.",
   "inputs": {
-    "active_config": "validert_active_config_v2.0.json",
-    "canonical_points": "validert_canonical_points_v3.9.json",
-    "element_hierarchy": "validert_element_hierarchy_v1.7.json",
-    "points_overview_mapping": "validert_points_overview_mapping_v1.7.json",
-    "ui_overlay": "validert_ui_overlay_v1.6.json",
-    "forskrift_matrix": "validert_forskrift_matrix_v1.3.json",
-    "status_rules": "validert_punkt_for_punkt_status_rules_v1.6.json",
-    "scoring_hooks": "validert_punkt_for_punkt_scoring_hooks_v1.8.json",
-    "room_instances_schema": "validert_room_instances_schema_v1.2.json",
-    "room_instance_rollup_format": "validert_room_instance_rollup_format_v1.3.json"
+    "manifest": "MANIFEST.json",
+    "active_config": "validert_active_config_v1.0.json",
+    "canonical_points": "validert_canonical_points_v3_0.json",
+    "element_hierarchy": "validert_element_hierarchy_v1_2.json",
+    "points_overview_mapping": "validert_points_overview_mapping_v1.1.json",
+    "ui_overlay": "validert_ui_overlay_v1.1.json",
+    "forskrift_matrix": "validert_forskrift_matrix_v1.0.json",
+    "status_rules": "validert_punkt_for_punkt_status_rules_v1_2.json",
+    "scoring_hooks": "validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+    "room_instances_schema": "validert_room_instances_schema_v1_0.json",
+    "room_instance_rollup_format": "validert_room_instance_rollup_format_v1_1.json"
   },
   "steps": [
     {
@@ -29,7 +30,7 @@
     },
     {
       "id": "S3_MAP_SEGMENTS_TO_CANONICAL_CHILDREN",
-      "purpose": "map extracted segments to canonical child nodes using aliases and regex_any with IGNORECASE"
+      "purpose": "map extracted segments to canonical child nodes using aliases/regex_any with IGNORECASE"
     },
     {
       "id": "S3B_PARSE_E3_TG2_TG3_SUMMARY_SECTIONS",
@@ -41,11 +42,11 @@
     },
     {
       "id": "S3D_NORMALIZE_RUNTIME_SCORING_SIGNALS",
-      "purpose": "normalize pre-scoring signals from merged point text, including tiltak_present, andre_tiltak_present, konsekvens_tiltak_present, concrete_recommended_measure_in_free_text, vague_measure_guidance_present, cost_class_present, cost_interval_present, other_schematic_cost_estimate_present, single_amount_only_present, report_uses_cost_class_as_schematic_model and no-TG HMS tagging"
+      "purpose": "normalize pre-scoring signals from merged point text, including tiltak_present, andre_tiltak_present, concrete_recommended_measure_in_free_text, cost_class_present, cost_interval_present, other_schematic_cost_estimate_present and no-TG HMS tagging"
     },
     {
       "id": "S3E_PREPARE_DUPLICATE_SAFE_FINDING_KEYS",
-      "purpose": "prepare stable point-level duplicate-safe keys for scoring and output by preserving point id, rule family, category and remediation intent before scoring"
+      "purpose": "prepare stable point-level keys for duplicate-safe scoring and output by preserving point id, category relation, trigger candidates and remediation candidates before scoring"
     },
     {
       "id": "S4_BUILD_INSTANCES",
@@ -79,10 +80,8 @@
     "For E3, TAKSTMANNENS VURDERING VED TG2 and TAKSTMANNENS VURDERING VED TG3 must be treated as valid supplementary sources for ARK/ARKAT evaluation.",
     "For E3, TG2/TG3 summary content must be joined back to the correct canonical child or instance by point number before scoring.",
     "For E3, TG3 cost class, interval or other schematic cost indication found on summary pages must follow the linked point into scoring.",
-    "Before scoring, runtime must normalize signal fields for Tiltak, Andre tiltak, Konsekvens/tiltak, free-text recommended measure, weak/vague measure guidance and TG3 cost signals.",
-    "Before scoring, runtime must normalize whether the report template uses cost class as an explicit schematic cost model for TG3.",
-    "Before scoring, runtime must distinguish single amount only from valid interval or cost class cost signals.",
+    "Before scoring, runtime must normalize signal fields for tiltak, Andre tiltak, free-text recommended measure and TG3 cost signals.",
     "Before scoring, electrical installation and other no-TG HMS points must be tagged so they are not evaluated as ordinary TG2/TG3 ARKAT points.",
-    "Before public output, runtime must preserve stable duplicate-safe finding keys based on point id, rule family, category and remediation intent so identical findings can be collapsed safely."
+    "Before public output, runtime must preserve stable point-level finding keys so identical findings can be collapsed safely."
   ]
 }
