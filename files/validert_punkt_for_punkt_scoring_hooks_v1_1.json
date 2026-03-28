@@ -18,7 +18,8 @@
     {
       "rule_id": "NO_TG_HMS_SPECIAL_HANDLING",
       "applies_to_child_ids": [
-        "P09F_ELECTRICAL_INSTALLATION"
+        "P09F_ELECTRICAL_INSTALLATION",
+        "P11G_SAFETY_RAILINGS"
       ],
       "condition": "report_date >= 2026-01-01",
       "effect": "do not evaluate as ordinary TG2/TG3 ARKAT finding; evaluate explanatory quality, consequence clarity and recommendation quality separately; suppress ordinary TG2/TG3 missing logic",

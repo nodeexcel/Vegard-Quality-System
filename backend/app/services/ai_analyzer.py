@@ -171,6 +171,16 @@ DEVIATION_KEYWORD_RE = re.compile(
     r"(?ix)\b(?:avvik|skade|svikt|lekk|fukt|råte|sprek|mangler|manglende|ikke\s+i\s+henhold|utbedr|"
     r"anbefales|anbefalt|bor\b|bør\b|kontroll|tiltak|vedlikehold|slitasje|fare|risiko)\b"
 )
+BRA_BREAKDOWN_RE = re.compile(r"(?ix)\bBRA[\s\\/_-]*(?:i|e|b)\b")
+OLD_AREAL_METHOD_RE = re.compile(
+    r"(?ix)\b(?:p[\-\s]?rom|s[\-\s]?rom)\b|"
+    r"slik\s+m[aå]lereglene\s+var\s+praktisert\s+i\s+bransjen\s+p[aå]\s+m[aå]letidspunktet"
+)
+HABITABLE_ANNEX_RE = re.compile(
+    r"(?ix)\banneks\b.*?\b(?:varig\s+opphold|godkjent\s+for\s+varig\s+opphold|"
+    r"godkjent\s+som\s+bolig|selvstendig\s+boenhet|boenhet)\b|"
+    r"\b(?:varig\s+opphold|godkjent\s+for\s+varig\s+opphold|godkjent\s+som\s+bolig|selvstendig\s+boenhet|boenhet)\b.*?\banneks\b"
+)
 
 
 def _page_has_summary_marker(page_text: str) -> bool:
@@ -1824,7 +1834,10 @@ def _attach_exact_point_sources_to_findings(
             continue
         source = lookup[point_id]
         finding["exact_point_id"] = point_id
-        finding["exact_point_title"] = source.get("title") or point_id
+        finding["exact_point_title"] = _user_visible_point_label(
+            str(source.get("title") or point_id),
+            source if isinstance(source, dict) else {},
+        )
         finding["exact_point_text"] = source.get("text") or ""
         finding["exact_point_signals"] = dict(source.get("signals") or {})
         finding["exact_rule_id"] = str(finding.get("rule_id") or finding.get("finding_id") or "")
@@ -1994,6 +2007,107 @@ def _resolve_child_title(child_id: str, child_meta: Dict[str, object]) -> str:
     title = _strip_suspicious_cjk(title)
     title = " ".join(title.split())
     return title or str(child_id or "Ukjent")
+
+
+def _user_visible_point_label(point_id: str, child_meta: Optional[Dict[str, object]] = None) -> str:
+    normalized = str(point_id or "").strip()
+    if not normalized:
+        return ""
+    if _is_canonical_child_point_id(normalized):
+        return _resolve_child_title(normalized, child_meta or {})
+    return normalized
+
+
+def _user_visible_point_prefix(point_id: str, child_meta: Optional[Dict[str, object]] = None) -> str:
+    normalized = str(point_id or "").strip()
+    if not normalized:
+        return ""
+    if _is_scoring_eligible_point_id(normalized):
+        return f"Punkt {normalized}: "
+    if _is_canonical_child_point_id(normalized):
+        title = _resolve_child_title(normalized, child_meta or {})
+        return f"{title}: " if title else ""
+    return ""
+
+
+def _replace_canonical_child_ids_in_text(text: str) -> str:
+    if not isinstance(text, str) or not text:
+        return "" if not isinstance(text, str) else text
+    updated = text
+    for child_id, title in sorted(_get_canonical_child_title_map().items(), key=lambda item: len(item[0]), reverse=True):
+        updated = re.sub(
+            rf"(?<![A-Z0-9_]){re.escape(child_id)}(?![A-Z0-9_])",
+            title,
+            updated,
+        )
+    return updated
+
+
+_USER_FACING_TEXT_KEYS = {
+    "title",
+    "title_display",
+    "message",
+    "summary",
+    "details",
+    "reason",
+    "recommended_fix_text",
+    "suggested_rewrite_text",
+    "what_to_change",
+    "good_example",
+    "exact_point_title",
+}
+
+
+def _normalize_user_facing_child_titles(payload: object) -> None:
+    if isinstance(payload, dict):
+        rule_id = str(payload.get("rule_id") or payload.get("finding_id") or "") if isinstance(payload, dict) else ""
+        for key, value in list(payload.items()):
+            if key in {"point_id", "exact_point_id", "point_key"} and isinstance(value, str):
+                normalized = _normalize_point_id(value)
+                if _is_report_level_rule(rule_id) or _is_canonical_child_point_id(normalized):
+                    payload[key] = ""
+                    continue
+            if isinstance(value, (dict, list)):
+                _normalize_user_facing_child_titles(value)
+            elif isinstance(value, str) and key in _USER_FACING_TEXT_KEYS:
+                payload[key] = _replace_canonical_child_ids_in_text(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, (dict, list)):
+                _normalize_user_facing_child_titles(item)
+
+
+def _normalize_report_level_finding_targets(analysis_output: Dict[str, object]) -> None:
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        return
+    for item in all_findings:
+        if not isinstance(item, dict):
+            continue
+        rule_id = str(item.get("rule_id") or item.get("finding_id") or "")
+        if not _is_report_level_rule(rule_id):
+            continue
+        item["point_id"] = ""
+        item["exact_point_id"] = ""
+
+
+def _is_report_level_rule(rule_id: str) -> bool:
+    rid = str(rule_id or "").strip()
+    return rid in {
+        "E_METHOD.areal_ns3940_2023",
+        "E_METHOD.egenerklaring_missing",
+    }
+
+
+def _public_point_reference(point_id: str, rule_id: str = "") -> str:
+    normalized = _normalize_point_id(str(point_id or ""))
+    if not normalized or normalized == "GLOBAL":
+        return ""
+    if _is_report_level_rule(rule_id):
+        return ""
+    if _is_canonical_child_point_id(normalized):
+        return ""
+    return normalized
 
 
 def _can_use_all_findings_fallback(
@@ -2733,6 +2847,56 @@ def _extract_report_regime_context(report_text: str) -> Dict[str, str]:
     }
 
 
+def _report_requires_areal_ns3940_2023(report_text: str) -> bool:
+    normalized = _normalize_tg3_cost_text(report_text or "")
+    if not normalized:
+        return False
+    low = normalized.lower()
+    if OLD_AREAL_METHOD_RE.search(low):
+        return True
+    if BRA_BREAKDOWN_RE.search(low):
+        return False
+    return bool(re.search(r"(?ix)\b(?:areal|ns\s*3940|bruksareal|bra)\b", low))
+
+
+def _freestanding_structure_kind(text: str) -> str:
+    low = _normalize_tg3_cost_text(text or "").lower()
+    if not low:
+        return ""
+    if HABITABLE_ANNEX_RE.search(low):
+        return "habitable_annex"
+    if re.search(r"(?ix)\b(?:garasje|garage|frittstående\s+garasje)\b", low):
+        return "garage"
+    if re.search(r"(?ix)\b(?:uthus|bod|naust|anneks)\b", low):
+        return "storage"
+    return ""
+
+
+def _freestanding_present_arkat_keys(
+    combined_text: str,
+    point_title: str = "",
+    standard_version: str = "",
+) -> set:
+    present = set()
+    source_text = str(combined_text or "").strip()
+    if not source_text:
+        return present
+    signals = _segment_content_signals(source_text)
+    if _segment_has_qualifying_cause(
+        source_text,
+        standard_version=standard_version,
+        point_title=point_title,
+    ):
+        present.add("årsak")
+    if _point_has_qualifying_risk_text(source_text):
+        present.add("risiko")
+    if _point_has_buyer_oriented_consequence_text(source_text):
+        present.add("konsekvens")
+    if signals["recommendation_present"] or signals["documentation_ok"]:
+        present.add("anbefalt_tiltak")
+    return present
+
+
 def _point_is_freestanding_building_without_tg(point: Dict[str, object]) -> bool:
     if not isinstance(point, dict):
         return False
@@ -2754,6 +2918,7 @@ def _apply_regime_to_detected_points(
     context = _extract_report_regime_context(report_text)
     report_date = context.get("report_date") or ""
     ns_version = context.get("ns_version") or ""
+    standard_version = _detect_ns_standard_version(report_text)
     out: List[Dict[str, object]] = []
     for point in detected_points:
         if not isinstance(point, dict):
@@ -2771,11 +2936,50 @@ def _apply_regime_to_detected_points(
         item["no_tg_hms_point"] = no_tg_hms_point
         freestanding_signal = _point_is_freestanding_building_without_tg(item)
         item["freestanding_building_deviation_without_tg"] = freestanding_signal
+        structure_kind = _freestanding_structure_kind(f"{title}\n{text}")
+        tg_label = _effective_point_tg(item)
+        present_arkat_keys = _freestanding_present_arkat_keys(
+            text,
+            point_title=title,
+            standard_version=standard_version,
+        )
+        missing_arkat = sorted(
+            key
+            for key in ("årsak", "risiko", "konsekvens", "anbefalt_tiltak")
+            if key not in present_arkat_keys
+        )
+        has_deviation = bool(DEVIATION_KEYWORD_RE.search(combined))
+        tg_is_used = tg_label in {"TG0", "TG1", "TG2", "TG3"}
+        habitable_annex_without_tg = structure_kind == "habitable_annex" and not tg_is_used and tg_label != "TGIU"
+        garage_arkat_missing = (
+            structure_kind in {"garage", "storage"}
+            and has_deviation
+            and not tg_is_used
+            and tg_label != "TGIU"
+            and bool(missing_arkat)
+        )
+        garage_tg_arkat_missing = (
+            structure_kind in {"garage", "storage"}
+            and has_deviation
+            and tg_is_used
+            and bool(missing_arkat)
+        )
+        item["freestanding_structure_kind"] = structure_kind
+        item["freestanding_missing_arkat_keys"] = missing_arkat
+        item["garage_avvik_uten_arkat"] = garage_arkat_missing
+        item["garage_tg_uten_full_arkat"] = garage_tg_arkat_missing
+        item["habitable_annex_without_tg"] = habitable_annex_without_tg
         normalized_signals = dict(item.get("normalized_signals") or {})
         normalized_signals["freestanding_building_deviation_without_tg"] = freestanding_signal
+        normalized_signals["garage_avvik_uten_arkat"] = garage_arkat_missing
+        normalized_signals["garage_tg_uten_full_arkat"] = garage_tg_arkat_missing
+        normalized_signals["habitable_annex_without_tg"] = habitable_annex_without_tg
         item["normalized_signals"] = normalized_signals
         exact_point_signals = dict(item.get("exact_point_signals") or normalized_signals)
         exact_point_signals["freestanding_building_deviation_without_tg"] = freestanding_signal
+        exact_point_signals["garage_avvik_uten_arkat"] = garage_arkat_missing
+        exact_point_signals["garage_tg_uten_full_arkat"] = garage_tg_arkat_missing
+        exact_point_signals["habitable_annex_without_tg"] = habitable_annex_without_tg
         item["exact_point_signals"] = exact_point_signals
         out.append(item)
     return out
@@ -3350,7 +3554,8 @@ def _ensure_finding_suggestions_differentiated(analysis_output: Dict[str, object
         if existing and point_in_text and len(existing) > 60:
             continue
         # Build a short, finding-specific recommendation
-        point_ref = f" for punkt {point_id}" if point_id else ""
+        visible_point = _user_visible_point_label(point_id, f)
+        point_ref = f" for punkt {visible_point}" if point_id and _is_scoring_eligible_point_id(point_id) else ""
         if "risiko" in fid or "risiko_missing" in title.lower() or "mangler risiko" in title.lower():
             f["recommended_fix_text"] = (
                 f"Legg til kort risiko{point_ref}: beskriv hva som kan skje dersom forholdet ikke håndteres, "
@@ -3430,7 +3635,8 @@ def _recommended_fix_text_looks_malformed(finding: Dict[str, object]) -> bool:
 
 def _build_source_grounded_recommended_fix(finding: Dict[str, object]) -> str:
     point_id = str(finding.get("exact_point_id") or _parse_runtime_point_ref_from_v16_finding(finding) or "").strip()
-    point_ref = f" for punkt {point_id}" if point_id else ""
+    visible_point = _user_visible_point_label(point_id, finding)
+    point_ref = f" for punkt {visible_point}" if point_id and _is_scoring_eligible_point_id(point_id) else ""
     fid = str(finding.get("finding_id") or "").lower()
     title = _normalize_tg3_cost_text(str(finding.get("title") or "")).lower()
     message = _normalize_tg3_cost_text(str(finding.get("message") or "")).lower()
@@ -3539,12 +3745,16 @@ def _infer_rewrite_strategy(finding: Dict[str, object]) -> str:
 
 def _extract_building_part_context(finding: Dict[str, object]) -> str:
     exact_title = str(finding.get("exact_point_title") or "").strip()
+    if _is_canonical_child_point_id(exact_title):
+        exact_title = _resolve_child_title(exact_title, finding)
     if exact_title:
         return exact_title
     title = str(finding.get("title") or "").strip()
     message = str(finding.get("message") or "").strip()
     point_id = _parse_runtime_point_ref_from_v16_finding(finding)
-    point_marker = f"Punkt {point_id}" if point_id else ""
+    point_marker = _user_visible_point_label(point_id, finding)
+    if point_marker and _is_scoring_eligible_point_id(point_id):
+        point_marker = f"Punkt {point_marker}"
     for source in (title, message):
         if not source:
             continue
@@ -3673,7 +3883,7 @@ def _build_suggested_rewrite_text(finding: Dict[str, object]) -> str:
     if existing:
         return existing
     point_id = str(finding.get("exact_point_id") or _parse_runtime_point_ref_from_v16_finding(finding) or "").strip()
-    point_prefix = f"Punkt {point_id}: " if point_id else ""
+    point_prefix = _user_visible_point_prefix(point_id, finding)
     strategy = str(finding.get("rewrite_strategy") or "").strip()
     evidence_detail = _extract_observation_detail(finding)
     building_part = _extract_building_part_context(finding)
@@ -3857,7 +4067,7 @@ def _suggested_rewrite_text_looks_unsupported(finding: Dict[str, object], text: 
 
 def _build_source_grounded_rewrite_fallback(finding: Dict[str, object]) -> str:
     point_id = str(finding.get("exact_point_id") or _parse_runtime_point_ref_from_v16_finding(finding) or "").strip()
-    point_prefix = f"Punkt {point_id}: " if point_id else ""
+    point_prefix = _user_visible_point_prefix(point_id, finding)
     building_part = _extract_building_part_context(finding)
     part_prefix = f"{building_part}: " if building_part and building_part != point_prefix.rstrip(": ") else ""
     observation = _extract_observation_detail(finding)
@@ -4203,15 +4413,26 @@ def _filter_regime_conditioned_rules(
     context = _extract_report_regime_context(report_text)
     report_date = context.get("report_date") or ""
     ns_version = context.get("ns_version") or ""
+    report_requires_areal_rule = _report_requires_areal_ns3940_2023(report_text)
     no_tg_points = {
         _normalize_point_id(str(point.get("point_id") or ""))
         for point in detected_points
         if isinstance(point, dict) and bool(point.get("no_tg_hms_point"))
     }
-    freestanding_points = {
+    garage_arkat_missing_points = {
         _normalize_point_id(str(point.get("point_id") or ""))
         for point in detected_points
-        if isinstance(point, dict) and bool(point.get("freestanding_building_deviation_without_tg"))
+        if isinstance(point, dict) and bool(point.get("garage_avvik_uten_arkat"))
+    }
+    garage_tg_arkat_missing_points = {
+        _normalize_point_id(str(point.get("point_id") or ""))
+        for point in detected_points
+        if isinstance(point, dict) and bool(point.get("garage_tg_uten_full_arkat"))
+    }
+    habitable_annex_without_tg_points = {
+        _normalize_point_id(str(point.get("point_id") or ""))
+        for point in detected_points
+        if isinstance(point, dict) and bool(point.get("habitable_annex_without_tg"))
     }
 
     def _is_rule_active(rule_id: str, point_id: str, blob: str) -> bool:
@@ -4223,9 +4444,17 @@ def _filter_regime_conditioned_rules(
         if rid == "B_TG.el_anlegg_tg_forbudt":
             return _iso_date_at_or_after(report_date, "2026-01-01")
         if rid == "E_METHOD.areal_ns3940_2023":
-            return _iso_date_at_or_after(report_date, "2026-01-01")
+            return _iso_date_at_or_after(report_date, "2026-01-01") and report_requires_areal_rule
+        if rid == "E_METHOD.egenerklaring_missing":
+            return False
         if rid == "E_METHOD.fritstaaende_bygg_avvik_uten_tg":
-            return bool(freestanding_points) if not norm_point_id else norm_point_id in freestanding_points
+            return False
+        if rid == "E_METHOD.garasje_avvik_uten_arkat":
+            return bool(garage_arkat_missing_points) if not norm_point_id else norm_point_id in garage_arkat_missing_points
+        if rid == "E_METHOD.garasje_tg_uten_full_arkat":
+            return bool(garage_tg_arkat_missing_points) if not norm_point_id else norm_point_id in garage_tg_arkat_missing_points
+        if rid == "E_METHOD.anneks_varig_opphold_mangler_tg":
+            return bool(habitable_annex_without_tg_points) if not norm_point_id else norm_point_id in habitable_annex_without_tg_points
         if rid.startswith("A_NO_TG_HMS") or rid == "A_NO_TG_HMS_ELEKTRISK":
             return bool(no_tg_points) if not norm_point_id else norm_point_id in no_tg_points
         if rid == "L-RK-01":
@@ -4427,11 +4656,8 @@ def _ensure_electrical_no_tg_hms_findings(
             or re.search(r"(?ix)\bsikringsskap\b[^.\n]{0,80}\bikke\s+er\s+branntett", low)
             or re.search(r"(?ix)\bbranntett\b", low)
         )
-        has_missing_declaration = bool(
-            re.search(r"(?ix)\bikke\s+(?:fremlagt|frem?lagt)\s+samsvarserkl", low)
-            or re.search(r"(?ix)\bmangler\s+samsvarserkl", low)
-        )
-        if not (has_fire_box_defect or has_missing_declaration):
+        if not has_fire_box_defect:
+            # Missing samsvarserklaering is handled separately by L-SE-01.
             continue
 
         existing_blob = _normalize_tg3_cost_text(
@@ -4441,15 +4667,10 @@ def _ensure_electrical_no_tg_hms_findings(
                 if isinstance(item, dict)
             )
         ).lower()
-        if "elektr" in existing_blob or "sikringsskap" in existing_blob or "samsvarserkl" in existing_blob:
+        if "elektr" in existing_blob or "sikringsskap" in existing_blob:
             continue
 
-        detail_parts: List[str] = []
-        if has_fire_box_defect:
-            detail_parts.append("det er registrert hull i dør til sikringsskapet, slik at skapet ikke fremstår branntett")
-        if has_missing_declaration:
-            detail_parts.append("det mangler samsvarserklæring for deler av anlegget i tilbygg og/eller garasje")
-        detail_text = " og ".join(detail_parts)
+        detail_text = "det er registrert hull i dør til sikringsskapet, slik at skapet ikke fremstår branntett"
         message = f"Punkt {point_id} ({title}): Elektrisk anlegg har forhold som bør følges opp, fordi {detail_text}."
         all_findings.append(
             {
@@ -4464,13 +4685,12 @@ def _ensure_electrical_no_tg_hms_findings(
                 "deduction_band": "Lavt trekk",
                 "title": f"Punkt {point_id}: elektrisk anlegg bør følges opp",
                 "message": message,
-                "recommended_fix_text": "Beskriv tydelig hva som er registrert ved sikringsskap og dokumentasjon, og anbefal videre kontroll eller utbedring av registrert installatør.",
-                "suggested_rewrite_text": "Det er registrert hull i dør til sikringsskapet, og det mangler samsvarserklæring for deler av det elektriske anlegget i tilbygg/garasje. Kontroll og videre oppfølging av registrert installatør anbefales.",
+                "recommended_fix_text": "Beskriv tydelig hva som er registrert ved sikringsskapet, hvorfor dette er et avvik, og anbefal videre kontroll eller utbedring av registrert installatør.",
+                "suggested_rewrite_text": "Det er registrert hull i dør til sikringsskapet, slik at skapet ikke fremstår branntett. Kontroll og videre oppfølging av registrert installatør anbefales.",
                 "rewrite_strategy": "no_tg_hms_explanation",
                 "evidence_snippets": [str(point.get("effective_span_text") or point.get("exact_span_text") or point.get("span_text") or "")],
             }
         )
-
 
 def _append_unique_all_finding(analysis_output: Dict[str, object], finding: Dict[str, object]) -> None:
     all_findings = analysis_output.get("all_findings")
@@ -4542,26 +4762,18 @@ def _point_requires_l_se_01(point: Dict[str, object]) -> bool:
     if "samsvarserkl" not in combined:
         return False
     missing_match = re.search(
-        r"(?ix)\b(?:ikke\s+(?:fremlagt|frem?lagt|foreligger)|mangler|manglende|ikke\s+samsvar)\b[^.\n]{0,120}\bsamsvarserkl",
+        r"(?ix)\b(?:ikke\s+(?:fremlagt|frem?lagt|foreligger)|mangler|manglende|ikke\s+samsvar)\b[^.\n]{0,160}\bsamsvarserkl",
         combined,
     )
     if not missing_match:
         return False
-    if _point_has_explicit_section_text(point_text, "konsekvens") or _point_has_buyer_oriented_consequence_text(point_text):
-        return False
-    sentence_start = combined.rfind(".", 0, missing_match.start())
-    sentence_start = 0 if sentence_start < 0 else sentence_start + 1
-    sentence_end = combined.find(".", missing_match.end())
-    if sentence_end < 0:
-        sentence_end = len(combined)
-    consequence_window = combined[sentence_start:sentence_end]
+    local_window = combined[missing_match.start(): min(len(combined), missing_match.end() + 220)]
     if re.search(
-        r"(?ix)\b(?:konsekvens|risiko|fare|sikkerhetsrisiko|utbedring|oppf[oø]lging|usikkerhet)\b",
-        consequence_window,
+        r"(?ix)\b(?:konsekvens|risiko|fare|sikkerhetsrisiko|usikkerhet|videre\s+kontroll|oppf[oø]lging|dokumentasjonsbehov|utbedringsbehov)\b",
+        local_window,
     ):
         return False
     return True
-
 
 def _report_excerpt(report_text: str, pattern: str, window: int = 260) -> str:
     normalized = _normalize_tg3_cost_text(report_text or "")
@@ -4632,10 +4844,12 @@ def _report_requires_l_se_01(report_text: str, report_date: str) -> bool:
     if not excerpt:
         return False
     low = excerpt.lower()
-    if re.search(r"(?ix)\b(?:konsekvens|risiko|fare|sikkerhetsrisiko|utbedring|oppf[oø]lging|usikkerhet)\b", low):
+    if re.search(
+        r"(?ix)\b(?:konsekvens|risiko|fare|sikkerhetsrisiko|usikkerhet|videre\s+kontroll|oppf[oø]lging|dokumentasjonsbehov|utbedringsbehov)\b",
+        low,
+    ):
         return False
     return True
-
 
 def _report_freestanding_finding(report_text: str) -> Tuple[str, str]:
     normalized = _normalize_tg3_cost_text(report_text or "")
@@ -4658,6 +4872,8 @@ def _report_freestanding_finding(report_text: str) -> Tuple[str, str]:
             continue
         window = " ".join(sentence_chunks[idx: min(len(sentence_chunks), idx + 4)]).strip()
         window_low = window.lower()
+        if HABITABLE_ANNEX_RE.search(window_low):
+            continue
         if not DEVIATION_KEYWORD_RE.search(window_low):
             continue
         if re.search(r"(?ix)\bTG\s*(?:0|1|2|3|iu)\b", window_low):
@@ -4673,11 +4889,19 @@ def _report_freestanding_finding(report_text: str) -> Tuple[str, str]:
             continue
         block = match.group(0)
         block_low = block.lower()
+        if point_id == "P05G_STORAGE" and HABITABLE_ANNEX_RE.search(block_low):
+            continue
         if not DEVIATION_KEYWORD_RE.search(block_low):
             continue
         if re.search(r"(?ix)\bTG\s*(?:0|1|2|3|iu)\b", block_low):
             continue
         return point_id, block.strip()
+    garage_match = re.search(
+        r"(?is)\bgarasje\b.{0,700}(?:fall\s+inn\s+mot|terreng|overflatevann|drenering|knotteplast|topplist|utbedre|anbefales)",
+        normalized,
+    )
+    if garage_match and not re.search(r"(?ix)\bTG\s*(?:0|1|2|3|iu)\b", garage_match.group(0)):
+        return "P05F_GARAGE", garage_match.group(0).strip()
     if "garasje" in lowered and DEVIATION_KEYWORD_RE.search(lowered) and "tg" not in lowered:
         return "P05F_GARAGE", _report_excerpt(report_text, r"(?i)\bgarasje\b")
     return "", ""
@@ -4746,18 +4970,19 @@ def _ensure_generic_backstop_findings(
             {
                 "finding_id": "E_METHOD_egenerklaring_missing_P12A_OWNER_INFORMATION",
                 "rule_id": "E_METHOD.egenerklaring_missing",
-                "point_id": "P12A_OWNER_INFORMATION",
-                "exact_point_id": "P12A_OWNER_INFORMATION",
-                "exact_point_title": "Opplysninger fra eier",
+                "point_id": "",
+                "exact_point_id": "",
+                "exact_point_title": "Opplysninger fra eier / egenerklæring",
                 "exact_point_text": excerpt,
                 "category": "E",
-                "severity": "major",
-                "deduction_band": "Middels trekk",
+                "severity": "info",
+                "deduction_band": "Ikke scoretrekk",
                 "title": "Egenerklæring ikke levert",
-                "message": "Egenerklæring fra eier er ikke levert og dette fremgår av rapporten, men konsekvensen for analysen er ikke forklart.",
-                "recommended_fix_text": "Forklar hva manglende egenerklæring betyr for analysen og hvilken usikkerhet dette skaper for kjøper.",
-                "suggested_rewrite_text": "Egenerklæringsskjema er ikke levert i forbindelse med oppdraget. Dette svekker grunnlaget for analysen fordi forhold som bare eier kjenner til kan være utelatt, og kjøper bør gjøres oppmerksom på denne usikkerheten.",
+                "message": "Rapporten opplyser at egenerklæring ikke er levert. Dette skal ikke gi scoretrekk, men bør fremgå som en faglig merknad fordi analysegrunnlaget blir svakere når forhold bare eier kjenner til kan være utelatt.",
+                "recommended_fix_text": "Legg inn en kort opplysning om at rapporten er ferdigstilt uten egenerklæring, og forklar hvilken metodisk usikkerhet og hvilket ansvar dette kan medføre for takstmannen.",
+                "suggested_rewrite_text": "Egenerklæring er ikke levert i forbindelse med oppdraget. Dette er ikke et forskriftsavvik og skal ikke gi scoretrekk, men det svekker analysegrunnlaget fordi forhold bare eier kjenner til kan være utelatt. NS 3600:2018 pkt. 5 og 9 krever egenerklæring før analysen, og NS 3600:2025 pkt. 8 c) krever at den foreligger før rapporten ferdigstilles. Uten egenerklæring øker risikoen for at viktige opplysninger er oversett, og takstmannen eksponeres for ansvar.",
                 "evidence_snippets": [excerpt] if excerpt else [],
+                "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
             },
         )
     if (
@@ -4788,8 +5013,7 @@ def _ensure_generic_backstop_findings(
             },
         )
     if (
-        not _finding_already_present(analysis_output, "L-SE-01", "P09F_ELECTRICAL_INSTALLATION")
-        and _report_requires_l_se_01(report_text, report_date)
+        _report_requires_l_se_01(report_text, report_date)
     ):
         excerpt = _report_l_se_01_excerpt(report_text)
         _append_unique_all_finding(
@@ -4852,49 +5076,103 @@ def _ensure_generic_backstop_findings(
             )
 
         if (
-            not _finding_already_present(analysis_output, "E_METHOD.fritstaaende_bygg_avvik_uten_tg", canonical_point_id)
-            and bool(point.get("freestanding_building_deviation_without_tg"))
+            not _finding_already_present(analysis_output, "E_METHOD.garasje_avvik_uten_arkat", canonical_point_id)
+            and bool(point.get("garage_avvik_uten_arkat"))
+        ):
+            missing_arkat = ", ".join(point.get("freestanding_missing_arkat_keys") or []) or "årsak, risiko, konsekvens eller anbefalt tiltak"
+            _append_unique_all_finding(
+                analysis_output,
+                {
+                    "finding_id": f"E_METHOD_garasje_avvik_uten_arkat_{_normalize_point_id(canonical_point_id).replace('.', '_') or 'global'}",
+                    "rule_id": "E_METHOD.garasje_avvik_uten_arkat",
+                    "point_id": canonical_point_id,
+                    "exact_point_id": canonical_point_id,
+                    "exact_point_title": _user_visible_point_label(canonical_point_id, point),
+                    "exact_point_text": point_text,
+                    "category": "E",
+                    "severity": "major",
+                    "deduction_band": "Middels trekk",
+                    "title": "Avvik i garasje/uthus/naust mangler full ARKAT",
+                    "message": f"Rapporten beskriver et tydelig avvik i frittstående bygg uten varig opphold, men mangler full ARKAT. Manglende elementer: {missing_arkat}. TG er ikke påkrevd, men avviket skal beskrives med årsak, risiko, konsekvens og anbefalt tiltak.",
+                    "recommended_fix_text": "Beskriv avviket med full ARKAT: hva som er observert, hvilken risiko det gir, hvilken praktisk konsekvens det har for kjøper, og hvilket tiltak som anbefales. TG er ikke nødvendig for slike bygg.",
+                    "suggested_rewrite_text": "Det er registrert et avvik i garasje/uthus/naust. Forholdet bør beskrives med full ARKAT: hva som er observert, hvilken risiko det gir videre, hvilken konsekvens det har for kjøper, og hvilket tiltak som anbefales. TG er ikke påkrevd for dette bygget.",
+                    "evidence_snippets": [point_text],
+                    "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
+                },
+            )
+
+        if (
+            not _finding_already_present(analysis_output, "E_METHOD.garasje_tg_uten_full_arkat", canonical_point_id)
+            and bool(point.get("garage_tg_uten_full_arkat"))
+        ):
+            missing_arkat = ", ".join(point.get("freestanding_missing_arkat_keys") or []) or "årsak, risiko, konsekvens eller anbefalt tiltak"
+            _append_unique_all_finding(
+                analysis_output,
+                {
+                    "finding_id": f"E_METHOD_garasje_tg_uten_full_arkat_{_normalize_point_id(canonical_point_id).replace('.', '_') or 'global'}",
+                    "rule_id": "E_METHOD.garasje_tg_uten_full_arkat",
+                    "point_id": canonical_point_id,
+                    "exact_point_id": canonical_point_id,
+                    "exact_point_title": _user_visible_point_label(canonical_point_id, point),
+                    "exact_point_text": point_text,
+                    "category": "E",
+                    "severity": "major",
+                    "deduction_band": "Middels trekk",
+                    "title": "TG satt i garasje/uthus/naust uten full ARKAT",
+                    "message": f"Rapporten har satt TG på frittstående bygg uten varig opphold, men ARKAT er ikke komplett. Manglende elementer: {missing_arkat}. Når TG brukes, må full ARKAT følge med.",
+                    "recommended_fix_text": "Når TG settes på garasje, uthus eller naust, må avviket beskrives med full ARKAT. Alternativt kan TG tas ut og forholdet beskrives som observasjon med full ARKAT uten TG.",
+                    "suggested_rewrite_text": "Det er satt TG på dette forholdet i garasje/uthus/naust. Da må punktet suppleres med full ARKAT: hva som er observert, hvilken risiko det gir, hvilken konsekvens det har for kjøper, og hvilket tiltak som anbefales.",
+                    "evidence_snippets": [point_text],
+                    "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
+                },
+            )
+
+        if (
+            not _finding_already_present(analysis_output, "E_METHOD.anneks_varig_opphold_mangler_tg", canonical_point_id)
+            and bool(point.get("habitable_annex_without_tg"))
         ):
             _append_unique_all_finding(
                 analysis_output,
                 {
-                    "finding_id": f"E_METHOD_fritstaaende_bygg_avvik_uten_tg_{_normalize_point_id(canonical_point_id).replace('.', '_') or 'global'}",
-                    "rule_id": "E_METHOD.fritstaaende_bygg_avvik_uten_tg",
+                    "finding_id": f"E_METHOD_anneks_varig_opphold_mangler_tg_{_normalize_point_id(canonical_point_id).replace('.', '_') or 'global'}",
+                    "rule_id": "E_METHOD.anneks_varig_opphold_mangler_tg",
                     "point_id": canonical_point_id,
                     "exact_point_id": canonical_point_id,
-                    "exact_point_title": point_title or "Garasje / uthus",
+                    "exact_point_title": _user_visible_point_label(canonical_point_id, point),
                     "exact_point_text": point_text,
                     "category": "E",
-                    "severity": "minor",
-                    "deduction_band": "Middels trekk",
-                    "title": "Avvik beskrevet i frittstående bygg uten tilstandsgrad",
-                    "message": "Rapporten beskriver avvik i frittstående bygg med anbefalt oppfølging, uten at forholdet er tilstandsvurdert med TG eller tilsvarende metodisk markering.",
-                    "recommended_fix_text": "Gi avviket i det frittstående bygget en tydelig metodisk vurdering, enten med relevant tilstandsgrad eller en eksplisitt faglig markering av hvordan forholdet er vurdert.",
-                    "suggested_rewrite_text": "Garasjen/uthuset er omtalt med avvik og anbefalt tiltak. Forholdet bør vurderes tydelig med relevant TG eller samlet metodisk vurdering for frittstående bygg.",
+                    "severity": "major",
+                    "deduction_band": "Høyt trekk",
+                    "title": "Anneks med varig opphold mangler TG-basert tilstandsanalyse",
+                    "message": "Rapporten omtaler et anneks godkjent for varig opphold uten tilstandsanalyse på bygningsdelsnivå med TG. Slike anneks skal behandles som egen boenhet og ha full tilstandsanalyse med TG.",
+                    "recommended_fix_text": "Beskriv annekset som egen boenhet med tilstandsanalyse på bygningsdelsnivå og bruk TG der dette kreves, på samme måte som for boligen.",
+                    "suggested_rewrite_text": "Anneks godkjent for varig opphold skal behandles som egen boenhet og ha full tilstandsanalyse på bygningsdelsnivå med TG. Rapporten bør derfor suppleres med slik vurdering for annekset.",
                     "evidence_snippets": [point_text],
+                    "gate_effect": {"blocks_96_gate": True, "caps_total_score_to": 95},
                 },
             )
-    if not _finding_already_present(analysis_output, "E_METHOD.fritstaaende_bygg_avvik_uten_tg"):
+    if not _finding_already_present(analysis_output, "E_METHOD.garasje_avvik_uten_arkat"):
         fallback_point_id, fallback_text = _report_freestanding_finding(report_text)
         if fallback_point_id and fallback_text:
-            fallback_title = "Garasje / uthus" if fallback_point_id == "P05F_GARAGE" else "Bod / uthus / naust"
+            fallback_title = _user_visible_point_label(fallback_point_id, {})
             _append_unique_all_finding(
                 analysis_output,
                 {
-                    "finding_id": f"E_METHOD_fritstaaende_bygg_avvik_uten_tg_{fallback_point_id}",
-                    "rule_id": "E_METHOD.fritstaaende_bygg_avvik_uten_tg",
+                    "finding_id": f"E_METHOD_garasje_avvik_uten_arkat_{fallback_point_id}",
+                    "rule_id": "E_METHOD.garasje_avvik_uten_arkat",
                     "point_id": fallback_point_id,
                     "exact_point_id": fallback_point_id,
                     "exact_point_title": fallback_title,
                     "exact_point_text": fallback_text,
                     "category": "E",
-                    "severity": "minor",
+                    "severity": "major",
                     "deduction_band": "Middels trekk",
-                    "title": "Avvik beskrevet i frittstående bygg uten tilstandsgrad",
-                    "message": "Rapporten beskriver avvik i frittstående bygg med anbefalt oppfølging, uten at forholdet er tilstandsvurdert med TG eller tilsvarende metodisk markering.",
-                    "recommended_fix_text": "Gi avviket i det frittstående bygget en tydelig metodisk vurdering, enten med relevant tilstandsgrad eller en eksplisitt faglig markering av hvordan forholdet er vurdert.",
-                    "suggested_rewrite_text": "Garasjen/uthuset er omtalt med avvik og anbefalt tiltak. Forholdet bør vurderes tydelig med relevant TG eller samlet metodisk vurdering for frittstående bygg.",
+                    "title": "Avvik i garasje/uthus/naust mangler full ARKAT",
+                    "message": "Rapporten beskriver et tydelig avvik i frittstående bygg uten varig opphold, men ARKAT er ikke komplett. TG er ikke påkrevd, men avviket skal beskrives med årsak, risiko, konsekvens og anbefalt tiltak.",
+                    "recommended_fix_text": "Beskriv avviket med full ARKAT: hva som er observert, hvilken risiko det gir, hvilken praktisk konsekvens det har for kjøper, og hvilket tiltak som anbefales.",
+                    "suggested_rewrite_text": "Det er registrert et avvik i garasje/uthus/naust. Forholdet bør beskrives med full ARKAT: hva som er observert, hvilken risiko det gir videre, hvilken konsekvens det har for kjøper, og hvilket tiltak som anbefales.",
                     "evidence_snippets": [fallback_text],
+                    "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
                 },
             )
 
@@ -5574,6 +5852,63 @@ def _drop_age_only_false_positives(
         ]
 
 
+def _force_required_public_findings(report_text: str, analysis_output: Dict[str, object]) -> None:
+    if not isinstance(analysis_output, dict):
+        return
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        all_findings = []
+        analysis_output["all_findings"] = all_findings
+    context = _extract_report_regime_context(report_text)
+    report_date = context.get("report_date") or ""
+
+    if _report_requires_egenerklaring_missing(report_text):
+        excerpt = _report_excerpt(report_text, r"(?i)egenerkl")
+        _append_unique_all_finding(
+            analysis_output,
+            {
+                "finding_id": "E_METHOD_egenerklaring_missing_forced",
+                "rule_id": "E_METHOD.egenerklaring_missing",
+                "point_id": "",
+                "exact_point_id": "",
+                "exact_point_title": "Opplysninger fra eier / egenerklæring",
+                "exact_point_text": excerpt,
+                "category": "E",
+                "severity": "info",
+                "deduction_band": "Ikke scoretrekk",
+                "title": "Egenerklæring ikke levert",
+                "message": "Rapporten opplyser at egenerklæring ikke er levert. Dette skal ikke gi scoretrekk, men bør fremgå som en faglig merknad fordi analysegrunnlaget blir svakere når forhold bare eier kjenner til kan være utelatt.",
+                "recommended_fix_text": "Legg inn en kort opplysning om at rapporten er ferdigstilt uten egenerklæring, og forklar hvilken metodisk usikkerhet og hvilket ansvar dette kan medføre for takstmannen.",
+                "suggested_rewrite_text": "Egenerklæring er ikke levert i forbindelse med oppdraget. Dette er ikke et forskriftsavvik og skal ikke gi scoretrekk, men det svekker analysegrunnlaget fordi forhold bare eier kjenner til kan være utelatt. NS 3600:2018 pkt. 5 og 9 krever egenerklæring før analysen, og NS 3600:2025 pkt. 8 c) krever at den foreligger før rapporten ferdigstilles. Uten egenerklæring øker risikoen for at viktige opplysninger er oversett, og takstmannen eksponeres for ansvar.",
+                "evidence_snippets": [excerpt] if excerpt else [],
+                "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
+            },
+        )
+
+    if _legality_rule_is_active("L-SE-01", report_date):
+        excerpt = _report_l_se_01_excerpt(report_text)
+        if excerpt:
+            _append_unique_all_finding(
+                analysis_output,
+                {
+                    "finding_id": "L_SE_01_forced_P09F_ELECTRICAL_INSTALLATION",
+                    "rule_id": "L-SE-01",
+                    "point_id": "P09F_ELECTRICAL_INSTALLATION",
+                    "exact_point_id": "P09F_ELECTRICAL_INSTALLATION",
+                    "exact_point_title": "Elektrisk anlegg og samsvarserklæring",
+                    "exact_point_text": excerpt,
+                    "category": "F",
+                    "severity": "major",
+                    "deduction_band": "Lavt trekk",
+                    "title": "Manglende samsvarserklæring for elektrisk arbeid uten konsekvens for kjøper",
+                    "message": "Rapporten opplyser om manglende samsvarserklæring for deler av det elektriske anlegget, men forklarer ikke den praktiske konsekvensen for kjøper.",
+                    "recommended_fix_text": "Forklar hva manglende samsvarserklæring betyr for kjøper i praksis, for eksempel usikkerhet om forskriftsmessig utførelse og behov for videre kontroll eller dokumentasjon.",
+                    "suggested_rewrite_text": "Det er ikke fremlagt samsvarserklæring for deler av det elektriske anlegget i tilbygg og garasje. Dette gir usikkerhet om arbeidet er forskriftsmessig utført, og kjøper bør påregne videre kontroll og mulig dokumentasjons- eller utbedringsbehov.",
+                    "evidence_snippets": [excerpt] if excerpt else [],
+                },
+            )
+
+
 def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
     all_findings = analysis_output.get("all_findings")
     if not isinstance(all_findings, list):
@@ -5596,6 +5931,10 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
     rebuilt_top_issues: List[Dict[str, object]] = []
     top_issue_source = sorted_scored_findings or sorted_findings
     for finding in top_issue_source[:5]:
+        public_point_id = _public_point_reference(
+            _parse_point_id_from_v16_finding(finding) or finding.get("point_id"),
+            str(finding.get("rule_id") or finding.get("finding_id") or ""),
+        )
         rebuilt_top_issues.append({
             "finding_id": finding.get("finding_id"),
             "rule_id": finding.get("rule_id"),
@@ -5608,7 +5947,7 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
             "rewrite_strategy": finding.get("rewrite_strategy") or "",
             "suggested_rewrite_text": finding.get("suggested_rewrite_text") or "",
             "gate_effect": finding.get("gate_effect") if isinstance(finding.get("gate_effect"), dict) else {},
-            "point_id": _parse_point_id_from_v16_finding(finding) or finding.get("point_id"),
+            "point_id": public_point_id,
         })
     analysis_output["top_issues"] = rebuilt_top_issues
 
@@ -5620,9 +5959,10 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
         suggested_rewrite_text = str(finding.get("suggested_rewrite_text") or "").strip()
         if not recommended_fix_text and not suggested_rewrite_text:
             continue
-        point_id = _parse_point_id_from_v16_finding(finding) or str(finding.get("point_id") or "").strip()
+        raw_point_id = _parse_point_id_from_v16_finding(finding) or str(finding.get("point_id") or "").strip()
+        point_id = _public_point_reference(raw_point_id, str(finding.get("rule_id") or finding.get("finding_id") or ""))
         dedupe_key = (
-            _normalize_point_id(point_id or "GLOBAL"),
+            _normalize_point_id((raw_point_id or point_id) or "GLOBAL"),
             _normalize_tg3_cost_text(title).lower(),
             _normalize_tg3_cost_text(recommended_fix_text or suggested_rewrite_text).lower(),
         )
@@ -5750,10 +6090,65 @@ def _polish_analysis_text_fields(payload: object) -> None:
                 payload[idx] = _polish_feedback_text(item)
 
 
+def _ensure_special_feedback_findings_visible(
+    analysis_output: Dict[str, object],
+    feedback_findings: List[Dict[str, object]],
+) -> None:
+    if not isinstance(feedback_findings, list):
+        return
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        return
+    wanted_rules = {"L-SE-01", "E_METHOD.egenerklaring_missing"}
+    existing = {
+        str(item.get("rule_id") or item.get("finding_id") or "")
+        for item in feedback_findings
+        if isinstance(item, dict)
+    }
+    for item in all_findings:
+        if not isinstance(item, dict):
+            continue
+        rule_id = str(item.get("rule_id") or item.get("finding_id") or "")
+        if rule_id not in wanted_rules or rule_id in existing:
+            continue
+        raw_point_id = _normalize_point_id(str(item.get("exact_point_id") or item.get("point_id") or ""))
+        public_point_id = _public_point_reference(raw_point_id, rule_id)
+        deduction = {"Lavt trekk": 1, "Middels trekk": 3, "Høyt trekk": 5}.get(str(item.get("deduction_band") or "").strip(), 0)
+        evidence_snippets = item.get("evidence_snippets") or []
+        snippet = (
+            str(item.get("exact_point_text") or "").strip()
+            or (evidence_snippets[0] if evidence_snippets and isinstance(evidence_snippets[0], str) else "")
+            or str(item.get("message") or item.get("title") or "Ikke tilgjengelig.")
+        )
+        feedback_findings.append(
+            {
+                "finding_id": f"f-special-{rule_id.replace('.', '_')}",
+                "rule_id": rule_id,
+                "rule_family": _derive_rule_family(rule_id) or "UNKNOWN",
+                "severity": "high" if item.get("severity") == "major" else "medium" if item.get("severity") == "minor" else "low",
+                "affects_96_gate": bool(isinstance(item.get("gate_effect"), dict) and item.get("gate_effect", {}).get("blocks_96_gate")),
+                "point_id": public_point_id,
+                "point_key": "",
+                "arkat_section": "annet",
+                "message": item.get("title") or item.get("message") or "Avvik",
+                "what_to_change": item.get("recommended_fix_text") or item.get("message") or "Se forbedringsforslag.",
+                "example_fix": {"good_example": item.get("suggested_rewrite_text") or item.get("recommended_fix_text") or item.get("message") or ""},
+                "evidence": {"page": 1, "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.", "match": "Forced visible from all_findings."},
+                "deduction": deduction,
+            }
+        )
+        existing.add(rule_id)
+
+
 def _polish_feedback_findings(findings: List[Dict[str, object]]) -> None:
     for finding in findings:
         if not isinstance(finding, dict):
             continue
+        rule_id = str(finding.get("rule_id") or finding.get("finding_id") or "")
+        public_point_id = _public_point_reference(str(finding.get("point_id") or ""), rule_id)
+        finding["point_id"] = public_point_id
+        if not public_point_id or _is_canonical_child_point_id(str(finding.get("point_key") or "")):
+            finding["point_key"] = ""
         message = _polish_feedback_text(finding.get("message"))
         what_to_change = _polish_feedback_text(finding.get("what_to_change"))
         if message:
@@ -5768,7 +6163,6 @@ def _polish_feedback_findings(findings: List[Dict[str, object]]) -> None:
             good_example = _polish_feedback_text(example_fix.get("good_example"))
             if good_example:
                 example_fix["good_example"] = good_example
-
 
 def _reconcile_feedback_deduction_consistency(
     feedback_findings: List[Dict[str, object]],
@@ -5974,24 +6368,23 @@ def _point_overview_parent_candidates(point: Dict[str, object]) -> set:
     candidates: set = set()
     if not isinstance(point, dict):
         return candidates
-    combined = _normalize_tg3_cost_text(
+    # Use heading-like labels only so unrelated body text does not roll findings into P11/P12.
+    heading_like = _normalize_tg3_cost_text(
         "\n".join(
             [
                 str(point.get("title") or ""),
+                str(point.get("heading") or ""),
                 str(point.get("excerpt") or ""),
-                str(point.get("span_text") or ""),
-                str(point.get("linked_summary_text") or ""),
-                str(point.get("effective_span_text") or ""),
+                str(point.get("native_label") or ""),
             ]
         )
     )
-    if not combined:
+    if not heading_like:
         return candidates
     for parent_id in _OVERVIEW_PARENT_FALLBACK_PATTERNS:
-        if _segment_matches_overview_parent(combined, parent_id):
+        if _segment_matches_overview_parent(heading_like, parent_id):
             candidates.add(parent_id)
     return candidates
-
 
 def _map_segments_to_canonical(
     points: List[Dict[str, object]],
@@ -6419,7 +6812,9 @@ def _build_feedback_v11(
             continue
         deductions = component.get("deductions", []) if isinstance(component.get("deductions"), list) else []
         deduction_totals[point_id] = sum(
-            int(d.get("points", 0)) for d in deductions if isinstance(d, dict)
+            int(d.get("points", 0))
+            for d in deductions
+            if isinstance(d, dict) and not _is_report_level_rule(str(d.get("rule_id") or ""))
         )
         used_deductions_by_point[point_id] = set()
         issues = component.get("issues", []) if isinstance(component.get("issues"), list) else []
@@ -6431,6 +6826,8 @@ def _build_feedback_v11(
                 continue
             rule_refs = issue.get("rule_refs", []) if isinstance(issue.get("rule_refs"), list) else []
             rule_id = rule_refs[0] if rule_refs else "unknown"
+            internal_point_id = point_id
+            feedback_point_id = _public_point_reference(internal_point_id, rule_id)
             raw_severity = issue.get("severity", "medium")
             severity = _normalize_issue_severity(str(raw_severity))
             evidence_items = issue.get("evidence", []) if isinstance(issue.get("evidence"), list) else []
@@ -6472,8 +6869,8 @@ def _build_feedback_v11(
                     "rule_family": rule_family,
                     "severity": severity,
                     "affects_96_gate": affects_96_gate,
-                    "point_id": point_id,
-                    "point_key": point_key or point_id,
+                    "point_id": feedback_point_id,
+                    "point_key": point_key or internal_point_id or feedback_point_id,
                     "arkat_section": arkat_section,
                     "message": issue.get("summary") or "Avvik",
                     "what_to_change": issue.get("details") or issue.get("summary") or "Se forbedringsforslag.",
@@ -6484,7 +6881,8 @@ def _build_feedback_v11(
                     "deduction": deduction_points,
                 }
             )
-            finding_ids_by_point.setdefault(point_id, []).append(finding_id)
+            if internal_point_id:
+                finding_ids_by_point.setdefault(internal_point_id, []).append(finding_id)
 
         for deduction_idx, deduction in enumerate(deductions):
             if deduction_idx in used_deductions_by_point[point_id]:
@@ -6492,6 +6890,8 @@ def _build_feedback_v11(
             if not isinstance(deduction, dict):
                 continue
             rule_id = deduction.get("rule_id") or "unknown"
+            internal_point_id = point_id
+            feedback_point_id = _public_point_reference(internal_point_id, str(rule_id))
             rule_family = _derive_rule_family(str(rule_id))
             affects_96_gate = bool(legality_rule_meta.get(rule_id, {}).get("blocks_96_gate"))
             if affects_96_gate and rule_id not in blocked_by:
@@ -6513,8 +6913,8 @@ def _build_feedback_v11(
                     "rule_family": rule_family,
                     "severity": severity,
                     "affects_96_gate": affects_96_gate,
-                    "point_id": point_id,
-                    "point_key": point_key or point_id,
+                    "point_id": feedback_point_id,
+                    "point_key": point_key or internal_point_id or feedback_point_id,
                     "arkat_section": "annet",
                     "message": deduction.get("reason") or "Trekk registrert.",
                     "what_to_change": deduction.get("reason") or "Oppdater punktet for å fjerne trekket.",
@@ -6526,7 +6926,8 @@ def _build_feedback_v11(
                     "deduction": int(deduction.get("points", 0) or 0),
                 }
             )
-            finding_ids_by_point.setdefault(point_id, []).append(finding_id)
+            if internal_point_id:
+                finding_ids_by_point.setdefault(internal_point_id, []).append(finding_id)
 
     _ensure_feedback_findings_cover_deductions(
         feedback_findings,
@@ -6556,11 +6957,14 @@ def _build_feedback_v11(
             )
         )
         rule_id = str(item.get("rule_id") or item.get("finding_id") or "")
-        if not point_id or point_id not in allowed_point_ids or not rule_id:
+        internal_point_id = point_id
+        feedback_point_id = _public_point_reference(internal_point_id, rule_id)
+        if (internal_point_id and internal_point_id not in allowed_point_ids) or not rule_id:
             continue
-        if (point_id, rule_id) in existing_feedback_keys:
+        if (feedback_point_id, rule_id) in existing_feedback_keys:
             continue
-        if not _is_public_scored_finding(item):
+        is_visible_info_finding = rule_id == "E_METHOD.egenerklaring_missing"
+        if not (_is_public_scored_finding(item) or is_visible_info_finding):
             continue
         point_meta = point_lookup.get(point_id) or {}
         evidence_snippets = item.get("evidence_snippets") or []
@@ -6581,8 +6985,8 @@ def _build_feedback_v11(
                 "rule_family": _derive_rule_family(rule_id) or "UNKNOWN",
                 "severity": "high" if item.get("severity") == "major" else "medium" if item.get("severity") == "minor" else "low",
                 "affects_96_gate": bool(isinstance(item.get("gate_effect"), dict) and item.get("gate_effect", {}).get("blocks_96_gate")),
-                "point_id": point_id,
-                "point_key": point_meta.get("point_key") or point_id,
+                "point_id": feedback_point_id,
+                "point_key": point_meta.get("point_key") or internal_point_id or feedback_point_id,
                 "arkat_section": "annet",
                 "message": item.get("title") or item.get("message") or "Avvik",
                 "what_to_change": item.get("recommended_fix_text") or item.get("message") or "Se forbedringsforslag.",
@@ -6595,9 +6999,10 @@ def _build_feedback_v11(
                 "deduction": deduction_points,
             }
         )
-        finding_ids_by_point.setdefault(point_id, []).append(feedback_id)
-        deduction_totals[point_id] = deduction_totals.get(point_id, 0) + deduction_points
-        existing_feedback_keys.add((point_id, rule_id))
+        if internal_point_id:
+            finding_ids_by_point.setdefault(internal_point_id, []).append(feedback_id)
+            deduction_totals[internal_point_id] = deduction_totals.get(internal_point_id, 0) + deduction_points
+        existing_feedback_keys.add((feedback_point_id, rule_id))
 
     mode, dedupe_key, sorted_points = _sort_points(points)
     ordering_note = "Sortert numerisk (parent før child)." if mode == "NUMERIC" else "Sortert etter dokumentrekkefølge."
@@ -6908,8 +7313,8 @@ def _build_feedback_v11(
                     "rule_family": "SYSTEM",
                     "severity": "high",
                     "affects_96_gate": False,
-                    "point_id": "GLOBAL",
-                    "point_key": "GLOBAL",
+                    "point_id": "",
+                    "point_key": "",
                     "arkat_section": "annet",
                     "message": message,
                     "what_to_change": "Utbedre forholdet som utløser scoretaket for å heve totalscoren.",
@@ -6933,8 +7338,8 @@ def _build_feedback_v11(
                 "rule_family": "SYSTEM",
                 "severity": "critical",
                 "affects_96_gate": True,
-                "point_id": "GLOBAL",
-                "point_key": "GLOBAL",
+                "point_id": "",
+                "point_key": "",
                 "arkat_section": "annet",
                 "message": f"96%-gate er blokkert. Utløst av: {blocked_text}.",
                 "what_to_change": "Fjern forholdet som blokkerer 96%-gaten for å kunne nå 96%+.",
@@ -6955,6 +7360,7 @@ def _build_feedback_v11(
         score_by_category,
         top_score_drivers if isinstance(top_score_drivers, list) else [],
     )
+    _ensure_special_feedback_findings_visible(analysis_output, feedback_findings)
     _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
@@ -7165,24 +7571,28 @@ def _build_feedback_v11_from_all_findings(
             and point_id in allowed_point_ids
             and (_is_canonical_child_point_id(point_id) or _is_scoring_eligible_point_id(point_id))
         )
+        is_report_level = _is_report_level_rule(str(f.get("rule_id") or f.get("finding_id") or ""))
         if is_tg3 and not point_is_linked:
             # Never apply TG3 deductions without clear segment linkage.
             continue
-        if not point_is_linked:
+        if not point_is_linked and not is_report_level:
             # Tight fallback: unresolved findings are ignored instead of becoming GLOBAL.
             continue
         if is_tg3:
             linked_tg3_count += 1
         rid = f.get("finding_id") or f.get("rule_id") or f"v16-{idx}"
+        internal_point_id = point_id
+        public_point_id = _public_point_reference(internal_point_id, str(f.get("rule_id") or f.get("finding_id") or ""))
         if isinstance(f.get("gate_effect"), dict) and f.get("gate_effect", {}).get("blocks_96_gate") and rid not in blocked_by:
             blocked_by.append(rid)
         band = (f.get("deduction_band") or "").strip()
         deduction_pts = band_to_deduction.get(band, 0)
-        deduction_totals[point_id] = deduction_totals.get(point_id, 0) + deduction_pts
-        existing_band = point_worst_band.get(point_id, "Ikke scoretrekk")
-        if _PUBLIC_BAND_RANK.get(band, 0) > _PUBLIC_BAND_RANK.get(existing_band, 0):
-            point_worst_band[point_id] = band
-        finding_id = f"f-v16-{point_id}-{idx + 1:03d}"
+        if internal_point_id and not is_report_level:
+            deduction_totals[internal_point_id] = deduction_totals.get(internal_point_id, 0) + deduction_pts
+            existing_band = point_worst_band.get(internal_point_id, "Ikke scoretrekk")
+            if _PUBLIC_BAND_RANK.get(band, 0) > _PUBLIC_BAND_RANK.get(existing_band, 0):
+                point_worst_band[internal_point_id] = band
+        finding_id = f"f-v16-{(internal_point_id or 'global')}-{idx + 1:03d}"
         snips = f.get("evidence_snippets") or []
         snippet = (
             str(f.get("exact_point_text") or "").strip()
@@ -7195,8 +7605,8 @@ def _build_feedback_v11_from_all_findings(
             "rule_family": _derive_rule_family(str(rid)) or "UNKNOWN",
             "severity": "high" if f.get("severity") == "major" else "medium" if f.get("severity") == "minor" else "low",
             "affects_96_gate": bool(isinstance(f.get("gate_effect"), dict) and f.get("gate_effect", {}).get("blocks_96_gate")),
-            "point_id": point_id,
-            "point_key": point_lookup.get(point_id, {}).get("point_key") or point_id,
+            "point_id": public_point_id,
+            "point_key": point_lookup.get(internal_point_id, {}).get("point_key") or internal_point_id or public_point_id,
             "arkat_section": "annet",
             "message": f.get("title") or f.get("message") or "Avvik",
             "what_to_change": f.get("recommended_fix_text") or f.get("message") or "Se forbedringsforslag.",
@@ -7204,7 +7614,8 @@ def _build_feedback_v11_from_all_findings(
             "evidence": {"page": 1, "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.", "match": "From exact point source." if f.get("exact_point_text") else "From all_findings."},
             "deduction": deduction_pts,
         })
-        finding_ids_by_point.setdefault(point_id, []).append(finding_id)
+        if internal_point_id:
+            finding_ids_by_point.setdefault(internal_point_id, []).append(finding_id)
 
     _ensure_feedback_findings_cover_deductions(
         feedback_findings,
@@ -7498,6 +7909,7 @@ def _build_feedback_v11_from_all_findings(
         score_by_category,
         top_score_drivers if isinstance(top_score_drivers, list) else [],
     )
+    _ensure_special_feedback_findings_visible(analysis_output, feedback_findings)
     _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
@@ -8117,13 +8529,18 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _drop_age_only_false_positives(report_text, analysis_output, detected_points)
     _drop_unexpected_jargon_findings(analysis_output)
     _ensure_finding_suggestions_differentiated(analysis_output)
+    _normalize_report_level_finding_targets(analysis_output)
     _ensure_writing_help_fields(analysis_output)
+    _dedupe_all_findings_duplicate_safe(analysis_output)
+    _force_required_public_findings(report_text, analysis_output)
     _dedupe_all_findings_duplicate_safe(analysis_output)
     _drop_tg3_cost_top_issues_if_segments_have_cost(analysis_output) 
     _sync_public_output_views(analysis_output)
     _ensure_writing_help_fields(analysis_output)
+    _normalize_user_facing_child_titles(analysis_output)
     _polish_analysis_text_fields(analysis_output)
     _sanitize_analysis_output_text(analysis_output)
+    _normalize_user_facing_child_titles(analysis_output)
     _polish_analysis_text_fields(analysis_output)
     final_score_total = analysis_output.get("score_total")
     if isinstance(final_score_total, (int, float)):

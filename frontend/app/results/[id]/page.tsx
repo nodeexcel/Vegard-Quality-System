@@ -201,6 +201,7 @@ interface TopIssueV16 {
 }
 interface AllFindingV16 {
   finding_id: string
+  rule_id?: string
   category: string
   severity: string
   title: string
@@ -512,6 +513,34 @@ export default function ResultsPage() {
     return 0
   }
   const scoredFindingsV16 = (allFindingsV16 || []).filter((f) => publicBandToPoints(f.deduction_band) > 0)
+  const visibleFindingsV16Base = (allFindingsV16 || []).filter((f) => {
+    const points = publicBandToPoints(f.deduction_band)
+    if (points > 0) return true
+    if (f.rule_id === 'E_METHOD.egenerklaring_missing') return true
+    if (f.deduction_band === 'Ikke scoretrekk') return true
+    if ((f.severity || '').toLowerCase() === 'info') return true
+    return false
+  })
+  const hasVisibleEgenerklaringAdvisory = visibleFindingsV16Base.some((f) => f.rule_id === 'E_METHOD.egenerklaring_missing')
+  const reportTextForInfoFallback = (report?.extracted_text || '').toLowerCase()
+  const shouldShowEgenerklaringAdvisoryFallback = !hasVisibleEgenerklaringAdvisory && /egenerkl/.test(reportTextForInfoFallback) && new RegExp('egenerkl[^\n.]{0,120}(ikke levert|foreligger ikke|ikke foreligger|mangler)').test(reportTextForInfoFallback)
+  const visibleFindingsV16 = shouldShowEgenerklaringAdvisoryFallback
+    ? [
+        ...visibleFindingsV16Base,
+        {
+          finding_id: 'ui-fallback-egenerklaring-missing',
+          rule_id: 'E_METHOD.egenerklaring_missing',
+          category: 'E',
+          severity: 'info',
+          title: 'Egenerklæring ikke levert',
+          message: 'Rapporten opplyser at egenerklæring ikke er levert. Dette skal ikke gi scoretrekk, men bør fremgå som en faglig merknad fordi analysegrunnlaget blir svakere når forhold bare eier kjenner til kan være utelatt.',
+          deduction_band: 'Ikke scoretrekk',
+          recommended_fix_text: 'Legg inn en kort opplysning om at rapporten er ferdigstilt uten egenerklæring, og forklar hvilken metodisk usikkerhet og hvilket ansvar dette kan medføre for takstmannen.',
+          suggested_rewrite_text: 'Egenerklæring er ikke levert i forbindelse med oppdraget. Dette er ikke et forskriftsavvik og skal ikke gi scoretrekk, men det svekker analysegrunnlaget fordi forhold bare eier kjenner til kan være utelatt. NS 3600:2018 pkt. 5 og 9 krever egenerklæring før analysen, og NS 3600:2025 pkt. 8 c) krever at den foreligger før rapporten ferdigstilles.',
+          evidence_snippets: ['Egenerklæringsskjema er ikke levert i forbindelse med oppdraget.'],
+        },
+      ]
+    : visibleFindingsV16Base
   const scoredCategoryBreakdown = (() => {
     if (!hasV16 || !scoredFindingsV16.length) return null
     const byCategory = new Map<string, { deduction: number; deduction_band?: string; summary?: string }>()
@@ -1405,11 +1434,11 @@ export default function ResultsPage() {
 
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  {scoredFindingsV16?.length && !analysis.findings?.length ? 'Alle funn' : 'Funn per bygningsdel'}
+                  {visibleFindingsV16?.length && !analysis.findings?.length ? 'Alle funn' : 'Funn per bygningsdel'}
                 </h2>
                 <div className="space-y-6">
-                  {scoredFindingsV16?.length && !analysis.findings?.length ? (
-                    scoredFindingsV16.map((f, index) => {
+                  {visibleFindingsV16?.length && !analysis.findings?.length ? (
+                    visibleFindingsV16.map((f, index) => {
                       const severityConfig = getSeverityConfig(f.severity)
                       const pointId = resolveDisplayPointId(
                         parsePointIdFromMessage(f.message) ?? parsePointIdFromMessage(f.title) ?? (f as { point_id?: string }).point_id,
@@ -1553,84 +1582,7 @@ export default function ResultsPage() {
                   )))}
                 </div>
               </div>
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Alle trekk</h2>
-                    <p className="text-sm text-gray-500 mt-1">Fullstendig oversikt over poengtrekk som påvirker score</p>
-                    {hasV16 && scoreTotal != null && (
-                      hiddenDeductionGap > 0 ? (
-                        <p className="text-xs text-amber-700 mt-1">
-                          Total score ({scoreTotal}%) tilsvarer {totalDeductionFromScore} poeng samlet trekk. Synlige trekk under summerer til {visibleDeductionPointsTotal} poeng, så {hiddenDeductionGap} poeng ligger fortsatt i backend-score/kategoritak og vises ikke som egne trekk her.
-                        </p>
-                      ) : (
-                        <p className="text-xs text-amber-700 mt-1">
-                          Total score ({scoreTotal}%) stemmer med de synlige poengtrekkene under.
-                        </p>
-                      )
-                    )}
-                  </div>
-                  <div className="px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 text-center">
-                    <span className="text-2xl font-bold text-gray-900">{deductionsForAlleTrekk.length}</span>
-                    <span className="text-sm text-gray-600 block">trekk</span>
-                  </div>
-                </div>
-                {deductionsForAlleTrekk.length === 0 ? (
-                  <p className="text-sm text-gray-600">Ingen poengtrekk registrert.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {deductionsForAlleTrekk.map((item, index) => {
-                      const severityConfig = getSeverityConfig(item.severity)
-                      const reasonText = formatFeedbackText(item.reason)
-                      const rawSuggestion = formatFeedbackText(item.suggestion)
-                      const rawExampleFix = formatFeedbackText(item.exampleFix)
-                      const combined = rawExampleFix || rawSuggestion
-                      const visible = buildVisibleProblemAndFix(combined, item.point_id, rawExampleFix)
-                      const suggestionTextRaw = visible.problemText || (rawSuggestion && !rawExampleFix ? rawSuggestion : '')
-                      const suggestionText = suggestionTextRaw && !isTooGenericSuggestedRewrite(suggestionTextRaw) ? suggestionTextRaw : ''
-                      const showFixInBox = Boolean(visible.fixText)
-                      return (
-                        <div key={index} className={`border-l-4 ${severityConfig.border} ${severityConfig.bg} rounded-xl p-5`}>
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0 flex-1">
-                              <h3 className="text-lg font-bold text-gray-900">{reasonText}</h3>
-                              <p className="text-sm text-gray-600">
-                                {item.point_id ? `Punkt ${item.point_id}` : 'Generelt'} • {translate(item.rule_id)}
-                              </p>
-                              {item.evidence_snippets && item.evidence_snippets.length > 0 && (
-                                <div className="mt-2 p-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700">
-                                  <p className="font-medium text-gray-600 mb-1">Hvor i rapporten:</p>
-                                  {item.evidence_snippets.slice(0, 2).map((snip, i) => (
-                                    <p key={i} className="italic text-gray-600 border-l-2 border-gray-200 pl-2 mt-1">
-                                      &quot;{snip}&quot;
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                              {(suggestionText || showFixInBox) && (
-                                <div className="mt-2 space-y-2">
-                                  {suggestionText && (
-                                    <p className="text-sm text-gray-700">{suggestionText}</p>
-                                  )}
-                                  {showFixInBox && (
-                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900">
-                                      <p className="font-semibold mb-1">Slik retter du:</p>
-                                      <p className="italic">{visible.fixText}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <span className={`px-3 py-1 rounded-full text-sm font-bold shrink-0 ${severityConfig.badge}`}>
-                              -{item.points}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+
 
               <div className="bg-amber-50 rounded-2xl shadow-lg border border-amber-200 p-8 mb-6">
                 <div className="flex items-start justify-between mb-6">
