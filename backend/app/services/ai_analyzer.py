@@ -12,6 +12,7 @@ import unicodedata
 from pathlib import Path
 from app.config import settings
 from app.schemas import AnalysisResult, ComponentBase, FindingBase
+from app.services.arkat_semantic_pipeline import run_client_arkat_semantic_pipeline as _run_client_arkat_semantic_pipeline_service
 from app.services.system_prompt import SYSTEM_PROMPT
 from app.services.validert_files import (
     build_prompt_context,
@@ -646,6 +647,31 @@ def estimate_tokens(text: str) -> int:
     Rough approximation: 1 token ≈ 4 characters for Norwegian text.
     """
     return len(text) // 4
+
+
+def _run_client_arkat_semantic_pipeline(
+    report_text: str,
+    detected_points: List[Dict[str, object]],
+    analysis_output: Dict[str, object],
+) -> None:
+    _run_client_arkat_semantic_pipeline_service(
+        report_text=report_text,
+        detected_points=detected_points,
+        analysis_output=analysis_output,
+        deps={
+            "normalize_text": _normalize_tg3_cost_text,
+            "split_pages": _split_pages,
+            "extract_arkat_section_text": _extract_arkat_section_text,
+            "extract_report_regime_context": _extract_report_regime_context,
+            "effective_point_tg": _effective_point_tg,
+            "normalize_point_id": _normalize_point_id,
+            "is_synthetic_supplement_point_id": _is_synthetic_supplement_point_id,
+            "is_parent_of": _is_parent_of,
+            "append_unique_all_finding": _append_unique_all_finding,
+            "iso_date_at_or_after": _iso_date_at_or_after,
+            "railings_topic_re": RAILINGS_TOPIC_RE,
+        },
+    )
 
 
 def _split_pages(report_text: str) -> List[Dict[str, str]]:
@@ -3141,7 +3167,6 @@ def _segment_present_keys_from_sources(
         present.update(_explicit_keys(str(combined_text), tg))
     return present
 
-
 def _point_allows_age_based_risk_relief(
     point_title: str,
     segment_text: str,
@@ -3345,6 +3370,9 @@ def _run_ark_arkat_per_segment_validation(
     summary text (hard match by punktnummer). If any TG2/TG3 segment fails, cap score
     below 100 and add structural findings.
     """
+    semantic_pipeline = analysis_output.get("arkat_semantic_pipeline")
+    if isinstance(semantic_pipeline, dict) and semantic_pipeline.get("active"):
+        return
     linked_summary = _extract_linked_summary_text_per_point(report_text)
     standard_version = _detect_ns_standard_version(report_text)
     merged_by_id: Dict[str, Dict[str, object]] = {}
@@ -5726,6 +5754,63 @@ def _is_public_scored_finding(item: Dict[str, object]) -> bool:
     return _PUBLIC_BAND_RANK.get(_public_band_for_item(item), 0) > 0
 
 
+def _is_mechanical_arkat_public_finding(item: Dict[str, object]) -> bool:
+    rule_id = str(item.get("rule_id") or item.get("finding_id") or "").strip()
+    rewrite_strategy = str(item.get("rewrite_strategy") or "").strip().lower()
+    title = str(item.get("title") or "").strip()
+    message = str(item.get("message") or "").strip()
+    blob = _normalize_tg3_cost_text(f"{rule_id} {title} {message} {rewrite_strategy}").lower()
+    if rewrite_strategy == "arkat_semantic_alignment":
+        return True
+    if rule_id.upper().startswith("A_ARKAT."):
+        return True
+    return bool(
+        re.search(
+            r"\bpunkt\s+[^\s:]+:\s+(?:årsak|arsak|risiko|konsekvens|anbefalt(?:e)?(?:\s+tiltak)?)\s+vurdert\s+som\s+(?:wrong|missing|correct)",
+            blob,
+        )
+    )
+
+
+def _is_low_quality_public_suggested_rewrite_text(text: object) -> bool:
+    if not isinstance(text, str):
+        return False
+    normalized = _normalize_tg3_cost_text(text).strip()
+    if not normalized:
+        return False
+    low = normalized.lower()
+    field_label_hits = sum(
+        low.count(marker)
+        for marker in (
+            "årsak:",
+            "arsak:",
+            "risiko:",
+            "konsekvens:",
+            "anbefalt tiltak:",
+            "anbefalte tiltak:",
+        )
+    )
+    if "ikke følges opp" in low:
+        return True
+    if field_label_hits >= 2 and len(normalized) >= 160:
+        return True
+    if low.startswith("punkt ") and "det er risiko for videre utvikling dersom" in low:
+        return True
+    if low.startswith("punkt ") and "konsekvensen bør presiseres praktisk ved å forklare hva" in low:
+        return True
+    return False
+
+
+def _clean_feedback_example_text(example_text: object, fallback_text: object = "") -> str:
+    primary = str(example_text or "").strip()
+    fallback = str(fallback_text or "").strip()
+    if primary and not _is_low_quality_public_suggested_rewrite_text(primary):
+        return primary
+    if fallback and not _is_low_quality_public_suggested_rewrite_text(fallback):
+        return fallback
+    return ""
+
+
 def _is_age_only_candidate(item: Dict[str, object]) -> bool:
     blob = _normalize_tg3_cost_text(
         f"{item.get('finding_id', '')} {item.get('rule_id', '')} {item.get('title', '')} {item.get('message', '')}"
@@ -5915,7 +6000,18 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
         all_findings = []
         analysis_output["all_findings"] = all_findings
 
-    visible_findings = [f for f in all_findings if isinstance(f, dict)]
+    for finding in all_findings:
+        if not isinstance(finding, dict):
+            continue
+        if _is_mechanical_arkat_public_finding(finding):
+            finding["public_visibility"] = "internal"
+        if _is_low_quality_public_suggested_rewrite_text(finding.get("suggested_rewrite_text")):
+            finding["suggested_rewrite_text"] = ""
+
+    visible_findings = [
+        f for f in all_findings
+        if isinstance(f, dict) and str(f.get("public_visibility") or "").lower() != "internal"
+    ]
     scored_visible_findings = [f for f in visible_findings if _is_public_scored_finding(f)]
     severity_rank = {"critical": 3, "major": 2, "minor": 1, "info": 0}
 
@@ -5931,6 +6027,9 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
     rebuilt_top_issues: List[Dict[str, object]] = []
     top_issue_source = sorted_scored_findings or sorted_findings
     for finding in top_issue_source[:5]:
+        suggested_rewrite_text = str(finding.get("suggested_rewrite_text") or "").strip()
+        if _is_low_quality_public_suggested_rewrite_text(suggested_rewrite_text):
+            suggested_rewrite_text = ""
         public_point_id = _public_point_reference(
             _parse_point_id_from_v16_finding(finding) or finding.get("point_id"),
             str(finding.get("rule_id") or finding.get("finding_id") or ""),
@@ -5945,7 +6044,7 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
             "deduction_band": _public_band_for_item(finding),
             "recommended_fix_text": finding.get("recommended_fix_text") or "",
             "rewrite_strategy": finding.get("rewrite_strategy") or "",
-            "suggested_rewrite_text": finding.get("suggested_rewrite_text") or "",
+            "suggested_rewrite_text": suggested_rewrite_text,
             "gate_effect": finding.get("gate_effect") if isinstance(finding.get("gate_effect"), dict) else {},
             "point_id": public_point_id,
         })
@@ -5957,6 +6056,8 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
         title = str(finding.get("title") or finding.get("message") or "Forbedringspunkt").strip()
         recommended_fix_text = str(finding.get("recommended_fix_text") or "").strip()
         suggested_rewrite_text = str(finding.get("suggested_rewrite_text") or "").strip()
+        if _is_low_quality_public_suggested_rewrite_text(suggested_rewrite_text):
+            suggested_rewrite_text = ""
         if not recommended_fix_text and not suggested_rewrite_text:
             continue
         raw_point_id = _parse_point_id_from_v16_finding(finding) or str(finding.get("point_id") or "").strip()
@@ -6850,6 +6951,10 @@ def _build_feedback_v11(
                 if arkat_example:
                     arkat_section = "anbefalt_tiltak"
                     example_fix = arkat_example
+            clean_issue_example_fix = _clean_feedback_example_text(
+                issue.get("suggested_rewrite_text"),
+                example_fix,
+            )
             deduction_points = 0
             matched_idx = None
             for idx, deduction in enumerate(deductions):
@@ -6875,7 +6980,7 @@ def _build_feedback_v11(
                     "message": issue.get("summary") or "Avvik",
                     "what_to_change": issue.get("details") or issue.get("summary") or "Se forbedringsforslag.",
                     "example_fix": {
-                        "good_example": example_fix,
+                        "good_example": clean_issue_example_fix,
                     },
                     "evidence": evidence,
                     "deduction": deduction_points,
@@ -6904,6 +7009,10 @@ def _build_feedback_v11(
                 point_meta if isinstance(point_meta, dict) else {},
                 deduction.get("reason") or "",
             )
+            clean_deduction_example_fix = _clean_feedback_example_text(
+                deduction.get("suggested_rewrite_text"),
+                deduction.get("reason") or "",
+            )
             finding_id = f"f-{point_id}-d{deduction_idx + 1:03d}"
             point_key = point_meta.get("point_key") if isinstance(point_meta, dict) else None
             feedback_findings.append(
@@ -6919,8 +7028,7 @@ def _build_feedback_v11(
                     "message": deduction.get("reason") or "Trekk registrert.",
                     "what_to_change": deduction.get("reason") or "Oppdater punktet for å fjerne trekket.",
                     "example_fix": {
-                        "good_example": deduction.get("reason")
-                        or "Oppdater punktet slik at kravet fremgår tydelig.",
+                        "good_example": clean_deduction_example_fix,
                     },
                     "evidence": evidence,
                     "deduction": int(deduction.get("points", 0) or 0),
@@ -6964,6 +7072,8 @@ def _build_feedback_v11(
         if (feedback_point_id, rule_id) in existing_feedback_keys:
             continue
         is_visible_info_finding = rule_id == "E_METHOD.egenerklaring_missing"
+        if _is_mechanical_arkat_public_finding(item):
+            continue
         if not (_is_public_scored_finding(item) or is_visible_info_finding):
             continue
         point_meta = point_lookup.get(point_id) or {}
@@ -6978,6 +7088,10 @@ def _build_feedback_v11(
             0,
         )
         feedback_id = f"f-backstop-{point_id}-{idx + 1:03d}"
+        clean_example = _clean_feedback_example_text(
+            item.get("suggested_rewrite_text"),
+            item.get("recommended_fix_text") or item.get("message") or "",
+        )
         feedback_findings.append(
             {
                 "finding_id": feedback_id,
@@ -6990,7 +7104,7 @@ def _build_feedback_v11(
                 "arkat_section": "annet",
                 "message": item.get("title") or item.get("message") or "Avvik",
                 "what_to_change": item.get("recommended_fix_text") or item.get("message") or "Se forbedringsforslag.",
-                "example_fix": {"good_example": item.get("suggested_rewrite_text") or item.get("recommended_fix_text") or item.get("message") or ""},
+                "example_fix": {"good_example": clean_example},
                 "evidence": {
                     "page": int(point_meta.get("page_start", 1) or 1),
                     "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.",
@@ -8510,6 +8624,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     detected_points = _merge_detected_points_with_linked_summary(detected_points, report_text or "")
     detected_points = _normalize_runtime_scoring_signals(detected_points)
     detected_points = _apply_regime_to_detected_points(report_text or "", detected_points)
+    _run_client_arkat_semantic_pipeline(report_text, detected_points, analysis_output)
     _attach_exact_point_sources_to_findings(analysis_output, detected_points)
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
     _drop_tg_and_consequence_false_positives(report_text, analysis_output, detected_points)

@@ -210,6 +210,72 @@ class BedrockAI:
         except Exception as e:
             logger.error(f"Bedrock analysis error: {str(e)}")
             raise
+
+    def generate_json_with_claude(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 4096,
+        return_meta: bool = False,
+    ):
+        """Run a smaller JSON-only Claude call with a caller-provided system prompt."""
+        try:
+            def _invoke(prompt: str):
+                body = json.dumps({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": max(256, int(max_tokens)),
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                    "system": system_prompt,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                })
+                response = self._invoke_model_with_retry(
+                    model_id='eu.anthropic.claude-sonnet-4-20250514-v1:0',
+                    body=body,
+                )
+                stop_reason_local = response.get("stop_reason") or response.get("stopReason")
+                content = response.get("content", [])
+                if content and len(content) > 0:
+                    response_text_local = "".join(
+                        block.get("text", "")
+                        for block in content
+                        if isinstance(block, dict) and block.get("text")
+                    )
+                else:
+                    raise ValueError("No content in Bedrock response")
+                json_text_local = _extract_json_block(response_text_local) or _strip_opening_code_fence(response_text_local) or response_text_local
+                parsed_local = _parse_json_loose(json_text_local)
+                return parsed_local, response_text_local, stop_reason_local
+
+            parsed, response_text, stop_reason = _invoke(user_prompt)
+            if parsed is None:
+                retry_prompt = (
+                    user_prompt
+                    + "\n\nIMPORTANT: Return ONLY a valid JSON object. No markdown, no bullets, no prose."
+                )
+                parsed, response_text, stop_reason = _invoke(retry_prompt)
+            if parsed is None:
+                logger.warning(
+                    "Bedrock JSON generation returned non-JSON output; falling back to raw text. Snippet: %s",
+                    (response_text or "")[:500],
+                )
+                parsed = {"_raw_text": response_text or ""}
+            if return_meta:
+                return parsed, {
+                    "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                    "stop_reason": stop_reason,
+                    "truncated": stop_reason == "max_tokens",
+                    "response_chars": len(response_text or ""),
+                }
+            return parsed
+        except Exception as e:
+            logger.error(f"Bedrock JSON generation error: {str(e)}")
+            raise
     
     def list_available_models(self):
         """List available Bedrock models"""
@@ -287,5 +353,5 @@ def _parse_json_loose(text: str) -> Optional[Dict]:
             return json.loads(candidate)
         except json.JSONDecodeError:
             continue
-    logger.error("Failed to parse AI JSON response. Snippet: %s", text[:500])
+    logger.warning("Failed to parse AI JSON response as JSON. Snippet: %s", text[:500])
     return None

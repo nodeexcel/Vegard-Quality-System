@@ -1,0 +1,177 @@
+{
+  "meta": {
+    "name": "arkat_evaluation_pipeline_step",
+    "version": "1.0.0",
+    "description": "Defines the discrete pipeline step for semantic ARKAT field evaluation. This step must run on every TG2, TG3, and TGIU point, after text extraction and before final scoring. It is a separate LLM call — not part of the main analysis prompt.",
+    "depends_on": "arkat_semantic_rules.json",
+    "position_in_pipeline": "After: text extraction, format detection, NS version detection. Before: category scoring, output generation."
+  },
+
+  "step_trigger": {
+    "runs_on": ["TG2", "TG3", "TGIU"],
+    "runs_on_each": "individual point — one call per point, not one call per report",
+    "skip_conditions": [
+      "TG0 or TG1 points",
+      "Points with no descriptive text (label only)"
+    ]
+  },
+
+  "input_schema": {
+    "description": "What must be passed into the evaluation call for each point",
+    "fields": {
+      "point_id": "string — e.g. '1.1', '7.1.3', '10.5'",
+      "point_label": "string — e.g. 'Byggegrunn, fundamenter, grunnmur, drenering'",
+      "tg_grade": "string — 'TG2' | 'TG3' | 'TGIU'",
+      "report_format": "string — 'structured_arkat' | 'compressed_mixed' | 'unlabeled_prose' (from format detection step)",
+      "ns_version": "string — 'NS3600:2018' | 'NS3600:2025' (from NS version detection step)",
+      "raw_point_text": "string — the complete text of the point as extracted from the report",
+      "extracted_fields": {
+        "description": "Pre-extracted ARKAT fields if format is structured_arkat. Empty strings if format is compressed_mixed or unlabeled_prose.",
+        "aarsak": "string",
+        "risiko": "string",
+        "konsekvens": "string",
+        "anbefalt_tiltak": "string"
+      }
+    }
+  },
+
+  "system_prompt": {
+    "description": "Inject this as the system message for the ARKAT evaluation LLM call. Do not combine with the main analysis system prompt.",
+    "content": "You are a quality evaluator for Norwegian property condition reports (tilstandsrapporter). Your only task is to evaluate the ARKAT fields of a single report point against strict structural rules.\n\nARKAT field definitions — apply these exactly:\n\nÅRSAK: Explains WHY or HOW the defect has occurred. Must describe cause, not observation and not future risk. If the cause is uncertain, this must be stated. Under NS 3600:2018, age alone is NOT a valid Årsak without observed deterioration.\n\nRISIKO: Describes what COULD happen to the building or component if the defect is not addressed. Must be future-oriented and conditional. Must NOT describe the current state of the building, must NOT describe buyer consequences, and must NOT be a description of an inspection limitation.\n\nKONSEKVENS: Explains the consequences the defect has caused or could cause for the BUYER. Conditional language ('kan', 'dersom', 'hvis') is PERMITTED by NS 3600:2025 punkt 13. The only test is buyer relevance: does the text explain what this means for the buyer in terms of cost, safety, use of property, or obligations? If it describes only technical building processes with no buyer connection — flag as TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.\n\nANBEFALT TILTAK: Points to a concrete next step. Must NOT explain causes, restate risks, or give detailed engineering specifications.\n\nFor each field, you must return one of:\n- CORRECT\n- WRONG:[error_type] with a one-sentence explanation in Norwegian\n- MISSING\n\nError types:\n- OBSERVATION_AS_AARSAK: The field describes what was seen, not why it occurred\n- RISK_AS_AARSAK: The field describes future risk, not cause\n- AARSAK_AGE_ONLY_2018: Age cited as sole cause under NS 3600:2018 (not permitted)\n- CONSEQUENCE_AS_RISIKO: The field describes buyer impact, not building risk\n- LIMITATION_AS_RISIKO: The field describes an inspection limitation, not a building risk\n- PRESENT_STATE_AS_RISIKO: The field describes current condition (present tense), not future development\n- TECHNICAL_DEVELOPMENT_AS_KONSEKVENS: The field describes how the building component will develop, not what it means for the buyer\n- EXPLANATION_AS_TILTAK: The field explains cause or restates risk instead of pointing to a next step\n\nAdditional flag (applies to Risiko field):\n- LIMITATION_USED_AS_RISK_SUBSTITUTE: The entire Risiko field is a description of why the assessor could not inspect the component, with no actual building risk described.\n\nYou must evaluate every field that is present. If a field is absent, return MISSING.\nDo not evaluate TG0 or TG1 points.\nDo not add commentary beyond the structured output."
+  },
+
+  "user_prompt_template": {
+    "description": "Template for the user message. Fill in values from input_schema before sending.",
+    "content": "Evaluate this report point:\n\nPoint: {point_id} — {point_label}\nGrade: {tg_grade}\nReport standard: {ns_version}\n\n---\nÅRSAK:\n{extracted_fields.aarsak}\n\nRISIKO:\n{extracted_fields.risiko}\n\nKONSEKVENS:\n{extracted_fields.konsekvens}\n\nANBEFALT TILTAK:\n{extracted_fields.anbefalt_tiltak}\n---\n\nIf any field above is empty, check the full point text below for that content before returning MISSING:\n\nFull point text:\n{raw_point_text}",
+    "note_for_compressed_formats": "If report_format is 'compressed_mixed' or 'unlabeled_prose', leave all extracted_fields as empty strings and pass only raw_point_text. The model will extract and evaluate semantically from the full text."
+  },
+
+  "output_schema": {
+    "description": "Expected output structure from the evaluation call. Parse this into the scoring pipeline.",
+    "format": "JSON",
+    "fields": {
+      "point_id": "string",
+      "tg_grade": "string",
+      "field_results": {
+        "aarsak": {
+          "status": "CORRECT | WRONG:[error_type] | MISSING",
+          "explanation": "string in Norwegian — one sentence max, empty if CORRECT"
+        },
+        "risiko": {
+          "status": "CORRECT | WRONG:[error_type] | MISSING",
+          "explanation": "string in Norwegian — one sentence max, empty if CORRECT",
+          "additional_flag": "LIMITATION_USED_AS_RISK_SUBSTITUTE | null"
+        },
+        "konsekvens": {
+          "status": "CORRECT | WRONG:[error_type] | MISSING",
+          "explanation": "string in Norwegian — one sentence max, empty if CORRECT"
+        },
+        "anbefalt_tiltak": {
+          "status": "CORRECT | WRONG:[error_type] | MISSING",
+          "explanation": "string in Norwegian — one sentence max, empty if CORRECT"
+        }
+      },
+      "has_errors": "boolean — true if any field is WRONG or MISSING (excluding TGIU where some fields may legitimately be absent)"
+    },
+    "example_output": {
+      "point_id": "7.1.3",
+      "tg_grade": "TG2",
+      "field_results": {
+        "aarsak": {
+          "status": "CORRECT",
+          "explanation": ""
+        },
+        "risiko": {
+          "status": "CORRECT",
+          "explanation": ""
+        },
+        "konsekvens": {
+          "status": "WRONG:TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+          "explanation": "Konsekvens beskriver teknisk skadeutvikling og mulig hendelsesforløp uten å forklare hva dette betyr for kjøper."
+        },
+        "anbefalt_tiltak": {
+          "status": "CORRECT",
+          "explanation": ""
+        }
+      },
+      "has_errors": true
+    }
+  },
+
+  "scoring_bridge": {
+    "description": "How evaluation output maps to category scoring. Feed field_results directly into the Category A scorer.",
+    "rules": [
+      {
+        "error_types": ["TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"],
+        "category": "A",
+        "severity": "high",
+        "rationale": "Buyer receives incorrect or unusable information in the most critical field"
+      },
+      {
+        "error_types": ["MISSING (konsekvens)"],
+        "category": "A",
+        "severity": "high",
+        "rationale": "Buyer has no consequence information at all"
+      },
+      {
+        "error_types": ["OBSERVATION_AS_AARSAK", "RISK_AS_AARSAK", "AARSAK_AGE_ONLY_2018"],
+        "category": "A",
+        "severity": "medium",
+        "rationale": "Cause is not properly explained"
+      },
+      {
+        "error_types": ["CONSEQUENCE_AS_RISIKO", "LIMITATION_AS_RISIKO", "PRESENT_STATE_AS_RISIKO", "LIMITATION_USED_AS_RISK_SUBSTITUTE"],
+        "category": "A",
+        "severity": "medium",
+        "rationale": "Risk field contains wrong content type — buyer not informed of actual building risk"
+      },
+      {
+        "error_types": ["EXPLANATION_AS_TILTAK"],
+        "category": "A",
+        "severity": "low",
+        "rationale": "Next step is unclear but buyer impact is limited"
+      },
+      {
+        "error_types": ["MISSING (aarsak)", "MISSING (risiko)", "MISSING (anbefalt_tiltak)"],
+        "category": "A",
+        "severity": "medium",
+        "rationale": "Incomplete ARKAT structure"
+      }
+    ],
+    "deduplication_rule": "If the same defect triggers both a field-level ARKAT error (Category A) and a format-level check (e.g. rekkverk in Category F), only the higher-severity category fires. Do NOT score the same observation twice across different categories."
+  },
+
+  "four_structural_error_types": {
+    "description": "The core ARKAT structural errors that recur across report formats and templates. These are the primary detection targets after RISIKO_AS_KONSEKVENS was removed.",
+    "errors": [
+      {
+        "id": "SE-1",
+        "name": "Observasjon som Årsak",
+        "description": "The Årsak field describes what the assessor saw or measured, not why the defect has occurred.",
+        "detection_pattern": "Årsak field begins with or primarily contains: 'Det registreres', 'Det observeres', 'Det ble avdekket', 'Det er påvist', 'Det ble funnet', or describes a physical measurement without causal explanation.",
+        "example_wrong": "Årsak: Det registreres råteskader i nedkant av kledning mot nord.",
+        "example_correct": "Årsak: Kledningen mangler tilstrekkelig luftspalte og er utsatt for langvarig fuktpåvirkning fra slagregn mot nord.",
+        "maps_to_error_type": "OBSERVATION_AS_AARSAK"
+      },
+      {
+        "id": "SE-2",
+        "name": "Årsak som Risiko",
+        "description": "The Risiko field explains what caused the defect or describes the current state of the component, rather than what could happen next.",
+        "detection_pattern": "Risiko field contains past-tense causal language or present-state descriptions: 'har ikke hatt', 'manglende vedlikehold har ført til', 'kledningen mister evnen til' (present tense = current state).",
+        "example_wrong": "Risiko: Kledningen mister evnen til å beskytte bygget mot regn og vind.",
+        "example_correct": "Risiko: Dersom kledningen ikke skiftes, kan fukt trenge gjennom vindsperre og inn i bærende konstruksjon.",
+        "maps_to_error_type": "PRESENT_STATE_AS_RISIKO"
+      },
+      {
+        "id": "SE-4",
+        "name": "Teknisk skadeutvikling som Konsekvens",
+        "description": "The Konsekvens field describes what will happen to the building component, not what the defect means for the buyer as a person.",
+        "detection_pattern": "Konsekvens field describes building material processes: 'membranen mister tetthetsfunksjon', 'fukt trekker inn i konstruksjonen', 'kledningen råtner', 'dreneringen svikter' — without translating this to buyer impact.",
+        "example_wrong": "Konsekvens: Fukt kan trekke videre inn i vindsperre, lekter og bærende konstruksjon.",
+        "example_correct": "Konsekvens: Kjøper overtar en yttervegg med påvist råteskade som krever utbedring. Kostnadene til å skifte skadet kledning og undersøke underliggende konstruksjon bør påregnes.",
+        "maps_to_error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+        "note": "Conditional language alone must not trigger an error. Only lack of buyer relevance should trigger this error type."
+      }
+    ]
+  }
+}

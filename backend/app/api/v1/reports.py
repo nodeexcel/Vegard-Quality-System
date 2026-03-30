@@ -667,29 +667,27 @@ async def get_report(
         standard_reference=f.standard_reference
     ) for f in report.findings]
 
-    ai_analysis_payload = report.ai_analysis
+    ai_analysis_payload = dict(report.ai_analysis) if isinstance(report.ai_analysis, dict) else report.ai_analysis
     if isinstance(ai_analysis_payload, dict):
         try:
-            if report.extracted_text:
-                ai_analysis_payload = postprocess_analysis_output(dict(ai_analysis_payload), report.extracted_text)
-            else:
-                ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
-        except Exception as e:
-            logger.warning("postprocess on get_report failed for report_id=%s: %s", report.id, str(e))
+            # Fast path: prefer persisted analysis payload and only ensure evidence fields.
             ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
+        except Exception as e:
+            logger.warning("ensure_analysis_evidence on get_report failed for report_id=%s: %s", report.id, str(e))
 
-    # Always use validated segments for points_overview (lifecycle: extract → whitelist → hierarchy)
-    # Never use raw stored detected_points - re-validate from extracted_text
-    scoring_result_out = report.scoring_result if isinstance(report.scoring_result, dict) else {}
-    if isinstance(ai_analysis_payload, dict):
+    scoring_result_out = dict(report.scoring_result) if isinstance(report.scoring_result, dict) else {}
+    has_feedback_v11 = isinstance(scoring_result_out.get("feedback_v11"), dict)
+    if isinstance(ai_analysis_payload, dict) and not has_feedback_v11:
         try:
-            validated_payload = get_validated_detected_points_payload(
-                report.extracted_text or "",
-                document_hash=report.document_hash or "",
-                document_title=report.filename,
-                document_id=str(report.id),
-            )
-            points = validated_payload.get("points", []) if isinstance(validated_payload, dict) else []
+            detected_points_payload = report.detected_points if isinstance(report.detected_points, dict) else None
+            if not isinstance(detected_points_payload, dict):
+                detected_points_payload = get_validated_detected_points_payload(
+                    report.extracted_text or "",
+                    document_hash=report.document_hash or "",
+                    document_title=report.filename,
+                    document_id=str(report.id),
+                )
+            points = detected_points_payload.get("points", []) if isinstance(detected_points_payload, dict) else []
             e3_hints = [
                 p for p in points
                 if isinstance(p, dict) and str(p.get("e3_parent_hint") or "").upper() in {"P11", "P12"}
@@ -700,10 +698,9 @@ async def get_report(
                 len(points),
                 len(e3_hints),
             )
-            scoring_result_out = dict(scoring_result_out)
             scoring_result_out["feedback_v11"] = build_feedback_v11(
                 ai_analysis_payload,
-                validated_payload,
+                detected_points_payload,
                 report_id=str(report.id),
                 document_hash=report.document_hash or "",
             )

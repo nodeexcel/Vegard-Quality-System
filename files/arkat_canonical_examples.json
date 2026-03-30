@@ -1,0 +1,285 @@
+{
+  "meta": {
+    "name": "arkat_canonical_examples",
+    "version": "1.0.0",
+    "description": "Canonical few-shot examples for RAG retrieval during ARKAT semantic evaluation. Each entry contains a real or realistic report excerpt, its error classification, and a corrected version. The RAG system should retrieve the most relevant examples based on error_type and field tags before the evaluation LLM call.",
+    "retrieval_key": "error_type + field — retrieve 2-3 examples per field being evaluated",
+    "language": "Norwegian — all examples are in Norwegian as they appear in real reports"
+  },
+
+  "examples": [
+
+    {
+      "id": "CE-001",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Yttervegger og kledning",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Årsak",
+        "text": "Det registreres fuktmerker og råteskader i nedkant av kledning mot nord.",
+        "why_wrong": "Describes what the assessor observed, not why the defect occurred. An observation is not a cause."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Kledning mot nord er utsatt for langvarig fuktpåvirkning fra slagregn kombinert med utilstrekkelig luftspalte bak kledningen, noe som har ført til råteskader i nedkant av panelet.",
+        "why_correct": "Explains the mechanism behind the defect — moisture exposure combined with insufficient ventilation gap. Answers 'why has this happened?'"
+      },
+      "retrieval_tags": ["observation", "registreres", "råteskader", "kledning", "aarsak"]
+    },
+
+    {
+      "id": "CE-002",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Våtrom — overflate vegger",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Årsak",
+        "text": "TG3 vurderes da det er et hull i flis mot yttervegg i våtsonen.",
+        "why_wrong": "States what was found (a hole in the tile), not why it occurred or who is responsible for the defect. 'TG3 vurderes da' followed by an observation is a classic pattern."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Det er et hull i flisvegg mot yttervegg i våtsonen. Årsaken er ikke kjent, men hullet er sannsynligvis etter en tidligere ventilasjonsvifte som er fjernet uten at veggen er tettet.",
+        "why_correct": "States the observation, then provides a causal explanation. Acknowledges uncertainty where relevant."
+      },
+      "retrieval_tags": ["hull", "flis", "våtsone", "TG3 vurderes da", "observation", "aarsak"]
+    },
+
+    {
+      "id": "CE-003",
+      "error_type": "AARSAK_AGE_ONLY_2018",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Drenering",
+      "tg_grade": "TG2",
+      "ns_version": "NS3600:2018",
+      "wrong": {
+        "label": "Årsak",
+        "text": "TG2 vurderes da dreneringen har passert halvparten av sin forventede levetid.",
+        "why_wrong": "Under NS 3600:2018, age alone is not a sufficient basis for TG2. No observed deterioration or deficiency is described."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Dreneringen er fra 2009 og har passert halvparten av forventet levetid. Det ble ikke avdekket synlige tegn til svikt, men funksjonaliteten ble ikke direkte verifisert da dreneringen ligger skjult. Tilstanden er usikker.",
+        "why_correct": "Acknowledges age, states what was and was not verified, and explicitly flags uncertainty. Does not use age alone as justification under NS 3600:2018."
+      },
+      "retrieval_tags": ["drenering", "levetid", "alder", "NS 3600:2018", "aarsak", "age_only"]
+    },
+
+    {
+      "id": "CE-004",
+      "error_type": "LIMITATION_USED_AS_RISK_SUBSTITUTE",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Drenering",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.",
+        "why_wrong": "Describes an inspection limitation, not a building risk. The assessor's inability to see the component is not the risk — what could happen to the building is the risk."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Eldre drenering med usikker restlevetid kan miste evnen til å lede overflatevann bort fra grunnmuren. Dersom funksjonen svikter, øker belastningen på grunnmur og fundamenter.",
+        "why_correct": "Describes what could happen to the building component if the defect is not addressed. Future-oriented, conditional, not a methodology limitation."
+      },
+      "retrieval_tags": ["drenering", "ikke synlig", "inspeksjon", "begrensning", "risiko", "limitation"]
+    },
+
+    {
+      "id": "CE-005",
+      "error_type": "PRESENT_STATE_AS_RISIKO",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Yttervegger og kledning",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Kledningen mister evnen til å beskytte bygget mot regn, vind og frost.",
+        "why_wrong": "Describes the current state of the cladding (it is already losing its protective function), not what could happen if it is not addressed. Present tense statement of current condition belongs in Årsak or the observation."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Dersom skadet kledning ikke skiftes, kan fukt trenge gjennom vindsperre og inn i bærende veggkonstruksjon, noe som kan gi betydelig dyrere skader enn selve kledningsutskiftingen.",
+        "why_correct": "Describes a possible future development using conditional language. Answers 'what could happen next if this is not fixed?'"
+      },
+      "retrieval_tags": ["kledning", "mister evnen", "nåtid", "risiko", "present_state"]
+    },
+
+    {
+      "id": "CE-006",
+      "error_type": "CONSEQUENCE_AS_RISIKO",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Ventilasjon",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Vinduet slipper ut varme når det står åpent, særlig om vinteren. Dette øker strømforbruk og reduserer energieffektivitet.",
+        "why_wrong": "Higher electricity bills and reduced energy efficiency are current, practical buyer consequences — not a description of what could happen to the building if the defect persists."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Uten tilstrekkelig kontrollert tilluft kan luftkvaliteten i rommet bli utilfredsstillende, og kondensproblemer kan oppstå på kalde flater om vinteren.",
+        "why_correct": "Describes what could happen to the building environment if the ventilation issue is not resolved. Future-oriented and conditional."
+      },
+      "retrieval_tags": ["ventilasjon", "strømforbruk", "kjøperkonsekvens", "risiko", "consequence_as_risk"]
+    },
+
+    {
+      "id": "CE-008",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Drenering",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Dersom dreneringen ikke fungerer tilfredsstillende, er det risiko for at vann trenger inn i konstruksjonen. Dette kan medføre fuktskader på kjellervegger og innvendige rom.",
+        "why_wrong": "Texten beskriver bare teknisk skadeutvikling i konstruksjonen. Den forklarer ikke hva forholdet betyr for kjøper i form av kostnad, bruk, sikkerhet eller oppfølgingsplikt."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Kjøper overtar en eiendom med drenering som har passert halvparten av forventet levetid og som ikke kan verifiseres visuelt. Dette innebærer en usikkerhet kjøper bør være klar over, og det bør settes av midler til mulig utbedring eller utskifting innen 5-10 år.",
+        "why_correct": "Oversetter tilstanden til kjøperrelevant informasjon om usikkerhet, økonomisk planlegging og mulig oppfølging."
+      },
+      "retrieval_tags": ["drenering", "dersom", "risiko for", "konsekvens", "technical_development", "manglende kjøperrelevans"]
+    },
+
+    {
+      "id": "CE-009",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Terrengforhold",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Vann mot vegg kan trenge inn gjennom grunnmur, fundament eller kjellervegger.",
+        "why_wrong": "Beskriver bare en teknisk mulig skadeutvikling i bygningsdelene. Kjøper får ingen forklaring på hvilke kostnader, plikter eller praktiske følger dette innebærer."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Kjøper overtar en eiendom der terrenget under terrassen leder vann mot konstruksjonen. Dette er et påvist avvik som må utbedres, og kjøper må påregne kostnader til planering og eventuell dreneringstiltak.",
+        "why_correct": "Gjør avviket forståelig for kjøper ved å koble det til konkret utbedringsbehov og forventede kostnader."
+      },
+      "retrieval_tags": ["terreng", "kan trenge inn", "grunnmur", "konsekvens", "technical_development", "manglende kjøperrelevans"]
+    },
+
+    {
+      "id": "CE-010",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Undertak og taktekking",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Et aldrende undertak har redusert tetthet. Mose holder på fukt og kan føre til at mer vann trenger ned til undertaket.",
+        "why_wrong": "Describes what happens to the building material — technical development of the defect. A buyer without building expertise cannot translate 'reduced tightness' or 'moisture retention' into what it means for them personally."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Kjøper bør påregne at tak og undertak vil trenge rehabilitering innen relativt kort tid. Dersom dette utsettes, øker risikoen for skjulte skader som kan gjøre utbedringen vesentlig dyrere.",
+        "why_correct": "Translates the technical situation into a practical buyer obligation — plan for rehabilitation soon, and act before hidden damage develops. Note: 'dersom dette utsettes' is used here as part of a buyer-oriented consequence chain, not as the primary consequence statement itself."
+      },
+      "retrieval_tags": ["undertak", "redusert tetthet", "mose", "teknisk utvikling", "konsekvens", "technical_development"]
+    },
+
+    {
+      "id": "CE-011",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Yttervegger og kledning",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Fukt kan trekke videre inn i vindsperre, lekter og bærende konstruksjon, som gir større og dyrere skader.",
+        "why_wrong": "Describes how moisture will progress through the building layers — a technical damage development sequence with no clear buyer relevance."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Kjøper overtar en yttervegg med påviste råteskader i kledningen mot nord. Skaden må utbedres, og det bør undersøkes om fukt har trukket inn i underliggende konstruksjon, da dette kan øke kostnadene vesentlig.",
+        "why_correct": "States that the buyer is taking over a defect that requires action, and sets realistic expectations about potential additional costs. Buyer-oriented and practical."
+      },
+      "retrieval_tags": ["yttervegg", "kledning", "fukt trekker inn", "vindsperre", "konstruksjon", "konsekvens", "technical_development"]
+    },
+
+    {
+      "id": "CE-012",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Ventilasjon",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Kulde fra åpent vindu fører til høyere strømforbruk om vinteren.",
+        "why_wrong": "While closer to a buyer consequence than pure technical language, this describes a physical effect rather than what the buyer must do or plan for. It also belongs partly in Risiko as a current consequence of the deficiency."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Stuen i underetasjen har ikke tilfredsstillende tilluft uten at vindu åpnes. Kjøper må påregne økte oppvarmingskostnader om vinteren og bør vurdere å installere en ventilasjonsspalt som alternativ til å lufte via vindu.",
+        "why_correct": "Tells the buyer what their situation is (inadequate ventilation without opening window), what the practical impact is (higher heating costs), and points toward a solution without taking over the Tiltak field."
+      },
+      "retrieval_tags": ["ventilasjon", "strømforbruk", "vindu", "tilluft", "konsekvens", "technical_development"]
+    },
+
+    {
+      "id": "CE-013",
+      "error_type": "EXPLANATION_AS_TILTAK",
+      "field": "anbefalt_tiltak",
+      "building_component": "Varmtvannsbereder",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Anbefalt tiltak",
+        "text": "Berederen er fra 2013 og har passert halvparten av forventet levetid på 20 år. Det er viktig at berederen skiftes før den svikter.",
+        "why_wrong": "The first sentence repeats the cause/age context already stated in Årsak. The second sentence is a general statement, not a concrete next step."
+      },
+      "correct": {
+        "label": "Anbefalt tiltak",
+        "text": "Sjekk jevnlig sikkerhetsventil og koblinger for tegn til korrosjon eller lekkasje. Planlegg utskifting av varmtvannsbereder innen de nærmeste årene.",
+        "why_correct": "Two concrete next steps — immediate inspection and planned replacement. No repetition of cause or risk."
+      },
+      "retrieval_tags": ["varmtvannsbereder", "bereder", "levetid", "tiltak", "explanation_as_tiltak"]
+    },
+
+    {
+      "id": "CE-014",
+      "error_type": "MISSING_KONSEKVENS_IN_COMPRESSED_FORMAT",
+      "field": "konsekvens",
+      "building_component": "Balkonger og terrasser — compressed format",
+      "tg_grade": "TG2",
+      "report_format": "compressed_mixed",
+      "wrong": {
+        "label": "Konsekvens/tiltak",
+        "text": "Det bør foretas nærmere undersøkelser av balkong/terrasser når den er snøfri. Rekkverket bør vedlikeholdes og utbedres. Årsaken til skjevheten i platten må lokaliseres og utbedres.",
+        "why_wrong": "The field contains only recommended actions. No buyer consequence is described at all. A buyer reading this does not understand what the defects mean for them — only what someone should do about it."
+      },
+      "correct": {
+        "label": "Konsekvens/tiltak",
+        "text": "Kjøper overtar en terrasse med påviste avvik (avflosset maling på rekkverk, skjevhet i plate, løst terrassebord) som krever oppfølging. Rekkverk med avflosset maling bør utbedres og vedlikeholdes. Skjevheten i platen bør undersøkes nærmere for å avklare om det er bevegelse i underlaget.",
+        "why_correct": "Opens with what the buyer is taking over and what it means for them, then moves into concrete next steps. Both Konsekvens and Tiltak are covered in the same merged field."
+      },
+      "retrieval_tags": ["terrasse", "balkong", "konsekvens/tiltak", "compressed", "missing_konsekvens"]
+    }
+
+  ],
+
+  "retrieval_guidance": {
+    "description": "How the RAG system should use these examples during evaluation.",
+    "strategy": "Before the ARKAT evaluation LLM call for a given point and field, retrieve 2-3 examples matching the field being evaluated and the suspected error type if pre-screening has flagged it. If no error type is suspected, retrieve examples for the field only.",
+    "pre_screening_signals": {
+      "aarsak": ["Det registreres", "Det observeres", "Det ble avdekket", "Det er påvist", "TG2/TG3 vurderes da [alder]"],
+      "risiko": ["ikke synlig for inspeksjon", "mister evnen til", "medfører [present effect on buyer]", "fører til [buyer consequence]"],
+      "konsekvens": ["trekker inn i konstruksjonen", "kan trenge inn", "redusert tetthet", "mister tetthetsfunksjon", "råtner", "svikter", "uten kjøper", "ingen kjøperkonsekvens"]
+    },
+    "injection_position": "Include retrieved examples in the user message of the evaluation call, after the point text and before the instruction to evaluate.",
+    "injection_template": "Here are examples of correct and incorrect ARKAT usage for reference:\n\n[EXAMPLE 1 — WRONG]\nField: {field}\nText: {wrong.text}\nWhy wrong: {wrong.why_wrong}\n\n[EXAMPLE 1 — CORRECT]\nText: {correct.text}\nWhy correct: {correct.why_correct}\n\n[EXAMPLE 2 ...]\n\nNow evaluate the following point using these rules:"
+  }
+}

@@ -306,8 +306,10 @@ export default function ResultsPage() {
     const fetchReport = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const authToken = localStorage.getItem('auth_token')
         const response = await axios.get(`${apiUrl}/api/v1/reports/${params.id}`, {
-          timeout: 30000,
+          timeout: 60000,
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
         })
         setReport(response.data)
       } catch (err: any) {
@@ -751,6 +753,12 @@ export default function ResultsPage() {
     if (!text || typeof text !== 'string') return true
     const low = text.toLowerCase().trim()
     if (low.length < 40) return true
+    const arkatFieldLabelHits = ['årsak:', 'arsak:', 'risiko:', 'konsekvens:', 'anbefalt tiltak:', 'anbefalte tiltak:']
+      .reduce((count, marker) => count + (low.split(marker).length - 1), 0)
+    if (low.includes('ikke følges opp')) return true
+    if (arkatFieldLabelHits >= 2 && low.length >= 160) return true
+    if (low.startsWith('punkt ') && low.includes('det er risiko for videre utvikling dersom')) return true
+    if (low.startsWith('punkt ') && low.includes('konsekvensen bør presiseres praktisk ved å forklare hva')) return true
     const genericPhrases = [
       'forbedre teksten',
       'presiser teksten',
@@ -1434,10 +1442,10 @@ export default function ResultsPage() {
 
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  {visibleFindingsV16?.length && !analysis.findings?.length ? 'Alle funn' : 'Funn per bygningsdel'}
+                  {visibleFindingsV16?.length ? 'Alle funn' : 'Funn per bygningsdel'}
                 </h2>
                 <div className="space-y-6">
-                  {visibleFindingsV16?.length && !analysis.findings?.length ? (
+                  {visibleFindingsV16?.length ? (
                     visibleFindingsV16.map((f, index) => {
                       const severityConfig = getSeverityConfig(f.severity)
                       const pointId = resolveDisplayPointId(
@@ -1512,8 +1520,16 @@ export default function ResultsPage() {
                         </div>
                       )
                     })
-                  ) : (
-                  analysis.findings?.map((component, index) => (
+                  ) : null}
+
+                  {analysis.findings?.length ? (
+                  <>
+                  {visibleFindingsV16?.length ? (
+                    <div className="pt-2">
+                      <h3 className="text-xl font-bold text-gray-900">Funn per bygningsdel</h3>
+                    </div>
+                  ) : null}
+                  {analysis.findings?.map((component, index) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-5">
                       <div className="flex items-center justify-between mb-3">
                         <div>
@@ -1579,7 +1595,9 @@ export default function ResultsPage() {
                         })}
                       </div>
                     </div>
-                  )))}
+                  ))}
+                  </>
+                  ) : null}
                 </div>
               </div>
 

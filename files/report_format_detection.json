@@ -1,0 +1,215 @@
+{
+  "meta": {
+    "name": "report_format_detection",
+    "version": "1.0.0",
+    "description": "Defines how the pipeline detects report format and extracts ARKAT field content semantically before evaluation. This step must run before arkat_evaluation_pipeline_step.json. The core principle: ARKAT evaluation always targets semantic content — never field labels alone.",
+    "position_in_pipeline": "Step 1 of 2 in pre-evaluation. Runs after text extraction, before ARKAT evaluation call."
+  },
+
+  "core_principle": {
+    "statement": "The pipeline must never assume that a field labeled 'Konsekvens' contains konsekvens-content, or that a field labeled 'Risiko' contains risiko-content. Labels are unreliable across report formats and within individual points in the same report. The semantic content determines what the text actually is — not the heading it appears under.",
+    "implication": "Format detection determines HOW to extract the text. Semantic evaluation determines WHAT the text actually says. These are two separate steps."
+  },
+
+  "step_1_format_detection": {
+    "description": "Identify which report format is used. Must run once per report, not once per point.",
+    "detection_method": "Scan the first 3 pages of the report for format indicators. Use the presence and combination of ARKAT-related headings to classify.",
+
+    "format_profiles": [
+      {
+        "format_id": "structured_arkat",
+        "confidence_indicators": {
+          "strong": [
+            "Årsak:",
+            "Risiko:",
+            "Konsekvens:",
+            "Anbefalt tiltak:"
+          ],
+          "supporting": [
+            "BMTF",
+            "Eierskifterapport",
+            "Byggmestrenes Takseringsforbund"
+          ]
+        },
+        "detection_rule": "If at least 3 of the 4 strong indicators are found in the report body (not just the introduction), classify as structured_arkat.",
+        "extraction_method": "field_label_extraction",
+        "notes": "This is the most reliable format for per-field evaluation. Even here, labels may be present but content may belong in a different field — semantic evaluation is still required."
+      },
+      {
+        "format_id": "compressed_mixed",
+        "confidence_indicators": {
+          "strong": [
+            "Konsekvens/tiltak:",
+            "Årsak/Konsekvens:",
+            "Vurdering av avvik:",
+            "Avvik og konsekvens:"
+          ],
+          "supporting": [
+            "Fremtind",
+            "Norges Takseringsforbund",
+            "NTF",
+            "EIE",
+            "Ambita"
+          ]
+        },
+        "detection_rule": "If any strong compressed indicator is found, or if the report consistently merges 2+ ARKAT fields under a single heading, classify as compressed_mixed.",
+        "extraction_method": "semantic_block_extraction",
+        "notes": "Common in older formats and some insurance-linked report templates. ARKAT components must be extracted from prose blocks."
+      },
+      {
+        "format_id": "semi_structured",
+        "confidence_indicators": {
+          "strong": [
+            "Årsak present but Risiko absent",
+            "Only Konsekvens present without Risiko",
+            "Merknad used as a catch-all"
+          ]
+        },
+        "detection_rule": "If some but not all ARKAT labels are present, and the missing components appear embedded in prose, classify as semi_structured.",
+        "extraction_method": "hybrid_extraction",
+        "notes": "Treat labeled fields with field_label_extraction. Treat unlabeled blocks with semantic_block_extraction."
+      },
+      {
+        "format_id": "unlabeled_prose",
+        "confidence_indicators": {
+          "strong": [
+            "No ARKAT labels found in point descriptions",
+            "Points described in continuous prose only"
+          ]
+        },
+        "detection_rule": "If no ARKAT field labels are found in point descriptions, classify as unlabeled_prose.",
+        "extraction_method": "semantic_block_extraction",
+        "notes": "Least common in post-2022 reports due to regulatory requirements, but may appear in older reports or informal formats."
+      }
+    ],
+
+    "fallback": "If classification is uncertain, default to semi_structured and apply hybrid_extraction."
+  },
+
+  "step_2_field_extraction": {
+    "description": "Extract the semantic content of each ARKAT component from each TG2/TG3/TGIU point, using the method appropriate to the detected format.",
+
+    "extraction_methods": {
+
+      "field_label_extraction": {
+        "applies_to": "structured_arkat",
+        "method": "Extract text between ARKAT field labels. Trim whitespace. If a label is present but followed immediately by the next label with no content, return MISSING for that field.",
+        "special_cases": [
+          {
+            "case": "Field label present but content is only a restatement of the TG grade",
+            "example": "Årsak: TG2 vurderes da...",
+            "instruction": "Extract the full text including 'TG2 vurderes da...' — this pattern often indicates the actual cause follows the grade statement. Pass full text to semantic evaluator."
+          },
+          {
+            "case": "Content continues after 'Merknader:'",
+            "instruction": "Include Merknader content in the extraction for the preceding field if it elaborates on that field. Do not treat Merknader as a separate ARKAT field."
+          }
+        ]
+      },
+
+      "semantic_block_extraction": {
+        "applies_to": "compressed_mixed, unlabeled_prose",
+        "method": "Pass the complete point text to the LLM with the following extraction prompt. Do not attempt rule-based splitting.",
+        "extraction_prompt": "The following is a point from a Norwegian property condition report. Extract the content that corresponds to each ARKAT component, even if it is not labeled. Return only what is present — do not invent content.\n\nFor each component, return the relevant sentence(s) from the text, or 'MISSING' if the component is entirely absent.\n\nComponents to extract:\n- ÅRSAK: The explanation of why or how the defect occurred\n- RISIKO: What could happen to the building if the defect is not addressed\n- KONSEKVENS: What this means for the buyer in practical terms\n- ANBEFALT TILTAK: The recommended next step\n\nPoint text:\n{raw_point_text}\n\nReturn as JSON with keys: aarsak, risiko, konsekvens, anbefalt_tiltak.",
+        "notes": "The extracted content may overlap or span multiple sentences. That is expected and correct. The semantic evaluator will assess whether the content is in the right conceptual bucket — not whether it was in a labeled field."
+      },
+
+      "hybrid_extraction": {
+        "applies_to": "semi_structured",
+        "method": "Apply field_label_extraction for labeled fields. For any point where a label is missing, apply semantic_block_extraction to the unlabeled prose block for that point only.",
+        "fallback": "If field_label_extraction returns MISSING for 2+ fields on a given point, re-run the entire point through semantic_block_extraction and use those results instead."
+      }
+    }
+  },
+
+  "format_aware_evaluation_rules": {
+    "description": "Additional evaluation rules that apply differently depending on detected format.",
+    "rules": [
+      {
+        "format": "compressed_mixed",
+        "rule": "A merged 'Konsekvens/tiltak' field that contains only a recommended action and no buyer consequence must be flagged as MISSING konsekvens — even if the field is present and populated.",
+        "example": "Konsekvens/tiltak: Det bør foretas nærmere undersøkelser av balkong når den er snøfri. → Konsekvens: MISSING (no buyer consequence described). Tiltak: CORRECT."
+      },
+      {
+        "format": "compressed_mixed",
+        "rule": "A 'Vurdering av avvik' field that contains only an observation must be flagged as MISSING aarsak — the observation is not an explanation of cause.",
+        "example": "Vurdering av avvik: Avflosset maling på rekkverk. Platten ved inngangsdøren har skjevheter. → Årsak: MISSING (observations listed, no cause explained)."
+      },
+      {
+        "format": "all",
+        "rule": "If a point has a TG grade but no descriptive text whatsoever (label only), flag as MISSING for all ARKAT fields. Do not attempt extraction.",
+        "applies_to": "TG2, TG3 only — TG1 and TG0 do not require ARKAT"
+      },
+      {
+        "format": "all",
+        "rule": "Inspection limitations (e.g. 'not accessible', 'snow cover', 'closed construction') may legitimately replace some ARKAT fields for TGIU points. Do not flag MISSING for Årsak or Risiko on TGIU points where the limitation explains why the grade was given.",
+        "applies_to": "TGIU only"
+      }
+    ]
+  },
+
+  "output_schema": {
+    "description": "Output of the format detection and extraction step. This feeds directly into arkat_evaluation_pipeline_step.json as input.",
+    "fields": {
+      "report_format": "string — detected format ID",
+      "ns_version": "string — detected NS version",
+      "extraction_method_used": "string — which extraction method was applied",
+      "points": [
+        {
+          "point_id": "string",
+          "tg_grade": "string",
+          "extracted_fields": {
+            "aarsak": "string or MISSING",
+            "risiko": "string or MISSING",
+            "konsekvens": "string or MISSING",
+            "anbefalt_tiltak": "string or MISSING"
+          },
+          "raw_point_text": "string — always included regardless of format"
+        }
+      ]
+    }
+  },
+
+  "example_extractions": {
+    "description": "Worked examples showing correct extraction across formats. Use these as reference when testing.",
+
+    "example_1": {
+      "format": "structured_arkat",
+      "source_point": "7.1.3 Bad underetasje — Membran, tettesjiktet og sluk",
+      "raw_text": "Årsak: TG2 vurderes da membranen har passert halvparten av sin forventede levetid og at det ikke er synlig slukmansjett i sluk. Risiko: Eldre membraner mister funksjon over tid. Uten slukmansjett er overgangen mellom sluk og membran ikke vanntett. Konsekvens: Redusert levetid på badet og behov for omfattende reparasjoner dersom lekkasje oppstår. Anbefalte tiltak: Vær ekstra forsiktig med vannbruk, særlig utenfor badekar. Lokal utbedring rundt sluk med montering av mansjett.",
+      "extracted_fields": {
+        "aarsak": "TG2 vurderes da membranen har passert halvparten av sin forventede levetid og at det ikke er synlig slukmansjett i sluk.",
+        "risiko": "Eldre membraner mister funksjon over tid. Uten slukmansjett er overgangen mellom sluk og membran ikke vanntett.",
+        "konsekvens": "Redusert levetid på badet og behov for omfattende reparasjoner dersom lekkasje oppstår.",
+        "anbefalt_tiltak": "Vær ekstra forsiktig med vannbruk, særlig utenfor badekar. Lokal utbedring rundt sluk med montering av mansjett."
+      },
+      "evaluation_note": "Konsekvens should not be flagged based on conditional language alone. The text has buyer relevance because it explains reduced service life and likely repair needs for the buyer."
+    },
+
+    "example_2": {
+      "format": "compressed_mixed",
+      "source_point": "Balkonger, terrasser og rom under balkonger (TG2)",
+      "raw_text": "Terrasse på ca. 43 m2 med malt stående rekkverk. Rekkverket har en høyde på ca. 91 cm. Vurdering av avvik: Balkonger/terrasse er snødekt og derfor ikke nærmere vurdert. Det er avvik: Avflosset maling på rekkverk. Platten ved inngangsdøren har skjevheter. Markplatten har en del grønnske og ett løst terrassebord. Konsekvens/tiltak: Det bør foretas nærmere undersøkelser av balkong/terrasser når den er snøfri. Rekkverket bør vedlikeholdes og utbedres. Årsaken til skjevheten i platten må lokaliseres og utbedres. Løse terrassebord må festes og platten bør rengjøres.",
+      "extracted_fields": {
+        "aarsak": "MISSING — only observations listed ('avflosset maling', 'skjevheter', 'grønnske', 'løst terrassebord'), no causal explanation provided",
+        "risiko": "MISSING — no description of what could happen to the building if defects are not addressed",
+        "konsekvens": "MISSING — 'Konsekvens/tiltak' field contains only recommended actions, no explanation of what the defects mean for the buyer",
+        "anbefalt_tiltak": "Det bør foretas nærmere undersøkelser av balkong/terrasser når den er snøfri. Rekkverket bør vedlikeholdes og utbedres. Årsaken til skjevheten i platten må lokaliseres og utbedres. Løse terrassebord må festes og platten bør rengjøres."
+      },
+      "evaluation_note": "Three of four ARKAT components are MISSING. Tiltak is present and partially correct, though 'nærmere undersøkelser' is more of a limitation acknowledgement than a concrete next step."
+    },
+
+    "example_3": {
+      "format": "structured_arkat",
+      "source_point": "1.1 Byggegrunn, fundamenter, grunnmur, drenering",
+      "raw_text": "TG2 vurderes da dreneringen har passert halvparten av sin forventede levetid. Risiko: Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år. Konsekvens: Dersom dreneringen ikke fungerer tilfredsstillende, er det risiko for at vann trenger inn i konstruksjonen. Anbefalt tiltak: Det anbefales å overvåke dreneringens funksjon og planlegge eventuell oppgradering innen 5-10 år.",
+      "extracted_fields": {
+        "aarsak": "TG2 vurderes da dreneringen har passert halvparten av sin forventede levetid.",
+        "risiko": "Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.",
+        "konsekvens": "Dersom dreneringen ikke fungerer tilfredsstillende, er det risiko for at vann trenger inn i konstruksjonen.",
+        "anbefalt_tiltak": "Det anbefales å overvåke dreneringens funksjon og planlegge eventuell oppgradering innen 5-10 år."
+      },
+      "evaluation_note": "Årsak flagged WRONG:AARSAK_AGE_ONLY_2018 (NS 3600:2018 report, age cited without observed deterioration). Risiko flagged WRONG:LIMITATION_USED_AS_RISK_SUBSTITUTE (inspection limitation presented as the risk). Konsekvens flagged WRONG:TECHNICAL_DEVELOPMENT_AS_KONSEKVENS because it describes only possible technical water ingress with no buyer relevance."
+    }
+  }
+}

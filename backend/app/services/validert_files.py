@@ -44,6 +44,10 @@ CANONICAL_POINTS_V30_PATH = FILES_DIR / "validert_canonical_points_v3_0.json"
 MIGRATION_MAP_V33_TO_V34_PATH = FILES_DIR / "validert_migration_map_v3.3_to_v3.4.json"
 FORSKRIFT_MATRIX_PATH = FILES_DIR / "validert_forskrift_matrix_v1.0.json"
 MANDATORY_EXPLANATION_ONLY_PATH = FILES_DIR / "validert_mandatory_explanation_only_rules_v1.0.json"
+ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules.json"
+ARKAT_EVALUATION_PIPELINE_STEP_PATH = FILES_DIR / "arkat_evaluation_pipeline_step.json"
+REPORT_FORMAT_DETECTION_PATH = FILES_DIR / "report_format_detection.json"
+ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples.json"
 
 # Routing: if element.tg_policy == "FORBIDDEN" -> apply optional_tg_forbidden_meta_rule_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
@@ -190,7 +194,22 @@ def _get_active_points_overview_files() -> Dict[str, Path]:
 
 
 def get_system_prompt() -> str:
-    return _read_text(SYSTEM_PROMPT_PATH)
+    prompt = _read_text(SYSTEM_PROMPT_PATH)
+    semantic_rules = get_arkat_semantic_rules()
+    instruction = (
+        semantic_rules.get("evaluation_instruction", {}).get("prompt")
+        if isinstance(semantic_rules, dict)
+        else ""
+    )
+    if not isinstance(instruction, str) or not instruction.strip():
+        return prompt
+    block = (
+        "\n\n===== AKTIV ARKAT SEMANTISK EVALUERINGSINSTRUKS =====\n"
+        f"{instruction.strip()}"
+    )
+    if instruction.strip() in prompt:
+        return prompt
+    return f"{prompt.rstrip()}{block}"
 
 
 def get_rag_sections() -> Dict[str, str]:
@@ -248,6 +267,38 @@ def get_legality_guardrails_text() -> str:
 
 def get_orchestrator_pipeline_text() -> str:
     return _read_text(get_active_pipeline_file_path())
+
+
+def get_arkat_semantic_rules() -> Dict:
+    return _load_json_file(ARKAT_SEMANTIC_RULES_PATH)
+
+
+def get_arkat_semantic_rules_text() -> str:
+    return _read_text(ARKAT_SEMANTIC_RULES_PATH)
+
+
+def get_arkat_evaluation_pipeline_step() -> Dict:
+    return _load_json_file(ARKAT_EVALUATION_PIPELINE_STEP_PATH)
+
+
+def get_arkat_evaluation_pipeline_step_text() -> str:
+    return _read_text(ARKAT_EVALUATION_PIPELINE_STEP_PATH)
+
+
+def get_report_format_detection() -> Dict:
+    return _load_json_file(REPORT_FORMAT_DETECTION_PATH)
+
+
+def get_report_format_detection_text() -> str:
+    return _read_text(REPORT_FORMAT_DETECTION_PATH)
+
+
+def get_arkat_canonical_examples() -> Dict:
+    return _load_json_file(ARKAT_CANONICAL_EXAMPLES_PATH)
+
+
+def get_arkat_canonical_examples_text() -> str:
+    return _read_text(ARKAT_CANONICAL_EXAMPLES_PATH)
 
 
 def get_age_service_life_validation_text() -> str:
@@ -407,6 +458,10 @@ def build_prompt_context() -> str:
             "===== LEGALITY GUARDRAILS =====\n" + get_legality_guardrails_text(),
             "===== MANIFEST =====\n" + get_manifest_text(),
             "===== ORCHESTRATOR PIPELINE =====\n" + get_orchestrator_pipeline_text(),
+            "===== ARKAT SEMANTIC RULES =====\n" + get_arkat_semantic_rules_text(),
+            "===== REPORT FORMAT DETECTION =====\n" + get_report_format_detection_text(),
+            "===== ARKAT EVALUATION PIPELINE STEP =====\n" + get_arkat_evaluation_pipeline_step_text(),
+            "===== ARKAT CANONICAL EXAMPLES =====\n" + get_arkat_canonical_examples_text(),
             "===== ACTIVE CONFIG =====\n" + json.dumps(get_active_config(), ensure_ascii=False, sort_keys=True),
             "===== CANONICAL POINTS (ACTIVE) =====\n" + json.dumps(get_canonical_points_v30(), ensure_ascii=False, sort_keys=True),
             "===== POINTS OVERVIEW MAPPING =====\n" + json.dumps(get_points_overview_mapping_config(), ensure_ascii=False, sort_keys=True),
