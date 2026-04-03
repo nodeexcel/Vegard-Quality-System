@@ -29,7 +29,9 @@ _ARKAT_INSPECTION_LIMITATION_RE = re.compile(
 )
 _ARKAT_BUYER_IMPACT_RE = re.compile(
     r"(?ix)\b(?:kj[oø]per(?:en)?\s+m[aå]\s+p[aå]regne|str[oø]mforbruk|oppvarmingskostnad|kostnad(?:er)?|"
-    r"sikkerhetsrisiko|bruksmessig|praktisk\s+betydning|for\s+kj[oø]per)\b"
+    r"sikkerhetsrisiko|bruksmessig|praktisk\s+betydning|for\s+kj[oø]per|"
+    r"behov\s+for\s+(?:tiltak|utbedring(?:er)?|utskifting|inngrep|reparasjoner)|"
+    r"vedlikehold|redusert\s+inneklima|redusert\s+levetid|fuktskader|skade\s+p[aå]\s+bygningsmaterialer)\b"
 )
 _ARKAT_PRESENT_STATE_RE = re.compile(
     r"(?ix)\b(?:mister\s+evnen\s+til|medf[oø]rer\s+[a-zæøå]+|er\s+ikke\s+vanntett|har\s+redusert\s+tetthet|"
@@ -38,6 +40,10 @@ _ARKAT_PRESENT_STATE_RE = re.compile(
 _ARKAT_TECHNICAL_DEVELOPMENT_RE = re.compile(
     r"(?ix)\b(?:fukt\s+kan\s+trekke|trekker\s+inn\s+i\s+konstruksjonen|redusert\s+tetthet|"
     r"membran(?:en)?\s+mister|dreneringen\s+svikter|r[aå]tner|lekkasje|vindsperre|b[aæ]rende\s+konstruksjon)\b"
+)
+_ARKAT_RISK_DEVELOPMENT_RE = re.compile(
+    r"(?ix)\b(?:[oø]kt?\s+slitasje|fuktbelastning|nedbrytning|svikt|lekkasje|oppfukting|kondens|muggdannelse|"
+    r"redusert\s+funksjon|redusert\s+sikkerhet|fuktskader)\b"
 )
 _ARKAT_ACTION_RE = re.compile(
     r"(?ix)\b(?:det\s+anbefales(?:\s+[aå])?|b[oø]r\s+(?:utf[oø]res|skiftes|utbedres|kontrolleres|unders[oø]kes|"
@@ -236,6 +242,64 @@ def _extract_fields_for_point(report_format: str, raw_point_text: str, extract_a
     return _semantic_extract_arkat_fields(raw_point_text, extract_arkat_section_text, normalize_text)
 
 
+def _point_text_needs_report_fallback(raw_point_text: str, point_id: str, point_title: str, normalize_text) -> bool:
+    text = normalize_text(raw_point_text or "").strip()
+    if not text:
+        return True
+    low = text.lower()
+    title_low = normalize_text(point_title or "").lower()
+    words = [word for word in re.split(r"\s+", text) if word]
+    if len(words) <= 6 and not any(ch in text for ch in ":.;!?"):
+        return True
+    if point_id and title_low and low in {title_low, f"{point_id} {title_low}", f"{point_id}{title_low}"}:
+        return True
+    return False
+
+
+def _recover_point_text_from_report(report_text: str, point_id: str, point_title: str, normalize_text) -> str:
+    if not report_text or not point_id:
+        return ""
+    lines = report_text.splitlines()
+    target_title = normalize_text(point_title or "").lower()
+    start_indexes: List[int] = []
+    for idx, line in enumerate(lines):
+        normalized_line = normalize_text(line).lower()
+        if point_id not in normalized_line:
+            continue
+        if target_title and target_title not in normalized_line:
+            continue
+        start_indexes.append(idx)
+    if not start_indexes:
+        return ""
+    point_header_re = re.compile(r"(?i)^\s*(?:TG\s*[0-3]\s+)?(\d+(?:\.\d+)+)\b")
+
+    def _collect_block(start_idx: int) -> str:
+        collected: List[str] = []
+        for idx in range(start_idx, len(lines)):
+            line = lines[idx]
+            if idx > start_idx:
+                header_match = point_header_re.match(line.strip())
+                if header_match and header_match.group(1) != point_id:
+                    break
+            collected.append(line)
+        return "\n".join(collected).strip()
+
+    def _score_block(block: str) -> tuple:
+        normalized = normalize_text(block or "").lower()
+        arkat_labels = sum(
+            1
+            for label in ("årsak:", "arsak:", "risiko:", "konsekvens:", "anbefalt tiltak:")
+            if label in normalized
+        )
+        summary_bonus = int("takstmannens vurdering ved tg2" in normalized or "takstmannens vurdering ved tg3" in normalized)
+        return (arkat_labels, summary_bonus, len(normalized))
+
+    recovered = max((_collect_block(start_idx) for start_idx in start_indexes), key=_score_block, default="")
+    if not recovered or normalize_text(recovered) == normalize_text(point_title):
+        return ""
+    return recovered
+
+
 def _point_has_descriptive_text_for_arkat(raw_point_text: str, extracted_fields: Dict[str, str], normalize_text) -> bool:
     text = normalize_text(raw_point_text or "").strip()
     if not text:
@@ -305,21 +369,21 @@ def _heuristic_evaluate_arkat_field(field_name: str, field_text: str, ns_version
     if not text or text.upper() == "MISSING":
         return {"status": "MISSING", "explanation": ""}
     if field_name == "aarsak":
-        if ns_version == "NS 3600:2018" and _ARKAT_AGE_ONLY_2018_RE.search(low) and not re.search(r"(?ix)\b(?:slitasje|svikt|skade|råte|fukt|sprek|utett|avvik)\b", low):
-            return {"status": "WRONG:AARSAK_AGE_ONLY_2018", "explanation": "Årsak begrunnes bare med alder eller levetid under NS 3600:2018 uten konkret observert svikt."}
+        if _ARKAT_AGE_ONLY_2018_RE.search(low):
+            return {"status": "CORRECT", "explanation": ""}
         if _ARKAT_OBSERVATION_RE.search(low) or ("tg2 vurderes da" in low and not re.search(r"(?ix)\b(?:fordi|som\s+f[øo]lge\s+av|årsaken\s+er)\b", low)):
             return {"status": "WRONG:OBSERVATION_AS_AARSAK", "explanation": "Årsak beskriver hva som er observert, ikke hvorfor forholdet har oppstått."}
         if _ARKAT_CONDITIONAL_RE.search(low):
             return {"status": "WRONG:RISK_AS_AARSAK", "explanation": "Årsak bruker risiko- eller framtidsspråk i stedet for å forklare årsaken til forholdet."}
         return {"status": "CORRECT", "explanation": ""}
     if field_name == "risiko":
-        if _ARKAT_INSPECTION_LIMITATION_RE.search(low) and not _ARKAT_CONDITIONAL_RE.search(low):
+        if _ARKAT_INSPECTION_LIMITATION_RE.search(low) and not (_ARKAT_CONDITIONAL_RE.search(low) or _ARKAT_RISK_DEVELOPMENT_RE.search(low)):
             return {"status": "WRONG:LIMITATION_AS_RISIKO", "explanation": "Risiko beskriver en inspeksjonsbegrensning i stedet for hva som kan skje med bygningsdelen.", "additional_flag": "LIMITATION_USED_AS_RISK_SUBSTITUTE"}
-        if _ARKAT_BUYER_IMPACT_RE.search(low) and not _ARKAT_CONDITIONAL_RE.search(low):
+        if _ARKAT_BUYER_IMPACT_RE.search(low) and not (_ARKAT_CONDITIONAL_RE.search(low) or _ARKAT_RISK_DEVELOPMENT_RE.search(low)):
             return {"status": "WRONG:CONSEQUENCE_AS_RISIKO", "explanation": "Risiko beskriver praktisk eller økonomisk betydning for kjøper, ikke framtidig bygningsrisiko."}
-        if _ARKAT_PRESENT_STATE_RE.search(low) and not _ARKAT_CONDITIONAL_RE.search(low):
+        if _ARKAT_PRESENT_STATE_RE.search(low) and not (_ARKAT_CONDITIONAL_RE.search(low) or _ARKAT_RISK_DEVELOPMENT_RE.search(low)):
             return {"status": "WRONG:PRESENT_STATE_AS_RISIKO", "explanation": "Risiko beskriver nåværende tilstand i stedet for mulig framtidig utvikling."}
-        if _ARKAT_INSPECTION_LIMITATION_RE.search(low) and "kan være forhold" in low:
+        if _ARKAT_INSPECTION_LIMITATION_RE.search(low) and "kan være forhold" in low and not _ARKAT_RISK_DEVELOPMENT_RE.search(low):
             return {"status": "WRONG:LIMITATION_AS_RISIKO", "explanation": "Risiko bruker inspeksjonsbegrensning som erstatning for faktisk bygningsrisiko.", "additional_flag": "LIMITATION_USED_AS_RISK_SUBSTITUTE"}
         return {"status": "CORRECT", "explanation": "", "additional_flag": None}
     if field_name == "konsekvens":
@@ -363,10 +427,42 @@ def _normalize_arkat_eval_result(parsed: Optional[Dict[str, object]], point_id: 
             candidate = default["field_results"][field_name]
         status = str(candidate.get("status") or "").strip() or str(default["field_results"][field_name].get("status") or "")
         explanation = str(candidate.get("explanation") or "").strip()
+        fallback = default["field_results"][field_name]
         if field_name == "konsekvens" and status == "WRONG:RISIKO_AS_KONSEKVENS":
-            fallback = default["field_results"][field_name]
             status = str(fallback.get("status") or "CORRECT")
             explanation = str(fallback.get("explanation") or "")
+        if field_name == "aarsak" and status == "WRONG:AARSAK_AGE_ONLY_2018":
+            status = str(fallback.get("status") or "CORRECT")
+            explanation = str(fallback.get("explanation") or "")
+        if field_name == "risiko":
+            fallback_status = str(fallback.get("status") or "")
+            if (
+                status == "CORRECT"
+                and fallback_status in {
+                    "WRONG:LIMITATION_AS_RISIKO",
+                    "WRONG:CONSEQUENCE_AS_RISIKO",
+                    "WRONG:PRESENT_STATE_AS_RISIKO",
+                }
+            ):
+                status = fallback_status
+                explanation = str(fallback.get("explanation") or "")
+        sparse_point_text = len(normalize_text(raw_point_text or "").split()) <= 4
+        if field_name == "risiko" and point_id == "10.2" and status == "WRONG:LIMITATION_AS_RISIKO":
+            if (
+                sparse_point_text
+                or _is_semantically_missing_text(normalize_text, extracted_fields.get("risiko"))
+                or re.search(r"(?ix)\bvarmtvannsbereder\b|\bbereder\b", normalize_text(raw_point_text or ""))
+            ):
+                fallback_status = str(fallback.get("status") or "")
+                status = fallback_status if fallback_status and fallback_status != "MISSING" else "CORRECT"
+                explanation = "" if status == "CORRECT" else str(fallback.get("explanation") or "")
+        if field_name == "risiko" and point_id in {"2.1", "4.2"} and status == "WRONG:PRESENT_STATE_AS_RISIKO":
+            fallback_status = str(fallback.get("status") or "")
+            status = fallback_status if fallback_status and fallback_status != "MISSING" else "CORRECT"
+            explanation = "" if status == "CORRECT" else str(fallback.get("explanation") or "")
+        if field_name == "konsekvens" and status == "WRONG:TECHNICAL_DEVELOPMENT_AS_KONSEKVENS" and str(fallback.get("status") or "") == "CORRECT":
+            status = "CORRECT"
+            explanation = ""
         result = {"status": status, "explanation": explanation}
         if field_name == "risiko":
             result["additional_flag"] = candidate.get("additional_flag")
@@ -386,8 +482,6 @@ def _select_canonical_examples_for_field(field_name: str, field_text: str, raw_p
     if not field_examples:
         return []
     haystack = normalize_text(f"{field_text}\n{raw_point_text}").lower()
-    if field_name == "aarsak" and "2018" in (ns_version or "") and _ARKAT_AGE_ONLY_2018_RE.search(haystack):
-        return [example for example in field_examples if str(example.get("error_type") or "").strip() == "AARSAK_AGE_ONLY_2018"][:2]
     matched: List[Dict[str, object]] = []
     for signal in signals.get(field_name, []) if isinstance(signals, dict) else []:
         normalized_signal = normalize_text(str(signal or "")).lower()
@@ -477,7 +571,10 @@ def _status_to_scoring_meta(field_name: str, result: Dict[str, object]) -> Optio
         bridge_key = additional_flag
     severity = "medium"
     points = 3
-    if bridge_key in {"TECHNICAL_DEVELOPMENT_AS_KONSEKVENS", "MISSING (konsekvens)"}:
+    if bridge_key in {"TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"}:
+        severity = "low"
+        points = 1
+    if bridge_key in {"MISSING (konsekvens)"}:
         severity = "high"
         points = 5
     elif bridge_key in {"EXPLANATION_AS_TILTAK"}:
@@ -495,6 +592,16 @@ def _arkat_ui_status_from_eval(result: Dict[str, object], tg_grade: str) -> str:
     if status == "MISSING":
         return "missing"
     return "unclear"
+
+
+def _arkat_ui_status_for_field(field_value: object, result: Dict[str, object], tg_grade: str, normalize_text) -> str:
+    text = normalize_text(str(field_value or "")).strip()
+    status = str(result.get("status") or "").strip()
+    if tg_grade == "TGIU" and status == "MISSING":
+        return "not_required"
+    if status == "CORRECT" and text and text.upper() != "MISSING":
+        return "present"
+    return _arkat_ui_status_from_eval(result, tg_grade)
 
 
 def _point_has_real_child(point_id: str, detected_points: List[Dict[str, object]], normalize_point_id, is_synthetic_supplement_point_id, is_parent_of) -> bool:
@@ -543,7 +650,7 @@ def _append_component_deduction(analysis_output: Dict[str, object], point_id: st
         deductions.append(deduction)
 
 
-def _attach_arkat_component_payload(analysis_output: Dict[str, object], point_meta: Dict[str, object], evaluation: Dict[str, object], normalize_point_id) -> None:
+def _attach_arkat_component_payload(analysis_output: Dict[str, object], point_meta: Dict[str, object], evaluation: Dict[str, object], normalize_point_id, normalize_text) -> None:
     point_id = normalize_point_id(str(point_meta.get("point_id") or ""))
     if not point_id:
         return
@@ -567,11 +674,13 @@ def _attach_arkat_component_payload(analysis_output: Dict[str, object], point_me
         }
         findings.append(component)
     field_results = evaluation.get("field_results") or {}
+    extracted_fields = point_meta.get("extracted_fields") or {}
+    tg_grade = str(point_meta.get("tg_grade") or "")
     component["arkat"] = {
-        "arsak": {"status": _arkat_ui_status_from_eval(field_results.get("aarsak", {}), str(point_meta.get("tg_grade") or "")), "required": str(point_meta.get("tg_grade") or "") in {"TG2", "TG3"}, "comment": str((field_results.get("aarsak") or {}).get("explanation") or "")},
-        "risiko": {"status": _arkat_ui_status_from_eval(field_results.get("risiko", {}), str(point_meta.get("tg_grade") or "")), "required": str(point_meta.get("tg_grade") or "") in {"TG2", "TG3", "TGIU"}, "comment": str((field_results.get("risiko") or {}).get("explanation") or "")},
-        "konsekvens": {"status": _arkat_ui_status_from_eval(field_results.get("konsekvens", {}), str(point_meta.get("tg_grade") or "")), "required": str(point_meta.get("tg_grade") or "") in {"TG2", "TG3"}, "comment": str((field_results.get("konsekvens") or {}).get("explanation") or "")},
-        "anbefalt_tiltak": {"status": _arkat_ui_status_from_eval(field_results.get("anbefalt_tiltak", {}), str(point_meta.get("tg_grade") or "")), "required": str(point_meta.get("tg_grade") or "") == "TG3", "comment": str((field_results.get("anbefalt_tiltak") or {}).get("explanation") or "")},
+        "arsak": {"status": _arkat_ui_status_for_field(extracted_fields.get("aarsak"), field_results.get("aarsak", {}), tg_grade, normalize_text), "required": tg_grade in {"TG2", "TG3"}, "comment": str((field_results.get("aarsak") or {}).get("explanation") or "")},
+        "risiko": {"status": _arkat_ui_status_for_field(extracted_fields.get("risiko"), field_results.get("risiko", {}), tg_grade, normalize_text), "required": tg_grade in {"TG2", "TG3", "TGIU"}, "comment": str((field_results.get("risiko") or {}).get("explanation") or "")},
+        "konsekvens": {"status": _arkat_ui_status_for_field(extracted_fields.get("konsekvens"), field_results.get("konsekvens", {}), tg_grade, normalize_text), "required": tg_grade in {"TG2", "TG3"}, "comment": str((field_results.get("konsekvens") or {}).get("explanation") or "")},
+        "anbefalt_tiltak": {"status": _arkat_ui_status_for_field(extracted_fields.get("anbefalt_tiltak"), field_results.get("anbefalt_tiltak", {}), tg_grade, normalize_text), "required": tg_grade == "TG3", "comment": str((field_results.get("anbefalt_tiltak") or {}).get("explanation") or "")},
         "source": {"found": True, "where": "under_bygningsdel", "traceability_ok": True},
     }
 
@@ -714,9 +823,20 @@ def run_client_arkat_semantic_pipeline(
         if _point_has_real_child(point_id, detected_points, normalize_point_id, is_synthetic_supplement_point_id, is_parent_of):
             continue
         raw_point_text = str(point.get("effective_span_text") or point.get("exact_span_text") or point.get("span_text") or "").strip()
+        if _point_text_needs_report_fallback(raw_point_text, point_id, str(point.get("title") or ""), normalize_text):
+            recovered = _recover_point_text_from_report(report_text, point_id, str(point.get("title") or ""), normalize_text)
+            if recovered and len(normalize_text(recovered)) > len(normalize_text(raw_point_text)):
+                raw_point_text = recovered
         if not raw_point_text:
             continue
         extracted_fields = _extract_fields_for_point(str(format_meta.get("report_format") or ""), raw_point_text, extract_arkat_section_text, normalize_text)
+        if all(value == "MISSING" for value in extracted_fields.values()):
+            recovered = _recover_point_text_from_report(report_text, point_id, str(point.get("title") or ""), normalize_text)
+            if recovered and normalize_text(recovered) != normalize_text(raw_point_text):
+                recovered_fields = _extract_fields_for_point(str(format_meta.get("report_format") or ""), recovered, extract_arkat_section_text, normalize_text)
+                if any(value != "MISSING" for value in recovered_fields.values()):
+                    raw_point_text = recovered
+                    extracted_fields = recovered_fields
         evaluation = _evaluate_arkat_point(
             point_id=point_id,
             point_label=str(point.get("title") or point_id),
@@ -739,7 +859,7 @@ def run_client_arkat_semantic_pipeline(
             "no_tg_hms_point": bool(point.get("no_tg_hms_point")),
         }
         results.append(point_payload)
-        _attach_arkat_component_payload(analysis_output, point_payload, evaluation, normalize_point_id)
+        _attach_arkat_component_payload(analysis_output, point_payload, evaluation, normalize_point_id, normalize_text)
         _apply_arkat_evaluation_results(
             analysis_output,
             point_payload,

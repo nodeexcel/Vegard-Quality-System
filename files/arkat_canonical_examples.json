@@ -50,27 +50,6 @@
     },
 
     {
-      "id": "CE-003",
-      "error_type": "AARSAK_AGE_ONLY_2018",
-      "field": "aarsak",
-      "structural_error": "SE-1",
-      "building_component": "Drenering",
-      "tg_grade": "TG2",
-      "ns_version": "NS3600:2018",
-      "wrong": {
-        "label": "Årsak",
-        "text": "TG2 vurderes da dreneringen har passert halvparten av sin forventede levetid.",
-        "why_wrong": "Under NS 3600:2018, age alone is not a sufficient basis for TG2. No observed deterioration or deficiency is described."
-      },
-      "correct": {
-        "label": "Årsak",
-        "text": "Dreneringen er fra 2009 og har passert halvparten av forventet levetid. Det ble ikke avdekket synlige tegn til svikt, men funksjonaliteten ble ikke direkte verifisert da dreneringen ligger skjult. Tilstanden er usikker.",
-        "why_correct": "Acknowledges age, states what was and was not verified, and explicitly flags uncertainty. Does not use age alone as justification under NS 3600:2018."
-      },
-      "retrieval_tags": ["drenering", "levetid", "alder", "NS 3600:2018", "aarsak", "age_only"]
-    },
-
-    {
       "id": "CE-004",
       "error_type": "LIMITATION_USED_AS_RISK_SUBSTITUTE",
       "field": "risiko",

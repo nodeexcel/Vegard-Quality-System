@@ -314,8 +314,8 @@
     {
       "id": "E_METHOD.egenerklaring_missing",
       "category": "E",
-      "severity": "major",
-      "deduction": 5,
+      "severity": "info",
+      "deduction": 0,
       "trigger": "Egenerklæring fra eier er ikke levert og dette fremgår av rapporten, men konsekvensen for analysens faglige grunnlag er ikke forklart.",
       "acceptance_criteria": [
         "Trigges kun når rapporten eksplisitt opplyser at egenerklæring ikke er levert eller ikke foreligger.",
@@ -345,7 +345,7 @@
         "Gjelder kun rapporter med rapportdato fra og med 01.01.2026.",
         "Trigges dersom rapporten bruker P-ROM / S-ROM i stedet for BRA-i / BRA-e / BRA-b — dette er en faktisk feil målemetode.",
         "Trigges dersom rapporten mangler BRA-fordeling (BRA-i, BRA-e, BRA-b) helt.",
-        "Trigges dersom rapporten eksplisitt sier «slik målereglene var praktisert i bransjen på måletidspunktet» eller tilsvarende gammel formulering.",
+        "Skal IKKE trigges bare fordi rapporten bruker formuleringen «slik målereglene var praktisert i bransjen på måletidspunktet». Denne formuleringen alene er ikke nok til å fastslå feil målemetode.",
         "Skal IKKE trigges dersom rapporten oppgir BRA-fordeling korrekt (BRA-i, BRA-e, BRA-b) selv om «NS 3940:2023» ikke er eksplisitt nevnt med årstall.",
         "Skal IKKE trigges dersom rapporten skriver «NS 3940» uten årstall — årstallet alene er ikke avgjørende, det er selve målemetoden og BRA-fordelingen som teller.",
         "Hjemlet i den oppdaterte forskriften § 2-20 første og andre ledd (ikrafttreden 01.01.2026)."

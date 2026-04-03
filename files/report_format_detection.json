@@ -209,7 +209,7 @@
         "konsekvens": "Dersom dreneringen ikke fungerer tilfredsstillende, er det risiko for at vann trenger inn i konstruksjonen.",
         "anbefalt_tiltak": "Det anbefales å overvåke dreneringens funksjon og planlegge eventuell oppgradering innen 5-10 år."
       },
-      "evaluation_note": "Årsak flagged WRONG:AARSAK_AGE_ONLY_2018 (NS 3600:2018 report, age cited without observed deterioration). Risiko flagged WRONG:LIMITATION_USED_AS_RISK_SUBSTITUTE (inspection limitation presented as the risk). Konsekvens flagged WRONG:TECHNICAL_DEVELOPMENT_AS_KONSEKVENS because it describes only possible technical water ingress with no buyer relevance."
+      "evaluation_note": "Risiko flagged WRONG:LIMITATION_USED_AS_RISK_SUBSTITUTE (inspection limitation presented as the risk). Konsekvens flagged WRONG:TECHNICAL_DEVELOPMENT_AS_KONSEKVENS because it describes only possible technical water ingress with no buyer relevance."
     }
   }
 }

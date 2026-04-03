@@ -1273,9 +1273,11 @@ export default function ResultsPage() {
                   const pointDeductionTotal = (point as { deduction_total?: number }).deduction_total || 0
                   const hasActiveFindings =
                     point.status !== 'NOT_FOUND_IN_REPORT' && (pointDeductionTotal > 0 || fallbackDeduction > 0)
-                  const effectiveSummary = point.status === 'NOT_FOUND_IN_REPORT'
-                    ? point.summary
-                    : (hasActiveFindings ? 'Avvik funnet' : 'OK')
+                  const effectiveSummary = point.summary || (
+                    point.status === 'NOT_FOUND_IN_REPORT'
+                      ? 'Ikke vurdert i rapport'
+                      : (hasActiveFindings ? 'Avvik funnet' : 'OK')
+                  )
                   const fallbackBand = parentBucket ? deductionBandLabel(deductionBandByParentBucket.get(parentBucket)) : null
                   const effectiveBand = deductionBandLabel((point as { deduction_band?: string }).deduction_band)
                     || fallbackBand
