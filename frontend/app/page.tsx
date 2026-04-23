@@ -6,12 +6,20 @@ import axios from 'axios'
 import { useAuth } from './contexts/AuthContext'
 import UserMenu from './components/UserMenu'
 
+interface ReportListItem {
+  id: number
+  filename: string
+  uploaded_at: string
+  status?: string
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
   const [reportSystem, setReportSystem] = useState('')
   const [buildingYear, setBuildingYear] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [infoMessage, setInfoMessage] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
   const [insufficientCreditsMessage, setInsufficientCreditsMessage] = useState('')
@@ -85,6 +93,7 @@ export default function Home() {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
       setError('')
+      setInfoMessage('')
     }
   }
 
@@ -106,6 +115,7 @@ export default function Home() {
       if (droppedFile.type === 'application/pdf') {
         setFile(droppedFile)
         setError('')
+        setInfoMessage('')
       } else {
         setError('Vennligst last opp en PDF-fil')
       }
@@ -127,6 +137,142 @@ export default function Home() {
 
     setUploading(true)
     setError('')
+    setInfoMessage('')
+    const submitStartedAt = Date.now()
+
+    const normalizeFilename = (name: string): string =>
+      (name || '')
+        .normalize('NFKC')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+
+    const selectedFilename = normalizeFilename(file?.name || '')
+
+    const waitForReportCompletion = async (
+      reportId: number,
+      initialStatus?: string
+    ): Promise<boolean> => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const authToken = token || localStorage.getItem('auth_token')
+      if (!apiUrl || !authToken) return false
+
+      const maxPollAttempts = 180 // ~15 min at 5s interval
+      const pollIntervalMs = 5000
+      let attempts = 0
+      let lastKnownStatus = (initialStatus || '').toLowerCase()
+
+      setInfoMessage('Analyserer rapporten. Dette kan ta et par minutter.')
+
+      while (attempts < maxPollAttempts) {
+        attempts += 1
+        try {
+          const response = await axios.get(`${apiUrl}/api/v1/reports/${reportId}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+            timeout: 30000,
+          })
+          const status = String(response.data?.status || '').toLowerCase()
+          if (status) {
+            lastKnownStatus = status
+          }
+
+          if (status === 'completed') {
+            router.push(`/results/${reportId}`)
+            return true
+          }
+          if (status === 'failed' || status === 'incomplete') {
+            setError('Analysen ble ikke fullført. Prøv igjen, eller åpne rapporten i Historikk for detaljer.')
+            setInfoMessage('')
+            setUploading(false)
+            return false
+          }
+        } catch {
+          // Keep polling on transient network/gateway hiccups.
+        }
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+      }
+
+      setUploading(false)
+      setInfoMessage('')
+      setError(
+        lastKnownStatus === 'processing'
+          ? 'Analysen pågår fortsatt. Sjekk Historikk for oppdatert status.'
+          : 'Det tok lengre tid enn forventet å hente status. Sjekk Historikk.'
+      )
+      return false
+    }
+
+    const recoverReportAfterGatewayTimeout = async (): Promise<ReportListItem | null> => {
+      if (!file) return null
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const authToken = token || localStorage.getItem('auth_token')
+      if (!apiUrl || !authToken) return null
+      try {
+        const listResponse = await axios.get(`${apiUrl}/api/v1/reports/?limit=100`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+          timeout: 20000,
+        })
+        const reports = Array.isArray(listResponse.data) ? (listResponse.data as ReportListItem[]) : []
+        const now = Date.now()
+        const recentWindowStart = submitStartedAt - 10 * 60 * 1000
+
+        const enriched = reports
+          .map((item) => {
+            const uploadedAt = new Date(item.uploaded_at).getTime()
+            const normalizedItemFilename = normalizeFilename(item.filename || '')
+            const status = String(item.status || '').toLowerCase()
+            const filenameExact = normalizedItemFilename === selectedFilename
+            const filenameLoose =
+              normalizedItemFilename.includes(selectedFilename) || selectedFilename.includes(normalizedItemFilename)
+            const isRecent = Number.isFinite(uploadedAt) && uploadedAt >= recentWindowStart && uploadedAt <= now + 2 * 60 * 1000
+            // Some list payloads can have delayed/missing status; do not hard-reject on that.
+            const statusEligible = !status || status === 'processing' || status === 'completed' || status === 'incomplete'
+            return {
+              item,
+              uploadedAt: Number.isFinite(uploadedAt) ? uploadedAt : 0,
+              filenameExact,
+              filenameLoose,
+              isRecent,
+              statusEligible,
+            }
+          })
+          .filter((row) => row.statusEligible && row.isRecent)
+          .sort((a, b) => b.uploadedAt - a.uploadedAt)
+
+        const exact = enriched.find((row) => row.filenameExact)
+        if (exact) return exact.item
+        const loose = enriched.find((row) => row.filenameLoose)
+        if (loose) return loose.item
+        // Fallback: if only one fresh eligible report exists, prefer it.
+        if (enriched.length === 1) return enriched[0].item
+        // Last resort: nearest newly uploaded report around this submit session.
+        const nearest = enriched
+          .filter((row) => row.uploadedAt > 0)
+          .sort((a, b) => Math.abs(a.uploadedAt - submitStartedAt) - Math.abs(b.uploadedAt - submitStartedAt))[0]
+        if (nearest) return nearest.item
+        return null
+      } catch {
+        // Best-effort recovery only.
+      }
+      return null
+    }
+
+    const recoverAndWaitForCompletionAfterTimeout = async (): Promise<boolean> => {
+      // Keep trying to locate the freshly uploaded report by filename for a short period,
+      // then switch to normal report-status polling once we have an id.
+      const maxRecoverAttempts = 24 // ~2 minutes (24 * 5s)
+      for (let attempt = 0; attempt < maxRecoverAttempts; attempt += 1) {
+        const recovered = await recoverReportAfterGatewayTimeout()
+        if (recovered?.id) {
+          return await waitForReportCompletion(recovered.id, recovered.status)
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000))
+      }
+      setUploading(false)
+      setInfoMessage('')
+      setError('Vi fant ikke rapporten automatisk ennå. Sjekk Historikk for status om et øyeblikk.')
+      return false
+    }
 
     try {
       const formData = new FormData()
@@ -157,9 +303,17 @@ export default function Home() {
           },
         }
       )
-
-      // Redirect to results page
-      router.push(`/results/${response.data.id}`)
+      const reportId = Number(response?.data?.id)
+      const status = String(response?.data?.status || '')
+      if (!Number.isFinite(reportId) || reportId <= 0) {
+        setUploading(false)
+        setError('Opplastingen ble registrert, men mangler rapport-ID. Sjekk Historikk.')
+        return
+      }
+      const redirected = await waitForReportCompletion(reportId, status)
+      if (!redirected) {
+        setUploading(false)
+      }
     } catch (err: any) {
       const getUploadErrorMessage = (): string => {
         const status = err?.response?.status
@@ -194,12 +348,18 @@ export default function Home() {
         }
 
         if (typeof data === 'string') {
+          if (status === 504 || data.toLowerCase().includes('gateway time-out')) {
+            return ''
+          }
           if (data.includes('<html') && status === 500) {
             return 'Serverfeil (500) fra gateway/proxy. Prøv igjen om 10-20 sekunder. Hvis feilen fortsetter, kontakt support.'
           }
           return data
         }
         if (responseText) {
+          if (status === 504 || responseText.toLowerCase().includes('gateway time-out')) {
+            return ''
+          }
           if (responseText.includes('<html') && status === 500) {
             return 'Serverfeil (500) fra gateway/proxy. Prøv igjen om 10-20 sekunder. Hvis feilen fortsetter, kontakt support.'
           }
@@ -223,6 +383,28 @@ export default function Home() {
         setShowInsufficientCredits(true)
         setInsufficientCreditsMessage(err.response?.data?.detail || 'Ikke nok kreditter til å laste opp denne rapporten.')
       } else {
+        const status = err?.response?.status
+        const responseData = err?.response?.data
+        const responseText = typeof err?.request?.response === 'string' ? err.request.response.toLowerCase() : ''
+        const looksLikeGatewayTimeout =
+          status === 504
+          || (typeof responseData === 'string' && responseData.toLowerCase().includes('gateway time-out'))
+          || responseText.includes('gateway time-out')
+        if (looksLikeGatewayTimeout) {
+          const recoveredReport = await recoverReportAfterGatewayTimeout()
+          if (recoveredReport?.id) {
+            const redirected = await waitForReportCompletion(recoveredReport.id, recoveredReport.status)
+            if (!redirected) {
+              setUploading(false)
+            }
+            return
+          }
+          setError('')
+          setInfoMessage('Rapporten behandles fortsatt i bakgrunnen. Vi prøver å hente status automatisk ...')
+          setUploading(true)
+          await recoverAndWaitForCompletionAfterTimeout()
+          return
+        }
         setError(getUploadErrorMessage())
       }
       setUploading(false)
@@ -366,6 +548,14 @@ export default function Home() {
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
                   <p className="text-sm">{error}</p>
+                </div>
+              )}
+              {infoMessage && (
+                <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-800 px-4 py-3 rounded-lg flex items-start space-x-3">
+                  <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10A8 8 0 11-2 10a8 8 0 0120 0zm-9-3a1 1 0 112 0v3a1 1 0 11-2 0V7zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm">{infoMessage}</p>
                 </div>
               )}
 

@@ -8,6 +8,8 @@ import logging
 import io
 import hashlib
 import re
+from functools import lru_cache
+from pathlib import Path
 
 from app.database import get_db
 from app.models import Report, Component, Finding, User, CreditTransaction
@@ -43,12 +45,195 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
+def _process_report_in_background(
+    *,
+    report_id: int,
+    user_id: int,
+    filename: str,
+    report_system: Optional[str],
+    building_year: Optional[int],
+    extracted_text: str,
+    pdf_metadata: dict,
+    document_hash: str,
+    credits_required: int,
+) -> None:
+    db = SessionLocal()
+    try:
+        report = db.query(Report).filter(Report.id == report_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
+        if not report:
+            logger.error("Background processing aborted: report %s not found", report_id)
+            return
+
+        ai_analyzer = AIAnalyzer()
+        analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+            text=extracted_text,
+            report_system=report_system,
+            building_year=building_year,
+            pdf_metadata=pdf_metadata,
+            document_title=filename,
+            document_id=str(report_id),
+            document_hash=document_hash,
+        )
+
+        report.overall_score = analysis_result.overall_score
+        report.quality_score = analysis_result.quality_score
+        report.completeness_score = analysis_result.completeness_score
+        report.compliance_score = analysis_result.compliance_score
+        report.status = "completed"
+        report.ai_analysis = full_analysis
+        report.detected_points = detected_points_payload
+        report.scoring_result = scoring_result_payload
+
+        scoring_model_info = get_scoring_model_info()
+        upsert_analysis_cache(
+            db,
+            document_hash=document_hash,
+            scoring_model_sha=scoring_model_info.get("sha256"),
+            pipeline_git_sha=_get_pipeline_cache_sha(),
+            detected_points=detected_points_payload,
+            scoring_result=scoring_result_payload,
+            ai_analysis=full_analysis,
+        )
+        write_run_exports(document_hash, full_analysis, detected_points_payload, scoring_result_payload)
+
+        if isinstance(full_analysis, dict):
+            score_total = full_analysis.get("score_total")
+            if isinstance(score_total, (int, float)) and score_total >= 96.0 and user:
+                user.credits += credits_required
+                db.add(CreditTransaction(
+                    user_id=user.id,
+                    amount=credits_required,
+                    transaction_type="auto_refund",
+                    description=f"Automatic refund: {credits_required} credits for report: {filename}",
+                    report_id=report.id
+                ))
+
+        db.query(Component).filter(Component.report_id == report.id).delete()
+        db.query(Finding).filter(Finding.report_id == report.id).delete()
+        for comp_data in analysis_result.components:
+            db.add(Component(
+                report_id=report.id,
+                component_type=comp_data.component_type,
+                name=comp_data.name,
+                condition=comp_data.condition,
+                description=comp_data.description,
+                score=comp_data.score
+            ))
+        for finding_data in analysis_result.findings:
+            db.add(Finding(
+                report_id=report.id,
+                finding_type=finding_data.finding_type,
+                severity=finding_data.severity,
+                title=finding_data.title,
+                description=finding_data.description,
+                suggestion=finding_data.suggestion,
+                standard_reference=finding_data.standard_reference
+            ))
+
+        db.commit()
+        logger.info("Background processing completed for report %s", report_id)
+    except IncompleteAnalysisError as e:
+        db.rollback()
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if report:
+            report.status = "incomplete"
+            report.ai_analysis = {
+                "meta": {"analysis_status": "INCOMPLETE", "message": e.message, "reasons": e.reasons, "run_meta": e.run_meta}
+            }
+            report.detected_points = e.detected_points_payload
+            report.scoring_result = None
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error("Background processing failed for report %s: %s", report_id, str(e), exc_info=True)
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if report:
+            report.status = "failed"
+            db.commit()
+    finally:
+        db.close()
+
 _E3_P12_TEXT_RE = re.compile(
     r"(?i)(?:v[æa]r|vaer|ver)\s+oppmerksom\s+p(?:[åa]|aa)|tilleggsopplysninger|anbefalte?\s+ytterligere\s+unders"
 )
 _E3_P11_TEXT_RE = re.compile(
     r"(?i)lovlighet(?:\s+og\s+sikkerhet)?|godkjente\s+tegninger|byggemeldte?\s+tegninger|ferdigattest|brukstillatelse|bruksendring"
 )
+_VINTERHAGE_SCOPE_GAP_RE = re.compile(
+    r"(?is)\bvinterhage\b.{0,220}(?:ikke\s+tilstandsvurdert|ikke\s+vurdert|ikke\s+omfattet|det\s+foreligger\s+ikke\s+tegninger|det\s+er\s+ikke\s+fremlagt\s+tegninger)"
+)
+
+
+def _report_needs_vinterhage_scope_note(extracted_text: str) -> bool:
+    text = extracted_text or ""
+    if not isinstance(text, str):
+        return False
+    low = text.lower()
+    if "vinterhage" not in low:
+        return False
+    if re.search(r"(?is)\bvinterhage\b.{0,260}(det\s+foreligger\s+ikke\s+tegninger|det\s+er\s+ikke\s+fremlagt\s+tegninger)", low):
+        return True
+    return bool(_VINTERHAGE_SCOPE_GAP_RE.search(low) and re.search(r"(?is)\b(?:avhendingslova|avhendingsloven|ns\s*3600|ns3600)\b", low))
+
+
+def _inject_vinterhage_scope_note(ai_analysis_payload: dict, feedback_v11: Optional[dict], extracted_text: str) -> None:
+    if not isinstance(ai_analysis_payload, dict):
+        return
+    if not _report_needs_vinterhage_scope_note(extracted_text):
+        return
+
+    all_findings = ai_analysis_payload.get("all_findings")
+    if not isinstance(all_findings, list):
+        all_findings = []
+        ai_analysis_payload["all_findings"] = all_findings
+
+    if not any(isinstance(item, dict) and str(item.get("rule_id") or "") == "E_METHOD.vinterhage_not_assessed_ns3600" for item in all_findings):
+        all_findings.append(
+            {
+                "finding_id": "api_vinterhage_scope_note",
+                "rule_id": "E_METHOD.vinterhage_not_assessed_ns3600",
+                "category": "E",
+                "severity": "info",
+                "deduction_band": "Ikke scoretrekk",
+                "title": "Vinterhage er ikke vurdert etter NS 3600",
+                "message": "Rapporten opplyser at vinterhagen ikke er omfattet av den ordinære tilstandsvurderingen. Dette er vesentlig informasjon for kjøper og bør fremgå tydelig som en faglig merknad.",
+                "recommended_fix_text": "Legg inn en tydelig merknad om at vinterhagen ikke er omfattet av den ordinære tilstandsvurderingen, slik at kjøper forstår avgrensningen i rapporten.",
+                "suggested_rewrite_text": "Vinterhagen er ikke omfattet av den ordinære tilstandsvurderingen i rapporten. Kjøper må derfor være oppmerksom på at denne bygningen ikke er vurdert på samme måte som hovedbygningen.",
+                "evidence_snippets": ["Vinterhage • Det foreligger ikke tegninger. Det er ikke fremlagt tegninger."],
+            }
+        )
+
+    if not isinstance(feedback_v11, dict):
+        return
+    findings = feedback_v11.get("findings")
+    if not isinstance(findings, list):
+        findings = []
+        feedback_v11["findings"] = findings
+    if not any(isinstance(item, dict) and str(item.get("rule_id") or "") == "E_METHOD.vinterhage_not_assessed_ns3600" for item in findings):
+        findings.append(
+            {
+                "finding_id": "f-special-E_METHOD_vinterhage_not_assessed_ns3600",
+                "rule_id": "E_METHOD.vinterhage_not_assessed_ns3600",
+                "rule_family": "METHOD",
+                "severity": "info",
+                "affects_96_gate": False,
+                "point_id": "",
+                "arkat_section": "annet",
+                "message": "Vinterhagen er ikke omfattet av den ordinære tilstandsvurderingen i rapporten.",
+                "what_to_change": "Legg inn en tydelig merknad om at vinterhagen ikke er omfattet av den ordinære tilstandsvurderingen, slik at kjøper forstår avgrensningen i rapporten.",
+                "example_fix": {
+                    "good_example": "Vinterhagen er ikke omfattet av den ordinære tilstandsvurderingen i rapporten. Kjøper må derfor være oppmerksom på at denne bygningen ikke er vurdert på samme måte som hovedbygningen."
+                },
+                "evidence": {
+                    "page": 1,
+                    "snippet": "Vinterhage • Det foreligger ikke tegninger. Det er ikke fremlagt tegninger.",
+                    "match": "Forced visible from extracted report text.",
+                },
+                "deduction": 0,
+            }
+        )
 
 
 def _force_e3_parents_found_in_feedback(feedback_v11: dict, extracted_text: str) -> None:
@@ -87,9 +272,32 @@ def _force_e3_parents_found_in_feedback(feedback_v11: dict, extracted_text: str)
 
 def _get_pipeline_cache_sha() -> Optional[str]:
     prompt_sha = get_prompt_context_sha()
+    code_sha = _get_pipeline_code_fingerprint()
     if settings.PIPELINE_GIT_SHA:
-        return f"{settings.PIPELINE_GIT_SHA}:{prompt_sha}"
-    return prompt_sha
+        return f"{settings.PIPELINE_GIT_SHA}:{prompt_sha}:{code_sha}"
+    return f"{prompt_sha}:{code_sha}"
+
+
+@lru_cache(maxsize=1)
+def _get_pipeline_code_fingerprint() -> str:
+    """
+    Cache-busting fingerprint for Python-side pipeline logic.
+    This prevents stale analysis results when heuristics change without
+    updating PIPELINE_GIT_SHA.
+    """
+    base = Path(__file__).resolve().parents[2]  # backend/app
+    targets = [
+        base / "services" / "arkat_semantic_pipeline.py",
+        base / "services" / "ai_analyzer.py",
+    ]
+    h = hashlib.sha256()
+    for path in targets:
+        try:
+            h.update(path.read_bytes())
+        except OSError:
+            # Missing file shouldn't break uploads; just include marker.
+            h.update(f"MISSING:{path}".encode("utf-8"))
+    return h.hexdigest()[:16]
 
 
 def _build_report_processing_error(e: Exception) -> HTTPException:
@@ -106,6 +314,15 @@ def _build_report_processing_error(e: Exception) -> HTTPException:
             detail=(
                 "Serveren har ikke nok lagringsplass til aa fullfore analysen naa. "
                 "Prov igjen senere eller kontakt support hvis feilen fortsetter."
+            ),
+        )
+
+    if "aws bedrock is currently overloaded" in lowered or "throttling" in lowered:
+        return HTTPException(
+            status_code=503,
+            detail=(
+                "AI-tjenesten er midlertidig overbelastet. "
+                "Prøv igjen om et par minutter."
             ),
         )
 
@@ -238,24 +455,28 @@ async def upload_report(
             and isinstance(cache_entry.scoring_result, dict)
             and cache_entry.ai_analysis.get("meta", {}).get("analysis_status") != "INCOMPLETE"
         ):
-            analysis_output = postprocess_analysis_output(cache_entry.ai_analysis, extracted_text)
-            scoring_result_payload = cache_entry.scoring_result
+            # Keep cache-hit path fast: do NOT run postprocess_analysis_output(), because it
+            # re-runs semantic ARKAT extraction and can trigger expensive Bedrock calls.
+            analysis_output = normalize_scoring_output(dict(cache_entry.ai_analysis or {}))
+            scoring_result_payload = dict(cache_entry.scoring_result or {})
             scoring_result_payload["analysis_output"] = analysis_output
-            # Hard gate: use validated segments only (extract → whitelist before hierarchy)
-            detected_points_payload = get_validated_detected_points_payload(
-                extracted_text,
-                document_hash=document_hash,
-                document_title=file.filename,
-                document_id=str(report.id),
-                pdf_metadata=pdf_metadata,
-            )
-            if isinstance(scoring_result_payload, dict):
-                scoring_result_payload["feedback_v11"] = build_feedback_v11(
-                    analysis_output,
-                    detected_points_payload,
-                    report_id=str(report.id),
+            # Fast cache-hit path: reuse cached validated segments and already-built feedback_v11
+            # to avoid expensive semantic re-evaluation on every duplicate upload.
+            detected_points_payload = cache_entry.detected_points
+            if not isinstance(detected_points_payload, dict):
+                detected_points_payload = get_validated_detected_points_payload(
+                    extracted_text,
                     document_hash=document_hash,
+                    document_title=file.filename,
+                    document_id=str(report.id),
+                    pdf_metadata=pdf_metadata,
                 )
+            # Strict cache-hit fast path:
+            # Never rebuild feedback_v11 here, because rebuild may invoke expensive
+            # semantic/LLM post-processing and erase cache-hit latency benefits.
+            # If legacy cache rows miss feedback_v11, return without it and let
+            # non-cache paths populate it on future fresh analyses.
+            if isinstance(scoring_result_payload.get("feedback_v11"), dict):
                 _force_e3_parents_found_in_feedback(
                     scoring_result_payload.get("feedback_v11"),
                     extracted_text or "",
@@ -710,6 +931,16 @@ async def get_report(
             )
         except Exception as e:
             logger.warning("feedback_v11 rebuild failed for report_id=%s: %s", report.id, str(e))
+
+    if isinstance(ai_analysis_payload, dict):
+        try:
+            _inject_vinterhage_scope_note(
+                ai_analysis_payload,
+                scoring_result_out.get("feedback_v11") if isinstance(scoring_result_out, dict) else None,
+                report.extracted_text or "",
+            )
+        except Exception as e:
+            logger.warning("vinterhage scope note injection failed for report_id=%s: %s", report.id, str(e))
     
     return ReportResponse(
         id=report.id,

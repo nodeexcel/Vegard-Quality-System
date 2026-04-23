@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
@@ -93,6 +93,7 @@ interface DeductionSummary {
   rule_id: string
   points: number
   reason: string
+  category?: string
   severity: 'critical' | 'high' | 'medium' | 'low'
   point_id?: string
   component_title?: string
@@ -243,6 +244,15 @@ interface AnalysisV16 {
   category_breakdown?: CategoryBreakdownV16[]
   score_total?: number
   score_by_category?: ScoreByCategory[]
+  score_reconciliation?: {
+    score_start: number
+    score_total: number
+    deduction_total: number
+    category_deduction_total: number
+    other_deduction_total: number
+    reconciles: boolean
+    other_deductions?: Array<{ reason: string; points: number; meta?: any }>
+  }
   top_score_drivers?: TopScoreDriver[]
   findings?: ComponentFinding[]
   improvements?: Improvement[]
@@ -305,14 +315,17 @@ export default function ResultsPage() {
 
     const fetchReport = async () => {
       try {
+        console.log('Starting fetch for report', params.id)
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
         const authToken = localStorage.getItem('auth_token')
         const response = await axios.get(`${apiUrl}/api/v1/reports/${params.id}`, {
           timeout: 60000,
           headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
         })
+        console.log('Fetch successful, response size:', JSON.stringify(response.data).length)
         setReport(response.data)
       } catch (err: any) {
+        console.error('Fetch error:', err)
         if (err.response?.status === 401) {
           router.push('/login')
         } else if (err.code === 'ECONNABORTED') {
@@ -329,6 +342,35 @@ export default function ResultsPage() {
       fetchReport()
     }
   }, [params.id, user, router])
+
+  const analysisData = useMemo(() => {
+    if (!report) return null
+    const analysis = report.ai_analysis as (AnalysisV14 & AnalysisV16) | null
+    console.log('Analysis loaded:', !!analysis)
+    const feedbackV11 = report.scoring_result?.feedback_v11 || null
+    const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
+    const hasV16 = Boolean(
+      analysis &&
+      (typeof (analysis as AnalysisV16).trygghetsscore === 'number' ||
+        Array.isArray((analysis as AnalysisV16).top_issues) ||
+        Array.isArray((analysis as AnalysisV16).all_findings))
+    )
+    const hasV14 = Boolean(
+      analysis &&
+      (typeof analysis.score_total === 'number' ||
+        (hasV16 && ((analysis as AnalysisV16).trygghetsscore != null || (analysis as AnalysisV16).top_issues?.length)))
+    )
+    const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
+    const scoreTotal = hasV14
+      ? (typeof analysis?.score_total === 'number'
+          ? analysis.score_total
+          : hasV16 && typeof (analysis as AnalysisV16).trygghetsscore === 'number'
+            ? (analysis as AnalysisV16).trygghetsscore
+            : null)
+      : feedbackV11?.score?.total ?? report.overall_score
+    console.log('Score total:', scoreTotal)
+    return { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal }
+  }, [report])
 
   // Show loading while checking auth
   if (authLoading) {
@@ -449,205 +491,148 @@ export default function ResultsPage() {
     )
   }
 
-  const analysis = report.ai_analysis as (AnalysisV14 & AnalysisV16) | null
-  const feedbackV11 = report.scoring_result?.feedback_v11 || null
-  const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
-  const hasV16 = Boolean(
-    analysis &&
-    (typeof (analysis as AnalysisV16).trygghetsscore === 'number' ||
-      Array.isArray((analysis as AnalysisV16).top_issues) ||
-      Array.isArray((analysis as AnalysisV16).all_findings))
-  )
-  const hasV14 = Boolean(
-    analysis &&
-    (typeof analysis.score_total === 'number' ||
-      (hasV16 && ((analysis as AnalysisV16).trygghetsscore != null || (analysis as AnalysisV16).top_issues?.length)))
-  )
-  const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
-  const scoreTotal = hasV14
-    ? (typeof analysis?.score_total === 'number'
-        ? analysis.score_total
-        : hasV16 && typeof (analysis as AnalysisV16).trygghetsscore === 'number'
-          ? (analysis as AnalysisV16).trygghetsscore
-          : null)
-    : feedbackV11?.score?.total ?? report.overall_score
+  if (!analysisData) return null
+
+  const { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal } = analysisData
   const improvementPriorityOrder: Record<string, number> = {
     critical: 0,
     high: 1,
     medium: 2,
     low: 3
   }
-  const ensureCategoryF = (items: ScoreByCategory[]) => {
-    if (items.some((item) => item.category_id === 'F')) {
-      return items
-    }
-    return [
-      ...items,
-      {
-        category_id: 'F',
-        category_name: 'Lovlighetsmangler',
-        deduction: 0,
-        max_deduction: 15
-      }
-    ]
-  }
   const allFindingsV16 = (analysis as AnalysisV16)?.all_findings
   const topIssuesV16 = (analysis as AnalysisV16)?.top_issues
   const howToImproveV16 = (analysis as AnalysisV16)?.how_to_improve
   const categoryBreakdown = (analysis as AnalysisV16)?.category_breakdown
-  const scoreByCategoryRaw = hasV14 && analysis ? ensureCategoryF(analysis.score_by_category || []) : []
-  const allCategoryDeductionsZero = scoreByCategoryRaw.every((c) => c.deduction === 0)
+  const scoreByCategoryRaw: ScoreByCategory[] =
+    analysis && Array.isArray((analysis as any).score_by_category)
+      ? ((analysis as any).score_by_category as ScoreByCategory[])
+      : feedbackV11?.score?.category_deductions?.length
+        ? (feedbackV11.score.category_deductions.map((c) => ({
+            category_id: c.category as any,
+            category_name: `Kategori ${c.category}`,
+            deduction: c.deduction,
+            max_deduction: c.max_deduction,
+          })) as ScoreByCategory[])
+        : []
   const totalDeductionFromScore = typeof scoreTotal === 'number' ? Math.max(0, 100 - scoreTotal) : 0
-  const bandToWeight: Record<string, number> = {
-    'Høyt trekk': 3,
-    'Høy påvirkning': 3,
-    'Middels trekk': 2,
-    'Middels påvirkning': 2,
-    'Lavt trekk': 1,
-    'Lav påvirkning': 1,
-    'Ikke scoretrekk': 0,
-    'Lavere trekk': 0
-  }
   const publicBandToPoints = (band?: string | null): number => {
     if (band === 'Høyt trekk') return 5
     if (band === 'Middels trekk') return 3
     if (band === 'Lavt trekk') return 1
     return 0
   }
-  const scoredFindingsV16 = (allFindingsV16 || []).filter((f) => publicBandToPoints(f.deduction_band) > 0)
+  const normalizeCategoryId = (value?: string | null): string | undefined => {
+    const raw = (value || '').toString().trim().toUpperCase()
+    if (/^[A-F]$/.test(raw)) return raw
+    const match = raw.match(/KATEGORI\s+([A-F])|^([A-F])[\s_.-]/)
+    return match ? (match[1] || match[2]) : undefined
+  }
+  const inferCategoryFromRuleId = (ruleId?: string | null): string | undefined => {
+    const raw = (ruleId || '').toString().trim().toUpperCase()
+    const match = raw.match(/^([A-F])(?:[_.-]|$)/)
+    return match ? match[1] : undefined
+  }
+  const categoryDeductionById = new Map<string, number>(
+    scoreByCategoryRaw.map((category) => [
+      category.category_id,
+      Number(category.deduction || 0),
+    ])
+  )
+  const categoryHasScoreDeduction = (category?: string | null): boolean => {
+    const normalized = normalizeCategoryId(category)
+    if (!normalized || !categoryDeductionById.size) return true
+    return (categoryDeductionById.get(normalized) || 0) > 0
+  }
+  const isScoreReconciledItem = (item: { category?: string; rule_id?: string; gate_effect?: { blocks_96_gate?: boolean } }): boolean => {
+    if (item.gate_effect?.blocks_96_gate) return true
+    return categoryHasScoreDeduction(item.category || inferCategoryFromRuleId(item.rule_id))
+  }
+  const scoredFindingsV16 = (allFindingsV16 || []).filter((f) => publicBandToPoints(f.deduction_band) > 0 && isScoreReconciledItem(f))
+  const scoreReconciledTopIssuesV16 = (topIssuesV16 || []).filter((f) => publicBandToPoints(f.deduction_band) > 0 && isScoreReconciledItem(f))
   const visibleFindingsV16Base = (allFindingsV16 || []).filter((f) => {
     const points = publicBandToPoints(f.deduction_band)
     if (points > 0) return true
     if (f.rule_id === 'E_METHOD.egenerklaring_missing') return true
+    if (f.rule_id === 'E_METHOD.vinterhage_not_assessed_ns3600') return true
     if (f.deduction_band === 'Ikke scoretrekk') return true
     if ((f.severity || '').toLowerCase() === 'info') return true
     return false
   })
   const hasVisibleEgenerklaringAdvisory = visibleFindingsV16Base.some((f) => f.rule_id === 'E_METHOD.egenerklaring_missing')
+  const hasVisibleVinterhageAdvisory = visibleFindingsV16Base.some((f) => f.rule_id === 'E_METHOD.vinterhage_not_assessed_ns3600')
   const reportTextForInfoFallback = (report?.extracted_text || '').toLowerCase()
   const shouldShowEgenerklaringAdvisoryFallback = !hasVisibleEgenerklaringAdvisory && /egenerkl/.test(reportTextForInfoFallback) && new RegExp('egenerkl[^\n.]{0,120}(ikke levert|foreligger ikke|ikke foreligger|mangler)').test(reportTextForInfoFallback)
-  const visibleFindingsV16 = shouldShowEgenerklaringAdvisoryFallback
-    ? [
-        ...visibleFindingsV16Base,
-        {
-          finding_id: 'ui-fallback-egenerklaring-missing',
-          rule_id: 'E_METHOD.egenerklaring_missing',
-          category: 'E',
-          severity: 'info',
-          title: 'Egenerklæring ikke levert',
-          message: 'Rapporten opplyser at egenerklæring ikke er levert. Dette skal ikke gi scoretrekk, men bør fremgå som en faglig merknad fordi analysegrunnlaget blir svakere når forhold bare eier kjenner til kan være utelatt.',
-          deduction_band: 'Ikke scoretrekk',
-          recommended_fix_text: 'Legg inn en kort opplysning om at rapporten er ferdigstilt uten egenerklæring, og forklar hvilken metodisk usikkerhet og hvilket ansvar dette kan medføre for takstmannen.',
-          suggested_rewrite_text: 'Egenerklæring er ikke levert i forbindelse med oppdraget. Dette er ikke et forskriftsavvik og skal ikke gi scoretrekk, men det svekker analysegrunnlaget fordi forhold bare eier kjenner til kan være utelatt. NS 3600:2018 pkt. 5 og 9 krever egenerklæring før analysen, og NS 3600:2025 pkt. 8 c) krever at den foreligger før rapporten ferdigstilles.',
-          evidence_snippets: ['Egenerklæringsskjema er ikke levert i forbindelse med oppdraget.'],
-        },
-      ]
-    : visibleFindingsV16Base
-  const scoredCategoryBreakdown = (() => {
-    if (!hasV16 || !scoredFindingsV16.length) return null
-    const byCategory = new Map<string, { deduction: number; deduction_band?: string; summary?: string }>()
-    scoredFindingsV16.forEach((finding) => {
-      const category = finding.category
-      if (!category) return
-      const existing = byCategory.get(category) || { deduction: 0, deduction_band: 'Ikke scoretrekk', summary: '' }
-      const findingPoints = publicBandToPoints(finding.deduction_band)
-      const existingPoints = publicBandToPoints(existing.deduction_band)
-      byCategory.set(category, {
-        deduction: existing.deduction + findingPoints,
-        deduction_band: findingPoints > existingPoints ? finding.deduction_band : existing.deduction_band,
-        summary: existing.summary || finding.title || finding.message,
-      })
-    })
-    return ensureCategoryF(
-      scoreByCategoryRaw.map((category) => {
-        const grouped = byCategory.get(category.category_id)
-        return {
-          ...category,
-          deduction: grouped?.deduction ?? 0,
-          deduction_band: grouped?.deduction_band ?? 'Ikke scoretrekk',
-          summary: grouped?.summary ?? (grouped ? '' : 'Ingen synlige funn i denne kategorien.'),
-        }
-      }) as ScoreByCategory[]
+  const shouldShowVinterhageAdvisoryFallback =
+    !hasVisibleVinterhageAdvisory &&
+    /vinterhage/.test(reportTextForInfoFallback) &&
+    (
+      /vinterhage[^\n.]{0,260}(ikke\s+tilstandsvurdert|ikke\s+vurdert|ikke\s+omfattet)/.test(reportTextForInfoFallback) ||
+      /(bygget|bygningen|tilleggsbygg)[^\n.]{0,220}(ikke\s+tilstandsvurdert|ikke\s+vurdert|ikke\s+omfattet)[^\n.]{0,220}(avhendingslova|avhendingsloven|ns ?3600)/.test(reportTextForInfoFallback) ||
+      /vinterhage\s*[•\-][^\n]{0,220}(det foreligger ikke tegninger|det er ikke fremlagt tegninger)/.test(reportTextForInfoFallback)
+    ) &&
+    (
+      /(avhendingslova|avhendingsloven|ns ?3600)/.test(reportTextForInfoFallback) ||
+      /vinterhage\s*[•\-][^\n]{0,220}(det foreligger ikke tegninger|det er ikke fremlagt tegninger)/.test(reportTextForInfoFallback)
     )
-  })()
-  const scoreByCategory =
-    scoredCategoryBreakdown
-      ? scoredCategoryBreakdown
-      : hasV16 && allCategoryDeductionsZero && totalDeductionFromScore > 0
-      ? categoryBreakdown?.length
-        ? (() => {
-            const totalWeight = categoryBreakdown.reduce((sum, cb) => sum + (bandToWeight[cb.deduction_band] ?? 0), 0)
-            const withWeight = categoryBreakdown.map((cb) => {
-              const existing = scoreByCategoryRaw.find((s) => s.category_id === cb.category)
-              const maxDed = existing?.max_deduction ?? 20
-              const w = bandToWeight[cb.deduction_band] ?? 0
-              return { cb, existing, maxDed, weight: w }
-            })
-            const rawDeductions = withWeight.map(({ weight, maxDed }) => {
-              if (totalWeight <= 0) return 0
-              const raw = Math.round((totalDeductionFromScore * weight) / totalWeight)
-              return Math.min(maxDed, Math.max(0, raw))
-            })
-            let sumRaw = rawDeductions.reduce((a, b) => a + b, 0)
-            let adjusted = [...rawDeductions]
-            if (sumRaw > totalDeductionFromScore) {
-              let excess = sumRaw - totalDeductionFromScore
-              adjusted = rawDeductions.map((d, i) => {
-                const reduce = Math.min(d, excess)
-                excess -= reduce
-                return d - reduce
-              })
-            } else if (sumRaw < totalDeductionFromScore && totalWeight > 0) {
-              const toAdd = totalDeductionFromScore - sumRaw
-              const idx = withWeight.reduce((best, x, i) => (x.weight > 0 && (best === -1 || withWeight[best].weight < x.weight) ? i : best), -1)
-              if (idx >= 0) {
-                const maxRoom = withWeight[idx].maxDed - adjusted[idx]
-                adjusted[idx] += Math.min(toAdd, maxRoom)
-              }
-            }
-            return ensureCategoryF(
-              categoryBreakdown.map((cb, i) => {
-                const existing = scoreByCategoryRaw.find((s) => s.category_id === cb.category)
-                return {
-                  category_id: cb.category as ScoreByCategory['category_id'],
-                  category_name: existing?.category_name ?? `Kategori ${cb.category}`,
-                  deduction: adjusted[i] ?? 0,
-                  max_deduction: existing?.max_deduction ?? 20,
-                  deduction_band: cb.deduction_band,
-                  summary: cb.summary
-                }
-              }) as ScoreByCategory[]
-            )
-          })()
-        : (() => {
-            // Fallback when we have trygghetsscore but no category_breakdown: distribute by max_deduction
-            const totalMax = scoreByCategoryRaw.reduce((s, c) => s + (c.max_deduction || 0), 0)
-            if (totalMax <= 0) return scoreByCategoryRaw
-            let remaining = totalDeductionFromScore
-            const deductions = scoreByCategoryRaw.map((c) => {
-              const maxD = c.max_deduction || 0
-              const raw = Math.round((totalDeductionFromScore * maxD) / totalMax)
-              const d = Math.min(maxD, Math.max(0, raw))
-              remaining -= d
-              return { ...c, deduction: d }
-            })
-            if (remaining > 0) {
-              const idx = deductions.findIndex((d) => d.deduction < (d.max_deduction || 0))
-              if (idx >= 0) {
-                deductions[idx] = {
-                  ...deductions[idx],
-                  deduction: Math.min((deductions[idx].max_deduction ?? 0), deductions[idx].deduction + remaining)
-                }
-              }
-            }
-            return deductions as ScoreByCategory[]
-          })()
-      : scoreByCategoryRaw
+
+  const fallbackInfoFindings: any[] = []
+  if (shouldShowEgenerklaringAdvisoryFallback) {
+    fallbackInfoFindings.push({
+      finding_id: 'ui-fallback-egenerklaring-missing',
+      rule_id: 'E_METHOD.egenerklaring_missing',
+      category: 'E',
+      severity: 'info',
+      title: 'Egenerklæring ikke levert',
+      message: 'Rapporten opplyser at egenerklæring ikke er levert. Dette skal ikke gi scoretrekk, men bør fremgå som en faglig merknad fordi analysegrunnlaget blir svakere når forhold bare eier kjenner til kan være utelatt.',
+      deduction_band: 'Ikke scoretrekk',
+      recommended_fix_text: 'Legg inn en kort opplysning om at rapporten er ferdigstilt uten egenerklæring, og forklar hvilken metodisk usikkerhet og hvilket ansvar dette kan medføre for takstmannen.',
+      suggested_rewrite_text: 'Egenerklæring er ikke levert i forbindelse med oppdraget. Dette er ikke et forskriftsavvik og skal ikke gi scoretrekk, men det svekker analysegrunnlaget fordi forhold bare eier kjenner til kan være utelatt. NS 3600:2018 pkt. 5 og 9 krever egenerklæring før analysen, og NS 3600:2025 pkt. 8 c) krever at den foreligger før rapporten ferdigstilles.',
+      evidence_snippets: ['Egenerklæringsskjema er ikke levert i forbindelse med oppdraget.'],
+    })
+  }
+  if (shouldShowVinterhageAdvisoryFallback) {
+    fallbackInfoFindings.push({
+      finding_id: 'ui-fallback-vinterhage-ns3600',
+      rule_id: 'E_METHOD.vinterhage_not_assessed_ns3600',
+      category: 'E',
+      severity: 'info',
+      title: 'Vinterhage er ikke vurdert etter NS 3600',
+      message: 'Rapporten opplyser at vinterhagen ikke er tilstandsvurdert etter forskrift til avhendingslova og NS 3600. Dette er vesentlig informasjon for kjøper og bør fremgå som en faglig merknad.',
+      deduction_band: 'Ikke scoretrekk',
+      recommended_fix_text: 'Legg inn en tydelig merknad om at vinterhagen ikke er omfattet av tilstandsvurderingen etter forskrift til avhendingslova og NS 3600, slik at kjøper forstår avgrensningen i rapporten.',
+      suggested_rewrite_text: 'Vinterhagen er ikke tilstandsvurdert etter forskrift til avhendingslova og NS 3600. Kjøper må derfor være oppmerksom på at denne bygningen ikke er omfattet av den bygningssakkyndige vurderingen i rapporten.',
+      evidence_snippets: ['Bygget er ikke tilstandsvurdert ihht Forskrift til avhendingslova og NS3600.'],
+    })
+  }
+  const visibleFindingsV16 = fallbackInfoFindings.length
+    ? [...visibleFindingsV16Base, ...fallbackInfoFindings]
+    : visibleFindingsV16Base
+  const categoryBreakdownByCategory = new Map<string, CategoryBreakdownV16>()
+  ;(categoryBreakdown || []).forEach((cb) => {
+    if (cb?.category) categoryBreakdownByCategory.set(cb.category, cb)
+  })
+  // BUG 3: never reconstruct category deductions from findings/bands.
+  // Always render authoritative backend category deductions.
+  const scoreByCategory = scoreByCategoryRaw
   type ScoreByCategoryDisplay = ScoreByCategory & { deduction_band?: string; summary?: string }
-  const scoreByCategoryDisplay = scoreByCategory as ScoreByCategoryDisplay[]
+  const scoreByCategoryDisplay = (scoreByCategory as ScoreByCategoryDisplay[]).map((category) => {
+    const breakdown = categoryBreakdownByCategory.get(category.category_id)
+    const hasDeduction = (category.deduction || 0) > 0
+    return {
+      ...category,
+      // Keep UI band/summary aligned with authoritative numeric deductions.
+      deduction_band: hasDeduction
+        ? (breakdown?.deduction_band ?? 'Trekk')
+        : 'Ikke scoretrekk',
+      summary: hasDeduction
+        ? (breakdown?.summary ?? '')
+        : 'Ingen synlige funn i denne kategorien.',
+    }
+  })
   const topScoreDriversSource =
-    topIssuesV16?.length
-      ? topIssuesV16
+    scoreReconciledTopIssuesV16.length
+      ? scoreReconciledTopIssuesV16
           .slice()
           .sort((a, b) => publicBandToPoints(b.deduction_band) - publicBandToPoints(a.deduction_band))
           .slice(0, 5)
@@ -787,6 +772,83 @@ export default function ResultsPage() {
   const normalizeForTextCompare = (text: string | undefined): string =>
     (text || '').replace(/\s+/g, ' ').trim().toLowerCase()
 
+  const buildComponentEvidenceBlob = (component: ComponentFinding): string => {
+    const parts: string[] = [
+      component.component_id || '',
+      component.component_title || '',
+      component.location || '',
+    ]
+    ;(component.issues || []).forEach((issue) => {
+      parts.push(issue.summary || '', issue.details || '')
+      ;(issue.evidence || []).forEach((evidence) => {
+        parts.push(evidence.heading || '', evidence.snippet || '', evidence.match_explain || '')
+      })
+    })
+    ;(component.deductions || []).forEach((deduction) => {
+      parts.push(deduction.reason || '')
+      ;(deduction.evidence || []).forEach((evidence) => {
+        parts.push(evidence.heading || '', evidence.snippet || '', evidence.match_explain || '')
+      })
+    })
+    return normalizeForTextCompare(parts.join('\n'))
+  }
+
+  const hasVisibleArkatFieldSignal = (
+    component: ComponentFinding,
+    field: 'arsak' | 'risiko' | 'konsekvens' | 'anbefalt_tiltak'
+  ): boolean => {
+    const blob = buildComponentEvidenceBlob(component)
+    const title = normalizeForTextCompare(component.component_title)
+    if (!blob) return false
+
+    if (field === 'arsak') {
+      return (
+        /\b(?:årsak|arsak)\b/.test(blob) ||
+        /\b(?:skyldes|som følge av|på grunn av|har sin sannsynlige årsak i|årsaken er)\b/.test(blob) ||
+        (title.includes('ventilasjon') && /\b(?:mekanisk avtrekk|tilluft|lufting|luftutskiftning)\b/.test(blob))
+      )
+    }
+
+    if (field === 'risiko') {
+      return (
+        /\brisiko\b/.test(blob) ||
+        /\b(?:kan ikke utelukkes|kan føre til|kan medføre|skjulte skader|jevnlig ettersyn|oppfølging)\b/.test(blob) ||
+        (
+          title.includes('varmtvannsbereder') &&
+          /\b(?:bereder|varmtvannsbereder)\b/.test(blob) &&
+          /\b(?:alder|begrenset inspeksjonsmulighet|forventet levetid)\b/.test(blob)
+        ) ||
+        (
+          title.includes('ventilasjon') &&
+          /\b(?:mekanisk avtrekk|tilluft|lufting|luftutskiftning)\b/.test(blob)
+        )
+      )
+    }
+
+    if (field === 'konsekvens') {
+      return (
+        /\bkonsekvens\b/.test(blob) ||
+        /\b(?:redusert gjenstående brukstid|redusert levetid|medfører|for kjøper|må påregne|behov for tiltak|mugg|svertesopp|redusert inneklima)\b/.test(blob)
+      )
+    }
+
+    if (field === 'anbefalt_tiltak') {
+      return /\b(?:anbefalt tiltak|anbefalte tiltak|det anbefales|bør utbedres|bør undersøkes|bør kontrolleres|må undersøkes nærmere)\b/.test(blob)
+    }
+
+    return false
+  }
+
+  const getDisplayedArkatStatus = (
+    component: ComponentFinding,
+    field: 'arsak' | 'risiko' | 'konsekvens' | 'anbefalt_tiltak'
+  ): ArkatField['status'] => {
+    const current = component.arkat?.[field]?.status ?? 'unclear'
+    if (current !== 'unclear') return current
+    if ((component.arkat?.[field]?.comment || '').trim()) return current
+    return hasVisibleArkatFieldSignal(component, field) ? 'present' : current
+  }
+
   const buildVisibleProblemAndFix = (
     combinedText: string,
     pointId?: string,
@@ -836,6 +898,7 @@ export default function ResultsPage() {
           rule_id: deduction.rule_id,
           points: deduction.points,
           reason: issue?.summary || deduction.reason || deduction.rule_id,
+          category: deduction.category_id,
           severity: severity as DeductionSummary['severity'],
           point_id: component.component_id,
           component_title: component.component_title,
@@ -857,6 +920,7 @@ export default function ResultsPage() {
           rule_id: 'SCORE_CAP',
           points: cap.points_deducted,
           reason,
+          category: undefined,
           severity: 'high',
           suggestion: 'Utbedre forholdet som utløser scoretaket for å heve totalscoren.'
         })
@@ -867,11 +931,12 @@ export default function ResultsPage() {
 
   const buildDeductionSummariesFromFeedback = (items: FeedbackFinding[]): DeductionSummary[] => {
     return items
-      .filter((finding) => typeof finding.deduction === 'number' && finding.deduction > 0)
+      .filter((finding) => typeof finding.deduction === 'number' && finding.deduction > 0 && categoryHasScoreDeduction(inferCategoryFromRuleId(finding.rule_id)))
       .map((finding) => ({
         rule_id: finding.rule_id,
         points: finding.deduction || 0,
         reason: finding.message || finding.rule_id,
+        category: inferCategoryFromRuleId(finding.rule_id),
         severity: finding.severity === 'info' ? 'low' : finding.severity,
         point_id: finding.point_id,
         suggestion: finding.what_to_change || finding.message,
@@ -992,25 +1057,35 @@ export default function ResultsPage() {
     return fromRule
   }
   const buildDeductionSummariesFromV16 = (findings: AllFindingV16[]): DeductionSummary[] =>
-    findings.map((f) => ({
-      rule_id: f.finding_id,
-      points: f.deduction_band === 'Høyt trekk' ? 5 : f.deduction_band === 'Middels trekk' ? 3 : f.deduction_band === 'Lavt trekk' ? 1 : 0,
-      reason: f.title,
-      severity: (f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : f.severity === 'minor' ? 'low' : 'medium') as DeductionSummary['severity'],
-      suggestion: f.recommended_fix_text,
-      exampleFix: f.suggested_rewrite_text || f.recommended_fix_text,
-      point_id: resolveDisplayPointId(
-        parsePointIdFromMessage(f.message) ?? parsePointIdFromMessage(f.title) ?? (f as { location?: string; point_id?: string }).point_id ?? (f as { location?: string }).location,
-        f.finding_id
-      ),
-      evidence_snippets: f.evidence_snippets?.length ? f.evidence_snippets : undefined
-    }))
+    findings
+      .filter((f) => publicBandToPoints(f.deduction_band) > 0 && isScoreReconciledItem(f))
+      .map((f) => ({
+        rule_id: f.finding_id,
+        points: f.deduction_band === 'Høyt trekk' ? 5 : f.deduction_band === 'Middels trekk' ? 3 : f.deduction_band === 'Lavt trekk' ? 1 : 0,
+        reason: f.title,
+        category: f.category,
+        severity: (f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : f.severity === 'minor' ? 'low' : 'medium') as DeductionSummary['severity'],
+        suggestion: f.recommended_fix_text,
+        exampleFix: f.suggested_rewrite_text || f.recommended_fix_text,
+        point_id: resolveDisplayPointId(
+          (f as { exact_point_id?: string }).exact_point_id
+            ?? (f as { point_id?: string }).point_id
+            ?? parsePointIdFromMessage(f.message)
+            ?? parsePointIdFromMessage(f.title)
+            ?? parsePointIdFromMessage((f as { exact_point_title?: string }).exact_point_title || '')
+            ?? parsePointIdFromMessage((f as { exact_point_text?: string }).exact_point_text || '')
+            ?? (f as { location?: string }).location,
+          f.finding_id
+        ),
+        evidence_snippets: f.evidence_snippets?.length ? f.evidence_snippets : undefined
+      }))
   const buildDeductionSummariesFromTopIssuesV16 = (issues: TopIssueV16[]): DeductionSummary[] =>
     issues
       .map((issue) => ({
         rule_id: issue.rule_id || issue.title,
         points: publicBandToPoints(issue.deduction_band),
         reason: issue.title,
+        category: issue.category,
         severity: (issue.severity === 'critical' ? 'critical' : issue.severity === 'major' ? 'high' : issue.severity === 'minor' ? 'low' : 'medium') as DeductionSummary['severity'],
         suggestion: issue.recommended_fix_text,
         exampleFix: issue.suggested_rewrite_text || issue.recommended_fix_text,
@@ -1019,16 +1094,16 @@ export default function ResultsPage() {
           issue.rule_id || issue.title
         ),
       }))
-      .filter((item) => (item.points || 0) > 0)
+      .filter((item) => (item.points || 0) > 0 && categoryHasScoreDeduction(item.category || inferCategoryFromRuleId(item.rule_id)))
   const improvementsForFixes = hasV16 && howToImproveV16?.length && !analysis?.improvements?.length
-    ? howToImproveV16.map((h) => ({
+    ? howToImproveV16.filter((h) => categoryHasScoreDeduction(h.category)).map((h) => ({
         title: h.title,
         priority: 'medium' as const,
         what_to_change: h.recommended_fix_text,
         suggested_text: h.suggested_rewrite_text || h.recommended_fix_text
       }))
-    : hasV16 && topIssuesV16?.length && !analysis?.improvements?.length
-    ? topIssuesV16.map((h) => ({
+    : hasV16 && scoreReconciledTopIssuesV16.length && !analysis?.improvements?.length
+    ? scoreReconciledTopIssuesV16.map((h) => ({
         title: h.title,
         priority: 'medium' as const,
         what_to_change: h.recommended_fix_text || h.message,
@@ -1048,6 +1123,9 @@ export default function ResultsPage() {
       ...item,
       point_id: resolveDisplayPointId(item.point_id, item.rule_id)
     })).filter((item) => {
+      if ((item.points || 0) > 0 && !categoryHasScoreDeduction(item.category || inferCategoryFromRuleId(item.rule_id))) {
+        return false
+      }
       const key = `${item.point_id || 'GLOBAL'}|${item.rule_id}|${item.reason}`
       if (seen.has(key)) return false
       seen.add(key)
@@ -1091,6 +1169,12 @@ export default function ResultsPage() {
     })
     return map
   })()
+  const scoredRuleIds = new Set(
+    allDeductions
+      .filter((item) => (item.points || 0) > 0)
+      .map((item) => (item.rule_id || '').toString().trim())
+      .filter(Boolean)
+  )
 
   const sortedDeductions = [...allDeductions].sort((a, b) => {
     const priorityA = improvementPriorityOrder[a.severity] ?? 99
@@ -1271,13 +1355,16 @@ export default function ResultsPage() {
                   const parentBucket = toParentBucket(canonical || point.point_id)
                   const fallbackDeduction = parentBucket ? (deductionPointsByParentBucket.get(parentBucket) || 0) : 0
                   const pointDeductionTotal = (point as { deduction_total?: number }).deduction_total || 0
+                  const pointFindingIds = ((point as { finding_ids?: string[] }).finding_ids || [])
+                    .map((id) => (id || '').toString().trim())
+                    .filter(Boolean)
+                  const hasScoredFindingId = pointFindingIds.some((id) => scoredRuleIds.has(id))
                   const hasActiveFindings =
-                    point.status !== 'NOT_FOUND_IN_REPORT' && (pointDeductionTotal > 0 || fallbackDeduction > 0)
-                  const effectiveSummary = point.summary || (
-                    point.status === 'NOT_FOUND_IN_REPORT'
-                      ? 'Ikke vurdert i rapport'
-                      : (hasActiveFindings ? 'Avvik funnet' : 'OK')
-                  )
+                    point.status !== 'NOT_FOUND_IN_REPORT'
+                    && (pointDeductionTotal > 0 || fallbackDeduction > 0 || hasScoredFindingId)
+                  const effectiveSummary = point.status === 'NOT_FOUND_IN_REPORT'
+                    ? 'Ikke vurdert i rapport'
+                    : (hasActiveFindings ? 'Avvik funnet' : (point.summary || 'OK'))
                   const fallbackBand = parentBucket ? deductionBandLabel(deductionBandByParentBucket.get(parentBucket)) : null
                   const effectiveBand = deductionBandLabel((point as { deduction_band?: string }).deduction_band)
                     || fallbackBand
@@ -1321,7 +1408,7 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {hasV14 && analysis && (
+          {typeof scoreTotal === 'number' && (
             <>
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
                 <div className="flex items-start justify-between mb-6">
@@ -1336,8 +1423,33 @@ export default function ResultsPage() {
                     <span>Lavere trekk</span>
                   </div>
                 </div>
-                <div className="grid md:grid-cols-2 gap-5">
-                  {scoreByCategoryDisplay.map((category) => {
+                <div className="mb-6 rounded-xl border border-gray-200 bg-slate-50 p-4 text-sm text-gray-700">
+                  {(() => {
+                    const reconciliation = (analysis as AnalysisV16 | undefined)?.score_reconciliation
+                    const categorySum = scoreByCategoryDisplay.reduce((s, c) => s + (c.deduction || 0), 0)
+                    const actualDeduction = Math.max(0, 100 - scoreTotal)
+                    const other = Math.max(0, actualDeduction - categorySum)
+                    const scoreStart = reconciliation?.score_start ?? 100
+                    return (
+                      <div className="space-y-1">
+                        <p>
+                          <span className="font-semibold">Scoring formula:</span> Score = {scoreStart} − (sum category deductions) − (other adjustments)
+                        </p>
+                        <p>
+                          <span className="font-semibold">This report:</span> {scoreStart} − {categorySum} − {other} = {scoreTotal}
+                        </p>
+                        {reconciliation && (
+                          <p className="text-xs text-gray-600">
+                            Reconciled: {reconciliation.reconciles ? 'yes' : 'no'} (categories {reconciliation.category_deduction_total} + other {reconciliation.other_deduction_total} = total {reconciliation.deduction_total})
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+                {scoreByCategoryDisplay.length > 0 && (
+                  <div className="grid md:grid-cols-2 gap-5">
+                    {scoreByCategoryDisplay.map((category) => {
                     const deductionPct = (category.deduction / Math.max(category.max_deduction, 1)) * 100
                     const bandPct =
                       category.deduction > 0
@@ -1349,7 +1461,7 @@ export default function ResultsPage() {
                             : (category as ScoreByCategoryDisplay).deduction_band === 'Lavt trekk'
                               ? 25
                               : deductionPct
-                    return (
+                      return (
                       <div key={category.category_id} className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
                         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-400 via-amber-400 to-green-400"></div>
                         <div className="flex items-start justify-between gap-4">
@@ -1385,9 +1497,10 @@ export default function ResultsPage() {
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
@@ -1513,7 +1626,7 @@ export default function ResultsPage() {
                             <div className="mt-4 pt-4 border-t border-gray-200">
                               <p className="text-xs font-semibold text-gray-500 mb-2">Dokumentasjon</p>
                               <ul className="text-sm text-gray-700 space-y-1">
-                                {f.evidence_snippets.slice(0, 3).map((snip, i) => (
+                                {(Array.isArray(f.evidence_snippets) ? (f.evidence_snippets as string[]) : []).slice(0, 3).map((snip: string, i: number) => (
                                   <li key={i} className="italic">&quot;{snip}&quot;</li>
                                 ))}
                               </ul>
@@ -1524,14 +1637,14 @@ export default function ResultsPage() {
                     })
                   ) : null}
 
-                  {analysis.findings?.length ? (
+                  {analysis?.findings?.length ? (
                   <>
                   {visibleFindingsV16?.length ? (
                     <div className="pt-2">
                       <h3 className="text-xl font-bold text-gray-900">Funn per bygningsdel</h3>
                     </div>
                   ) : null}
-                  {analysis.findings?.map((component, index) => (
+                  {analysis?.findings?.map((component, index) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-5">
                       <div className="flex items-center justify-between mb-3">
                         <div>
@@ -1549,16 +1662,16 @@ export default function ResultsPage() {
                         <p className="text-sm font-semibold text-gray-900 mb-2">ARKAT (Årsak–Risiko–Konsekvens–Anbefalt tiltak)</p>
                         <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-700">
                           <div>
-                            <span className="font-semibold">Årsak:</span> {translate(component.arkat?.arsak?.status ?? 'unknown')}
+                            <span className="font-semibold">Årsak:</span> {translate(getDisplayedArkatStatus(component, 'arsak'))}
                           </div>
                           <div>
-                            <span className="font-semibold">Risiko:</span> {translate(component.arkat?.risiko?.status ?? 'unknown')}
+                            <span className="font-semibold">Risiko:</span> {translate(getDisplayedArkatStatus(component, 'risiko'))}
                           </div>
                           <div>
-                            <span className="font-semibold">Konsekvens:</span> {translate(component.arkat?.konsekvens?.status ?? 'unknown')}
+                            <span className="font-semibold">Konsekvens:</span> {translate(getDisplayedArkatStatus(component, 'konsekvens'))}
                           </div>
                           <div>
-                            <span className="font-semibold">Anbefalt tiltak:</span> {translate(component.arkat?.anbefalt_tiltak?.status ?? 'unknown')}
+                            <span className="font-semibold">Anbefalt tiltak:</span> {translate(getDisplayedArkatStatus(component, 'anbefalt_tiltak'))}
                           </div>
                         </div>
                       </div>
@@ -1782,7 +1895,7 @@ export default function ResultsPage() {
                 </div>
               </div>
 
-              {analysis.disclaimers && analysis.disclaimers.length > 0 && (
+              {analysis?.disclaimers && analysis.disclaimers.length > 0 && (
                 <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 mb-6 text-sm text-gray-600">
                   <h2 className="text-lg font-semibold text-gray-900 mb-2">Forbehold</h2>
                   <ul className="list-disc pl-5 space-y-1">

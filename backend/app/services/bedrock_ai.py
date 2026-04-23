@@ -14,6 +14,7 @@ from app.services.system_prompt import SYSTEM_PROMPT
 logger = logging.getLogger(__name__)
 
 _CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+_BEDROCK_THROTTLED_UNTIL_TS = 0.0
 
 class BedrockAI:
     """AWS Bedrock client for embeddings and LLM inference"""
@@ -74,7 +75,13 @@ class BedrockAI:
             logger.error(f"Bedrock embedding error: {str(e)}")
             raise
     
-    def _invoke_model_with_retry(self, model_id: str, body: str, max_retries: int = 5) -> Dict:
+    def _invoke_model_with_retry(
+        self,
+        model_id: str,
+        body: str,
+        max_retries: int = 5,
+        honor_global_cooldown: bool = True,
+    ) -> Dict:
         """
         Invoke Bedrock model with exponential backoff retry logic
         
@@ -86,6 +93,12 @@ class BedrockAI:
         Returns:
             Response body as dict
         """
+        global _BEDROCK_THROTTLED_UNTIL_TS
+        now = time.time()
+        if honor_global_cooldown and now < _BEDROCK_THROTTLED_UNTIL_TS:
+            cooldown_left = int(_BEDROCK_THROTTLED_UNTIL_TS - now)
+            raise Exception(f"AWS Bedrock is currently overloaded (cooldown active for {cooldown_left}s).")
+
         for attempt in range(max_retries):
             try:
                 response = self.bedrock_runtime.invoke_model(
@@ -109,6 +122,9 @@ class BedrockAI:
                         continue
                     else:
                         logger.error(f"Bedrock throttling - max retries reached")
+                        # Avoid repeatedly hammering Bedrock in tight loops (e.g. per-point ARKAT calls).
+                        if honor_global_cooldown:
+                            _BEDROCK_THROTTLED_UNTIL_TS = time.time() + 60
                         raise Exception("AWS Bedrock is currently overloaded. Please try again in a few minutes.")
                 else:
                     # Non-throttling error, raise immediately
@@ -152,7 +168,10 @@ class BedrockAI:
                 logger.info("Invoking Claude Sonnet 4 via Bedrock EU inference profile with retry logic")
                 response = self._invoke_model_with_retry(
                     model_id='eu.anthropic.claude-sonnet-4-20250514-v1:0',
-                    body=_build_body(prompt)
+                    body=_build_body(prompt),
+                    # Main report call must not be blocked by cooldown raised by
+                    # lower-priority helper calls.
+                    honor_global_cooldown=False,
                 )
                 stop_reason_local = response.get("stop_reason") or response.get("stopReason")
                 return response, stop_reason_local
@@ -216,6 +235,8 @@ class BedrockAI:
         system_prompt: str,
         user_prompt: str,
         max_tokens: int = 4096,
+        max_retries: int = 5,
+        retry_json_prompt: bool = True,
         return_meta: bool = False,
     ):
         """Run a smaller JSON-only Claude call with a caller-provided system prompt."""
@@ -237,6 +258,7 @@ class BedrockAI:
                 response = self._invoke_model_with_retry(
                     model_id='eu.anthropic.claude-sonnet-4-20250514-v1:0',
                     body=body,
+                    max_retries=max_retries,
                 )
                 stop_reason_local = response.get("stop_reason") or response.get("stopReason")
                 content = response.get("content", [])
@@ -253,7 +275,7 @@ class BedrockAI:
                 return parsed_local, response_text_local, stop_reason_local
 
             parsed, response_text, stop_reason = _invoke(user_prompt)
-            if parsed is None:
+            if parsed is None and retry_json_prompt:
                 retry_prompt = (
                     user_prompt
                     + "\n\nIMPORTANT: Return ONLY a valid JSON object. No markdown, no bullets, no prose."

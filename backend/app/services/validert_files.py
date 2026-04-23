@@ -488,5 +488,8 @@ def build_prompt_context() -> str:
 
 
 def get_prompt_context_sha() -> str:
+    # Include get_system_prompt(): it is not part of build_prompt_context() (that block is user-side RAG),
+    # but it must bust analysis cache when system_prompt_validert_*.txt changes.
     context = build_prompt_context()
-    return hashlib.sha256(context.encode("utf-8")).hexdigest()
+    system = get_system_prompt()
+    return hashlib.sha256(f"{context}\n{system}".encode("utf-8")).hexdigest()
