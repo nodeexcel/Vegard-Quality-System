@@ -1,0 +1,469 @@
+# Segmentation Debug Package (Report 1806)
+
+This file contains what was requested:
+
+1) Segmentation code (functions that turn full report text into per-point text)
+2) Segmentation trace from latest output (`detected_points_payload.segmentation_trace`)
+
+
+## 1) Segmentation code and boundary logic
+
+### A) Primary extractor from full report text to point spans
+
+Source: `backend/app/services/ai_analyzer.py`
+
+```python
+def _split_pages(report_text: str) -> List[Dict[str, str]]:
+    if not report_text:
+        return []
+    parts = PAGE_MARKER_RE.split(report_text)
+    pages: List[Dict[str, str]] = []
+    for i in range(1, len(parts), 2):
+        try:
+            page_num = int(parts[i])
+        except ValueError:
+            continue
+        page_text = _strip_pdf_noise(parts[i + 1].strip())
+        pages.append({"page": page_num, "text": page_text})
+    return pages
+```
+
+What it does:
+- Splits full report into `[SIDE N]` page chunks
+- Cleans per-page text via `_strip_pdf_noise(...)`
+
+```python
+def _extract_detected_points(report_text: str, trace: Optional[Dict[str, object]] = None) -> List[Dict[str, object]]:
+    pages = _split_pages(report_text)
+    line_index: List[Dict[str, object]] = []
+    for page in pages:
+        for line in page["text"].splitlines():
+            line_index.append({"page": page["page"], "text": line})
+
+    headings: List[Dict[str, object]] = []
+    stray_rejected: List[Dict[str, object]] = []
+    for idx, line in enumerate(line_index):
+        text = line["text"]
+        match = POINT_HEADER_RE.match(text) or POINT_HEADER_FALLBACK_RE.match(text)
+        if match:
+            raw_id = (match.group(1) or "").strip()
+            section_title = (match.group(2) or "").strip() if match.lastindex >= 2 else ""
+            if not raw_id or _looks_like_date_point_id(raw_id) or _is_noise_point_id(raw_id):
+                continue
+            if _looks_like_date_line(text):
+                continue
+            if _is_stray_point_header(text, raw_id, section_title):
+                if trace is not None:
+                    stray_rejected.append({
+                        "point_id": _normalize_point_id(raw_id),
+                        "normalized_title": _normalize_title_for_trace(section_title or text),
+                        "reason": "stray_title",
+                    })
+                continue
+            if _is_false_point_header(text, raw_id, section_title):
+                continue
+            point_id = _normalize_point_id(raw_id)
+            headings.append({"idx": idx, "point_id": point_id, "section_title": section_title})
+
+    if trace is not None:
+        trace["stray_rejected"] = stray_rejected
+        trace["stray_rejected_count"] = len(stray_rejected)
+
+    detected: List[Dict[str, object]] = []
+    if headings:
+        for i, heading in enumerate(headings):
+            start_idx = heading["idx"]
+            end_idx = headings[i + 1]["idx"] if i + 1 < len(headings) else len(line_index)
+            span_lines = line_index[start_idx:end_idx]
+            span_text = "\n".join(item["text"] for item in span_lines).strip()
+            page_start = span_lines[0]["page"] if span_lines else line_index[start_idx]["page"]
+            page_end = span_lines[-1]["page"] if span_lines else page_start
+            tg_match = TG_RE.search(span_text)
+            section_title = heading["section_title"] or ""
+            excerpt = section_title or (span_text[:200].strip() if span_text else "")
+            if not excerpt:
+                excerpt = f"Punkt {heading['point_id']}"
+            native_label = heading["point_id"]
+            numeric_id = native_label if _is_numeric_point_id(native_label) else ""
+            order_in_doc = i + 1
+            anchor_text = span_lines[0]["text"] if span_lines else ""
+            detected.append(
+                {
+                    "point_key": f"P{order_in_doc:04d}",
+                    "native_label": native_label,
+                    "numeric_id": numeric_id or None,
+                    "native_path": [],
+                    "kind": "point",
+                    "point_id": heading["point_id"],
+                    "title": section_title or "Ukjent",
+                    "page_start": page_start,
+                    "page_end": page_end,
+                    "order_in_doc": order_in_doc,
+                    "anchor_text": anchor_text,
+                    "span_hash": hashlib.sha256(span_text.encode("utf-8")).hexdigest() if span_text else "",
+                    "excerpt": excerpt,
+                    "tg": tg_match.group(0) if tg_match else "",
+                    "span_text": span_text,
+                }
+            )
+```
+
+What it does:
+- Builds a line-index over all pages
+- Detects point headers using regexes
+- Rejects date/noise/false/stray headers
+- Boundary rule: for each heading, segment = current heading line until next heading line
+- Stores this segment as `span_text` (later used for per-point raw text assembly)
+
+---
+
+### B) Fallback per-point boundary recovery (used when candidate text is weak)
+
+Source: `backend/app/services/arkat_semantic_pipeline.py`
+
+```python
+def _recover_point_text_from_report(report_text: str, point_id: str, point_title: str, normalize_text) -> str:
+    if not report_text or not point_id:
+        return ""
+    lines = report_text.splitlines()
+    target_title = normalize_text(point_title or "").lower()
+    start_indexes: List[int] = []
+    point_header_token_re = re.compile(
+        rf"(?i)^\s*(?:TG\s*[0-3]\s*(?:\|)?\s*)?{re.escape(point_id)}(?:\b|(?=[\s\-\|:]))"
+    )
+```
+
+```python
+    point_header_re = re.compile(r"(?i)^\s*(?:TG\s*(?:IU|0|1|2|3)\s+)?(\d+(?:\.\d+)+)\b")
+    boundary_point_re = re.compile(
+        r"(?i)(?:^|\||\bTG\s*(?:IU|0|1|2|3)\s*[|:]?\s*)(\d+(?:\.\d+){1,4})\b"
+    )
+    target_point_inline_re = re.compile(rf"(?i)\b{re.escape(point_id)}\b")
+```
+
+```python
+    def _collect_block(start_idx: int) -> str:
+        collected: List[str] = []
+        target_inline_start = None
+        if 0 <= start_idx < len(lines):
+            match = target_point_inline_re.search(lines[start_idx] or "")
+            if match:
+                target_inline_start = match.start()
+        for idx in range(start_idx, len(lines)):
+            line = lines[idx]
+            if idx > start_idx:
+                header_match = point_header_re.match(line.strip())
+                if header_match and header_match.group(1) != point_id:
+                    break
+            boundary_cutoff = None
+            for boundary_match in boundary_point_re.finditer(line):
+                boundary_id = str(boundary_match.group(1) or "").strip()
+                if not boundary_id or boundary_id == point_id:
+                    continue
+                if (
+                    idx == start_idx
+                    and target_inline_start is not None
+                    and boundary_match.start() <= target_inline_start
+                ):
+                    continue
+                boundary_cutoff = boundary_match.start()
+                break
+            if boundary_cutoff is not None:
+                prefix = line[:boundary_cutoff].rstrip()
+                if prefix:
+                    collected.append(prefix)
+                break
+            collected.append(line)
+        return "\n".join(collected).strip()
+```
+
+What it does:
+- Searches full report text for likely starts for a specific point id
+- Collects block until:
+  - next explicit point header line, or
+  - inline boundary marker (`| TG X | N.N.N ...`)
+- Has logic to avoid truncating on ancestor ids on first line
+
+---
+
+### C) Minimal pseudocode summary
+
+```text
+pages = split_pages(report_text)
+lines = flatten(pages)
+headings = detect_valid_point_headers(lines)
+for each heading_i:
+    span = lines[heading_i : heading_{i+1}]
+    point.span_text = join(span)
+
+for each point for Dommer B:
+    candidates = [effective_span_text, exact_span_text, span_text, linked summary, contextual matches]
+    if weak/missing -> recover_point_text_from_report(report_text, point_id, title)
+    raw_point_text = best_combined_candidate(candidates)
+```
+
+---
+
+## 2) segmentation_trace from latest output
+
+Source:
+- `files/dommer_b_real_report_1806_full.json`
+- Path: `detected_points_payload.segmentation_trace`
+
+```json
+{
+  "total_detected_before_stray": 90,
+  "total_after_stray": 87,
+  "total_after_whitelist": 78,
+  "stray_rejected": [
+    {
+      "point_id": "7.3",
+      "normalized_title": "bad 1.etasje |",
+      "reason": "stray_title"
+    },
+    {
+      "point_id": "8.2",
+      "normalized_title": "kjøkken 1.etasje |",
+      "reason": "stray_title"
+    },
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje |",
+      "reason": "stray_title"
+    }
+  ],
+  "stray_rejected_count": 3,
+  "heading_supplement_count": 40,
+  "rejected_noise": [],
+  "rejected_noise_count": 0,
+  "unclassified_heading": [
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "1.3",
+      "normalized_title": "| terrengforhold",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "| loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1.1",
+      "normalized_title": "underetasje veggenes og himlingens overflater",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1.2",
+      "normalized_title": "underetasje gulvets overflate",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "10.4",
+      "normalized_title": "varmesentraler",
+      "reason": "unclassified_heading"
+    }
+  ],
+  "unclassified_heading_count": 9,
+  "classified_heading_count": 78,
+  "rejected_noise_sample": [],
+  "unclassified_heading_sample": [
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "1.3",
+      "normalized_title": "| terrengforhold",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "| loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1.1",
+      "normalized_title": "underetasje veggenes og himlingens overflater",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1.2",
+      "normalized_title": "underetasje gulvets overflate",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "10.4",
+      "normalized_title": "varmesentraler",
+      "reason": "unclassified_heading"
+    }
+  ],
+  "whitelist_rejected": [
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1",
+      "normalized_title": "underetasje",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "1.3",
+      "normalized_title": "| terrengforhold",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "5.1",
+      "normalized_title": "| loft",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1.1",
+      "normalized_title": "underetasje veggenes og himlingens overflater",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "9.1.2",
+      "normalized_title": "underetasje gulvets overflate",
+      "reason": "unclassified_heading"
+    },
+    {
+      "point_id": "10.4",
+      "normalized_title": "varmesentraler",
+      "reason": "unclassified_heading"
+    }
+  ],
+  "whitelist_rejected_count": 9,
+  "detected_points_total": 87,
+  "validated_point_ids": [
+    "7.1",
+    "7.1",
+    "7.1",
+    "7.2",
+    "7.2.3",
+    "7.2",
+    "7.2.3",
+    "7.2",
+    "7.3",
+    "7.3",
+    "8.1",
+    "8.2",
+    "8.1",
+    "8.2",
+    "8.1",
+    "11.1",
+    "11.1",
+    "11.1",
+    "1.3",
+    "3.1",
+    "4.2",
+    "7.2.3",
+    "7.3.3",
+    "1.3",
+    "3.1",
+    "4.2",
+    "7.2.3",
+    "7.3.3",
+    "3.1",
+    "4.2",
+    "7.2.3",
+    "7.3.3",
+    "10.1",
+    "10.2",
+    "1.1",
+    "4.1",
+    "7.1.1",
+    "9.1.3",
+    "90001",
+    "90002",
+    "90003",
+    "90004",
+    "90005",
+    "90006",
+    "90007",
+    "90008",
+    "90009",
+    "90010",
+    "90011",
+    "90012",
+    "90013",
+    "90014",
+    "90015",
+    "90016",
+    "90017",
+    "90018",
+    "90019",
+    "90020",
+    "90021",
+    "90022",
+    "90023",
+    "90024",
+    "90025",
+    "90026",
+    "90027",
+    "90028",
+    "90029",
+    "90030",
+    "90031",
+    "90032",
+    "90033",
+    "90034",
+    "90035",
+    "90036",
+    "90037",
+    "90038",
+    "90039",
+    "90040"
+  ]
+}
+```
+
+## Note
+The above trace is from the latest generated output file and reflects current runtime behavior, including duplicated point IDs and many synthetic heading supplements (`90001..90040`).

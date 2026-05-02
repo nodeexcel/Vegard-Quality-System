@@ -1,11 +1,10 @@
 {
   "meta": {
     "name": "arkat_semantic_rules",
-    "version": "1.1.0",
-    "description": "Semantic evaluation rules for ARKAT field validation in tilstandsrapporter. Must be loaded as active system instruction in the evaluation pipeline — not only as a RAG document. v1.1.0: Konsekvens definition corrected to align with NS 3600:2025 punkt 13 and forskrift § 2-22 — conditional language ('kan', 'dersom') is explicitly permitted in Konsekvens per the authoritative legal definition.",
+    "version": "1.2.0",
+    "description": "Semantic evaluation rules for ARKAT field validation in tilstandsrapporter. v1.2.0 aligns Dommer B with the dedicated error-to-deduction mapping, adds missing error types, introduces TGIU-specific taxonomy, and aligns field definitions with pipeline_step and scoring bridge.",
     "applies_to": "All TG2, TG3, and TGIU points across all report formats"
   },
-
   "field_definitions": {
     "aarsak": {
       "label": "Årsak",
@@ -19,143 +18,101 @@
       "uncertainty_rule": "If the cause is unknown or uncertain, this must be stated explicitly. Age or expected service life may be used as part of the cause rationale when it reflects ordinary assessment of components approaching end of service life.",
       "error_signatures": [
         "Det registreres / Det observeres / Det ble avdekket [beskrivelse av funn]",
-        "TG2/TG3 vurderes da [kun alder oppgitt]",
         "Medfører økt risiko for",
         "Kan føre til",
         "Kan medføre"
       ],
-      "error_type_if_wrong": "OBSERVATION_AS_AARSAK or RISK_AS_AARSAK"
+      "error_type_if_wrong": "MISSING (aarsak), OBSERVATION_AS_AARSAK, or RISK_AS_AARSAK"
     },
-
     "risiko": {
       "label": "Risiko",
       "correct_content": "Describes what COULD happen to the building or component if the defect is not addressed. Future, conditional, possible development — not a certain outcome. Not a consequence for the buyer.",
       "forbidden_content": [
-        "What is currently happening to the building (present tense condition = belongs in Årsak or observation)",
-        "What this means for the buyer in practical or economic terms (belongs in Konsekvens)",
-        "A description of the inspection limitation",
-        "A certain/definitive outcome stated as fact"
+        "What is currently happening to the building (present tense condition)",
+        "What this means for the buyer in practical or economic terms",
+        "A description of the inspection limitation used as a substitute for risk",
+        "A cause explanation presented as risk"
       ],
       "language_test": "Risiko should be answerable with: 'If this is not addressed, [building component] could [develop/deteriorate/fail] in [this way].'",
       "error_signatures": [
-        "Medfører [present tense effect on buyer]",
-        "Fører til høyere strømforbruk",
-        "Kjøper må påregne",
-        "Dreneringen er ikke synlig for inspeksjon [used as the risk itself]",
-        "Dette medfører at det kan være forhold [methodology limitation, not risk]",
-        "Mister evnen til å beskytte [current state, belongs in Årsak or Konsekvens]"
+        "Kjøper må påregne [buyer consequence in risk field]",
+        "Dreneringen er ikke synlig for inspeksjon [limitation as risk]",
+        "Kledningen mister evnen til å beskytte [present state]",
+        "Manglende vedlikehold har ført til [past tense causal explanation]",
+        "Dreneringen er utett fra byggeår [cause stated as risk]"
       ],
-      "error_type_if_wrong": "CONSEQUENCE_AS_RISIKO or LIMITATION_AS_RISIKO or AARSAK_AS_RISIKO"
+      "error_type_if_wrong": "MISSING (risiko), CONSEQUENCE_AS_RISIKO, LIMITATION_AS_RISIKO, PRESENT_STATE_AS_RISIKO, LIMITATION_USED_AS_RISK_SUBSTITUTE, or AARSAK_AS_RISIKO"
     },
-
     "konsekvens": {
       "label": "Konsekvens",
-      "legal_basis": "Forskrift til avhendingslova § 2-22 og NS 3600:2025 punkt 13. NS 3600:2025 punkt 13 definerer autoritativt: 'konsekvens er hvilke følger tilstanden har fått eller kan få hvis det ikke gjøres tiltak eller utbedringer.' Gjeldende fra 01.01.2026 for alle rapporter.",
-      "correct_content": "Explains what the defect means for the BUYER — what consequences the condition has caused or could cause if not addressed. Conditional language ('kan', 'dersom', 'hvis') is EXPLICITLY PERMITTED per NS 3600:2025 punkt 13. Must be understandable to a buyer with no technical background. Must have buyer relevance — costs, safety, use of property, or future obligations.",
-      "forbidden_content": [
-        "Text that describes only technical building processes with zero buyer relevance — no mention of cost, safety, usability, or obligation for the buyer",
-        "Text that is identical to or a direct restatement of the Risiko field with no added buyer dimension",
-        "Advice or recommendations (belongs in Anbefalt tiltak)",
-        "Professional jargon without any explanation of what it means for the buyer"
-      ],
-      "critical_clarification": "Conditional language ('kan', 'dersom', 'hvis', 'kan føre til', 'kan medføre') is NOT an error in Konsekvens. NS 3600:2025 punkt 13 explicitly includes 'eller kan få' in the definition of konsekvens. Do NOT flag conditional language as an error. The correct test is buyer relevance — not language form.",
-      "buyer_test": "The primary and only test: Would a buyer with no building expertise understand what this defect means for them personally — their costs, safety, use of the property, or future obligations? If yes: CORRECT. If the text describes only what happens to the building material with no connection to buyer impact: flag as TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.",
-      "what_is_actually_wrong": {
-        "NO_BUYER_RELEVANCE": "The field describes only physical or technical processes (e.g. 'membranen mister tetthet', 'fukt trekker inn i konstruksjonen') with no translation into what this means for the buyer in practice. This is the core error.",
-        "MISSING": "The field is entirely absent.",
-        "PURE_DUPLICATION": "The field is word-for-word identical to the Risiko field with no buyer dimension added."
-      },
+      "legal_basis": "Forskrift til avhendingslova § 2-22 og NS 3600:2025 punkt 13.",
+      "correct_content": "Explains what the defect means for the buyer (cost, safety, use, obligations). Conditional language is explicitly permitted.",
+      "critical_clarification": "Conditional language ('kan', 'dersom', 'hvis') is NOT an error in Konsekvens. Buyer relevance is the only acceptance test.",
       "error_signatures": [
-        "Text describes only material degradation with no buyer connection: 'membranen mister funksjon', 'undertaket har redusert tetthet', 'kledningen råtner videre'",
-        "Text mentions only building layers without buyer impact: 'fukt trekker inn i vindsperre og lekter' with no follow-up on what that means for the buyer",
-        "Text is identical to Risiko field — pure duplication with no buyer dimension added"
+        "Only technical development with no buyer connection",
+        "Word-for-word duplication of risiko field"
       ],
-      "error_type_if_wrong": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS or MISSING or PURE_DUPLICATION",
-      "severity_note": "Errors in this field are considered MORE serious than errors in other ARKAT fields, because Konsekvens is the buyer's primary decision-making information."
+      "error_type_if_wrong": "MISSING (konsekvens), TECHNICAL_DEVELOPMENT_AS_KONSEKVENS, or PURE_DUPLICATION",
+      "pure_duplication_detection_nb": "Hvis konsekvens-teksten er ordrett identisk med risiko-teksten, eller en nesten-identisk omformulering med samme kjernebetydning og uten å legge til informasjon om hva dette betyr for kjøper konkret, skal dette klassifiseres som PURE_DUPLICATION og ikke som TECHNICAL_DEVELOPMENT_AS_KONSEKVENS."
     },
-
     "anbefalt_tiltak": {
       "label": "Anbefalt tiltak",
       "correct_content": "Points to a concrete next step. Should indicate what should be done, by whom or what type of professional, and when.",
-      "forbidden_content": [
-        "Explanation of why the defect occurred (belongs in Årsak)",
-        "Repetition of the risk or consequence",
-        "Full engineering or remediation specifications",
-        "Advice phrased as Konsekvens"
-      ],
-      "error_signatures": [
-        "Fordi [årsaksforklaring]",
-        "Dette skyldes",
-        "Det er viktig at [risk/consequence restatement]"
-      ],
-      "error_type_if_wrong": "EXPLANATION_AS_TILTAK or CONSEQUENCE_AS_TILTAK"
+      "error_type_if_wrong": "MISSING (anbefalt_tiltak) [TG3 only], EXPLANATION_AS_TILTAK, CONSEQUENCE_AS_TILTAK, TILTAK_IMPERATIVE_FORM, or TILTAK_VAGUE_WITHOUT_NECESSITY",
+      "tiltak_imperative_form_detection_nb": "Tiltak formulert som pålegg eller prosjekterende instruksjon. Kjennetegn: 'Skal utbedres...', 'Må utføres i henhold til...', 'Det kreves at...'. Korrekt form er anbefaling: 'Det anbefales å...', 'Bør utbedres...', 'Videre undersøkelser anbefales...'",
+      "tiltak_vague_without_necessity_detection_nb": "Tiltak er vagt formulert ved TG3 uten å gjøre det klart at utbedring er nødvendig. Kjennetegn: 'Kan vurderes...', 'Eventuelt kan...', 'Kan på sikt...'. Ved TG3 kreves mer forpliktende anbefaling om nødvendig handling.",
+      "consequence_as_tiltak_detection_nb": "Tiltak-feltet beskriver kjøperkonsekvens (kostnader, brukspåvirkning) i stedet for konkret handling. Kjennetegn: 'Må påregne kostnader...', 'Kjøper må være oppmerksom...', 'Forholdet vil medføre...'"
     }
   },
-
-  "evaluation_instruction": {
-    "description": "System prompt block to be injected into the evaluation pipeline for every TG2/TG3/TGIU point",
-    "prompt": "For each TG2, TG3, or TGIU point in this report, evaluate every ARKAT field using the following rules. This evaluation must be performed semantically — based on what the text actually means, not on which label or heading it appears under.\n\nFor each field (Årsak, Risiko, Konsekvens, Anbefalt tiltak), ask:\n1. What type of content is actually present in this field?\n2. Does that content match the field's definition, or does it belong in a different field?\n\nField definitions:\n\nÅRSAK: Explains why/how the defect occurred. Must not be an observation, a risk statement, or future-oriented. Age or expected service life may be used as part of the cause rationale when it reflects ordinary assessment of components approaching end of service life.\n\nRISIKO: Describes what could happen to the building or component if the defect is not addressed. Must be future-oriented and describe building risk. Must NOT describe the current state of the building as if it is already happening. Must NOT be a description of an inspection limitation. Must NOT describe buyer consequences alone.\n\nKONSEKVENS: Explains the consequences the defect has caused or could cause for the BUYER. IMPORTANT: Conditional language ('kan', 'dersom', 'hvis', 'kan føre til', 'kan medføre') is EXPLICITLY PERMITTED — NS 3600:2025 punkt 13 defines konsekvens as 'hvilke følger tilstanden har fått eller kan få'. The ONLY test for Konsekvens is buyer relevance: Does the text explain what this means for the buyer in terms of cost, safety, use of property, or obligations? If it describes only technical building processes with no buyer connection, it fails. If it has buyer relevance — even with conditional language — it passes.\n\nANBEFALT TILTAK: Points to a concrete next step. Must not explain causes or restate risks.\n\nFor each field, return:\n- CORRECT: Content matches the field definition\n- WRONG:[ERROR_TYPE]: Content is wrong\n  Error types:\n  OBSERVATION_AS_AARSAK — årsak describes what was seen, not why it occurred\n  RISK_AS_AARSAK — årsak describes future risk, not cause\n  CONSEQUENCE_AS_RISIKO — risiko describes buyer impact, not building risk\n  LIMITATION_AS_RISIKO — risiko describes inspection limitation, not building risk\n  PRESENT_STATE_AS_RISIKO — risiko describes current condition in present tense, not future development\n  LIMITATION_USED_AS_RISK_SUBSTITUTE — entire risiko field is an inspection limitation with no actual building risk\n  TECHNICAL_DEVELOPMENT_AS_KONSEKVENS — konsekvens describes only technical building processes with no buyer relevance\n  EXPLANATION_AS_TILTAK — tiltak explains cause or restates risk instead of giving a next step\n- MISSING: Field is absent or contains only a placeholder\n\nCRITICAL: Do NOT flag Konsekvens as wrong solely because it uses 'kan', 'dersom', 'hvis', or other conditional language. This is permitted by law. Only flag Konsekvens if it has zero buyer relevance."
-  },
-
-  "report_format_detection": {
-    "description": "The pipeline must detect the report format before applying ARKAT evaluation. ARKAT field labels vary across report templates.",
-    "known_formats": [
-      {
-        "format_id": "structured_arkat",
-        "indicators": ["Årsak:", "Risiko:", "Konsekvens:", "Anbefalt tiltak:"],
-        "description": "Separate labeled fields for each ARKAT component. Evaluation applies per field.",
-        "examples": ["BMTF Eierskifterapport"]
-      },
-      {
-        "format_id": "compressed_mixed",
-        "indicators": ["Konsekvens/tiltak:", "Vurdering av avvik:", "Årsak/Konsekvens:"],
-        "description": "ARKAT components merged into fewer fields or unlabeled. Evaluation must extract semantic content and assess whether all four components are present and correctly expressed.",
-        "examples": ["Fremtind rapport", "various older formats"]
-      },
-      {
-        "format_id": "unlabeled_prose",
-        "indicators": [],
-        "description": "No explicit ARKAT labels. Full semantic extraction required to identify whether each ARKAT component is present in the prose.",
-        "evaluation_instruction": "Treat the entire point description as a single block. Identify which sentences cover Årsak, Risiko, Konsekvens, and Tiltak semantically. Flag any component that is absent, misplaced, or expressed using incorrect content type."
-      }
-    ],
-    "fallback": "If format cannot be determined, apply unlabeled_prose evaluation."
-  },
-
-  "ns_version_rules": {
-    "description": "NS version must be read from the report header before applying age-based TG rules.",
-    "ns_2018": {
-      "age_only_tg2": "NOT PERMITTED. An age-based TG2 without observed deterioration or deficiency must be flagged as insufficient Årsak.",
-      "applies_to": "Reports stating NS 3600:2018 as normative basis"
+  "tgiu_field_definitions": {
+    "_description_nb": "Evaluering av TGIU-punkter. TGIU-punkter skal IKKE evalueres mot feltdefinisjonene for aarsak/risiko/konsekvens/anbefalt_tiltak. TGIU-punkter skal kun evalueres mot de fire TGIU-spesifikke feiltypene definert under.",
+    "_legal_basis_nb": "NS 3600:2018/2025 punkt 12.1 og 13.1 siste avsnitt. Forskrift til avhendingsloven § 2-14 tredje ledd gir særskilt 'bør'-krav for krypkjeller.",
+    "TGIU_MISSING_REASON": {
+      "description_nb": "TGIU gitt uten tilstrekkelig begrunnelse av hvorfor bygningsdelen ikke var mulig å undersøke.",
+      "correct_content_nb": "Forklaring av hvorfor inspeksjon ikke var mulig: ingen inspeksjonsluke, luke fastskrudd/låst, tak tildekt med snø, lukket konstruksjon uten destruktive inngrep, etc.",
+      "error_signatures_nb": [
+        "Kun 'lukket, ingen tilkomst' uten forklaring av hvorfor",
+        "Kun 'ikke undersøkt' uten kontekst",
+        "Ren konstatering av tilstand uten begrunnelse"
+      ]
     },
-    "ns_2025": {
-      "age_only_tg2": "PERMITTED for specific components listed in Tillegg C (drenering, undertak, membraner, varmtvannsbereder, ventilasjon, etc.)",
-      "applies_to": "Reports stating NS 3600:2025 as normative basis"
+    "TGIU_MISSING_FURTHER_INVESTIGATION": {
+      "description_nb": "TGIU gitt uten anbefaling om ytterligere undersøkelser.",
+      "correct_content_nb": "Eksplisitt anbefaling om videre undersøkelser.",
+      "error_signatures_nb": [
+        "TGIU-punkt uten noen form for anbefaling om videre undersøkelser",
+        "Kun beskrivelse av hva som ikke ble undersøkt, uten veiledning videre"
+      ]
     },
-    "detection": "Read from report header/preamble. If not found, check the report template and BMTF/organization logo. Default to 2018 rules if version is ambiguous."
+    "TGIU_MISSING_MOISTURE_FLAG": {
+      "description_nb": "Bygningsdel som er eller åpenbart kan være særlig fuktutsatt er gitt TGIU uten at fuktrisiko er tatt stilling til.",
+      "applies_to_building_parts_nb": [
+        "krypkjeller",
+        "rom under terreng",
+        "yttertak med eldre tekking",
+        "våtrom",
+        "innvendig isolerte vegger under terreng"
+      ],
+      "correct_content_nb": "Eksplisitt vurdering av fuktrisiko.",
+      "note_nb": "Skal kun fyres når bygningsdelen er reell risikokonstruksjon."
+    },
+    "TGIU_CRAWLSPACE_MISSING_RISK_CONSEQUENCE": {
+      "description_nb": "Krypkjeller gitt TGIU uten at skaderisiko og konsekvens av manglende inspeksjon er omtalt.",
+      "legal_basis_nb": "Forskrift § 2-14 tredje ledd.",
+      "applies_only_to_nb": "Skal kun fyres på krypkjeller-punkter.",
+      "correct_content_nb": "Omtale av skaderisiko og konsekvens ved manglende inspeksjon av krypkjeller."
+    }
   },
-
   "scoring_integration": {
-    "category_a_arkat_quality": {
-      "field_error_weights": {
-        "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS": "low — field is present, but the consequence is framed too technically and lacks clear buyer relevance",
-        "MISSING (konsekvens)": "high — buyer has no consequence information at all",
-        "OBSERVATION_AS_AARSAK": "medium — cause is not explained, only described",
-        "LIMITATION_AS_RISIKO": "medium — buyer not informed of actual building risk",
-        "LIMITATION_USED_AS_RISK_SUBSTITUTE": "medium — inspection limitation used instead of actual risk",
-        "CONSEQUENCE_AS_RISIKO": "medium — risk field contains buyer consequence, not building risk",
-        "PRESENT_STATE_AS_RISIKO": "medium — current condition described as future risk",
-        "EXPLANATION_AS_TILTAK": "low — next step is unclear"
-      },
-      "removed_error_type": {
-        "RISIKO_AS_KONSEKVENS": "REMOVED in v1.1.0 — conditional language in Konsekvens is explicitly permitted by NS 3600:2025 punkt 13 and forskrift § 2-22. This error type must not be used."
-      },
-      "severity_calibration": {
-        "high": "Reserved for missing required ARKAT information or completely wrong content type in a field.",
-        "medium": "Used when a field is present but semantically misplaced or framed from the wrong perspective.",
-        "low": "Used for borderline or partially correct content that does not materially mislead the buyer."
-      },
-      "note": "A single point may have multiple field errors. Each error type fires independently."
+    "_note_nb": "Denne filen er ikke lenger eneansvarlig for feil-til-straff-mapping. Mapping av feiltyper til poengtrekk er flyttet til den separate filen arkat_error_to_deduction_mapping_v1.0.json. Dommer B returnerer strukturerte feilklassifiseringer; scoring-laget slår opp poengverdier i mapping-tabellen.",
+    "source_of_truth": "arkat_error_to_deduction_mapping_v1.0.json",
+    "integration_contract": "See 'integration_contract' section in the mapping file for input/output schema."
+  },
+  "deprecated_error_types": {
+    "RISIKO_AS_KONSEKVENS": {
+      "status": "removed",
+      "removed_in_version": "1.1.0",
+      "note": "Historical reference only. Must not be emitted."
     }
   }
 }

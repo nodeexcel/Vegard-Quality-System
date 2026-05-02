@@ -1,0 +1,278 @@
+{
+  "schema_version": "1.0",
+  "version": "1.0.0",
+  "title": "ARKAT Error-to-Deduction Mapping",
+  "description_nb": "Fast mappingstabell som oversetter feiltyper fra den semantiske ARKAT-evalueringspipelinen (arkat_evaluation_pipeline_step.json) til konkrete poengtrekk i scoring-kategori A. Denne filen er scoring-modellens eneste kilde for ARKAT-feil-straff; rag_scoring_model_validert_v1.6.json skal ikke lenger gjøre egen semantisk evaluering av ARKAT-felt.",
+  "owner": "domain",
+  "editable_without_code_changes": true,
+  "principles": [
+    "MISSING (felt mangler helt) trekker tyngre enn feil innhold i samme felt, fordi fullt fravær er direkte brudd på forskriftens krav (forskriften til avhendingsloven § 2-22), mens feil innhold oppfyller bokstaven men ikke intensjonen.",
+    "Konsekvens-feil straffes tyngst fordi konsekvensfeltet er det som gir kjøperen praktisk beslutningsgrunnlag.",
+    "Flere ARKAT-feil i samme rapport-punkt er additive; samlet tak er kategori A-maksimum (40 poeng).",
+    "Forankring: forskriften til avhendingsloven § 2-22 (krav om å redegjøre for årsak og konsekvens ved TG2/TG3), NS 3600:2025 punkt 13 (ARKAT-struktur), og veiledning DiBK.",
+    "Konsekvens-krav ved TG2 inkluderer Årsak, Risiko, Konsekvens (ARK). Anbefalt tiltak er valgfritt ved TG2.",
+    "Konsekvens-krav ved TG3 inkluderer Årsak, Risiko, Konsekvens, Anbefalt tiltak (ARKAT full struktur).",
+    "TGIU-punkter evalueres etter egne feiltyper forankret i NS 3600 12.1 og 13.1 (begrunnelse og anbefaling om ytterligere undersøkelser). Feiltyper for aarsak/risiko/konsekvens/anbefalt_tiltak SKAL IKKE fyres på TGIU — takstmannen har ikke grunnlag for å vurdere ARKAT-felt for en bygningsdel som ikke er undersøkt."
+  ],
+  "integration_contract": {
+    "input_source": "arkat_evaluation_pipeline_step.json (semantic LLM-based classification)",
+    "input_format": {
+      "_note_nb": "Dommer B produserer to ulike typer findings som scoring-laget må håndtere separat: (1) felt-nivå findings fra field_results for TG2/TG3-punkter, og (2) TGIU-findings fra tgiu_findings-arrayet for TGIU-punkter. Format-felt for feil-oppslag er ulikt.",
+      "field_level_finding": {
+        "_description_nb": "Ett finding per ARKAT-felt med status WRONG eller MISSING. Hentes fra field_results-delen av Dommer B output. Fyres kun for TG2/TG3-punkter.",
+        "point_id": "string (e.g., '7.1.1')",
+        "field": "one of ['aarsak', 'risiko', 'konsekvens', 'anbefalt_tiltak']",
+        "error_type": "one of the keys in the 'deductions.{field}' object below",
+        "tg_grade": "one of ['TG2', 'TG3'] — required to enforce TG-specific rules",
+        "ns_version": "one of ['NS3600:2018', 'NS3600:2025'] — required to enforce version-dependent applies_to rules for tiltak error types",
+        "evidence_snippet": "string (optional but recommended for auditability)"
+      },
+      "tgiu_finding": {
+        "_description_nb": "Ett finding per treff fra tgiu_findings.findings-arrayet. Fyres kun for TGIU-punkter. Har ingen 'field'-attributt siden TGIU-feiltypene er punktnivå, ikke feltnivå.",
+        "point_id": "string (e.g., '5.1')",
+        "error_type": "one of the keys in the 'deductions.tgiu' object below",
+        "tg_grade": "'TGIU'",
+        "ns_version": "one of ['NS3600:2018', 'NS3600:2025'] — included for completeness, though TGIU rules are identical in both versions per NS 3600 punkt 12.1 and 13.1",
+        "evidence_snippet": "string (optional)"
+      }
+    },
+    "output_to_scoring": {
+      "per_finding": {
+        "category": "A_ARKAT",
+        "deduction_value": "integer (looked up from this file)",
+        "source_rule_id": "A_ARKAT_SEMANTIC.<error_type>",
+        "rationale_short": "string (human-readable reason)"
+      }
+    },
+    "lookup_logic": {
+      "_note_nb": "For felt-nivå findings: slå opp i deductions.{field}.{error_type}. For TGIU-findings: slå opp i deductions.tgiu.{error_type}.",
+      "example_field_lookup": "deductions.konsekvens['MISSING (konsekvens)'].points → 9",
+      "example_tgiu_lookup": "deductions.tgiu['TGIU_MISSING_REASON'].points → 4"
+    },
+    "validation_rules": [
+      "Every error_type returned by the semantic pipeline MUST match a key in 'deductions' below. Unrecognized error_types MUST be logged as warnings and MUST NOT produce a deduction.",
+      "MISSING (anbefalt_tiltak) applies_to rule depends on ns_version: NS3600:2018 → TG3 only; NS3600:2025 → TG2 and TG3. Scoring layer MUST check both tg_grade and ns_version before producing a deduction. For NS3600:2018 + TG2, this error_type MUST be ignored (and Dommer B should output NOT_APPLICABLE, not MISSING, in that case).",
+      "TILTAK_VAGUE_WITHOUT_NECESSITY fires only at TG3 regardless of ns_version. Vague tiltak are acceptable at TG2 because TG2 allows 'tiltak in nær fremtid' and does not require immediate action.",
+      "Other tiltak form errors (EXPLANATION_AS_TILTAK, CONSEQUENCE_AS_TILTAK, TILTAK_IMPERATIVE_FORM) apply to TG3 always, and to TG2 only under NS3600:2025 when the field is actually filled. Under NS3600:2018, TG2 tiltak is not required, so form errors only fire if takstmannen voluntarily provides tiltak.",
+      "TGIU-specific error types (TGIU_*) MUST only fire when tg_grade = 'TGIU'. They MUST NOT fire on TG2/TG3 points.",
+      "Field-level error types for aarsak/risiko/konsekvens/anbefalt_tiltak MUST NOT fire on TGIU points. Only TGIU-specific error types apply when tg_grade = 'TGIU'.",
+      "TGIU_CRAWLSPACE_MISSING_RISK_CONSEQUENCE MUST only fire when the building part is identified as krypkjeller (crawlspace). Do not apply to other TGIU building parts.",
+      "Duplicate findings (same point_id + field + error_type for field-level, or same point_id + error_type for TGIU) within a single run MUST be deduplicated before scoring."
+    ],
+    "failure_modes": {
+      "semantic_pipeline_total_failure": "Apply no Category A deductions. Emit 'degraded_run' flag with reason 'semantic_pipeline_unavailable' in output diagnostics.",
+      "semantic_pipeline_partial_output": "Apply deductions only for findings explicitly present and validated. Do not infer or estimate deductions for points missing from the semantic output. Emit 'degraded_run' flag listing which points were skipped and why.",
+      "unrecognized_error_type": "Log warning to runtime diagnostics. Skip deduction. Do not block the run."
+    }
+  },
+  "deductions": {
+    "konsekvens": {
+      "MISSING (konsekvens)": {
+        "points": 9,
+        "severity": "high",
+        "band": "Høyt trekk",
+        "rationale_nb": "Konsekvens mangler helt. Direkte brudd på § 2-22 som eksplisitt krever at årsak og konsekvens skal redegjøres for ved TG2 og TG3. Kjøper har ingen praktisk informasjon om hva avviket betyr.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS": {
+        "points": 2,
+        "severity": "low",
+        "band": "Lavt trekk",
+        "rationale_nb": "Konsekvens finnes, men beskriver teknisk utvikling i bygningsdelen (f.eks. 'videre fuktinntrenging', 'råteskader i konstruksjonen') uten å oversette til hva dette betyr for kjøper (kostnad, bruk, helse/sikkerhet). Oppfyller bokstaven i § 2-22, men ikke intensjonen om kjøperorientert informasjon.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "PURE_DUPLICATION": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Konsekvens-feltet er ordrett identisk med eller nær gjentakelse av Risiko-feltet, uten å legge til kjøperdimensjon. Kjøper får ingen selvstendig konsekvensinformasjon, kun en duplisering av risikovurderingen.",
+        "applies_to_tg": ["TG2", "TG3"]
+      }
+    },
+    "aarsak": {
+      "MISSING (aarsak)": {
+        "points": 6,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Årsak mangler helt. Direkte brudd på § 2-22. Vektet lavere enn MISSING (konsekvens) fordi årsaken er mer byggteknisk diagnostisk og mindre kritisk for kjøperens praktiske beslutning enn konsekvensen.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "OBSERVATION_AS_AARSAK": {
+        "points": 4,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Årsak-feltet beskriver det takstmannen har observert, uten å gjøre den faglige vurderingen av hvorfor avviket har oppstått. En registrering der forskriften krever en diagnose.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "RISK_AS_AARSAK": {
+        "points": 4,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Årsak-feltet beskriver fremtidig risiko eller hva som kan skje, i stedet for hva som har gjort at avviket har oppstått.",
+        "applies_to_tg": ["TG2", "TG3"]
+      }
+    },
+    "risiko": {
+      "MISSING (risiko)": {
+        "points": 5,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Risiko mangler helt. Ikke eksplisitt krav i § 2-22, men ARKAT-strukturen (NS 3600:2025 punkt 13) krever risikovurdering ved TG2 og TG3.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "CONSEQUENCE_AS_RISIKO": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Risiko-feltet inneholder kjøperkonsekvens (kostnader, bruksbegrensning) i stedet for bygg-teknisk risiko for videre skadeutvikling. Innholdet er relevant for kjøper, men plassert i feil felt.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "PRESENT_STATE_AS_RISIKO": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Risiko-feltet beskriver dagens tilstand i stedet for fremtidig utvikling eller skadepotensial.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "LIMITATION_AS_RISIKO": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Risiko-feltet beskriver undersøkelsesbegrensninger (f.eks. 'ikke mulig å inspisere tak') i stedet for faktisk byggrisiko. Begrensningen kan være relevant å opplyse om, men den erstatter ikke risikovurderingen.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "LIMITATION_USED_AS_RISK_SUBSTITUTE": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Hele risikofeltet er en undersøkelsesbegrensning uten faktisk risikovurdering. Kjøper får ingen informasjon om faktisk byggrisiko.",
+        "applies_to_tg": ["TG2", "TG3"]
+      },
+      "AARSAK_AS_RISIKO": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Risiko-feltet inneholder årsaksforklaring (hvorfor avviket har oppstått) i stedet for fremtidig risiko for videre skadeutvikling. Forveksling av felt.",
+        "applies_to_tg": ["TG2", "TG3"]
+      }
+    },
+    "tgiu": {
+      "_description_nb": "TGIU-spesifikke feiltyper. Evaluering aktiveres kun når tg_grade = 'TGIU'. Feiltypene for aarsak, risiko, konsekvens og anbefalt_tiltak SKAL IKKE fyres på TGIU-punkter — disse feltene er ikke forskriftsfestet krav ved TGIU.",
+      "_legal_basis_nb": "NS 3600:2018 og :2025 punkt 12.1 ('Alle TG 2, TG 3 og TGIU skal begrunnes') og punkt 13.1 siste avsnitt ('For alle TG 3 og TGIU anbefales det tiltak i form av ytterligere undersøkelser'). Kravene er identiske i begge NS-versjoner og gjelder uavhengig av overgangsbestemmelsen i endringsforskriften 16.12.2025 del III (som kun regulerer valg av TG-kriterier, ikke begrunnelseskrav). Forskrift til avhendingsloven § 2-14 tredje ledd (gjeldende fra 01.01.2026) gir særskilt krav for krypkjeller.",
+      "TGIU_MISSING_REASON": {
+        "points": 4,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "TGIU er gitt uten tilstrekkelig begrunnelse av hvorfor bygningsdelen ikke var mulig å undersøke. Brudd på NS 3600 12.1 som krever at alle TGIU skal begrunnes. Konstatering av tilstand (f.eks. 'lukket, ingen tilkomst') uten å forklare årsak til manglende inspeksjon er ikke tilstrekkelig begrunnelse.",
+        "applies_to_tg": ["TGIU"]
+      },
+      "TGIU_MISSING_FURTHER_INVESTIGATION": {
+        "points": 4,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "TGIU er gitt uten anbefaling om ytterligere undersøkelser. Direkte brudd på NS 3600 13.1 siste avsnitt: 'For alle TG 3 og TGIU anbefales det tiltak i form av ytterligere undersøkelser for å avdekke årsak og skadeomfang.'",
+        "applies_to_tg": ["TGIU"]
+      },
+      "TGIU_MISSING_MOISTURE_FLAG": {
+        "points": 3,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Bygningsdel som er eller åpenbart kan være særlig fuktutsatt (f.eks. krypkjeller, rom under terreng, tak med eldre tekking, våtrom) er gitt TGIU uten at fuktrisiko er tatt stilling til eksplisitt. Brudd på NS 3600 tabell 1 / punkt 13: 'Dersom TGIU omfatter særlig fuktutsatte konstruksjoner, skal dette angis særskilt.' Skal kun fyres der bygningsdelen har reell fuktrisiko.",
+        "applies_to_tg": ["TGIU"]
+      },
+      "TGIU_CRAWLSPACE_MISSING_RISK_CONSEQUENCE": {
+        "points": 2,
+        "severity": "low",
+        "band": "Lavt trekk",
+        "rationale_nb": "Krypkjeller gitt TGIU uten at skaderisiko og konsekvens av manglende inspeksjon er omtalt. Basert på forskrift til avhendingsloven § 2-14 tredje ledd (gjeldende fra 01.01.2026): 'Den bygningssakkyndige bør i tilfelle også opplyse om skaderisiko og konsekvens av at krypkjelleren ikke er mulig å undersøke.' Merk: dette er en 'bør'-regel i forskriften, ikke 'skal' — derfor lavere straff enn NS 3600-baserte TGIU-feiltypene. Skal kun fyres på krypkjeller-punkter.",
+        "applies_to_tg": ["TGIU"],
+        "applies_to_building_parts": ["krypkjeller", "krypkjeller_crawlspace"],
+        "note": "Only fires on crawlspace points. Do not apply to other TGIU building parts."
+      }
+    },
+    "anbefalt_tiltak": {
+      "MISSING (anbefalt_tiltak)": {
+        "points": 5,
+        "severity": "medium",
+        "band": "Middels trekk",
+        "rationale_nb": "Anbefalt tiltak mangler. Forskriftsgrunnlag og NS-versjon avgjør når feiltypen fyrer: under NS 3600:2018 er tiltak kun påkrevd ved TG3 (forskrift § 2-22 krever kun årsak og konsekvens ved TG2). Under NS 3600:2025 punkt 13 er tiltak påkrevd også ved TG2 ('for bygningsdeler og undersøkelsespunkter som gis tilstandsgrad TG 2, TG 3 eller TGIU... skal det gjøres en vurdering av nødvendige tiltak').",
+        "applies_to": {
+          "NS3600:2018": ["TG3"],
+          "NS3600:2025": ["TG2", "TG3"]
+        },
+        "note": "Scoring-laget MÅ sjekke både tg_grade og ns_version før trekk gis. For NS3600:2018 + TG2 skal error_type ignoreres (output fra Dommer B skal uansett være NOT_APPLICABLE, ikke MISSING)."
+      },
+      "EXPLANATION_AS_TILTAK": {
+        "points": 2,
+        "severity": "low",
+        "band": "Lavt trekk",
+        "rationale_nb": "Tiltak-feltet forklarer årsak eller gjentar risiko i stedet for å peke på konkret neste skritt for utbedring.",
+        "applies_to": {
+          "NS3600:2018": ["TG3"],
+          "NS3600:2025": ["TG2", "TG3"]
+        },
+        "note": "Fyres kun når tiltak faktisk er angitt. Under NS3600:2018 evalueres tiltak-formfeil kun ved TG3 siden tiltak ikke er påkrevd ved TG2. Under NS3600:2025 evalueres tiltak-formfeil ved både TG2 og TG3 når feltet er utfylt."
+      },
+      "CONSEQUENCE_AS_TILTAK": {
+        "points": 2,
+        "severity": "low",
+        "band": "Lavt trekk",
+        "rationale_nb": "Tiltak-feltet beskriver konsekvens for kjøper (f.eks. 'må påregne kostnader til utbedring') i stedet for å peke på konkret handlingsveiledning (hva, hvem, når).",
+        "applies_to": {
+          "NS3600:2018": ["TG3"],
+          "NS3600:2025": ["TG2", "TG3"]
+        }
+      },
+      "TILTAK_IMPERATIVE_FORM": {
+        "points": 1,
+        "severity": "low",
+        "band": "Lavt trekk",
+        "rationale_nb": "Tiltak formulert som pålegg eller prosjekterende instruksjon ('Skal utbedres med...'), i stedet for anbefaling ('Det anbefales å...'). Formmangel, ikke innholdsmangel.",
+        "applies_to": {
+          "NS3600:2018": ["TG2", "TG3"],
+          "NS3600:2025": ["TG2", "TG3"]
+        },
+        "note": "Fyres kun når tiltak faktisk er angitt. Formmangel gjelder uavhengig av NS-versjon — når takstmannen først skriver tiltak, skal det være i anbefalingsform."
+      },
+      "TILTAK_VAGUE_WITHOUT_NECESSITY": {
+        "points": 2,
+        "severity": "low",
+        "band": "Lavt trekk",
+        "rationale_nb": "Tiltak er vagt formulert uten å gjøre det klart at utbedring faktisk er nødvendig (f.eks. 'kan vurderes å bytte', 'eventuelt undersøke nærmere'). Dette er strenge krav ved TG3 fordi TG3 betyr 'kraftige tegn på forhold som man må regne med trenger utbedring straks eller innen kort tid'.",
+        "applies_to": {
+          "NS3600:2018": ["TG3"],
+          "NS3600:2025": ["TG3"]
+        },
+        "note": "Denne feiltypen fyrer KUN ved TG3, uansett NS-versjon. Ved TG2 er vage tiltak faglig akseptable fordi TG2 tillater tiltak i 'nær fremtid' og ikke krever umiddelbar handling. Formuleringer som 'kan vurderes ved ordinært vedlikehold' eller 'kan inngå i fremtidig renovering' er legitime TG2-tiltak."
+      }
+    }
+  },
+  "rules_removed_from_rag_scoring_model": {
+    "description_nb": "Følgende regel-IDer i rag_scoring_model_validert_v1.6.json SKAL FJERNES som del av denne omleggingen. De gjør semantisk evaluering som nå håndteres eksklusivt av Dommer B, og å beholde dem ville føre til dobbel-straff.",
+    "ids_to_remove": [
+      "A_ARKAT.konsekvens_missing",
+      "A_ARKAT.konsekvens_unclear",
+      "A_ARKAT.risiko_missing",
+      "A_ARKAT.arsak_missing",
+      "A_ARKAT.observasjon_unclear",
+      "A_ARKAT.tiltak_imperativ",
+      "A_ARKAT.tiltak_vague_without_necessity"
+    ],
+    "verification_step": "After removal, search the scoring model file for any remaining rule IDs matching pattern 'A_ARKAT.*' that perform semantic evaluation of ARKAT field content. Only rules that check structural presence (e.g., TG3 cost-class rules) or format compliance may remain."
+  },
+  "rules_to_keep_in_rag_scoring_model": {
+    "description_nb": "Følgende regler forblir i rag_scoring_model som rene deterministiske sjekker. De gjør ikke semantisk tolkning.",
+    "examples": [
+      "TG3_COST_MISSING_ONLY_WHEN_TRULY_ABSENT — stikkord-sjekk for kostnadsklasse eller beløp",
+      "TG3_COST_ACCEPT_COST_CLASS — stikkord-sjekk for 'lav kostnad' / 'middels kostnad' / 'høy kostnad'",
+      "B_TG.el_anlegg_tg_forbudt — rapportdato-basert TG-regel for elanlegg",
+      "E_METHOD.egenerklaring_missing — dokumentnærvær-sjekk",
+      "E_METHOD.areal_ns3940_2023 — referanse-sjekk",
+      "E_METHOD.garasje_avvik_uten_arkat — strukturell sjekk (TG på garasje uten ARKAT-redegjørelse)"
+    ]
+  },
+  "category_a_ceiling": {
+    "max_deduction": 40,
+    "description_nb": "Total straff i kategori A (ARKAT-kvalitet) kan ikke overstige 40 poeng per rapport, uansett antall feiltreff. Dette gjelder summen av alle deductions fra denne mappingen."
+  }
+}

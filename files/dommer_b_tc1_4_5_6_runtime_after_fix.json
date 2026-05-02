@@ -1,0 +1,227 @@
+{
+  "1": {
+    "input_payload_used": {
+      "point_id": "5.1",
+      "point_label": "Loft (konstruksjonsoppbygging)",
+      "tg_grade": "TGIU",
+      "report_format": "unlabeled_prose",
+      "ns_version": "NS3600:2018",
+      "raw_point_text": "Loftkonstruksjonen er lukket, ingen tilkomst for vurdering av bygningsdelen.",
+      "extracted_fields": {
+        "aarsak": "",
+        "risiko": "",
+        "konsekvens": "",
+        "anbefalt_tiltak": ""
+      },
+      "report_context": {
+        "building_year": 1969,
+        "dwelling_type": "enebolig",
+        "building_method_summary": "Boligen er opprinnelig oppført i 1969, fundamentert med støpt gulv mot grunn og grunnmur/yttervegger av betong. Bindingsverkskonstruksjon i tre, utvendig kledd med stående og liggende trekledning. Takkonstruksjonen er utført som saltak, antatt med plassbygde sperrer i tre, og yttertaket er tekket med takshingel på undertak av rupanel.",
+        "relevant_component_context": "Saltak tekket med takshingel. Inspeksjonsluke i himling mellom soverom og gang var skrudd fast på befaringsdagen — ingen tilkomst til loftet. Undertaket antas å være av rupanel, alder ukjent. I relaterte punkter: 'grunnet manglende tilkomst kan ikke ventilering/lufting påvises å være tilstrekkelig'; 'undertak, taktekking og tilhørende deler er av ukjent alder, over halvparten av forventet bruks- og levetid er forbigått'. Bolig oppført 1969."
+      }
+    },
+    "result": {
+      "point_id": "5.1",
+      "tg_grade": "TGIU",
+      "field_results": {
+        "aarsak": {
+          "status": "NOT_APPLICABLE",
+          "error_type": null,
+          "explanation": ""
+        },
+        "risiko": {
+          "status": "NOT_APPLICABLE",
+          "error_type": null,
+          "explanation": ""
+        },
+        "konsekvens": {
+          "status": "NOT_APPLICABLE",
+          "error_type": null,
+          "explanation": ""
+        },
+        "anbefalt_tiltak": {
+          "status": "NOT_APPLICABLE",
+          "error_type": null,
+          "explanation": ""
+        }
+      },
+      "tgiu_findings": {
+        "findings": [
+          {
+            "error_type": "TGIU_MISSING_FURTHER_INVESTIGATION",
+            "explanation": "TGIU gitt uten anbefaling om ytterligere undersøkelser."
+          },
+          {
+            "error_type": "TGIU_MISSING_MOISTURE_FLAG",
+            "explanation": "Loft med ukjent alder og konstruksjonsusikkerhet krever omtale av fuktrisiko."
+          },
+          {
+            "error_type": "TGIU_MISSING_REASON",
+            "explanation": "Punktet forklarer ikke tydelig hvorfor inspeksjon ikke var mulig."
+          }
+        ]
+      },
+      "has_errors": true,
+      "used_llm": true
+    }
+  },
+  "4": {
+    "input_payload_used": {
+      "point_id": "1.2",
+      "point_label": "Krypekjeller",
+      "tg_grade": "TG2",
+      "report_format": "unlabeled_prose",
+      "ns_version": "NS3600:2018",
+      "raw_point_text": "Det er utført stikktaking i treverket. Luftgjennomstrømning og luftfuktighet, herunder fuktsperre mot grunn, høyde i rommet og ventiler mot yttervegg er vurdert som ikke tilfredsstillende. Boligen har kryprom under deler boligen, via tilkomst fra luke fra kjellerstue. I kryprom er det yttervegger av betong, etasjeskille i tre og synlig fjell mot grunn med oppfylte masser. Naturlig ventilering via lufteventil i grunnmur. Merknader: Det registreres saltutslag på yttervegger. Saltutslag dannes når fuktighet trenger gjennom murkonstruksjoner og transporterer saltmineraler ut til overflaten. Saltutslag skjer som oftest ved manglende eller sviktende drenering på utside. Tilstand gjeldende drenering er kommentert i pkt. 1.1. Fuktighet i krypkjeller med terreng bestående av fjell kan skyldes fordampning fra grunnen, vann som trekker inn fra terrenget, eller for lite lufting som ikke klarer å fjerne den oppbyggede fukten. Tiltak ved f.eks å forebygge fuktighet kan være å legge plastfolie over bakken for å stoppe fordampning, god ventilering eller installere en avfukter. Tomtens form og terrengforhold vil kunne gjøre rom som ligger under terreng sårbar for ytre fuktpåkjenninger. Det tolkes ut ifra terrengforhold at overvann/regnvann vil påvirke rom som ligger under terreng da terreng heller mot grunnmur.",
+      "extracted_fields": {
+        "aarsak": "",
+        "risiko": "",
+        "konsekvens": "",
+        "anbefalt_tiltak": ""
+      },
+      "report_context": {
+        "building_year": 1969,
+        "dwelling_type": "enebolig",
+        "building_method_summary": "Bolig oppført 1969. Deler av boligen har underetasje mot terreng og kryprom under deler av bygningen.",
+        "relevant_component_context": "Krypkjeller under deler av boligen, med tilkomst fra luke i kjellerstue. Observert saltutslag på yttervegger. Yttervegger av betong, etasjeskille i tre, synlig fjell mot grunn. Naturlig ventilering via lufteventil. Drenering er fra byggeår (ref. punkt 1.1). Bolig oppført 1969."
+      }
+    },
+    "result": {
+      "point_id": "1.2",
+      "tg_grade": "TG2",
+      "field_results": {
+        "aarsak": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "risiko": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "konsekvens": {
+          "status": "WRONG",
+          "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+          "explanation": "Beskriver kun tekniske prosesser uten å oversette til kjøperrelevans."
+        },
+        "anbefalt_tiltak": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        }
+      },
+      "tgiu_findings": {
+        "findings": []
+      },
+      "has_errors": true,
+      "used_llm": true
+    }
+  },
+  "5": {
+    "input_payload_used": {
+      "point_id": "7.2.2",
+      "point_label": "Vaskerom - u.etg, Overflate gulv",
+      "tg_grade": "TG3",
+      "report_format": "unlabeled_prose",
+      "ns_version": "NS3600:2018",
+      "raw_point_text": "Det er ikke påvist riss og sprekker. Det er påvist sprekker i fuger. Skjøter og underkant av plater på gulv er ikke inspisert. Det er påvist bom (hulrom) under fliser. Det er ikke påvist tilfredsstillende fall til sluket. Det er ikke påvist tilfredsstillende høydeforskjell fra toppen av sluket til toppen av membranen ved dørterskelen. Flislagt gulv med sluk i under utslagsvask. Fallforhold på gulv måles med krysslaser på tilgjengelige områder. Det er på tilfeldige områder kontrollert for sprekker, riss og hulrom. Merknader: Det registreres hulrom under flere fliser og det er påvist, eller det kan forventes skader som vil kunne kreve tiltak. Manglende høydeforskjell fra topp sluk til topp membran over ferdig gulv ved dør. Høydeforskjellen skal minimum være 25mm og er en avgrensning som skal hindre at bruks- og lekkasjevann ikke renner ut av våtrommet. Det måles tilnærmet flatt gulv og manglende fall rundt sluk. Bruks- og lekkasjevann vil ikke ledes tilstrekkelig mot sluk og kan bli liggende. Vann som eventuelt blir liggende vil gi slitasje på gulv og fuger, samt øke risiko for å skli på gulvet. Det måles stedvis motfall på gulv og det er fare for større vannsamlinger og tilstøtende bygningsdeler vil være utsatt dersom en lekkasje oppstår. TG3 settes da det er målt motfall på gulv mot toalett. Estimert utbedringskostnad må ses i sammenheng med punkt 7.2.3 Membran, da utbedring av fall normalt krever utskifting av membran og tilhørende overflater. Utbedringskostnaden vurderes som lav, jf. rapportens sjablonmessige kostnadsklasser.",
+      "extracted_fields": {
+        "aarsak": "",
+        "risiko": "",
+        "konsekvens": "",
+        "anbefalt_tiltak": ""
+      },
+      "report_context": {
+        "building_year": 1969,
+        "dwelling_type": "enebolig",
+        "building_method_summary": "Bolig oppført 1969. Vaskerom i underetasjen.",
+        "relevant_component_context": "Vaskerom i underetasjen med flislagt gulv. Sluk plassert under utslagsvask. Påvist motfall på gulv mot toalett, manglende høydeforskjell fra topp sluk til topp membran ved dørterskel, og hulrom under flere fliser. Kostnadsklasse: lav."
+      }
+    },
+    "result": {
+      "point_id": "7.2.2",
+      "tg_grade": "TG3",
+      "field_results": {
+        "aarsak": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "risiko": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "konsekvens": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "anbefalt_tiltak": {
+          "status": "MISSING",
+          "error_type": "MISSING (anbefalt_tiltak)",
+          "explanation": "Anbefalt tiltak-feltet er tomt og ingen tiltaksanbefaling finnes i punktteksten."
+        }
+      },
+      "tgiu_findings": {
+        "findings": []
+      },
+      "has_errors": true,
+      "used_llm": true
+    }
+  },
+  "6": {
+    "input_payload_used": {
+      "point_id": "nedlop-og-beslag",
+      "point_label": "Utvendig > Nedløp og beslag",
+      "tg_grade": "TG3",
+      "report_format": "compressed_mixed",
+      "ns_version": "NS3600:2018",
+      "raw_point_text": "Takrenner, nedløp og beslag av stål. Vurdering av avvik: Det mangler snøfangere på hele eller deler av taket, noe som var krav på byggemeldingstidspunktet. Mer enn halvparten av forventet brukstid er passert på renner/nedløp/beslag. Det er avvik: Det er flere områder med lekkasje fra skjøter i takrenner. Det er registrert flassing der hvor beslag er malt. Ufagmessige beslag på taktekke mot vegg ved garasjen og stålplater mot vegg mot øst. Det var på oppføringstidspunktet krav til snøfangere der hvor folk ferdes. Det er ikke montert snøfangere ved inngangen til boligen. Konsekvens/tiltak: Det må monteres snøfangere for å oppfylle byggeårets krav. Tiltak: Lekkasje i takrenner bør utbedres, og alle takrenner og beslag bør skiftes samtidig med taktekket for å sikre god funksjon og levetid. Manglende snøfangere ved inngang og andre områder der folk ferdes bør utbedres for å redusere risiko for personskade ved snø- og isras. Ufagmessige beslag på taktekke mot vegg og stålplater mot vegg mot øst bør utbedres for å hindre vanninntrenging og påfølgende fuktskader. Kostnadsestimat: 20 000 - 100 000",
+      "extracted_fields": {
+        "aarsak": "",
+        "risiko": "",
+        "konsekvens": "",
+        "anbefalt_tiltak": ""
+      },
+      "report_context": {
+        "building_year": 1978,
+        "dwelling_type": "enebolig",
+        "building_method_summary": "Enebolig oppført 1978. Takkonstruksjon med W-takstoler i tre, undertak av sutaksplater. Taktekking av betongtakstein, takfornying utført i 2017. Tilbygg 1998. Takrenner, nedløp og beslag av stål.",
+        "relevant_component_context": "Takrenner, nedløp og beslag av stål. Hovedtaket er originalt fra 1978, takfornying i 2017. Mer enn halvparten av forventet brukstid er passert. Kostnadsklasse: Tiltak mellom 20 000-100 000 kr."
+      }
+    },
+    "result": {
+      "point_id": "nedlop-og-beslag",
+      "tg_grade": "TG3",
+      "field_results": {
+        "aarsak": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "risiko": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "konsekvens": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        },
+        "anbefalt_tiltak": {
+          "status": "CORRECT",
+          "error_type": null,
+          "explanation": ""
+        }
+      },
+      "tgiu_findings": {
+        "findings": []
+      },
+      "has_errors": false,
+      "used_llm": true
+    }
+  }
+}

@@ -460,7 +460,6 @@ def build_prompt_context() -> str:
             "===== ORCHESTRATOR PIPELINE =====\n" + get_orchestrator_pipeline_text(),
             "===== ARKAT SEMANTIC RULES =====\n" + get_arkat_semantic_rules_text(),
             "===== REPORT FORMAT DETECTION =====\n" + get_report_format_detection_text(),
-            "===== ARKAT EVALUATION PIPELINE STEP =====\n" + get_arkat_evaluation_pipeline_step_text(),
             "===== ARKAT CANONICAL EXAMPLES =====\n" + get_arkat_canonical_examples_text(),
             "===== ACTIVE CONFIG =====\n" + json.dumps(get_active_config(), ensure_ascii=False, sort_keys=True),
             "===== CANONICAL POINTS (ACTIVE) =====\n" + json.dumps(get_canonical_points_v30(), ensure_ascii=False, sort_keys=True),
