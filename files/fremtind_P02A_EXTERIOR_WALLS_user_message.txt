@@ -1,0 +1,77 @@
+Evaluate this report point:
+
+Point: P02A_EXTERIOR_WALLS - Utvendig > Veggkonstruksjon
+Grade: TG2
+Report format: compressed_mixed
+Report standard: NS3600:2018
+
+This report point has not been split into ARKAT fields. From the full point text below, identify the takstmann's ÅRSAK, RISIKO, KONSEKVENS and ANBEFALT TILTAK content yourself, then evaluate each per the rules. If a component is genuinely absent from the text, mark it MISSING.
+
+Full point text:
+Veggkonstruksjon Kommentar Veggene har bindingsverkskonstruksjon fra byggeår. Fasade/kledning har stående bordkledning. Utvendig ble det malt for 3-4år siden. Vurdering av avvik:  Det er ingen eller liten lufting i nedre kant av kledning mot grunnmur.  Det er påvist spredte råteskader i bordkledningen. Det er registrert områder med råteskader i bunn av trekledning på de meste værutsatte fasadene mot sør og øst. stedvis. Stedvis områder hvor kledning har behov for vedlikehold. Det er begrenset luftespalte i bunn av trekledning. Manglende maling av forkantbord og vindskier med vedlikeholdsbehov. Konsekvens/tiltak  Råteskader i bordkledningen kan fortsette å utvikle seg både i tilliggende bordkledning og til bakenforliggende veggkonstruksjon, dersom en ikke foretar tiltak.  Uten tilstrekkelig lufting bak bordkledningen kan fuktighet som trenger inn bak bordene eller gjennom veggen innenfra ikke tørke opp. Dette skaper ideelle forhold for råtesopp og muggvekst. Råteskadet trekledning bør skiftes ut for å hindre videre skade på konstruksjonen. Det bør etableres tilstrekkelig lufting i nedre kant av kledningen for å redusere risikoen for fuktskader og råteutvikling. Det anbefales å skifte kledning på hele vegger, slik at det er mulig å skifte vindsperre, utbedre lufting og evt utføre etterisolering. Vedlikehold av kledningen bør utføres for å forlenge levetiden og sikre god beskyttelse mot vær og vind. Takkonstruksjon/Loft
+
+Report context:
+- building_year: 1978
+- dwelling_type: enebolig
+- building_method_summary: er kan alder alene avgjøre tilstandsgrad. Når bygningssakkyndige anbefaler tiltak, for eksempel utbedringer, må brukeren av rapporten vurdere om tiltakene er nødvendige og lønnsomme. Når den bygningssakkyndige velger tilstandsgrad, baseres vurderingen på faste kriterier som følger av gjeldende bransjestandard for Teknisk tilstandsanalyse ved omsetning av bolig og Forskrift til avhendingslova. TILSTANDSGRAD 0, TG0: INGEN AVVIK Bygningsdelen skal være tilnærmet ny, ikke vise tegn på slitasje og det skal være lagt frem dokumentasjon på faglig god utførelse. Det er ingen merknader til delen. TILSTANDSGRAD 1, TG1: MINDRE AVVIK Bygningsdelen skal bare ha normal slitasje, og strakstiltak skal ikke
+- relevant_component_context: P02A_EXTERIOR_WALLS Utvendig > Veggkonstruksjon. Veggkonstruksjon Kommentar Veggene har bindingsverkskonstruksjon fra byggeår. Fasade/kledning har stående bordkledning. Utvendig ble det malt for 3-4år siden. Vurdering av avvik:  Det er ingen eller liten lufting i nedre kant av kledning mot grunnmur.  Det er påvist spredte råteskader i bordkledningen. Det er registrert områder med råteskader i bunn av trekledning på de meste værutsatte fasadene mot sør og øst. stedvis. Stedvis områder hvor kledning har behov for vedlikehold. Det er begrenset luftespalte i bunn av trekledning. Manglende maling av forkantbord og vindskier med vedlikeholdsbehov. Konsekvens/tiltak  Råteskader i bordkledningen kan fortsette å utvikle seg både i tilliggende bordkledning og til bakenforliggende veggkonstruksjon, dersom en ikke foretar tiltak.  Uten tilstrekkelig lufting bak bordkledningen kan fuktighet som trenger inn bak bordene eller gjennom veggen innenfra ikke tørke opp. Dette skaper ideelle forhold for råtesopp og muggvekst. Råteskadet trekledning bør skiftes ut for å hindre videre skade på konstruksjonen. Det bør etableres tilstrekkelig lufting i nedre kant av kledningen for å redusere risikoen for fuktskader og råteutvikling. Det anbefales å s
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 1 — WRONG]
+Field: aarsak
+Text: Det registreres fuktmerker og råteskader i nedkant av kledning mot nord.
+Why wrong: Describes what the assessor observed, not why the defect occurred. An observation is not a cause.
+
+[EXAMPLE 1 — CORRECT]
+Text: Kledning mot nord er utsatt for langvarig fuktpåvirkning fra slagregn kombinert med utilstrekkelig luftspalte bak kledningen, noe som har ført til råteskader i nedkant av panelet.
+Why correct: Explains the mechanism behind the defect — moisture exposure combined with insufficient ventilation gap. Answers 'why has this happened?'
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 2 — WRONG]
+Field: risiko
+Text: Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.
+Why wrong: Describes an inspection limitation, not a building risk. The assessor's inability to see the component is not the risk — what could happen to the building is the risk.
+
+[EXAMPLE 2 — CORRECT]
+Text: Eldre drenering med usikker restlevetid kan miste evnen til å lede overflatevann bort fra grunnmuren. Dersom funksjonen svikter, øker belastningen på grunnmur og fundamenter.
+Why correct: Describes what could happen to the building component if the defect is not addressed. Future-oriented, conditional, not a methodology limitation.
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 3 — WRONG]
+Field: konsekvens
+Text: Vann mot vegg kan trenge inn gjennom grunnmur, fundament eller kjellervegger.
+Why wrong: Beskriver bare en teknisk mulig skadeutvikling i bygningsdelene. Kjøper får ingen forklaring på hvilke kostnader, plikter eller praktiske følger dette innebærer.
+
+[EXAMPLE 3 — CORRECT]
+Text: Kjøper overtar en eiendom der terrenget under terrassen leder vann mot konstruksjonen. Dette er et påvist avvik som må utbedres, og kjøper må påregne kostnader til planering og eventuell dreneringstiltak.
+Why correct: Gjør avviket forståelig for kjøper ved å koble det til konkret utbedringsbehov og forventede kostnader.
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 4 — WRONG]
+Field: anbefalt_tiltak
+Text: Berederen er fra 2013 og har passert halvparten av forventet levetid på 20 år. Det er viktig at berederen skiftes før den svikter.
+Why wrong: The first sentence repeats the cause/age context already stated in Årsak. The second sentence is a general statement, not a concrete next step.
+
+[EXAMPLE 4 — CORRECT]
+Text: Sjekk jevnlig sikkerhetsventil og koblinger for tegn til korrosjon eller lekkasje. Planlegg utskifting av varmtvannsbereder innen de nærmeste årene.
+Why correct: Two concrete next steps — immediate inspection and planned replacement. No repetition of cause or risk.
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:

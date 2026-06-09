@@ -1,11 +1,158 @@
 import pdfplumber
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
+
+_PDF_FOOTER_LINE_RE = re.compile(
+    r"(?ix)^\s*(?:"
+    r"Ingeni[øo]r\s+H[åa]vard\s+Hansen\s+AS|"
+    r"Lundestadtoppen\s+2A|"
+    r"Berjmannsveien\s+16C.*|"
+    r"Gnr\s+\d+.*|"
+    r"\d{4}\s+FREDRIKSTAD|"
+    r"Oppdragsnr\.?\s*:.*|"
+    r"Befaringsdato\s*:.*|"
+    r"Side\s*:\s*\d+\s+av\s+\d+(?:\s+\d{1,3})?.*|"
+    r"\d{1,3}\s+av\s+\d{1,3}|"
+    r"\d{1,3}"
+    r")\s*$"
+)
+_TRAILING_FOOTER_DATE_RE = re.compile(r"(?m)\s+\b\d{1,2}\.\d{1,2}\.\d{4}\b\s*$")
+
+
+def _normalize_pdf_text_artifacts(text: str) -> str:
+    """Repair common broken PDF text-layer artifacts before analysis."""
+    if not text:
+        return ""
+    glyph_replacements = {
+        "琀椀": "ti",
+        "琀昀": "tf",
+        "昀氀": "fl",
+        "昀琀": "ft",
+        "琀琀": "tt",
+        "昀昀": "ff",
+        "昀樀": "fj",
+        "琀": "t",
+        "椀": "i",
+        "昀": "f",
+        "氀": "l",
+        "樀": "j",
+    }
+    for old, new in glyph_replacements.items():
+        text = text.replace(old, new)
+    replacements = (
+        (r"\blstand\b", "tilstand"),
+        (r"\bLstand\b", "Tilstand"),
+        (r"\blstrekkelig\b", "tilstrekkelig"),
+        (r"\bLstrekkelig\b", "Tilstrekkelig"),
+        (r"\bfukghet\b", "fuktighet"),
+        (r"\bFukghet\b", "Fuktighet"),
+        (r"\buoere\b", "utfoere"),
+        (r"\bUoere\b", "Utfoere"),
+        (r"\bskies\b", "skiftes"),
+        (r"\bSkies\b", "Skiftes"),
+        (r"\bleved\b", "levetid"),
+        (r"\bLeved\b", "Levetid"),
+        (r"\btltak\b", "tiltak"),
+        (r"\bTltak\b", "Tiltak"),
+        (r"\bltak\b", "tiltak"),
+        (r"\bLtak\b", "Tiltak"),
+    )
+    out = text
+    for pattern, replacement in replacements:
+        out = re.sub(pattern, replacement, out)
+    return _TRAILING_FOOTER_DATE_RE.sub("", out)
+
+
+def _strip_pdf_footer_lines(text: str) -> str:
+    lines = []
+    for line in str(text or "").splitlines():
+        cleaned = line.strip()
+        if not cleaned:
+            lines.append(line)
+            continue
+        if _PDF_FOOTER_LINE_RE.match(cleaned):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
 class PDFExtractor:
     """Extract text from PDF files using pdfplumber - ensures ALL pages, appendices, and images are processed"""
+
+    @staticmethod
+    def _words_to_lines(words: List[Dict[str, object]]) -> str:
+        if not words:
+            return ""
+        ordered = sorted(words, key=lambda w: (float(w.get("top") or 0), float(w.get("x0") or 0)))
+        line_groups: List[Tuple[float, List[Dict[str, object]]]] = []
+        for word in ordered:
+            top = float(word.get("top") or 0)
+            if not line_groups or abs(top - line_groups[-1][0]) > 3.5:
+                line_groups.append((top, [word]))
+            else:
+                line_groups[-1][1].append(word)
+        lines: List[str] = []
+        for _, group in line_groups:
+            group = sorted(group, key=lambda w: float(w.get("x0") or 0))
+            line = " ".join(str(w.get("text") or "").strip() for w in group if str(w.get("text") or "").strip())
+            if line:
+                lines.append(line)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _detect_two_column_split(words: List[Dict[str, object]], page_width: float) -> Optional[float]:
+        if len(words) < 80 or page_width <= 0:
+            return None
+        centers = sorted((float(w.get("x0") or 0) + float(w.get("x1") or 0)) / 2 for w in words)
+        min_edge = page_width * 0.18
+        max_edge = page_width * 0.82
+        best_gap = 0.0
+        best_split = None
+        for left, right in zip(centers, centers[1:]):
+            split = (left + right) / 2
+            gap = right - left
+            if split < min_edge or split > max_edge:
+                continue
+            left_count = sum(1 for center in centers if center < split)
+            right_count = len(centers) - left_count
+            if min(left_count, right_count) < len(centers) * 0.22:
+                continue
+            if gap > best_gap:
+                best_gap = gap
+                best_split = split
+        if best_split is None or best_gap < max(20.0, page_width * 0.035):
+            return None
+        return best_split
+
+    @staticmethod
+    def _extract_page_text_reading_order(page) -> str:
+        words = page.extract_words(
+            x_tolerance=1,
+            y_tolerance=3,
+            keep_blank_chars=False,
+            use_text_flow=False,
+        )
+        if not words:
+            return page.extract_text() or ""
+        page_width = float(getattr(page, "width", 0) or 0)
+        split_x = PDFExtractor._detect_two_column_split(words, page_width)
+        if split_x is None:
+            text = PDFExtractor._words_to_lines(words)
+        else:
+            left_words = [w for w in words if (float(w.get("x0") or 0) + float(w.get("x1") or 0)) / 2 < split_x]
+            right_words = [w for w in words if (float(w.get("x0") or 0) + float(w.get("x1") or 0)) / 2 >= split_x]
+            text = "\n".join(
+                part
+                for part in (
+                    PDFExtractor._words_to_lines(left_words),
+                    PDFExtractor._words_to_lines(right_words),
+                )
+                if part.strip()
+            )
+        return _strip_pdf_footer_lines(_normalize_pdf_text_artifacts(text))
     
     @staticmethod
     def _validate_pdf_file(pdf_file) -> None:
@@ -74,7 +221,7 @@ class PDFExtractor:
                 logger.info(f"Processing PDF with {total_pages} total pages")
                 
                 for page_num, page in enumerate(pdf.pages, 1):
-                    page_text = page.extract_text()
+                    page_text = PDFExtractor._extract_page_text_reading_order(page)
                     
                     # Extract tables if present
                     tables = page.extract_tables()
@@ -84,6 +231,7 @@ class PDFExtractor:
                             for row in table:
                                 if row:
                                     table_text += " | ".join([str(cell) if cell else "" for cell in row]) + "\n"
+                    table_text = _strip_pdf_footer_lines(_normalize_pdf_text_artifacts(table_text))
                     
                     # Combine page text and table text
                     combined_text = ""
@@ -193,4 +341,3 @@ Full dokumentanalyse: {'JA' if page_count == total_pages else 'NEI'}
                 "images_detected": 0,
                 "full_document_available": False
             }
-

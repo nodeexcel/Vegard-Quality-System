@@ -1,13 +1,16 @@
-Dommer B Test Set v1.0
-Generated: 2026-04-22
+Dommer B Test Set v1.3
+Generated: 2026-05-25
 Purpose: Validation fasit for Atul after Dommer B revision implementation.
+v1.1: Aligns consequence expectations with Dommer B prompt v8. Case 9 konsekvens changed from TECHNICAL_DEVELOPMENT_AS_KONSEKVENS to CORRECT; Case 7 annotation updated to v8 rationale.
+v1.2: Internal consistency fixes — Case 7 has_errors corrected true to false (all four fields are CORRECT, no tgiu findings); summary table row 9 aligned to detailed case 9 (5 points / MISSING (anbefalt_tiltak)); stale parenthetical removed from summary table row 7; test case count corrected 7 to 9.
+v1.3: Case 8 fasit corrected per ARKAT ruling — risiko CORRECT to MISSING (risiko) (extracted_fields.risiko empty and raw_point_text contains no forward-looking risiko statement); konsekvens CORRECT to WRONG / TILTAK_AS_KONSEKVENS (combined "Konsekvens/Anbefalte tiltak" field is tiltak content, not a følge); has_errors false to true; case 8 deductions 0 to 7; test set total 30 to 37. Cases 4, 6, 9 risiko mismatches reviewed against the pipeline LLM run — fasit confirmed CORRECT (LLM over-fired risiko error types, no fasit change). Case 9 annotation's contrast-with-case-8 paragraph rewritten to match the corrected case 8 fasit; case 4 konsekvens explanation reworded to the v8 følge-definition (functional loss / damage / reduced lifespan / investigation need / cost risk).
 Overview
-This test set contains 7 test cases covering all major branches of the Dommer B evaluation logic. Each test case provides:
+This test set contains 9 test cases covering all major branches of the Dommer B evaluation logic. Each test case provides:
 Input: Exact JSON structure that should be passed to Dommer B
 Expected output: The fasit that Dommer B's output must match
 Rationale: Why the classification was chosen
 Deduction total: Points that Dommer A should calculate from the output via mapping
-After Atul implements the revision, he runs Dommer B against these 7 inputs and verifies output matches the fasit.
+After Atul implements the revision, he runs Dommer B against these 9 inputs and verifies output matches the fasit.
 Principles established during test set construction
 TGIU-begrunnelse kreves i selve punktet. `report_context` kan ikke redde et dårlig formulert punkt.
 `report_context` kan trigge moisture_flag-indikatorer (risikovurdering av konstruksjonen), men ikke redde punkt-formulering.
@@ -27,10 +30,10 @@ Test case summary
 4	Halden	1.2 Krypekjeller	TG2	unlabeled_prose	2018	9	MISSING (konsekvens)
 5	Halden	7.2.2 Vaskerom gulv	TG3	unlabeled_prose	2018	5	MISSING (anbefalt_tiltak)
 6	Fredrikstad	Nedløp og beslag	TG3	compressed_mixed	2018	0	All correct
-7	Fredrikstad	Veggkonstruksjon	TG2	compressed_mixed	2018	0	All correct (buyer-relevant konsekvens via "dersom ikke tiltak foretas")
-8	Synthetic (2025)	Etasjeskille/gulv	TG2	structured_arkat	2025	0	All correct, vague tiltak acceptable
-9	Synthetic (2025)	Generic TG2	TG2	structured_arkat	2025	7	TECHNICAL konsekvens + MISSING (anbefalt_tiltak) under 2025 rules
-Total deductions across test set: 32 points
+7	Fredrikstad	Veggkonstruksjon	TG2	compressed_mixed	2018	0	All correct
+8	Synthetic (2025)	Etasjeskille/gulv	TG2	structured_arkat	2025	7	MISSING (risiko) + TILTAK_AS_KONSEKVENS in combined field
+9	Synthetic (2025)	Generic TG2	TG2	structured_arkat	2025	5	MISSING (anbefalt_tiltak) under 2025 rules
+Total deductions across test set: 37 points
 Rule coverage
 Rule	Test case
 TGIU mode selection	1
@@ -53,6 +56,8 @@ Compressed_mixed semantic extraction	6, 7
 Structured_arkat with combined "Konsekvens/Anbefalte tiltak" label	8, 9
 Risiko embedded in Konsekvens/tiltak field	6
 Kostnadsklasse as konsekvens coverage	6
+MISSING (risiko)	8
+TILTAK_AS_KONSEKVENS	8
 NS version selection	1-7 (2018), 8-9 (2025)
 Test cases
 Test case 1 — Halden 5.1 Loft (TGIU)
@@ -227,7 +232,7 @@ Expected output:
     "konsekvens": {
       "status": "MISSING",
       "error_type": "MISSING (konsekvens)",
-      "explanation": "Punktet beskriver årsak, risiko og mulige tiltak, men formidler ikke kjøperrelevant konsekvens — hva dette faktisk betyr for kjøper i form av kostnad, bruksbegrensning eller fremtidig forpliktelse."
+      "explanation": "Punktet beskriver årsak, risiko og mulige tiltak, men formidler ikke hvilken faktisk følge forholdet kan få for bygningsdelen eller kjøperen, som skade, råte, redusert levetid, funksjonstap, undersøkelsesbehov eller kostnadsrisiko."
     },
     "anbefalt_tiltak": { "status": "CORRECT", "error_type": null, "explanation": "" }
   },
@@ -363,13 +368,13 @@ Expected output:
     "anbefalt_tiltak": { "status": "CORRECT", "error_type": null, "explanation": "" }
   },
   "tgiu_findings": { "findings": [] },
-  "has_errors": true
+  "has_errors": false
 }
 ```
 Deductions: 0 points
-Annotation: Viser at konsekvens er kjøperorientert når teksten formidler kjøperforpliktelse via fraser som "dersom en ikke foretar tiltak". Selv om teksten også inneholder teknisk skadebeskrivelse ("råteskader kan fortsette å utvikle seg"), er den implisitte forpliktelsen om at noen må handle tilstrekkelig til å gjøre konsekvensen kjøperrelevant. Dette er en viktig grensedragning: betinget språk ("dersom ikke tiltak foretas") kombinert med teknisk beskrivelse gir fortsatt CORRECT konsekvens. Bare tekst som er rent teknisk uten noen form for kjøperdimensjon (kostnad, bruk, sikkerhet, forpliktelse) skal flagges som TECHNICAL_DEVELOPMENT_AS_KONSEKVENS eller MISSING.
+Annotation: Konsekvens er CORRECT fordi teksten beskriver en faktisk skadefølge — råte- og skadeutvikling kan fortsette inn i bakenforliggende veggkonstruksjon. Etter v8 kreves ikke eksplisitt kjøper-, kostnads- eller bruksformulering når teksten beskriver en faktisk følge.
 Test case 8 — Synthetic NS 3600:2025 Etasjeskille/gulv på grunn (TG2)
-Purpose: Tests that TG2 points under NS 3600:2025 with vague-but-acceptable tiltak formulations pass as CORRECT. This test case is based on a real report excerpt where the takstmann wrote: "For å få lavere tilstandsgrad må høydeforskjeller rettes opp. Det vil imidlertid sjelden være økonomisk rasjonert som et enkeltstående tiltak i en bolig som dette. Dersom boligen en gang skal renoveres, kan man vurdere slike tiltak." This is a legitimate TG2 tiltak formulation under NS 3600:2025 because the standard allows "tiltak in nær fremtid" — not immediate action.
+Purpose: Tests a structured_arkat TG2 point under NS 3600:2025 on two axes — (1) vague-but-acceptable tiltak ("kan man vurdere slike tiltak") is professionally acceptable at TG2 and anbefalt_tiltak stays CORRECT; (2) the combined "Konsekvens/Anbefalte tiltak" field carries only tiltak content, so konsekvens fires TILTAK_AS_KONSEKVENS, and no forward-looking risiko statement exists in extracted_fields.risiko or raw_point_text, so risiko fires MISSING (risiko). This test case is based on a real report excerpt where the takstmann wrote: "For å få lavere tilstandsgrad må høydeforskjeller rettes opp. Det vil imidlertid sjelden være økonomisk rasjonert som et enkeltstående tiltak i en bolig som dette. Dersom boligen en gang skal renoveres, kan man vurdere slike tiltak." This is a legitimate TG2 tiltak formulation under NS 3600:2025 because the standard allows "tiltak in nær fremtid" — not immediate action.
 Input:
 ```json
 {
@@ -400,19 +405,27 @@ Expected output:
   "tg_grade": "TG2",
   "field_results": {
     "aarsak": { "status": "CORRECT", "error_type": null, "explanation": "" },
-    "risiko": { "status": "CORRECT", "error_type": null, "explanation": "" },
-    "konsekvens": { "status": "CORRECT", "error_type": null, "explanation": "" },
+    "risiko": {
+      "status": "MISSING",
+      "error_type": "MISSING (risiko)",
+      "explanation": "Verken extracted_fields.risiko eller raw_point_text inneholder en fremtidsrettet risikovurdering — punktet har kun observasjon/måling, TG-begrunnelse og tiltakstekst."
+    },
+    "konsekvens": {
+      "status": "WRONG",
+      "error_type": "TILTAK_AS_KONSEKVENS",
+      "explanation": "Konsekvens-feltet beskriver hva som må gjøres for å få lavere tilstandsgrad (et tiltak), ikke hvilken følge høydeforskjellene har for kjøper eller bygningsdelen."
+    },
     "anbefalt_tiltak": { "status": "CORRECT", "error_type": null, "explanation": "" }
   },
   "tgiu_findings": { "findings": [] },
-  "has_errors": false
+  "has_errors": true
 }
 ```
-Deductions: 0 points
-Annotation — why this is CORRECT despite vague tiltak:
-Under NS 3600:2025 + TG2, anbefalt_tiltak IS required. Here the tiltak is present but formulated vaguely ("kan man vurdere slike tiltak"). Under strict TG3 logic this would fire TILTAK_VAGUE_WITHOUT_NECESSITY. But this is TG2, not TG3. The hard rule in the prompt states: "TILTAK_VAGUE_WITHOUT_NECESSITY fyrer KUN ved TG3". At TG2, vague tiltak formulations are professionally acceptable because TG2 allows "tiltak in nær fremtid" — not immediate action. The takstmann here correctly notes that utbedring is not economically rational as a standalone measure, but can be considered as part of future renovation. This is a realistic and faglig forsvarlig TG2 evaluation.
-Risiko field note: Risiko is not explicitly filled in extracted_fields, but the aarsak field ("Høydeforskjellen er utenfor toleransekrav") combined with konsekvens ("For å få lavere tilstandsgrad må høydeforskjeller rettes opp") implicitly captures the risk dimension. Under structured_arkat with explicit label "Konsekvens/Anbefalte tiltak" as a combined field and implicit risk context, Dommer B should accept this as CORRECT for risiko. This is a grensetilfelle: a strict reading would flag MISSING (risiko), but a flexible reading accepts the implicit coverage. Locking CORRECT here reflects the principle established in test case 6 that combined fields can satisfy multiple ARKAT components when the content is present — applied here to a report format where risk is structurally implicit rather than labeled.
-Alternative valid interpretation: A reviewer could reasonably assign `MISSING (risiko)` for this point instead. If Dommer B's output differs from the fasit only on this field, treat it as acceptable drift — not a regression. The testcase is primarily intended to validate the version-dependent TG2 tiltak rule, not to be strict on risiko classification.
+Deductions: MISSING (risiko) 5 + TILTAK_AS_KONSEKVENS 2 = 7 points
+Annotation:
+anbefalt_tiltak (CORRECT): Under NS 3600:2025 + TG2, anbefalt_tiltak IS required. Here the tiltak is present but formulated vaguely ("kan man vurdere slike tiltak"). Under strict TG3 logic this would fire TILTAK_VAGUE_WITHOUT_NECESSITY. But this is TG2, not TG3. The hard rule in the prompt states: "TILTAK_VAGUE_WITHOUT_NECESSITY fyrer KUN ved TG3". At TG2, vague tiltak formulations are professionally acceptable because TG2 allows "tiltak in nær fremtid" — not immediate action. The takstmann here correctly notes that utbedring is not economically rational as a standalone measure, but can be considered as part of future renovation. This is a realistic and faglig forsvarlig TG2 evaluation.
+risiko (MISSING (risiko)): extracted_fields.risiko er tomt. raw_point_text inneholder bare observasjon/måling ("15-18 mm høydeforskjell ... utenfor toleransekrav"), en TG-begrunnelse ("TG2 gis med bakgrunn i standardens krav til godkjente måleavvik") og tiltakstekst. Ingen setning beskriver hva høydeforskjellen kan føre til videre — det finnes ingen fremtidsrettet risikovurdering. Dommer B skal ikke redde et tomt risiko-felt med faglig utfylling fra egen modellforståelse; en fraværende risikosetning er MISSING (risiko), ikke CORRECT. Dette skiller seg fra test case 6, der fremtidsrettet risikoinnhold ("for å hindre vanninntrenging og påfølgende fuktskader") faktisk finnes, om enn innbakt i tiltakssetninger.
+konsekvens (WRONG / TILTAK_AS_KONSEKVENS): Det kombinerte "Konsekvens/Anbefalte tiltak"-feltet sier "For å få lavere tilstandsgrad må høydeforskjeller rettes opp" pluss den økonomiske rasjonaliteten ved tiltaket. Dette beskriver hva som må gjøres, ikke hvilken følge høydeforskjellen har for kjøper eller bygningsdelen. Tiltaksinnhold i et konsekvens-felt utløser TILTAK_AS_KONSEKVENS. anbefalt_tiltak forblir CORRECT — samme tiltakstanke er en gyldig formulering i tiltaks-feltet (se avsnittet over).
 Test case 9 — Synthetic NS 3600:2025 TG2 with missing tiltak
 Purpose: Tests that under NS 3600:2025, if the takstmann provides TG2 without any tiltak field at all, Dommer B fires MISSING (anbefalt_tiltak) — even at TG2. This validates the core version-dependent rule that is the reason for this entire spec update.
 Input:
@@ -446,11 +459,7 @@ Expected output:
   "field_results": {
     "aarsak": { "status": "CORRECT", "error_type": null, "explanation": "" },
     "risiko": { "status": "CORRECT", "error_type": null, "explanation": "" },
-    "konsekvens": {
-      "status": "WRONG",
-      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
-      "explanation": "Teksten beskriver egenskaper ved vinduene (redusert energieffektivitet, punktering, estetiske problemer) uten å oversette til kjøperrelevans som kostnad eller konkret forpliktelse."
-    },
+    "konsekvens": { "status": "CORRECT", "error_type": null, "explanation": "" },
     "anbefalt_tiltak": {
       "status": "MISSING",
       "error_type": "MISSING (anbefalt_tiltak)",
@@ -461,12 +470,12 @@ Expected output:
   "has_errors": true
 }
 ```
-Deductions: TECHNICAL_DEVELOPMENT_AS_KONSEKVENS (2 points) + MISSING (anbefalt_tiltak) under NS3600:2025 TG2 (5 points) = 7 points
-Annotation — why konsekvens fires TECHNICAL and tiltak fires MISSING:
-Two separate issues in this testcase:
-Konsekvens is TECHNICAL_DEVELOPMENT_AS_KONSEKVENS: The text "Vinduer som har passert 20 år kan føre til redusert energieffektivitet, punktering og estetiske problemer" lists effects on the window itself (properties of the building component), not consequences for the buyer. A correct konsekvens would translate these technical effects into buyer language — for example: "Kjøper må påregne høyere oppvarmingskostnader på grunn av redusert isolering, samt at utskifting av enkelte vinduer kan bli nødvendig innen kort tid." The current text stops at describing the window's technical state without connecting it to what the buyer must plan for.
+Deductions: MISSING (anbefalt_tiltak) under NS3600:2025 TG2 = 5 points
+Annotation — why konsekvens is CORRECT and tiltak fires MISSING:
+Two separate fields in this testcase:
+Konsekvens is CORRECT: The text "Vinduer som har passert 20 år kan føre til redusert energieffektivitet" describes an actual følge — functional loss through reduced energy efficiency. Per the v8 threshold, a konsekvens does not need to explicitly state cost, buyer obligation, or use impact when it describes a real consequence such as functional loss, damage, reduced lifespan, or reduced performance. A more buyer-oriented formulation ("dette kan gi varmetap, dårligere komfort og økte energikostnader") would be stronger, but the threshold for CORRECT is whether an actual følge is described — not whether the wording is optimal.
 Anbefalt_tiltak is MISSING under NS3600:2025 TG2: Under NS 3600:2018, the same point with missing tiltak would have status NOT_APPLICABLE and produce 0 points. But under NS 3600:2025, tiltak is required at TG2, so MISSING (anbefalt_tiltak) fires.
-Contrast with test case 8 (Etasjeskille): TC8 konsekvens is CORRECT despite using vague language because the text includes: "Det vil imidlertid sjelden være økonomisk rasjonert som et enkeltstående tiltak i en bolig som dette. Dersom boligen en gang skal renoveres, kan man vurdere slike tiltak." This provides actual buyer guidance: "you don't need to prioritize this as a standalone measure — include it in future renovations." The buyer-relevant advice makes it CORRECT. TC9 lacks equivalent buyer guidance — it only describes window properties.
+Contrast with test case 8 (Etasjeskille): TC8 is different because the combined "Konsekvens/Anbefalte tiltak" field contains only tiltak content — what must be done to lower the condition grade, whether it is economically rational as a standalone measure, and that it can be considered during future renovation. It does not describe a consequence/følge of the height differences. Therefore TC8 konsekvens is WRONG / TILTAK_AS_KONSEKVENS, while TC9 konsekvens is CORRECT because "redusert energieffektivitet" describes an actual functional loss.
 Critical verification for scoring layer: Dommer A's scoring layer must respect the version-dependent applies_to rule in the mapping file. If the pipeline incorrectly passes NS3600:2018 for this report, the scoring layer would (correctly) ignore the MISSING (anbefalt_tiltak) error type at TG2 — even if Dommer B had (incorrectly) emitted it. The two-layer defense: Dommer B should not emit MISSING at TG2 under NS3600:2018 in the first place (the prompt hard rule), but if it does by mistake, Dommer A's applies_to lookup would catch it. This is defensive design.
 Contrast with test case 3 (Halden 1.1 TG2 under NS3600:2018): Halden 1.1 had anbefalt_tiltak present ("Det anbefales å montere topplist..."), which is why it passed as CORRECT. If Halden 1.1 had been on a NS 3600:2025 report and the takstmann had NOT written any tiltak, MISSING would have fired — even though the takstmann technically met the NS 3600:2018 requirement by omitting tiltak. This is the core behavioral change introduced by NS 3600:2025.
 Validation procedure for Atul
@@ -475,4 +484,4 @@ For each test case, construct the input JSON exactly as specified
 Call Dommer B with the input
 Compare output to the expected output
 Differences are regressions — investigate and fix before proceeding
-If all 7 test cases pass, Dommer B meets the revised specification.
+If all 9 test cases pass, Dommer B meets the revised specification.

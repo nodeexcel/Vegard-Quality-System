@@ -13,7 +13,7 @@ from app.auth import get_current_admin, create_access_token, verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas import ReportResponse, ComponentBase, FindingBase
 from app.config import settings
-from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence, run_segmentation_trace, build_feedback_v11, get_validated_detected_points_payload, postprocess_analysis_output
+from app.services.ai_analyzer import AIAnalyzer, IncompleteAnalysisError, ensure_analysis_evidence, run_segmentation_trace, build_feedback_v11, get_validated_detected_points_payload, postprocess_analysis_output, sanitize_bmtf_public_point_taxonomy_payload
 
 logger = logging.getLogger(__name__)
 

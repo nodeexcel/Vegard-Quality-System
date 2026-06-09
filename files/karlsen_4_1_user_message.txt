@@ -1,0 +1,77 @@
+Evaluate this report point:
+
+Point: 4.1 - Takkonstruksjon, taktekking og skorstein over tak
+Grade: TG2
+Report format: unlabeled_prose
+Report standard: NS3600:2018
+
+This report point has not been split into ARKAT fields. From the full point text below, identify the takstmann's ÅRSAK, RISIKO, KONSEKVENS and ANBEFALT TILTAK content yourself, then evaluate each per the rules. If a component is genuinely absent from the text, mark it MISSING.
+
+Full point text:
+TG 2 4.1 Takkonstruksjon, taktekking og skorstein over tak Saltakkonstruksjon antatt oppført med plassbygde sperrer i tre, utvendig tekket med takshingel. -Det er etablert inspeksjonsluke i himling mellom soverom og gang, men denne var skrudd fast på befaringsdagen. -Grunnet manglende tilkomst for vurdering av konstruksjonen, begrenser vurderingen seg til byggemåte, alder og forhold Merknader: -Grunnet manglende tilkomst, kan ikke ventilering/lufting påvises å være tilstrekkelig -Konstruksjonen er oppført etter eldre prinsipper, som fraviker fra dagens standard til dimensjonering, isolasjonsmengde og ventilering/lufting 4.1 Takkonstruksjon, taktekking og skorstein over tak mstr.no 22/26 www.bmtf.no
+
+Report context:
+- building_year: 1969
+- dwelling_type: enebolig
+- building_method_summary: Boligen er opprinnelig oppført i 1969 og er fundamentert med støpt gulv mot grunn og grunnmur/yttervegger av betong. Bygningen er oppført med bindingsverkskonstruksjon i tre og utvendig kledd med stående og liggende trekledning. Etasjeskillere er i trekonstruksjon. Takkonstruksjonen er utført som saltak, antatt med plassbygde sperrer i tre, og yttertaket er tekket med takshingel på undertak av rupanel. Deler av boligen har underetasje mot terreng og kryprom under deler av bygningen. Vinduer er av varierende alder og utførelse, hovedsakelig med malte trekarmer og 1- og 2-lags glass. Bygningen er oppført etter byggeskikk og løsninger som var vanlige på oppføringstidspunktet, og enkelte konstru
+- relevant_component_context: 4.1 Takkonstruksjon, taktekking og skorstein over tak. TG 2 4.1 Takkonstruksjon, taktekking og skorstein over tak Saltakkonstruksjon antatt oppført med plassbygde sperrer i tre, utvendig tekket med takshingel. -Det er etablert inspeksjonsluke i himling mellom soverom og gang, men denne var skrudd fast på befaringsdagen. -Grunnet manglende tilkomst for vurdering av konstruksjonen, begrenser vurderingen seg til byggemåte, alder og forhold Merknader: -Grunnet manglende tilkomst, kan ikke ventilering/lufting påvises å være tilstrekkelig -Konstruksjonen er oppført etter eldre prinsipper, som fraviker fra dagens standard til dimensjonering, isolasjonsmengde og ventilering/lufting 4.1 Takkonstruksjon, taktekking og skorstein over tak mstr.no 22/26 www.bmtf.no Rapportdato: 2026-04-15.
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 1 — WRONG]
+Field: aarsak
+Text: Det registreres fuktmerker og råteskader i nedkant av kledning mot nord.
+Why wrong: Describes what the assessor observed, not why the defect occurred. An observation is not a cause.
+
+[EXAMPLE 1 — CORRECT]
+Text: Kledning mot nord er utsatt for langvarig fuktpåvirkning fra slagregn kombinert med utilstrekkelig luftspalte bak kledningen, noe som har ført til råteskader i nedkant av panelet.
+Why correct: Explains the mechanism behind the defect — moisture exposure combined with insufficient ventilation gap. Answers 'why has this happened?'
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 2 — WRONG]
+Field: risiko
+Text: Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.
+Why wrong: Describes an inspection limitation, not a building risk. The assessor's inability to see the component is not the risk — what could happen to the building is the risk.
+
+[EXAMPLE 2 — CORRECT]
+Text: Eldre drenering med usikker restlevetid kan miste evnen til å lede overflatevann bort fra grunnmuren. Dersom funksjonen svikter, øker belastningen på grunnmur og fundamenter.
+Why correct: Describes what could happen to the building component if the defect is not addressed. Future-oriented, conditional, not a methodology limitation.
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 3 — WRONG]
+Field: konsekvens
+Text: Vann mot vegg kan trenge inn gjennom grunnmur, fundament eller kjellervegger.
+Why wrong: Beskriver bare en teknisk mulig skadeutvikling i bygningsdelene. Kjøper får ingen forklaring på hvilke kostnader, plikter eller praktiske følger dette innebærer.
+
+[EXAMPLE 3 — CORRECT]
+Text: Kjøper overtar en eiendom der terrenget under terrassen leder vann mot konstruksjonen. Dette er et påvist avvik som må utbedres, og kjøper må påregne kostnader til planering og eventuell dreneringstiltak.
+Why correct: Gjør avviket forståelig for kjøper ved å koble det til konkret utbedringsbehov og forventede kostnader.
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:
+
+Here are examples of correct and incorrect ARKAT usage for reference:
+
+[EXAMPLE 4 — WRONG]
+Field: anbefalt_tiltak
+Text: Berederen er fra 2013 og har passert halvparten av forventet levetid på 20 år. Det er viktig at berederen skiftes før den svikter.
+Why wrong: The first sentence repeats the cause/age context already stated in Årsak. The second sentence is a general statement, not a concrete next step.
+
+[EXAMPLE 4 — CORRECT]
+Text: Sjekk jevnlig sikkerhetsventil og koblinger for tegn til korrosjon eller lekkasje. Planlegg utskifting av varmtvannsbereder innen de nærmeste årene.
+Why correct: Two concrete next steps — immediate inspection and planned replacement. No repetition of cause or risk.
+
+[EXAMPLE 2 ...]
+
+Now evaluate the following point using these rules:

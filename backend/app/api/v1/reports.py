@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import logging
 import io
 import hashlib
+import json
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +25,7 @@ from app.services.ai_analyzer import (
     IncompleteAnalysisError,
     normalize_scoring_output,
     postprocess_analysis_output,
+    sanitize_bmtf_public_point_taxonomy_payload,
     write_run_exports,
 )
 from app.services.analysis_cache import get_cached_analysis, upsert_analysis_cache
@@ -42,6 +44,14 @@ if settings.USE_SQS_PROCESSING:
     from app.services.sqs_processor import SQSProcessor
 
 logger = logging.getLogger(__name__)
+
+
+def _public_bmtf_payload(payload: Optional[dict], extracted_text: str) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return payload
+    copied = json.loads(json.dumps(payload, ensure_ascii=False))
+    return sanitize_bmtf_public_point_taxonomy_payload(copied, extracted_text or "")
+
 
 router = APIRouter()
 
@@ -92,8 +102,8 @@ def _process_report_in_background(
             document_hash=document_hash,
             scoring_model_sha=scoring_model_info.get("sha256"),
             pipeline_git_sha=_get_pipeline_cache_sha(),
-            detected_points=detected_points_payload,
-            scoring_result=scoring_result_payload,
+            detected_points=_public_bmtf_payload(detected_points_payload, extracted_text),
+            scoring_result=_public_bmtf_payload(scoring_result_payload, extracted_text),
             ai_analysis=full_analysis,
         )
         write_run_exports(document_hash, full_analysis, detected_points_payload, scoring_result_payload)
@@ -548,8 +558,8 @@ async def upload_report(
                 document_hash=document_hash,
                 scoring_model_sha=scoring_model_info.get("sha256"),
                 pipeline_git_sha=_get_pipeline_cache_sha(),
-                detected_points=detected_points_payload,
-                scoring_result=scoring_result_payload,
+                detected_points=_public_bmtf_payload(detected_points_payload, extracted_text),
+                scoring_result=_public_bmtf_payload(scoring_result_payload, extracted_text),
                 ai_analysis=analysis_output,
             )
             write_run_exports(document_hash, analysis_output, detected_points_payload, scoring_result_payload)
@@ -589,8 +599,8 @@ async def upload_report(
                 components=components_data,
                 findings=findings_data,
                 ai_analysis=report.ai_analysis,
-                detected_points=report.detected_points,
-                scoring_result=report.scoring_result,
+                detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
+                scoring_result=_public_bmtf_payload(report.scoring_result, report.extracted_text or ""),
                 status=report.status,
                 message=None,
             )
@@ -704,7 +714,7 @@ async def upload_report(
                 components=[],
                 findings=[],
                 ai_analysis=report.ai_analysis,
-                detected_points=report.detected_points,
+                detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
                 scoring_result=None,
                 status=report.status,
                 message=e.message,
@@ -726,8 +736,8 @@ async def upload_report(
             document_hash=document_hash,
             scoring_model_sha=scoring_model_info.get("sha256"),
             pipeline_git_sha=_get_pipeline_cache_sha(),
-            detected_points=detected_points_payload,
-            scoring_result=scoring_result_payload,
+            detected_points=_public_bmtf_payload(detected_points_payload, extracted_text),
+            scoring_result=_public_bmtf_payload(scoring_result_payload, extracted_text),
             ai_analysis=full_analysis,
         )
         write_run_exports(document_hash, full_analysis, detected_points_payload, scoring_result_payload)
@@ -828,8 +838,8 @@ async def upload_report(
             components=components_data,
             findings=findings_data,
             ai_analysis=report.ai_analysis,
-            detected_points=report.detected_points,
-            scoring_result=report.scoring_result,
+            detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
+            scoring_result=_public_bmtf_payload(report.scoring_result, report.extracted_text or ""),
             status=report.status,
             message=None,
         )
@@ -955,8 +965,8 @@ async def get_report(
         components=components_data,
         findings=findings_data,
         ai_analysis=ai_analysis_payload,
-        detected_points=report.detected_points,
-        scoring_result=scoring_result_out,
+        detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
+        scoring_result=_public_bmtf_payload(scoring_result_out, report.extracted_text or ""),
         extracted_text=report.extracted_text,
         status=report.status,
         message=None,
@@ -1011,8 +1021,8 @@ async def list_reports(
             components=components_data,
             findings=findings_data,
             ai_analysis=report.ai_analysis,
-            detected_points=report.detected_points,
-            scoring_result=report.scoring_result,
+            detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
+            scoring_result=_public_bmtf_payload(report.scoring_result, report.extracted_text or ""),
             status=report.status,
             message=None,
         ))
@@ -1107,8 +1117,8 @@ async def update_report_analysis(
                 document_hash=document_hash,
                 scoring_model_sha=scoring_model_info.get("sha256"),
                 pipeline_git_sha=_get_pipeline_cache_sha(),
-                detected_points=validated_detected_points,
-                scoring_result=scoring_result_payload,
+                detected_points=_public_bmtf_payload(validated_detected_points, extracted_text),
+                scoring_result=_public_bmtf_payload(scoring_result_payload, extracted_text),
                 ai_analysis=ai_analysis_payload,
             )
             write_run_exports(document_hash, ai_analysis_payload, validated_detected_points or {}, scoring_result_payload or {})

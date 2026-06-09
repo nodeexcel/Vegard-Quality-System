@@ -1,0 +1,514 @@
+{
+  "generated_at": "2026-05-25T13:40:38.692653+00:00",
+  "source_of_truth_markdown": "files/dommer_b_test_set_v1.md",
+  "mapping_source": "files/arkat_error_to_deduction_mapping_v1.1.0.json",
+  "prompt_source": "files/dommer_b_system_prompt_v6.md (content is Dommer B prompt v8; also embedded in arkat_evaluation_pipeline_step.json)",
+  "totals": {
+    "expected_markdown_mapping": 30,
+    "predicted": 30,
+    "cases_matching_markdown": 9,
+    "case_count": 9
+  },
+  "note": "Generated from deterministic Dommer B regression runner after v1.1 governance sync. Execution sheet legacy totals are intentionally not used.",
+  "cases": [
+    {
+      "case_id": 1,
+      "point_id": "5.1",
+      "matched_expected_output": true,
+      "expected_deductions": 11,
+      "predicted_deductions": 11,
+      "expected_deduction_rows": [
+        {
+          "field": "tgiu",
+          "error_type": "TGIU_MISSING_REASON",
+          "points": 4
+        },
+        {
+          "field": "tgiu",
+          "error_type": "TGIU_MISSING_FURTHER_INVESTIGATION",
+          "points": 4
+        },
+        {
+          "field": "tgiu",
+          "error_type": "TGIU_MISSING_MOISTURE_FLAG",
+          "points": 3
+        }
+      ],
+      "predicted_deduction_rows": [
+        {
+          "field": "tgiu",
+          "error_type": "TGIU_MISSING_REASON",
+          "points": 4
+        },
+        {
+          "field": "tgiu",
+          "error_type": "TGIU_MISSING_FURTHER_INVESTIGATION",
+          "points": 4
+        },
+        {
+          "field": "tgiu",
+          "error_type": "TGIU_MISSING_MOISTURE_FLAG",
+          "points": 3
+        }
+      ],
+      "expected_field_results": {
+        "aarsak": [
+          "NOT_APPLICABLE",
+          null
+        ],
+        "risiko": [
+          "NOT_APPLICABLE",
+          null
+        ],
+        "konsekvens": [
+          "NOT_APPLICABLE",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "NOT_APPLICABLE",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "NOT_APPLICABLE",
+          null
+        ],
+        "risiko": [
+          "NOT_APPLICABLE",
+          null
+        ],
+        "konsekvens": [
+          "NOT_APPLICABLE",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "NOT_APPLICABLE",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [
+        "TGIU_MISSING_FURTHER_INVESTIGATION",
+        "TGIU_MISSING_MOISTURE_FLAG",
+        "TGIU_MISSING_REASON"
+      ],
+      "actual_tgiu_findings": [
+        "TGIU_MISSING_FURTHER_INVESTIGATION",
+        "TGIU_MISSING_MOISTURE_FLAG",
+        "TGIU_MISSING_REASON"
+      ]
+    },
+    {
+      "case_id": 2,
+      "point_id": "2.1",
+      "matched_expected_output": true,
+      "expected_deductions": 0,
+      "predicted_deductions": 0,
+      "expected_deduction_rows": [],
+      "predicted_deduction_rows": [],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 3,
+      "point_id": "1.1",
+      "matched_expected_output": true,
+      "expected_deductions": 0,
+      "predicted_deductions": 0,
+      "expected_deduction_rows": [],
+      "predicted_deduction_rows": [],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 4,
+      "point_id": "1.2",
+      "matched_expected_output": true,
+      "expected_deductions": 9,
+      "predicted_deductions": 9,
+      "expected_deduction_rows": [
+        {
+          "field": "konsekvens",
+          "error_type": "MISSING (konsekvens)",
+          "points": 9
+        }
+      ],
+      "predicted_deduction_rows": [
+        {
+          "field": "konsekvens",
+          "error_type": "MISSING (konsekvens)",
+          "points": 9
+        }
+      ],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "MISSING",
+          "MISSING (konsekvens)"
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "MISSING",
+          "MISSING (konsekvens)"
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 5,
+      "point_id": "7.2.2",
+      "matched_expected_output": true,
+      "expected_deductions": 5,
+      "predicted_deductions": 5,
+      "expected_deduction_rows": [
+        {
+          "field": "anbefalt_tiltak",
+          "error_type": "MISSING (anbefalt_tiltak)",
+          "points": 5
+        }
+      ],
+      "predicted_deduction_rows": [
+        {
+          "field": "anbefalt_tiltak",
+          "error_type": "MISSING (anbefalt_tiltak)",
+          "points": 5
+        }
+      ],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "MISSING",
+          "MISSING (anbefalt_tiltak)"
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "MISSING",
+          "MISSING (anbefalt_tiltak)"
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 6,
+      "point_id": "nedlop-og-beslag",
+      "matched_expected_output": true,
+      "expected_deductions": 0,
+      "predicted_deductions": 0,
+      "expected_deduction_rows": [],
+      "predicted_deduction_rows": [],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 7,
+      "point_id": "veggkonstruksjon",
+      "matched_expected_output": true,
+      "expected_deductions": 0,
+      "predicted_deductions": 0,
+      "expected_deduction_rows": [],
+      "predicted_deduction_rows": [],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 8,
+      "point_id": "etasjeskille-gulv-2025",
+      "matched_expected_output": true,
+      "expected_deductions": 0,
+      "predicted_deductions": 0,
+      "expected_deduction_rows": [],
+      "predicted_deduction_rows": [],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "CORRECT",
+          null
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    },
+    {
+      "case_id": 9,
+      "point_id": "vinduer-2025-no-tiltak",
+      "matched_expected_output": true,
+      "expected_deductions": 5,
+      "predicted_deductions": 5,
+      "expected_deduction_rows": [
+        {
+          "field": "anbefalt_tiltak",
+          "error_type": "MISSING (anbefalt_tiltak)",
+          "points": 5
+        }
+      ],
+      "predicted_deduction_rows": [
+        {
+          "field": "anbefalt_tiltak",
+          "error_type": "MISSING (anbefalt_tiltak)",
+          "points": 5
+        }
+      ],
+      "expected_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "MISSING",
+          "MISSING (anbefalt_tiltak)"
+        ]
+      },
+      "actual_field_results": {
+        "aarsak": [
+          "CORRECT",
+          null
+        ],
+        "risiko": [
+          "CORRECT",
+          null
+        ],
+        "konsekvens": [
+          "CORRECT",
+          null
+        ],
+        "anbefalt_tiltak": [
+          "MISSING",
+          "MISSING (anbefalt_tiltak)"
+        ]
+      },
+      "expected_tgiu_findings": [],
+      "actual_tgiu_findings": []
+    }
+  ]
+}

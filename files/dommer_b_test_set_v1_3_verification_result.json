@@ -1,0 +1,155 @@
+{
+  "generated_at_utc": "2026-06-01T07:35:20Z",
+  "artifact_status": "LLM_MISMATCHES_PRESENT",
+  "provenance": {
+    "source_of_truth_markdown": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_test_set_v1_3.md",
+    "prompt_source": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_system_prompt_v11.md",
+    "mapping_source": "/home/ubuntu/Quality/Vegard-Quality-System/files/arkat_error_to_deduction_mapping_v1_1_0.json",
+    "semantic_rules_source": "/home/ubuntu/Quality/Vegard-Quality-System/files/arkat_semantic_rules_v1_2_2.json"
+  },
+  "prompt_first_two_lines": [
+    "Du er en kvalitetsevaluator for norske tilstandsrapporter. Din eneste oppgave er å vurdere ARKAT-feltene i ett rapportpunkt mot strukturelle regler. Du returnerer et JSON-objekt med vurderingen din. Ikke legg til kommentarer utenfor JSON-strukturen.",
+    "Versjon 8: Synkroniserer promptens error-type-katalog med mapping-filen (21 → 24 typer). Utvider KONSEKVENS-seksjonen fra 3 til 6 error-typer (legger til TILTAK_AS_KONSEKVENS, RISIKO_AS_KONSEKVENS, LIMITATION_AS_KONSEKVENS). Presiserer skillet mellom konsekvens, teknisk skadeutvikling, risiko og tiltak. Legger inn kontekstregel for \"følgeskader\"."
+  ],
+  "prompt_version_lines": [
+    "Versjon 8: Synkroniserer promptens error-type-katalog med mapping-filen (21 → 24 typer). Utvider KONSEKVENS-seksjonen fra 3 til 6 error-typer (legger til TILTAK_AS_KONSEKVENS, RISIKO_AS_KONSEKVENS, LIMITATION_AS_KONSEKVENS). Presiserer skillet mellom konsekvens, teknisk skadeutvikling, risiko og tiltak. Legger inn kontekstregel for \"følgeskader\".",
+    "Versjon 9: Styrker RISIKO-seksjonen. Legger til «Regel for blandede felt» som krever at alt risiko-relevant innhold vurderes samlet (parallelt med KONSEKVENS). Legger til eksplisitt «hele feltet»-vakt på CONSEQUENCE_AS_RISIKO og PRESENT_STATE_AS_RISIKO, slik AARSAK_AS_RISIKO allerede har. Legger til KRITISK-note: observasjon/måling/TG-begrunnelse/tiltakstekst alene er ikke risiko, og fraværende risikosetning gir MISSING (risiko). Harmoniserer terminologi i RISIKO-seksjonen: «bygg-risiko»/«byggrisiko» erstattet med «bygningsteknisk risiko».",
+    "Versjon 10: Gjør «hele feltet»-vurderingen aktiv og generell. Ny TYPE-FULLSTENDIGHETSSKANNING: før en type-forvekslings-feil (X_AS_Y) fyres, må hele feltet skannes klausul for klausul, og feilen fyrer kun hvis INGEN klausul noe sted er av riktig type. Generaliserer «hele feltet»-vakten fra risiko til også aarsak (OBSERVATION_AS_AARSAK/RISK_AS_AARSAK), og forankrer den i EVALUERINGSPROSEDYRE og final-sjekk. Ingen endring i error-type-katalogen, output-skjemaet eller konsekvens-terskelen.",
+    "Versjon 11: Legger til aktiv final-sjekk for status = NOT_APPLICABLE på anbefalt_tiltak. Før NOT_APPLICABLE godtas må modellen bekrefte at INGEN tiltaksformulering finnes noe sted i raw_point_text; finner den ved ny gjennomlesing en tiltakssetning, endres status til CORRECT. Parallelt med v10s X_AS_Y final-sjekk. Ingen endring i andre regler eller schema."
+  ],
+  "mapping_check": {
+    "version": "1.1.0",
+    "konsekvens_entry_count": 6,
+    "konsekvens_entries": [
+      "LIMITATION_AS_KONSEKVENS",
+      "MISSING (konsekvens)",
+      "PURE_DUPLICATION",
+      "RISIKO_AS_KONSEKVENS",
+      "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "TILTAK_AS_KONSEKVENS"
+    ],
+    "has_24_type_konsekvens_entries": true
+  },
+  "semantic_rules_check": {
+    "version": "1.2.2",
+    "anbefalt_tiltak_missing_mentions_tg2_2025": true
+  },
+  "deterministic_regression": {
+    "runner_type": "deterministic local evaluator",
+    "llm_called": false,
+    "case_count": 9,
+    "passed": 9,
+    "failed": 0,
+    "mismatches": []
+  },
+  "llm_regression": {
+    "runner_type": "Dommer B LLM output with production-safe normalization",
+    "normalization_note": "Scores raw_model_json_output after schema cleanup, invalid error-type rejection and TGIU backstops; published-fasit/spec regression guards are not applied.",
+    "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+    "case_count": 9,
+    "llm_called_all_cases": true,
+    "passed": 8,
+    "failed": 1,
+    "mismatches": [
+      {
+        "case_id": 4,
+        "point_id": "1.2",
+        "llm_called": true,
+        "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+        "expected_pairs": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "konsekvens": {
+            "status": "MISSING",
+            "error_type": "MISSING (konsekvens)"
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null
+          }
+        },
+        "dommer_b_pairs": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null
+          }
+        },
+        "raw_model_pairs": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null
+          }
+        },
+        "expected_has_errors": true,
+        "dommer_b_has_errors": false,
+        "error": null
+      }
+    ],
+    "raw_outputs_file": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_test_set_v1_3_llm_raw_outputs.json",
+    "routing_user_message_dumps": {
+      "case_6": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_case_6_contract_user_message_v10.txt",
+      "case_8": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_case_8_contract_user_message_v10.txt"
+    }
+  },
+  "real_reports": {
+    "note": "Existing rerun artifacts prepared for client handoff.",
+    "reports": [
+      {
+        "path": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_real_report_1806_full.json",
+        "document_title": "E3-Horten-02.03.26.pdf",
+        "document_id": "1806",
+        "rerun_at_utc": "2026-05-30T09:09:21Z",
+        "score_total": 54,
+        "technical_development_as_konsekvens_findings": 1,
+        "top_issue_ids": [
+          "L-BU-01",
+          "A_ARKAT_1_3_KONSEKVENS_MISSING_KONSEKVENS",
+          "A_ARKAT_10_2_KONSEKVENS_MISSING_KONSEKVENS"
+        ]
+      },
+      {
+        "path": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_real_report_1807_full.json",
+        "document_title": "fremtind-fredrikstad-03.03.26 (1).pdf",
+        "document_id": "1807",
+        "rerun_at_utc": "2026-05-30T09:13:00Z",
+        "score_total": 50,
+        "technical_development_as_konsekvens_findings": 1,
+        "top_issue_ids": [
+          "A_ARKAT_TG3_MISSING_FULL",
+          "A_KONSEKVENS_NOT_BUYER_ORIENTED",
+          "L-BU-01"
+        ]
+      }
+    ]
+  }
+}

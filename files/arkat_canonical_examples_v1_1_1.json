@@ -1,0 +1,530 @@
+{
+  "meta": {
+    "name": "arkat_canonical_examples",
+    "version": "1.1.1",
+    "description": "Canonical few-shot examples for RAG retrieval during ARKAT semantic evaluation. Each entry contains a real or realistic report excerpt, its error classification, and a corrected version. The RAG system should retrieve the most relevant examples based on error_type and field tags before the evaluation LLM call. v1.1.1 changes: rewrote CE-008, CE-011, CE-012 so WRONG-texts are pure technical-process-without-endpoint and CORRECT-texts demonstrate valid bygningsteknisk følge (synchronized with KONSEKVENS-TERSKEL in system_prompt_validert v1.10 and dommer_b v12). Updated pre_screening_signals.konsekvens to remove triggers on words that are valid følge (råtner, svikter, uten kjøper, ingen kjøperkonsekvens) — now only flags genuine uten-endepunkt-patterns. Added valid_consequence_signals_do_not_flag as positive markers. Hotfix: CE-019 why_correct updated to reference v1.10/v12 instead of v1.9/v11. Third hotfix: language-cleanup — translated why_wrong/why_correct in CE-001, CE-002, CE-004, CE-005, CE-006, CE-013, CE-014 from English to Norwegian for consistency with rest of file. Removed 'uten kjøperkonsekvens' rester in V1.10 (rekkverk-section and tilbakemelding-section). Second hotfix: CE-010 rewritten — WRONG-text no longer contains tvetydig 'redusert tetthet' setting; why_wrong reformulated to Norwegian without requiring explicit kjøperperspektiv-oversettelse; CORRECT-text updated to clear bygningsteknisk følge formulation matching KONSEKVENS-TERSKEL.",
+    "retrieval_key": "error_type + field — retrieve 2-3 examples per field being evaluated",
+    "language": "Norwegian — all examples are in Norwegian as they appear in real reports"
+  },
+  "examples": [
+    {
+      "id": "CE-001",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Yttervegger og kledning",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Årsak",
+        "text": "Det registreres fuktmerker og råteskader i nedkant av kledning mot nord.",
+        "why_wrong": "Beskriver hva takstmannen observerte, ikke hvorfor avviket har oppstått. En observasjon er ikke en årsak."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Kledning mot nord er utsatt for langvarig fuktpåvirkning fra slagregn kombinert med utilstrekkelig luftspalte bak kledningen, noe som har ført til råteskader i nedkant av panelet.",
+        "why_correct": "Forklarer mekanismen bak avviket — langvarig fuktpåvirkning kombinert med utilstrekkelig luftspalte. Svarer på 'hvorfor har dette oppstått?'"
+      },
+      "retrieval_tags": [
+        "observation",
+        "registreres",
+        "råteskader",
+        "kledning",
+        "aarsak"
+      ]
+    },
+    {
+      "id": "CE-002",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Våtrom — overflate vegger",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Årsak",
+        "text": "TG3 vurderes da det er et hull i flis mot yttervegg i våtsonen.",
+        "why_wrong": "Beskriver hva som ble funnet (et hull i flisen), ikke hvorfor det har oppstått. Formuleringen 'TG3 vurderes da' fulgt av en observasjon er et klassisk mønster på OBSERVATION_AS_AARSAK."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Det er et hull i flisvegg mot yttervegg i våtsonen. Årsaken er ikke kjent, men hullet er sannsynligvis etter en tidligere ventilasjonsvifte som er fjernet uten at veggen er tettet.",
+        "why_correct": "Beskriver observasjonen, og gir deretter en kausal forklaring. Anerkjenner usikkerhet der det er relevant."
+      },
+      "retrieval_tags": [
+        "hull",
+        "flis",
+        "våtsone",
+        "TG3 vurderes da",
+        "observation",
+        "aarsak"
+      ]
+    },
+    {
+      "id": "CE-004",
+      "error_type": "LIMITATION_USED_AS_RISK_SUBSTITUTE",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Drenering",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.",
+        "why_wrong": "Beskriver en undersøkelsesbegrensning, ikke en bygningsteknisk risiko. At takstmannen ikke kan inspisere bygningsdelen er ikke risikoen — risikoen er hva som kan skje med konstruksjonen."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Eldre drenering med usikker restlevetid kan miste evnen til å lede overflatevann bort fra grunnmuren. Dersom funksjonen svikter, øker belastningen på grunnmur og fundamenter.",
+        "why_correct": "Beskriver hva som kan skje med bygningsdelen dersom avviket ikke utbedres. Fremtidsrettet, betinget formulering, ikke en metodebegrensning."
+      },
+      "retrieval_tags": [
+        "drenering",
+        "ikke synlig",
+        "inspeksjon",
+        "begrensning",
+        "risiko",
+        "limitation"
+      ]
+    },
+    {
+      "id": "CE-005",
+      "error_type": "PRESENT_STATE_AS_RISIKO",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Yttervegger og kledning",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Kledningen mister evnen til å beskytte bygget mot regn, vind og frost.",
+        "why_wrong": "Beskriver kledningens nåtilstand (den mister allerede beskyttelsesfunksjonen), ikke hva som kan skje dersom avviket ikke utbedres. Nåtidsformulering om gjeldende tilstand hører hjemme i Årsak eller observasjon, ikke i Risiko."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Dersom skadet kledning ikke skiftes, kan fukt trenge gjennom vindsperre og inn i bærende veggkonstruksjon, noe som kan gi betydelig dyrere skader enn selve kledningsutskiftingen.",
+        "why_correct": "Beskriver en mulig fremtidig utvikling i betinget form. Svarer på 'hva kan skje videre dersom dette ikke utbedres?'"
+      },
+      "retrieval_tags": [
+        "kledning",
+        "mister evnen",
+        "nåtid",
+        "risiko",
+        "present_state"
+      ]
+    },
+    {
+      "id": "CE-006",
+      "error_type": "CONSEQUENCE_AS_RISIKO",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Ventilasjon",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Vinduet slipper ut varme når det står åpent, særlig om vinteren. Dette øker strømforbruk og reduserer energieffektivitet.",
+        "why_wrong": "Økt strømforbruk og redusert energieffektivitet er gjeldende, praktiske kjøperkonsekvenser — ikke en beskrivelse av hva som kan skje med bygningen dersom avviket vedvarer. Slikt innhold hører i Konsekvens, ikke i Risiko."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Uten tilstrekkelig kontrollert tilluft kan luftkvaliteten i rommet bli utilfredsstillende, og kondensproblemer kan oppstå på kalde flater om vinteren.",
+        "why_correct": "Beskriver hva som kan skje med inneklimaet dersom ventilasjonsproblemet ikke utbedres. Fremtidsrettet og betinget."
+      },
+      "retrieval_tags": [
+        "ventilasjon",
+        "strømforbruk",
+        "kjøperkonsekvens",
+        "risiko",
+        "consequence_as_risk"
+      ]
+    },
+    {
+      "id": "CE-008",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Drenering",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Dersom dreneringen ikke fungerer tilfredsstillende, kan vann trenge inn i konstruksjonen.",
+        "why_wrong": "Beskriver kun en teknisk utviklingsvei (vann som trenger inn) uten å oppgi faktisk følge. Setningen stopper for tidlig — den oppgir verken bygningsteknisk endepunkt (skade, råte, redusert levetid) eller kjøperrelevant konsekvens."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Dersom dreneringen ikke fungerer tilfredsstillende, kan det føre til fuktskader på kjellervegger og innvendige rom.",
+        "why_correct": "Tilfører konkret bygningsteknisk følge: fuktskader på spesifikke bygningsdeler (kjellervegger, innvendige rom). Per KONSEKVENS-TERSKEL er kjøperdimensjonen tilstrekkelig implisitt når en faktisk følge er beskrevet."
+      },
+      "retrieval_tags": [
+        "drenering",
+        "vann trenger inn",
+        "fuktskader",
+        "kjellervegger",
+        "konsekvens",
+        "technical_development",
+        "bygningsteknisk følge"
+      ]
+    },
+    {
+      "id": "CE-009",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Terrengforhold",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Vann mot vegg kan trenge inn gjennom grunnmur, fundament eller kjellervegger.",
+        "why_wrong": "Beskriver bare en teknisk mulig skadeutvikling i bygningsdelene. Kjøper får ingen forklaring på hvilke kostnader, plikter eller praktiske følger dette innebærer."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Kjøper overtar en eiendom der terrenget under terrassen leder vann mot konstruksjonen. Dette er et påvist avvik som må utbedres, og kjøper må påregne kostnader til planering og eventuell dreneringstiltak.",
+        "why_correct": "Gjør avviket forståelig for kjøper ved å koble det til konkret utbedringsbehov og forventede kostnader."
+      },
+      "retrieval_tags": [
+        "terreng",
+        "kan trenge inn",
+        "grunnmur",
+        "konsekvens",
+        "technical_development",
+        "manglende kjøperrelevans"
+      ]
+    },
+    {
+      "id": "CE-010",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Taktekking og undertak",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Mose holder på fukt og kan føre til at mer vann trenger ned til undertaket.",
+        "why_wrong": "Beskriver kun en teknisk utviklingsvei — at fukt og vann kan påvirke undertaket — uten å oppgi faktisk følge. Setningen stopper for tidlig: den sier ikke hva utviklingen ender med (råte, lekkasjeskader, redusert levetid, funksjonssvikt)."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Mose og aldrende taktekking kan føre til redusert levetid for taktekkingen og økt fare for lekkasjeskader i undertaket.",
+        "why_correct": "Tilfører konkrete bygningstekniske følger: redusert levetid for taktekkingen og økt fare for lekkasjeskader. Per KONSEKVENS-TERSKEL i system_prompt_validert v1.10 og dommer B v12 er kjøperdimensjonen tilstrekkelig implisitt når faktisk følge er beskrevet."
+      },
+      "retrieval_tags": [
+        "taktekking",
+        "undertak",
+        "mose",
+        "fukt",
+        "redusert levetid",
+        "lekkasjeskader",
+        "konsekvens",
+        "technical_development",
+        "bygningsteknisk følge"
+      ]
+    },
+    {
+      "id": "CE-011",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Yttervegger og kledning",
+      "tg_grade": "TG3",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Fukt kan trekke videre inn i vindsperre, lekter og bærende konstruksjon.",
+        "why_wrong": "Beskriver kun en skadevei — hvordan fukten beveger seg gjennom konstruksjonslagene — uten å oppgi hva dette fører til. Setningen stopper før den sier hva utviklingen ender i (råte, redusert bæreevne, lekkasje, etc.)."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Fukt kan trekke videre inn i vindsperre, lekter og bærende konstruksjon, og kan gi råteskader og redusert bæreevne over tid.",
+        "why_correct": "Tilfører konkret bygningsteknisk følge: råteskader og redusert bæreevne. Skadeveien beskrives, men det er endepunktet som gjør setningen til gyldig konsekvens. Per KONSEKVENS-TERSKEL er kjøperdimensjonen tilstrekkelig implisitt når faktisk følge er beskrevet."
+      },
+      "retrieval_tags": [
+        "yttervegg",
+        "kledning",
+        "fukt trekker inn",
+        "vindsperre",
+        "råteskader",
+        "redusert bæreevne",
+        "konsekvens",
+        "technical_development"
+      ]
+    },
+    {
+      "id": "CE-012",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Ventilasjon",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Kulde fra åpent vindu trekker inn i underetasjen.",
+        "why_wrong": "Beskriver kun en fysisk situasjon (kulde som trekker inn) uten å oppgi følgen. Sier ikke hva dette betyr — verken bygningsteknisk skade, redusert komfort eller økonomisk konsekvens."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Stuen i underetasjen har ikke tilfredsstillende tilluft uten at vindu åpnes. Dette fører til økte oppvarmingskostnader om vinteren og redusert komfort for beboerne.",
+        "why_correct": "Tilfører konkrete følger: økte oppvarmingskostnader (kjøperrelevant økonomisk) og redusert komfort (bruks-/inneklimarelevant). Begge er gyldige følger per KONSEKVENS-TERSKEL."
+      },
+      "retrieval_tags": [
+        "ventilasjon",
+        "vindu",
+        "tilluft",
+        "oppvarmingskostnader",
+        "redusert komfort",
+        "konsekvens",
+        "technical_development"
+      ]
+    },
+    {
+      "id": "CE-013",
+      "error_type": "EXPLANATION_AS_TILTAK",
+      "field": "anbefalt_tiltak",
+      "building_component": "Varmtvannsbereder",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Anbefalt tiltak",
+        "text": "Berederen er fra 2013 og har passert halvparten av forventet levetid på 20 år. Det er viktig at berederen skiftes før den svikter.",
+        "why_wrong": "Første setning gjentar årsaks-/alderskonteksten som allerede er beskrevet i Årsak. Andre setning er en generell uttalelse, ikke et konkret neste skritt."
+      },
+      "correct": {
+        "label": "Anbefalt tiltak",
+        "text": "Sjekk jevnlig sikkerhetsventil og koblinger for tegn til korrosjon eller lekkasje. Planlegg utskifting av varmtvannsbereder innen de nærmeste årene.",
+        "why_correct": "To konkrete neste skritt — umiddelbar kontroll og planlagt utskifting. Ingen gjentakelse av årsak eller risiko."
+      },
+      "retrieval_tags": [
+        "varmtvannsbereder",
+        "bereder",
+        "levetid",
+        "tiltak",
+        "explanation_as_tiltak"
+      ]
+    },
+    {
+      "id": "CE-014",
+      "error_type": "TILTAK_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "building_component": "Balkonger og terrasser — compressed format",
+      "tg_grade": "TG2",
+      "report_format": "compressed_mixed",
+      "wrong": {
+        "label": "Konsekvens/tiltak",
+        "text": "Det bør foretas nærmere undersøkelser av balkong/terrasser når den er snøfri. Rekkverket bør vedlikeholdes og utbedres. Årsaken til skjevheten i platten må lokaliseres og utbedres.",
+        "why_wrong": "The field contains only recommended actions (\"bør foretas\", \"bør vedlikeholdes\", \"må lokaliseres\"). No buyer consequence or building-technical følge is described — only what someone should do about the defect. This is TILTAK_AS_KONSEKVENS: recommended action placed in the consequence field instead of describing the actual følge."
+      },
+      "correct": {
+        "label": "Konsekvens/tiltak",
+        "text": "Kjøper overtar en terrasse med påviste avvik (avflosset maling på rekkverk, skjevhet i plate, løst terrassebord) som krever oppfølging. Rekkverk med avflosset maling bør utbedres og vedlikeholdes. Skjevheten i platen bør undersøkes nærmere for å avklare om det er bevegelse i underlaget.",
+        "why_correct": "Innleder med hva kjøper overtar og hva det betyr, og går deretter over i konkrete neste skritt. Både Konsekvens og Tiltak er dekket i samme samlede felt."
+      },
+      "retrieval_tags": [
+        "terrasse",
+        "balkong",
+        "konsekvens/tiltak",
+        "compressed",
+        "tiltak_as_konsekvens"
+      ]
+    },
+    {
+      "id": "CE-015",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Rom under terreng — gulv",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Årsak",
+        "text": "Det registreres saltutslag på betonggulv i kjeller.",
+        "why_wrong": "Beskriver kun det observerte symptomet (saltutslag) uten å forklare hvorfor det har oppstått. Observasjon av selve avviket er ikke årsak."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Ved manglende fuktsperre mot grunn kan det oppstå kapilæroppsug, og dette gir saltutslag som blir synlig fra overside av betongen.",
+        "why_correct": "Identifiserer en konkret mangel i konstruksjonen (manglende fuktsperre) som forklarer kausalt hvorfor det observerte avviket (saltutslag) har oppstått. En observasjon kan være gyldig årsak når den identifiserer en MANGEL eller FEIL UTFØRELSE som har forårsaket avviket — i motsetning til en observasjon av selve symptomet."
+      },
+      "retrieval_tags": [
+        "manglende fuktsperre",
+        "kapilæroppsug",
+        "saltutslag",
+        "betonggulv",
+        "rom under terreng",
+        "observasjon-av-rot-tilstand",
+        "aarsak"
+      ]
+    },
+    {
+      "id": "CE-016",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Grunnmur og terrengforhold",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Årsak",
+        "text": "Det er påvist fuktmerker i underkant av kledningen.",
+        "why_wrong": "Beskriver det observerte symptomet (fuktmerker), ikke rotsaken. Hvorfor fukten har kommet dit er ikke forklart."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Terrengfall ved muren gir mulighet for vanninnsig som over tid kan svekke grunnmuren.",
+        "why_correct": "Terrengfall er den fysiske rot-tilstanden som forårsaker fuktbelastningen. Den kausale relasjonen er eksplisitt formulert ('gir mulighet for'). Observasjon av en konkret feilutforming i konstruksjonen eller terrenget regnes som gyldig årsak."
+      },
+      "retrieval_tags": [
+        "terrengfall",
+        "vanninnsig",
+        "grunnmur",
+        "fuktbelastning",
+        "observasjon-av-rot-tilstand",
+        "aarsak"
+      ]
+    },
+    {
+      "id": "CE-017",
+      "error_type": "CONSEQUENCE_AS_RISIKO",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Rom under terreng — krypkjeller",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Kjøper må påregne kostnader til utbedring av drenering og fuktsikring.",
+        "why_wrong": "Beskriver hva kjøper må forholde seg til i praksis (kjøperkonsekvens), ikke hva som kan skje med konstruksjonen videre. Tilhører konsekvensfeltet, ikke risikofeltet."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Forholdene gir risiko for fuktproblemer på sikt.",
+        "why_correct": "Fremtidsrettet bygningsteknisk risiko som beskriver hva som kan utvikle seg dersom forholdet vedvarer. Eksplisitt 'risiko'-ord brukt i sin tradisjonelle faglige betydning — fremtidig mulig utvikling, ikke nåtilstand og ikke kjøperkonsekvens."
+      },
+      "retrieval_tags": [
+        "risiko for fuktproblemer",
+        "krypkjeller",
+        "fremtidig utvikling",
+        "risiko",
+        "eksplisitt risiko-formulering"
+      ]
+    },
+    {
+      "id": "CE-018",
+      "error_type": "PRESENT_STATE_AS_RISIKO",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Vinduer og ytterdører",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Vinduene er gamle og har 1-lags glass.",
+        "why_wrong": "Beskriver nåværende tilstand på bygningsdelen, ikke hva som kan utvikle seg fremover. Tilhører observasjon eller årsaksbeskrivelse."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Risiko for lekkasjer, nedsatt funksjon og energieffektivitet er til stede.",
+        "why_correct": "Fremtidsrettet sammensatt risiko som peker på flere konkrete bygningstekniske utviklingsmuligheter (lekkasjer, funksjonssvikt). Eksplisitt 'risiko'-formulering er presis og kontekstualisert — ikke generisk fareord."
+      },
+      "retrieval_tags": [
+        "risiko for lekkasjer",
+        "nedsatt funksjon",
+        "energieffektivitet",
+        "vinduer",
+        "sammensatt risiko",
+        "eksplisitt risiko-formulering"
+      ]
+    },
+    {
+      "id": "CE-019",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Vinduer og ytterdører",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Fukt kan trenge inn i konstruksjonen.",
+        "why_wrong": "Beskriver en teknisk prosess (fukt som trenger inn) uten å oppgi hvilken følge dette får. Setningen stopper for tidlig — den beskriver en bevegelse eller utviklingsvei, ikke hvilken faktisk skade eller endring det fører til."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Avflassing og oppsprekking på vinduskarmer reduserer motstandsdyktighet mot vann og kan føre til råte over tid.",
+        "why_correct": "Beskriver hva utviklingen FAKTISK FØRER TIL — råte over tid. Følgen er konkret og bygningsteknisk. Per KONSEKVENS-TERSKEL i system_prompt_validert v1.10 og dommer B v12 er kjøperdimensjonen tilstrekkelig implisitt når faktisk følge er beskrevet — setningen trenger ikke eksplisitt si 'kjøper' eller 'kostnad'."
+      },
+      "retrieval_tags": [
+        "kan føre til råte",
+        "vinduskarmer",
+        "redusert motstandsdyktighet",
+        "bygningsteknisk følge",
+        "konsekvens"
+      ]
+    },
+    {
+      "id": "CE-020",
+      "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+      "field": "konsekvens",
+      "structural_error": "SE-4",
+      "building_component": "Varmtvannsbereder",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Konsekvens",
+        "text": "Berederen kan begynne å lekke.",
+        "why_wrong": "Beskriver en mulig teknisk hendelse uten å forklare hva den fører til. Stopper ved selve lekkasjen uten å oppgi følgen."
+      },
+      "correct": {
+        "label": "Konsekvens",
+        "text": "Lekkasje fra varmtvannsbereder vil ikke nødvendigvis kunne oppdages tidlig nok før det gjør skader på andre bygningsdeler.",
+        "why_correct": "Beskriver hvilken faktisk følge en lekkasje vil få — skader på andre bygningsdeler. Følgen er konkret identifisert (skader på andre bygningsdeler), og kjøperdimensjonen er tilstrekkelig implisitt. Bygningsteknisk følge er gyldig konsekvens per KONSEKVENS-TERSKEL."
+      },
+      "retrieval_tags": [
+        "lekkasje",
+        "varmtvannsbereder",
+        "skadefølge",
+        "skader på andre bygningsdeler",
+        "bygningsteknisk følge",
+        "konsekvens"
+      ]
+    }
+  ],
+  "retrieval_guidance": {
+    "description": "How the RAG system should use these examples during evaluation.",
+    "strategy": "Before the ARKAT evaluation LLM call for a given point and field, retrieve 2-3 examples matching the field being evaluated and the suspected error type if pre-screening has flagged it. If no error type is suspected, retrieve examples for the field only.",
+    "pre_screening_signals": {
+      "aarsak": [
+        "Det registreres",
+        "Det observeres",
+        "Det ble avdekket",
+        "Det er påvist",
+        "TG2/TG3 vurderes da [alder]"
+      ],
+      "risiko": [
+        "ikke synlig for inspeksjon",
+        "mister evnen til",
+        "medfører [present effect on buyer]",
+        "fører til [buyer consequence]"
+      ],
+      "konsekvens": [
+        "fukt kan trenge inn (alene, uten følge oppgitt)",
+        "vann kan spre seg (alene, uten endepunkt)",
+        "kan trekke videre (uten å si hva det fører til)",
+        "risiko for fuktinntrengning (alene, uten konkret følge)",
+        "kan medføre følgeskader (alene, uten skadetype eller skadevei)",
+        "undersøkelsesbegrensning plassert som konsekvens",
+        "tiltak-formulering plassert som konsekvens",
+        "ordrett gjentakelse av risiko-feltet uten å tilføre følge"
+      ]
+    },
+    "injection_position": "Include retrieved examples in the user message of the evaluation call, after the point text and before the instruction to evaluate.",
+    "injection_template": "Here are examples of correct and incorrect ARKAT usage for reference:\n\n{examples_block}\n\nNow evaluate the following point using these rules:",
+    "example_per_item_template": "[EXAMPLE {N} — WRONG]\nField: {field}\nText: {wrong.text}\nWhy wrong: {wrong.why_wrong}\n\n[EXAMPLE {N} — CORRECT]\nText: {correct.text}\nWhy correct: {correct.why_correct}",
+    "template_usage_note": "RAG layer should render each retrieved example using example_per_item_template (substituting {N}, {field}, {wrong.text}, {wrong.why_wrong}, {correct.text}, {correct.why_correct}), then concatenate all rendered examples with blank lines between them, and substitute the result into {examples_block} in injection_template. Numbering N starts at 1 and increments per example.",
+    "valid_consequence_signals_do_not_flag": [
+      "kan føre til råte",
+      "kan føre til fuktskader",
+      "kan føre til skader på underliggende konstruksjon",
+      "kan føre til lekkasjer",
+      "kan gi redusert levetid",
+      "redusert funksjon",
+      "funksjonssvikt",
+      "funksjonstap",
+      "sikkerhetsrisiko",
+      "bygningsmessige konsekvenser",
+      "helsemessige konsekvenser",
+      "økte kostnader",
+      "utbedringsbehov",
+      "kostnadsrisiko",
+      "skadefølge identifisert"
+    ],
+    "signal_usage_note": "pre_screening_signals are heuristics for retrieving RELEVANT examples when an error is suspected. They should NOT be used as direct error classifiers. valid_consequence_signals_do_not_flag are positive markers — when these appear in konsekvens-feltet alone or with a teknisk prosess, the field is most likely CORRECT per KONSEKVENS-TERSKEL and should NOT trigger TECHNICAL_DEVELOPMENT_AS_KONSEKVENS."
+  }
+}

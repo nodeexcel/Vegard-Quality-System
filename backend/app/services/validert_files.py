@@ -7,7 +7,7 @@ import re
 FILES_DIR = Path(__file__).resolve().parents[3] / "files"
 MANIFEST_PATH = FILES_DIR / "MANIFEST.json"
 
-SYSTEM_PROMPT_PATH = FILES_DIR / "system_prompt_validert_v1.6.txt"
+SYSTEM_PROMPT_PATH = FILES_DIR / "system_prompt_validert_v1_10.txt"
 RAG_LEGAL_PATH = FILES_DIR / "rag_legal_framework_validert_v1.4.txt"
 RAG_RULES_PATH = FILES_DIR / "rag_validert_rules_v1.4.txt"
 RAG_LANGUAGE_PATH = FILES_DIR / "rag_language_rules_v1.6.txt"
@@ -44,10 +44,12 @@ CANONICAL_POINTS_V30_PATH = FILES_DIR / "validert_canonical_points_v3_0.json"
 MIGRATION_MAP_V33_TO_V34_PATH = FILES_DIR / "validert_migration_map_v3.3_to_v3.4.json"
 FORSKRIFT_MATRIX_PATH = FILES_DIR / "validert_forskrift_matrix_v1.0.json"
 MANDATORY_EXPLANATION_ONLY_PATH = FILES_DIR / "validert_mandatory_explanation_only_rules_v1.0.json"
-ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules.json"
+ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules_v1_2_2.json"
 ARKAT_EVALUATION_PIPELINE_STEP_PATH = FILES_DIR / "arkat_evaluation_pipeline_step.json"
+DOMMER_B_SYSTEM_PROMPT_PATH = FILES_DIR / "dommer_b_system_prompt_v12.md"
+ARKAT_ERROR_DEDUCTION_MAPPING_PATH = FILES_DIR / "arkat_error_to_deduction_mapping_v1_1_0.json"
 REPORT_FORMAT_DETECTION_PATH = FILES_DIR / "report_format_detection.json"
-ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples.json"
+ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples_v1_1_1.json"
 
 # Routing: if element.tg_policy == "FORBIDDEN" -> apply optional_tg_forbidden_meta_rule_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
@@ -285,6 +287,14 @@ def get_arkat_evaluation_pipeline_step_text() -> str:
     return _read_text(ARKAT_EVALUATION_PIPELINE_STEP_PATH)
 
 
+def get_dommer_b_system_prompt_text() -> str:
+    return _read_text(DOMMER_B_SYSTEM_PROMPT_PATH)
+
+
+def get_arkat_error_deduction_mapping() -> Dict:
+    return _load_json_file(ARKAT_ERROR_DEDUCTION_MAPPING_PATH)
+
+
 def get_report_format_detection() -> Dict:
     return _load_json_file(REPORT_FORMAT_DETECTION_PATH)
 
@@ -299,6 +309,19 @@ def get_arkat_canonical_examples() -> Dict:
 
 def get_arkat_canonical_examples_text() -> str:
     return _read_text(ARKAT_CANONICAL_EXAMPLES_PATH)
+
+
+def get_arkat_canonical_examples_report_context_text() -> str:
+    examples = get_arkat_canonical_examples()
+    if not isinstance(examples, dict):
+        return ""
+    compact = {
+        "meta": examples.get("meta") or {},
+        "retrieval_guidance": examples.get("retrieval_guidance") or {},
+        "examples_count": len(examples.get("examples") or []) if isinstance(examples.get("examples"), list) else 0,
+        "runtime_note": "Full examples are injected only into Dommer B point-level calls via injection_template/example_per_item_template.",
+    }
+    return json.dumps(compact, ensure_ascii=False, sort_keys=True)
 
 
 def get_age_service_life_validation_text() -> str:
@@ -460,7 +483,7 @@ def build_prompt_context() -> str:
             "===== ORCHESTRATOR PIPELINE =====\n" + get_orchestrator_pipeline_text(),
             "===== ARKAT SEMANTIC RULES =====\n" + get_arkat_semantic_rules_text(),
             "===== REPORT FORMAT DETECTION =====\n" + get_report_format_detection_text(),
-            "===== ARKAT CANONICAL EXAMPLES =====\n" + get_arkat_canonical_examples_text(),
+            "===== ARKAT CANONICAL EXAMPLES METADATA =====\n" + get_arkat_canonical_examples_report_context_text(),
             "===== ACTIVE CONFIG =====\n" + json.dumps(get_active_config(), ensure_ascii=False, sort_keys=True),
             "===== CANONICAL POINTS (ACTIVE) =====\n" + json.dumps(get_canonical_points_v30(), ensure_ascii=False, sort_keys=True),
             "===== POINTS OVERVIEW MAPPING =====\n" + json.dumps(get_points_overview_mapping_config(), ensure_ascii=False, sort_keys=True),
@@ -491,4 +514,8 @@ def get_prompt_context_sha() -> str:
     # but it must bust analysis cache when system_prompt_validert_*.txt changes.
     context = build_prompt_context()
     system = get_system_prompt()
-    return hashlib.sha256(f"{context}\n{system}".encode("utf-8")).hexdigest()
+    # Full canonical examples are injected only in Dommer B point calls, but still
+    # participate in the cache key so example-file changes invalidate analyses.
+    dommer_b = get_dommer_b_system_prompt_text()
+    canonical_examples = get_arkat_canonical_examples_text()
+    return hashlib.sha256(f"{context}\n{system}\n{dommer_b}\n{canonical_examples}".encode("utf-8")).hexdigest()

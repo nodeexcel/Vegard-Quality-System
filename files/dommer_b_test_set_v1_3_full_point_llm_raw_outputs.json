@@ -1,0 +1,953 @@
+{
+  "generated_at_utc": "2026-05-29T08:18:38Z",
+  "diagnostic": "full_point_text_only_no_pre_extracted_arkat_block",
+  "source_of_truth_markdown": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_test_set_v1_3.md",
+  "prompt_source": "/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_system_prompt_v10.md",
+  "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+  "prompt_first_two_lines": [
+    "Du er en kvalitetsevaluator for norske tilstandsrapporter. Din eneste oppgave er å vurdere ARKAT-feltene i ett rapportpunkt mot strukturelle regler. Du returnerer et JSON-objekt med vurderingen din. Ikke legg til kommentarer utenfor JSON-strukturen.",
+    "Versjon 8: Synkroniserer promptens error-type-katalog med mapping-filen (21 → 24 typer). Utvider KONSEKVENS-seksjonen fra 3 til 6 error-typer (legger til TILTAK_AS_KONSEKVENS, RISIKO_AS_KONSEKVENS, LIMITATION_AS_KONSEKVENS). Presiserer skillet mellom konsekvens, teknisk skadeutvikling, risiko og tiltak. Legger inn kontekstregel for \"følgeskader\"."
+  ],
+  "prompt_version_lines": [
+    "Versjon 8: Synkroniserer promptens error-type-katalog med mapping-filen (21 → 24 typer). Utvider KONSEKVENS-seksjonen fra 3 til 6 error-typer (legger til TILTAK_AS_KONSEKVENS, RISIKO_AS_KONSEKVENS, LIMITATION_AS_KONSEKVENS). Presiserer skillet mellom konsekvens, teknisk skadeutvikling, risiko og tiltak. Legger inn kontekstregel for \"følgeskader\".",
+    "Versjon 9: Styrker RISIKO-seksjonen. Legger til «Regel for blandede felt» som krever at alt risiko-relevant innhold vurderes samlet (parallelt med KONSEKVENS). Legger til eksplisitt «hele feltet»-vakt på CONSEQUENCE_AS_RISIKO og PRESENT_STATE_AS_RISIKO, slik AARSAK_AS_RISIKO allerede har. Legger til KRITISK-note: observasjon/måling/TG-begrunnelse/tiltakstekst alene er ikke risiko, og fraværende risikosetning gir MISSING (risiko). Harmoniserer terminologi i RISIKO-seksjonen: «bygg-risiko»/«byggrisiko» erstattet med «bygningsteknisk risiko».",
+    "Versjon 10: Gjør «hele feltet»-vurderingen aktiv og generell. Ny TYPE-FULLSTENDIGHETSSKANNING: før en type-forvekslings-feil (X_AS_Y) fyres, må hele feltet skannes klausul for klausul, og feilen fyrer kun hvis INGEN klausul noe sted er av riktig type. Generaliserer «hele feltet»-vakten fra risiko til også aarsak (OBSERVATION_AS_AARSAK/RISK_AS_AARSAK), og forankrer den i EVALUERINGSPROSEDYRE og final-sjekk. Ingen endring i error-type-katalogen, output-skjemaet eller konsekvens-terskelen."
+  ],
+  "cases": [
+    {
+      "case_id": 1,
+      "point_id": "5.1",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 9.675,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "5.1",
+        "tg_grade": "TGIU",
+        "field_results": {
+          "aarsak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": [
+            {
+              "error_type": "TGIU_MISSING_FURTHER_INVESTIGATION",
+              "explanation": "TGIU gitt uten anbefaling om ytterligere undersøkelser."
+            },
+            {
+              "error_type": "TGIU_MISSING_MOISTURE_FLAG",
+              "explanation": "Loft med ukjent alder og ventilasjon ikke dokumentert krever omtale av fuktrisiko."
+            },
+            {
+              "error_type": "TGIU_MISSING_REASON",
+              "explanation": "Punktet forklarer ikke tydelig hvorfor inspeksjon ikke var mulig."
+            }
+          ]
+        },
+        "has_errors": true
+      },
+      "raw_model_json_output": {
+        "point_id": "5.1",
+        "tg_grade": "TGIU",
+        "field_results": {
+          "aarsak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": [
+            {
+              "error_type": "TGIU_MISSING_FURTHER_INVESTIGATION",
+              "explanation": "TGIU gitt uten anbefaling om ytterligere undersøkelser."
+            },
+            {
+              "error_type": "TGIU_MISSING_MOISTURE_FLAG",
+              "explanation": "Loft med ukjent alder og ventilasjon ikke dokumentert krever omtale av fuktrisiko."
+            }
+          ]
+        },
+        "has_errors": true
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"5.1\",\n  \"tg_grade\": \"TGIU\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"NOT_APPLICABLE\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"NOT_APPLICABLE\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"NOT_APPLICABLE\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"NOT_APPLICABLE\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": [\n      {\n        \"error_type\": \"TGIU_MISSING_FURTHER_INVESTIGATION\",\n        \"explanation\": \"TGIU gitt uten anbefaling om ytterligere undersøkelser.\"\n      },\n      {\n        \"error_type\": \"TGIU_MISSING_MOISTURE_FLAG\",\n        \"explanation\": \"Loft med ukjent alder og ventilasjon ikke dokumentert krever omtale av fuktrisiko.\"\n      }\n    ]\n  },\n  \"has_errors\": true\n}\n```",
+      "expected_output": {
+        "point_id": "5.1",
+        "tg_grade": "TGIU",
+        "field_results": {
+          "aarsak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": [
+            {
+              "error_type": "TGIU_MISSING_REASON",
+              "explanation": "Punktet oppgir kun at konstruksjonen er lukket uten å forklare hvorfor inspeksjon ikke var mulig."
+            },
+            {
+              "error_type": "TGIU_MISSING_FURTHER_INVESTIGATION",
+              "explanation": "Ingen anbefaling om ytterligere undersøkelser er gitt."
+            },
+            {
+              "error_type": "TGIU_MISSING_MOISTURE_FLAG",
+              "explanation": "Loftet er en kategori B-konstruksjon, og rapportkonteksten viser sterk risikofaktor i form av ukjent alder på undertak/taktekking; punktet formidler likevel ikke eksplisitt fuktrisiko ved manglende inspeksjon."
+            }
+          ]
+        },
+        "has_errors": true
+      },
+      "matches_expected": true
+    },
+    {
+      "case_id": 2,
+      "point_id": "2.1",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 3.561,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "2.1",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_model_json_output": {
+        "point_id": "2.1",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"2.1\",\n  \"tg_grade\": \"TG3\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": false\n}\n```",
+      "expected_output": {
+        "point_id": "2.1",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "matches_expected": true
+    },
+    {
+      "case_id": 3,
+      "point_id": "1.1",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 3.689,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "1.1",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_model_json_output": {
+        "point_id": "1.1",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"1.1\",\n  \"tg_grade\": \"TG2\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": false\n}\n```",
+      "expected_output": {
+        "point_id": "1.1",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "matches_expected": true
+    },
+    {
+      "case_id": 4,
+      "point_id": "1.2",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 4.533,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "1.2",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "MISSING",
+            "error_type": "MISSING (konsekvens)",
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_model_json_output": {
+        "point_id": "1.2",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "MISSING",
+            "error_type": "MISSING (konsekvens)",
+            "explanation": "Ingen beskrivelse av hvilken følge avviket har for kjøper."
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"1.2\",\n  \"tg_grade\": \"TG2\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"MISSING\",\n      \"error_type\": \"MISSING (konsekvens)\",\n      \"explanation\": \"Ingen beskrivelse av hvilken følge avviket har for kjøper.\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": true\n}\n```",
+      "expected_output": {
+        "point_id": "1.2",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "MISSING",
+            "error_type": "MISSING (konsekvens)",
+            "explanation": "Punktet beskriver årsak, risiko og mulige tiltak, men formidler ikke hvilken faktisk følge forholdet kan få for bygningsdelen eller kjøperen, som skade, råte, redusert levetid, funksjonstap, undersøkelsesbehov eller kostnadsrisiko."
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "matches_expected": true
+    },
+    {
+      "case_id": 5,
+      "point_id": "7.2.2",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 4.417,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "7.2.2",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "MISSING",
+            "error_type": "MISSING (anbefalt_tiltak)",
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_model_json_output": {
+        "point_id": "7.2.2",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "MISSING",
+            "error_type": "MISSING (anbefalt_tiltak)",
+            "explanation": "Ingen konkret anbefaling om hva som skal gjøres finnes i teksten."
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"7.2.2\",\n  \"tg_grade\": \"TG3\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"MISSING\",\n      \"error_type\": \"MISSING (anbefalt_tiltak)\",\n      \"explanation\": \"Ingen konkret anbefaling om hva som skal gjøres finnes i teksten.\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": true\n}\n```",
+      "expected_output": {
+        "point_id": "7.2.2",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "MISSING",
+            "error_type": "MISSING (anbefalt_tiltak)",
+            "explanation": "Punktet beskriver hva en utbedring vil innebære, men gir ingen tydelig anbefaling om hva som bør gjøres ved TG3-forholdet."
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "matches_expected": true
+    },
+    {
+      "case_id": 6,
+      "point_id": "nedlop-og-beslag",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 3.529,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "nedlop-og-beslag",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_model_json_output": {
+        "point_id": "nedlop-og-beslag",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"nedlop-og-beslag\",\n  \"tg_grade\": \"TG3\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": false\n}\n```",
+      "expected_output": {
+        "point_id": "nedlop-og-beslag",
+        "tg_grade": "TG3",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "matches_expected": true
+    },
+    {
+      "case_id": 7,
+      "point_id": "veggkonstruksjon",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 3.668,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "veggkonstruksjon",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_model_json_output": {
+        "point_id": "veggkonstruksjon - Utvendig > Veggkonstruksjon",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "NOT_APPLICABLE",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"veggkonstruksjon - Utvendig > Veggkonstruksjon\",\n  \"tg_grade\": \"TG2\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"NOT_APPLICABLE\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": false\n}\n```",
+      "expected_output": {
+        "point_id": "veggkonstruksjon",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": false
+      },
+      "matches_expected": false
+    },
+    {
+      "case_id": 8,
+      "point_id": "etasjeskille-gulv-2025",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 5.267,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "etasjeskille-gulv-2025",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "MISSING",
+            "error_type": "MISSING (aarsak)",
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "MISSING",
+            "error_type": "MISSING (risiko)",
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "WRONG",
+            "error_type": "TILTAK_AS_KONSEKVENS",
+            "explanation": "Konsekvens-feltet beskriver hva som bør gjøres i stedet for hvilken følge avviket har."
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_model_json_output": {
+        "point_id": "etasjeskille-gulv-2025",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "MISSING",
+            "error_type": "MISSING (aarsak)",
+            "explanation": "Ingen forklaring av hvorfor høydeforskjellene har oppstått."
+          },
+          "risiko": {
+            "status": "MISSING",
+            "error_type": "MISSING (risiko)",
+            "explanation": "Ingen beskrivelse av hva avviket kan føre til for bygningsdelen."
+          },
+          "konsekvens": {
+            "status": "WRONG",
+            "error_type": "TILTAK_AS_KONSEKVENS",
+            "explanation": "Konsekvens-feltet beskriver hva som bør gjøres i stedet for hvilken følge avviket har."
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"etasjeskille-gulv-2025\",\n  \"tg_grade\": \"TG2\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"MISSING\",\n      \"error_type\": \"MISSING (aarsak)\",\n      \"explanation\": \"Ingen forklaring av hvorfor høydeforskjellene har oppstått.\"\n    },\n    \"risiko\": {\n      \"status\": \"MISSING\",\n      \"error_type\": \"MISSING (risiko)\",\n      \"explanation\": \"Ingen beskrivelse av hva avviket kan føre til for bygningsdelen.\"\n    },\n    \"konsekvens\": {\n      \"status\": \"WRONG\",\n      \"error_type\": \"TILTAK_AS_KONSEKVENS\",\n      \"explanation\": \"Konsekvens-feltet beskriver hva som bør gjøres i stedet for hvilken følge avviket har.\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": true\n}\n```",
+      "expected_output": {
+        "point_id": "etasjeskille-gulv-2025",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "MISSING",
+            "error_type": "MISSING (risiko)",
+            "explanation": "Verken extracted_fields.risiko eller raw_point_text inneholder en fremtidsrettet risikovurdering — punktet har kun observasjon/måling, TG-begrunnelse og tiltakstekst."
+          },
+          "konsekvens": {
+            "status": "WRONG",
+            "error_type": "TILTAK_AS_KONSEKVENS",
+            "explanation": "Konsekvens-feltet beskriver hva som må gjøres for å få lavere tilstandsgrad (et tiltak), ikke hvilken følge høydeforskjellene har for kjøper eller bygningsdelen."
+          },
+          "anbefalt_tiltak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "matches_expected": false
+    },
+    {
+      "case_id": 9,
+      "point_id": "vinduer-2025-no-tiltak",
+      "llm_called": true,
+      "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+      "duration_s": 4.027,
+      "stop_reason": "end_turn",
+      "dommer_b_json_output": {
+        "point_id": "vinduer-2025-no-tiltak",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "MISSING",
+            "error_type": "MISSING (anbefalt_tiltak)",
+            "explanation": ""
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_model_json_output": {
+        "point_id": "vinduer-2025-no-tiltak",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "MISSING",
+            "error_type": "MISSING (anbefalt_tiltak)",
+            "explanation": "Feltet inneholder kun konsekvens-beskrivelse, ikke konkret tiltak eller anbefaling."
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "raw_response_text": "```json\n{\n  \"point_id\": \"vinduer-2025-no-tiltak\",\n  \"tg_grade\": \"TG2\",\n  \"field_results\": {\n    \"aarsak\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"risiko\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"konsekvens\": {\n      \"status\": \"CORRECT\",\n      \"error_type\": null,\n      \"explanation\": \"\"\n    },\n    \"anbefalt_tiltak\": {\n      \"status\": \"MISSING\",\n      \"error_type\": \"MISSING (anbefalt_tiltak)\",\n      \"explanation\": \"Feltet inneholder kun konsekvens-beskrivelse, ikke konkret tiltak eller anbefaling.\"\n    }\n  },\n  \"tgiu_findings\": {\n    \"findings\": []\n  },\n  \"has_errors\": true\n}\n```",
+      "expected_output": {
+        "point_id": "vinduer-2025-no-tiltak",
+        "tg_grade": "TG2",
+        "field_results": {
+          "aarsak": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "risiko": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "konsekvens": {
+            "status": "CORRECT",
+            "error_type": null,
+            "explanation": ""
+          },
+          "anbefalt_tiltak": {
+            "status": "MISSING",
+            "error_type": "MISSING (anbefalt_tiltak)",
+            "explanation": "Anbefalt tiltak mangler. Under NS 3600:2025 er tiltak påkrevd også ved TG2 per punkt 13."
+          }
+        },
+        "tgiu_findings": {
+          "findings": []
+        },
+        "has_errors": true
+      },
+      "matches_expected": true
+    }
+  ]
+}

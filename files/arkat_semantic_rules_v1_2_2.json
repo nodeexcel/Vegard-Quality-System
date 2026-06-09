@@ -107,8 +107,8 @@
     }
   },
   "scoring_integration": {
-    "_note_nb": "Denne filen er ikke lenger eneansvarlig for feil-til-straff-mapping. Mapping av feiltyper til poengtrekk er flyttet til den separate filen arkat_error_to_deduction_mapping_v1.1.0.json. Dommer B returnerer strukturerte feilklassifiseringer; scoring-laget slår opp poengverdier i mapping-tabellen.",
-    "source_of_truth": "arkat_error_to_deduction_mapping_v1.1.0.json",
+    "_note_nb": "Denne filen er ikke lenger eneansvarlig for feil-til-straff-mapping. Mapping av feiltyper til poengtrekk er flyttet til den separate filen arkat_error_to_deduction_mapping_v1_1_0.json. Dommer B returnerer strukturerte feilklassifiseringer; scoring-laget slår opp poengverdier i mapping-tabellen.",
+    "source_of_truth": "arkat_error_to_deduction_mapping_v1_1_0.json",
     "integration_contract": "See 'integration_contract' section in the mapping file for input/output schema."
   }
 }
