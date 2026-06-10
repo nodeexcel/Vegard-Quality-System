@@ -514,9 +514,18 @@ def _compressed_mixed_heading_terms_for_point(point: Dict[str, object]) -> List[
     )
     title = str(point.get("title") or point.get("excerpt") or "").strip()
     if title:
-        terms.append(re.sub(r"(?i)\s+g[åa]\s+t?i?l?\s+side\s*$", "", title).strip())
-        if ">" in title:
-            terms.append(title.rsplit(">", 1)[-1].strip())
+        cleaned_title = re.sub(r"(?i)\s+g[åa]\s+t?i?l?\s+side\s*$", "", title).strip()
+        terms.append(cleaned_title)
+        if ">" in cleaned_title:
+            segments = [part.strip() for part in cleaned_title.split(">") if part.strip()]
+            terms.append(cleaned_title.rsplit(">", 1)[-1].strip())
+            if len(segments) >= 2:
+                terms.append(" > ".join(segments[:-1]))
+                terms.append(" > ".join(segments[-2:]))
+            if len(segments) >= 3:
+                terms.append(" > ".join(segments[1:-1]))
+            if segments and segments[-1].lower().startswith("tilliggende"):
+                terms.append("Tilliggende konstruksjoner våtrom")
     if point_id:
         for mapping in _get_child_mapping_points_for_inference():
             if str(mapping.get("canonical_id") or mapping.get("child_id") or "") != point_id:
@@ -532,6 +541,18 @@ def _compressed_mixed_heading_terms_for_point(point: Dict[str, object]) -> List[
         if len(cleaned) < 4:
             continue
         key = cleaned.lower()
+        if key in {
+            "utvendig",
+            "innvendig",
+            "våtrom",
+            "vatrom",
+            "tekniske installasjoner",
+            "tomteforhold",
+            "kjøkken",
+            "kjokken",
+            "spesialrom",
+        }:
+            continue
         if key in seen:
             continue
         seen.add(key)
@@ -541,6 +562,94 @@ def _compressed_mixed_heading_terms_for_point(point: Dict[str, object]) -> List[
         # Rom Under Terreng says "Punktet må sees i sammenheng med Drenering".
         out = [term for term in out if "fuktsikring" in term.lower()]
     return out
+
+
+def _extract_compressed_mixed_wetroom_block_by_title(norm_report: str, title: str) -> str:
+    if not norm_report or not title or ">" not in title:
+        return ""
+    normalized_title = _normalize_report_text_for_analysis(title)
+    if "våtrom" not in normalized_title.lower() and "vatrom" not in normalized_title.lower():
+        return ""
+    segments = [part.strip() for part in normalized_title.split(">") if part.strip()]
+    if len(segments) < 3:
+        return ""
+    room_segments = segments[1:-1] if segments[0].lower() in {"våtrom", "vatrom"} else segments[:-1]
+    if not room_segments:
+        return ""
+    room_line = _normalize_report_text_for_analysis(" > ".join(room_segments)).lower()
+    component_label = segments[-1].lower()
+    if component_label.startswith("tilliggende"):
+        component_candidates = {"tilliggende konstruksjoner våtrom", "tilliggende konstruksjoner vatrom"}
+    else:
+        component_candidates = {component_label}
+    lines = norm_report.splitlines()
+
+    def _norm_line(idx: int) -> str:
+        if idx < 0 or idx >= len(lines):
+            return ""
+        return _normalize_report_text_for_analysis(lines[idx] or "").strip().lower()
+
+    def _is_room_line(value: str) -> bool:
+        return bool(value and (value == room_line or value.endswith(" > " + room_line)))
+
+    def _is_component_line(value: str) -> bool:
+        return any(candidate and candidate == value for candidate in component_candidates)
+
+    starts: List[Tuple[int, int]] = []
+    for idx in range(len(lines)):
+        if not _is_room_line(_norm_line(idx)):
+            continue
+        for j in range(idx + 1, min(len(lines), idx + 8)):
+            if _is_component_line(_norm_line(j)):
+                starts.append((idx, j))
+                break
+    if not starts:
+        return ""
+
+    start_idx, component_idx = starts[0]
+    for candidate_start, candidate_component in starts:
+        # Prefer exact room/component pairs in body text over table-of-content rows.
+        local = _normalize_report_text_for_analysis(
+            "\n".join(lines[candidate_start:min(len(lines), candidate_component + 12)])
+        ).lower()
+        if "gå til side" not in local and _is_component_line(_norm_line(candidate_component)):
+            start_idx, component_idx = candidate_start, candidate_component
+            break
+
+    end_idx = min(len(lines), component_idx + 95)
+    room_heading_re = re.compile(r"(?i)^(?:\d+\.\s*)?[A-ZÆØÅ0-9 .]+\s+>\s+[A-ZÆØÅ0-9 .]+\s*$")
+    category_re = re.compile(r"(?i)^(?:UTVENDIG|INNVENDIG|V[ÅA]TROM|KJ[ØO]KKEN|SPESIALROM|TEKNISKE INSTALLASJONER|TOMTEFORHOLD)\s*$")
+    seen_body = False
+    for j in range(component_idx + 1, end_idx):
+        stripped = lines[j].strip()
+        if not stripped:
+            continue
+        norm = _norm_line(j)
+        if norm in {"beskrivelse", "vurdering av avvik:", "konsekvens/tiltak", "kostnadsestimat"}:
+            seen_body = True
+        if j > component_idx + 2 and stripped.startswith("[TABELLDATA]"):
+            end_idx = j
+            break
+        if j > component_idx + 2 and re.match(r"(?i)^\[SIDE\s+\d+\]", stripped):
+            end_idx = j
+            break
+        if j > component_idx + 2 and category_re.match(stripped):
+            end_idx = j
+            break
+        if j > component_idx + 2 and room_heading_re.match(stripped):
+            next_norm = _norm_line(j + 1)
+            if next_norm in {"generell", "tilliggende konstruksjoner våtrom", "tilliggende konstruksjoner vatrom"}:
+                end_idx = j
+                break
+        if seen_body and j > component_idx + 3:
+            next_norm = _norm_line(j + 1)
+            if next_norm == "beskrivelse" and not _is_component_line(norm):
+                end_idx = j
+                break
+    block = "\n".join(lines[start_idx:end_idx]).strip()
+    if "gå til side" in block.lower() or "gå til side" in block.lower():
+        return ""
+    return block[:5000].strip()
 
 
 def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str], require_tg: bool = True) -> str:
@@ -559,6 +668,11 @@ def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str],
         r"(?i)^(?:[A-ZÆØÅ0-9][^.\n]{0,95}\s+>\s+[^.\n]{2,95}\s+g[åa]\s+t?i?l?\s+side|"
         r"[A-ZÆØÅ][A-ZÆØÅ0-9 /,&()_-]{4,}\s+g[åa]\s+t?i?l?\s+side)\s*$"
     )
+    table_or_page_re = re.compile(r"(?i)^\[(?:TABELLDATA|BILDE DETEKTERT|SIDE\s+\d+)\]")
+    heading_boundary_re = re.compile(
+        r"(?i)^(?:UTVENDIG|INNVENDIG|V[ÅA]TROM|KJ[ØO]KKEN|SPESIALROM|TEKNISKE INSTALLASJONER|"
+        r"TOMTEFORHOLD|HELSE,\s*MILJØ OG SIKKERHET|FORHOLD SOM ÅPENBART KAN MEDFØRE FARE)$"
+    )
 
     def _line_has_term(idx: int) -> bool:
         if idx < 0 or idx >= len(lines):
@@ -568,31 +682,60 @@ def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str],
             return False
         return any(term in normalized_line for term in normalized_terms)
 
+    def _line_is_exact_anchor_term(idx: int) -> bool:
+        if idx < 0 or idx >= len(lines):
+            return False
+        normalized_line = _normalize_report_text_for_analysis(lines[idx] or "").strip(" :-|").lower()
+        return bool(normalized_line and normalized_line in set(normalized_terms))
+
+    def _looks_like_toc_or_summary(block: str) -> bool:
+        low = _normalize_report_text_for_analysis(block or "").lower()
+        nav_hits = low.count("gå til side") + low.count("gÅ til side")
+        summary_hits = sum(
+            low.count(marker)
+            for marker in (
+                "sammendrag av boligens",
+                "oppsummering av avvik",
+                "fordeling av tilstandsgrader",
+                "anslag på utbedringskostnad",
+                "vil du vite mer",
+            )
+        )
+        return nav_hits >= 2 or summary_hits >= 1
+
     def _window_end(start_idx: int, min_idx: int) -> int:
-        end_idx = min(len(lines), start_idx + 140)
+        end_idx = min(len(lines), start_idx + 90)
         seen_label = False
         for j in range(start_idx + 1, end_idx):
             stripped = lines[j].strip()
             if not stripped:
                 continue
+            if j > start_idx + 2 and table_or_page_re.match(stripped):
+                return j
+            if j > start_idx + 2 and boundary_re.match(stripped):
+                return j
+            if j > start_idx + 2 and heading_boundary_re.match(stripped) and not _line_has_term(j):
+                return j
             if label_re.search(stripped):
                 seen_label = True
             if seen_label and j > min_idx + 3:
                 next_stripped = lines[j + 1].strip() if j + 1 < len(lines) else ""
-                if stripped.startswith("[TABELLDATA]") or stripped.startswith("[BILDE DETEKTERT") or re.match(r"(?i)^\[SIDE\s+\d+\]", stripped):
-                    return j
                 if next_stripped.lower() == "kommentar" and not _line_has_term(j):
                     return j
                 if (
-                    re.match(r"^[A-ZÆØÅ][A-Za-zÆØÅæøå /,&()_-]{3,70}$", stripped)
-                    and next_stripped.lower() in {"kommentar", "punktet må sees i sammenheng med ‘drenering’", "punktet må sees i sammenheng med 'drenering'"}
-                    and not _line_has_term(j)
+                    re.match(r"^[A-ZÆØÅ][A-Za-zÆØÅæøå /,&()_-]{3,80}$", stripped)
+                    and next_stripped.lower() in {"beskrivelse", "kommentar", "punktet må sees i sammenheng med ‘drenering’", "punktet må sees i sammenheng med 'drenering'"}
+                    and not _line_is_exact_anchor_term(j)
                 ):
                     return j
-                if re.match(r"^[A-ZÆØÅ0-9][A-ZÆØÅ0-9 .>/_-]{3,60}$", stripped) and not _line_has_term(j):
+                if re.match(r"^[A-ZÆØÅ0-9][A-ZÆØÅ0-9 .>/_-]{3,60}$", stripped) and not _line_is_exact_anchor_term(j):
                     return j
-            if j > min_idx + 3 and boundary_re.match(stripped):
-                return j
+                if (
+                    re.match(r"^[A-ZÆØÅ][A-Za-zÆØÅæøå /,&()_-]{3,80}$", stripped)
+                    and not _line_is_exact_anchor_term(j)
+                    and (next_stripped.startswith("[") or not next_stripped)
+                ):
+                    return j
             if j > min_idx + 3 and re.match(r"(?i)^P\d{2}[A-Z]_[A-Z0-9_]+\s*$", stripped):
                 return j
             if j > min_idx + 3 and POINT_HEADER_RE.match(stripped):
@@ -606,15 +749,20 @@ def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str],
             return
         end_idx = _window_end(start_idx, min_idx)
         block = "\n".join(lines[start_idx:end_idx]).strip()
-        if block:
-            candidates.append(block)
+        if not block or _looks_like_toc_or_summary(block):
+            return
+        candidates.append(block)
 
     candidates: List[str] = []
     for idx, line in enumerate(lines):
         normalized_line = _normalize_report_text_for_analysis(line or "").strip().lower()
         if not normalized_line or len(normalized_line) > 220:
             continue
+        if "gå til side" in normalized_line or "gÅ til side" in normalized_line:
+            continue
         if not any(term in normalized_line for term in normalized_terms):
+            continue
+        if normalized_line in {"utvendig", "innvendig", "våtrom", "vatrom", "tekniske installasjoner", "tomteforhold"}:
             continue
         _append_candidate(idx, idx)
 
@@ -626,7 +774,7 @@ def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str],
         lookback_start = max(0, idx - 35)
         term_idx = -1
         for j in range(idx, lookback_start - 1, -1):
-            if _line_has_term(j):
+            if _line_has_term(j) and "gå til side" not in _normalize_report_text_for_analysis(lines[j]).lower():
                 term_idx = j
                 break
         if term_idx >= 0:
@@ -635,6 +783,10 @@ def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str],
     def _score(block: str) -> tuple:
         normalized_block = _normalize_report_text_for_analysis(block or "")
         low = normalized_block.lower()
+        if _looks_like_toc_or_summary(normalized_block):
+            return (0, 0, 0, 0)
+        if "forhold som åpenbart kan medføre fare" in low and not any("fare" in term for term in normalized_terms):
+            return (0, 0, 0, 0)
         block_lines = [line.strip() for line in normalized_block.splitlines() if line.strip()]
         tg = _extract_tg_label_from_text(block)
         label_hits = len(label_re.findall(low))
@@ -663,13 +815,16 @@ def _extract_compressed_mixed_block_by_terms(norm_report: str, terms: List[str],
         if block_lines:
             first_line = block_lines[0].lower()
             second_line = block_lines[1].lower() if len(block_lines) > 1 else ""
-            if any(term == first_line for term in normalized_terms) and second_line in {
+            if any(term == first_line for term in normalized_terms):
+                clean_anchor = 3
+            elif any(term in first_line for term in normalized_terms) and second_line in {
+                "beskrivelse",
                 "kommentar",
                 "punktet må sees i sammenheng med ‘drenering’",
                 "punktet må sees i sammenheng med 'drenering'",
             }:
                 clean_anchor = 2
-            elif any(term in first_line for term in normalized_terms) and second_line == "kommentar":
+            elif any(term in first_line for term in normalized_terms):
                 clean_anchor = 1
         section_heading_re = re.compile(
             r"(?i)^(?:fuktsikring og drenering|grunnmur og fundamenter|terrengforhold|byggegrunn|"
@@ -872,7 +1027,7 @@ def _extract_compressed_mixed_summary_tg_points(report_text: str) -> List[Dict[s
         if not current_tg:
             continue
         if not _FREMTIND_SUMMARY_CATEGORY_RE.search(line):
-            if pending_idx is not None and not re.search(r"(?i)^(?:TG\d|TG\s*IU|Tiltak|Oppdragsnr|Side:|Vil du vite|Hva er|Anslag|Fordeling|Oppsummering|rapporten|Ingeniør|Lundestad|Berjmannsveien|Gnr\b|(?:\d{4}\\s+)?FREDRIKSTAD|Sammendrag|llatnA|\[|\||\d+(?:[.,]\d+)?\s*$)", line):
+            if pending_idx is not None and not re.search(r"(?i)^(?:TG\d|TG\s*IU|Tiltak|Oppdragsnr|Side:|Vil du vite|Hva er|Anslag|Fordeling|Oppsummering|rapporten|Ingeniør|Lundestad|Berjmannsveien|Witek\s+AS|Roald\s+Amundsens|Fjellfoten|Gnr\b|(?:\d{4}\\s+)?(?:FREDRIKSTAD|SARPSBORG)|.*HAFSLUNDSØY.*|Sammendrag|llatnA|\[|\||\d+(?:[.,]\d+)?\s*$)", line):
                 tg, title, title_page = rows[pending_idx]
                 rows[pending_idx] = (tg, _clean_fremtind_summary_title(f"{title} {line}"), title_page)
             continue
@@ -939,15 +1094,21 @@ def _hydrate_compressed_mixed_p_style_spans(report_text: str, points: List[Dict[
             or point.get("span_text")
             or ""
         ).strip()
-        if len(cur) >= 120:
-            continue
-        block = _extract_text_block_for_p_style_heading(norm_report, token) if token else ""
         summary_tg_source = (
             str(point.get("tg_source") or "") == "fremtind_summary"
             and _normalize_tg_label(point.get("tg")) in {"TG2", "TG3", "TGIU"}
         )
+        if len(cur) >= 120 and not summary_tg_source:
+            continue
+        block = _extract_compressed_mixed_wetroom_block_by_title(
+            norm_report,
+            str(point.get("title") or point.get("excerpt") or ""),
+        )
+        path_anchored_block = bool(block)
+        if not block:
+            block = _extract_text_block_for_p_style_heading(norm_report, token) if token else ""
         summary_tg = _normalize_tg_label(point.get("tg")) if summary_tg_source else ""
-        if not _extract_tg_label_from_text(block):
+        if not path_anchored_block and not _extract_tg_label_from_text(block):
             recovered_block = _extract_compressed_mixed_block_by_terms(
                 norm_report,
                 _compressed_mixed_heading_terms_for_point(point),
@@ -3745,6 +3906,19 @@ def _detect_report_date(report_text: str) -> str:
         if parsed:
             return parsed
     return ""
+
+
+def _detect_report_date_from_document_identity(document_title: Optional[str], document_id: Optional[str]) -> str:
+    identity = " ".join(str(value or "") for value in (document_title, document_id))
+    if not identity:
+        return ""
+    match = re.search(r"(?<!\d)(\d{1,2})[-_.](\d{1,2})[-_.](\d{2}|\d{4})(?!\d)", identity)
+    if not match:
+        return ""
+    day, month, year = match.groups()
+    if len(year) == 2:
+        year = f"20{year}"
+    return _parse_report_date_token(f"{int(day):02d}-{int(month):02d}-{year}")
 
 
 def _iso_date_at_or_after(report_date: str, threshold: str) -> bool:
@@ -6612,6 +6786,11 @@ def _remove_untraceable_tg3_cost_summary_claims(summary: str, analysis_output: D
         "",
         summary,
     )
+    out = re.sub(
+        r"(?i)(?:\s+og\s+|,\s*)?(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon)\s+for\s+TG3(?:-punkter?)?",
+        "",
+        out,
+    )
     out = re.sub(r"(?i)\bARKAT-kvalitet\s+har\s+betydelige\s+mangler,\s*", "", out)
     out = re.sub(r"(?i)^\s*(?:særlig|samt|og|,)\s+", "", out)
     out = re.sub(r"\s+", " ", out).strip(" .,:")
@@ -6652,7 +6831,9 @@ def _remove_stale_missing_action_summary_claims(summary: str, analysis_output: D
             r"(?i)(?:systematisk\s+mangel\s+p[åa]\s+anbefalt\s+tiltak\s+i\s+TG2(?:-punkter?)?|"
             r"manglende\s+anbefalt\s+tiltak\s+(?:på|ved|i)\s+TG2(?:-punkter?)?|"
             r"TG2(?:-punkter?)?\s+mangler\s+anbefalt\s+tiltak|"
-            r"mange\s+TG2(?:-punkter?)?\s+mangler\s+anbefalt\s+tiltak\s+som\s+påkrevd)"
+            r"mange\s+TG2(?:-punkter?)?\s+mangler\s+anbefalt\s+tiltak\s+som\s+påkrevd|"
+            r"(?:og\s+)?anbefalt\s+tiltak\s+i\s+TG2(?:-punkter?)?|"
+            r"(?:og\s+)?anbefalt\s+tiltak\s+som\s+kreves\s+i\s+NS\s*3600:2018-regime)"
             r"(?:\s+i\s+NS\s*3600:2025-regime)?(?:\s+og)?(?:\.|,)?",
             "",
             out,
@@ -6876,6 +7057,70 @@ def _replace_legacy_buyer_consequence_text(text: str) -> str:
     return re.sub(r"\s+", " ", out).strip()
 
 
+_BUYER_ONLY_CONSEQUENCE_PUBLIC_RE = re.compile(
+    r"(?i)(?:consequence_buyer_orientation_required|gate_konsekvens_not_buyer_oriented|"
+    r"konsekvens\s+ikke\s+kjøperorientert|kjøperorientert|kjøperorienterte|"
+    r"kjøperkonsekvens|kjøperperspektiv|kjøperrettet|hva\s+forholdet\s+betyr\s+for\s+kjøper|"
+    r"teknisk\s+skadeutvikling\s+eller\s+bygningsrisiko|praktisk\s+presisert)"
+)
+
+
+def _contains_buyer_only_consequence_public_claim(item: object) -> bool:
+    if isinstance(item, str):
+        blob = item
+    else:
+        try:
+            blob = json.dumps(item, ensure_ascii=False)
+        except TypeError:
+            blob = str(item)
+    return bool(_BUYER_ONLY_CONSEQUENCE_PUBLIC_RE.search(blob or ""))
+
+
+def _is_public_finding_like_item(item: object) -> bool:
+    if not isinstance(item, dict):
+        return isinstance(item, str)
+    return any(key in item for key in ("finding_id", "rule_id", "message", "title", "recommended_fix_text", "suggested_rewrite_text", "reason"))
+
+
+def _drop_buyer_only_consequence_public_claims(payload: object) -> None:
+    if isinstance(payload, dict):
+        for key in (
+            "all_findings",
+            "top_issues",
+            "top_score_drivers",
+            "score_drivers",
+            "how_to_improve",
+            "improvement_suggestions",
+            "action_items",
+            "recommended_fixes",
+            "feedback_findings",
+            "findings",
+            "deductions",
+            "issues",
+        ):
+            value = payload.get(key)
+            if isinstance(value, list):
+                payload[key] = [
+                    item for item in value
+                    if not (
+                        _is_public_finding_like_item(item)
+                        and _contains_buyer_only_consequence_public_claim(item)
+                    )
+                ]
+        for value in list(payload.values()):
+            _drop_buyer_only_consequence_public_claims(value)
+    elif isinstance(payload, list):
+        payload[:] = [
+            item for item in payload
+            if not (
+                _is_public_finding_like_item(item)
+                and _contains_buyer_only_consequence_public_claim(item)
+            )
+        ]
+        for item in payload:
+            _drop_buyer_only_consequence_public_claims(item)
+
+
 def _sanitize_ns2018_user_text(text: str, ns_version: str) -> str:
     if not isinstance(text, str) or not text:
         return text
@@ -6884,8 +7129,10 @@ def _sanitize_ns2018_user_text(text: str, ns_version: str) -> str:
     out = re.sub(r"(?i)NS\s*3600:2025", "NS 3600:2018", text)
     out = re.sub(r"(?i)NS3600:2025", "NS3600:2018", out)
     out = re.sub(r"(?i)\s*i\s+NS\s*3600:2025-regime", "", out)
+    out = re.sub(r"(?i)(?:og\s+)?anbefalt\s+tiltak\s+i\s+TG2(?:-punkter?)?", "", out)
+    out = re.sub(r"(?i)(?:og\s+)?anbefalt\s+tiltak\s+som\s+kreves\s+i\s+NS\s*3600:2018-regime", "", out)
     out = re.sub(r"(?i)2025-regime", "2018-regime", out)
-    return re.sub(r"\s+", " ", out).strip()
+    return re.sub(r"\s+", " ", out).strip(" .,;")
 
 
 def _walk_user_text(node: object, transform) -> None:
@@ -7459,43 +7706,9 @@ def _point_has_technical_only_consequence_text(text: str) -> bool:
 
 
 def _normalize_non_buyer_oriented_consequence_findings(analysis_output: Dict[str, object]) -> None:
-    all_findings = analysis_output.get("all_findings")
-    if not isinstance(all_findings, list):
-        return
-    for finding in all_findings:
-        if not isinstance(finding, dict):
-            continue
-        blob = _normalize_tg3_cost_text(
-            f"{finding.get('finding_id', '')} {finding.get('rule_id', '')} {finding.get('title', '')} "
-            f"{finding.get('message', '')} {finding.get('rewrite_strategy', '')}"
-        ).lower()
-        if (
-            "konsekvens" not in blob
-            and "consequence_contextual_refinement" not in blob
-            and "praktisk" not in blob
-        ):
-            continue
-        point_text = str(
-            finding.get("exact_point_text")
-            or (finding.get("evidence_snippets") or [""])[0]
-            or ""
-        ).strip()
-        if not point_text or not _point_has_technical_only_consequence_text(point_text):
-            continue
-        finding["title"] = "Konsekvens ikke kjøperorientert"
-        finding["message"] = "Konsekvens beskriver teknisk skadeutvikling eller bygningsrisiko i stedet for hva forholdet betyr for kjøper."
-        finding["recommended_fix_text"] = (
-            "Beskriv konsekvensen som hva forholdet betyr for kjøper i praksis, for eksempel kostnad, "
-            "bruksbegrensning, helse/sikkerhet eller myndighetsmessige følger."
-        )
-        finding["suggested_rewrite_text"] = (
-            "Presiser konsekvensen ved å forklare hva forholdet betyr for kjøper i praksis, ikke bare hva som kan skje med konstruksjonen."
-        )
-        finding["rewrite_strategy"] = "consequence_buyer_orientation_required"
-        if not str(finding.get("deduction_band") or "").strip():
-            finding["deduction_band"] = "Lavt trekk"
-        if not str(finding.get("severity") or "").strip():
-            finding["severity"] = "minor"
+    # Buyer-only consequence findings are legacy behavior. Dommer B accepts
+    # either building-technical consequence or practical buyer consequence.
+    return
 
 
 def _ensure_non_buyer_oriented_consequence_findings(
@@ -7503,59 +7716,10 @@ def _ensure_non_buyer_oriented_consequence_findings(
     analysis_output: Dict[str, object],
     report_text: str = "",
 ) -> None:
-    """
-    Backstop for BUG-1 style false negatives:
-    if a TG2/TG3 point contains an explicit Konsekvens section but the text is purely
-    technical/material-damage language, always surface a Category A finding.
-    """
-    if not isinstance(analysis_output, dict):
-        return
-    semantic_points = _semantic_arkat_points_by_id(analysis_output)
-    for point in detected_points or []:
-        if not isinstance(point, dict):
-            continue
-        point_id = _normalize_point_id(str(point.get("point_id") or point.get("native_label") or "").strip())
-        if not _is_scoring_eligible_point_id(point_id):
-            continue
-        semantic_point = semantic_points.get(point_id)
-        if semantic_point:
-            evaluation = semantic_point.get("evaluation") if isinstance(semantic_point, dict) else None
-            field_results = evaluation.get("field_results") if isinstance(evaluation, dict) else None
-            consequence = field_results.get("konsekvens") if isinstance(field_results, dict) else None
-            if isinstance(consequence, dict) and str(consequence.get("status") or "").startswith("CORRECT"):
-                continue
-        tg = _effective_point_tg(point, report_text)
-        if tg not in {"TG2", "TG3"}:
-            continue
-        point_text = str(point.get("effective_span_text") or point.get("exact_span_text") or point.get("span_text") or "").strip()
-        if not point_text:
-            continue
-        if not _point_has_explicit_section_text(point_text, "konsekvens"):
-            continue
-        if not _point_has_technical_only_consequence_text(point_text):
-            continue
-        title = str(point.get("title") or point_id)
-        evidence = _extract_arkat_section_text(point_text, "konsekvens") or point_text
-        _append_unique_all_finding(
-            analysis_output,
-            {
-                "finding_id": f"A_ARKAT_KONSEKVENS_NOT_BUYER_ORIENTED_{point_id.replace('.', '_')}",
-                "rule_id": "gate_konsekvens_not_buyer_oriented",
-                "point_id": point_id,
-                "exact_point_id": point_id,
-                "exact_point_title": title,
-                "exact_point_text": point_text,
-                "category": "A",
-                "severity": "minor",
-                "deduction_band": "Lavt trekk",
-                "title": "Konsekvens ikke kjøperorientert",
-                "message": "Konsekvens beskriver teknisk skadeutvikling eller bygningsrisiko i stedet for hva forholdet betyr for kjøper.",
-                "recommended_fix_text": "Beskriv konsekvensen som hva forholdet betyr for kjøper i praksis (bruk, kostnad, vedlikehold eller videre oppfølging), basert på rapportteksten.",
-                "suggested_rewrite_text": "Presiser konsekvensen ved å forklare hva forholdet betyr for kjøper i praksis, ikke bare hva som kan skje med konstruksjonen.",
-                "rewrite_strategy": "consequence_buyer_orientation_required",
-                "evidence_snippets": [evidence] if evidence else [],
-            },
-        )
+    # Legacy backstop intentionally disabled: a consequence may be valid when it
+    # describes technical damage development/building risk without spelling out
+    # buyer impact separately.
+    return
 
 
 def _point_has_age_lifespan_only_consequence_regression(point_id: str, title: str, text: str) -> bool:
@@ -12098,30 +12262,38 @@ def _sanitize_feedback_v11_legacy_consequence_unclear(
     return payload
 
 
-_FREMTIND_STYLE_P_CODE_RE = re.compile(r"(?i)\bp\d{2}[a-z]?(?:(?:[_\-.]|)[a-z][a-z0-9]*)+\b")
+_FREMTIND_STYLE_P_CODE_RE = re.compile(r"(?i)\bp\d{2}[a-zæøå]?(?:[_\-.]?[a-z0-9æøå]+)+\b")
 
 
-def _neutralize_bmtf_p_code(value: str) -> str:
+def _neutralize_bmtf_p_code(value: str, prefix: str = "bmtf") -> str:
     normalized = re.sub(r"[_\-.]+", "-", str(value or "").lower()).strip("-")
+    safe_prefix = re.sub(r"[^a-z0-9-]+", "-", str(prefix or "point").lower()).strip("-") or "point"
     if not normalized:
-        return "bmtf-point"
+        return f"{safe_prefix}-point"
     if "-" not in normalized:
         normalized = re.sub(r"(?i)^(p\d{2}[a-z]?)(?=[a-z])", r"\1-", normalized, count=1)
     parts = [part for part in normalized.split("-") if part]
     if parts and re.fullmatch(r"p\d{2}[a-z]?", parts[0], flags=re.IGNORECASE):
         parts = parts[1:]
     label = "-".join(parts) or "point"
-    return f"bmtf-{label}"
+    return f"{safe_prefix}-{label}"
 
 
 def _sanitize_bmtf_feedback_v11_p_codes(payload: Dict[str, object], report_text: str) -> Dict[str, object]:
-    if not isinstance(payload, dict) or _report_text_suggests_compressed_mixed_format(report_text or ""):
+    if not isinstance(payload, dict):
         return payload
+    report_blob = _normalize_report_text_for_analysis(report_text or "")[:120000]
+    is_fremtind_public_payload = (
+        _report_text_suggests_compressed_mixed_format(report_blob)
+        or "fremtind" in report_blob.lower()
+        or bool(re.search(r"(?i)\bP\d{2}[A-Z]_[A-Z0-9_]+\b", report_blob))
+    )
+    replacement_prefix = "fremtind" if is_fremtind_public_payload else "bmtf"
 
     def _clean_value(key: str, value: object) -> object:
         if not isinstance(value, str):
             return value
-        return _FREMTIND_STYLE_P_CODE_RE.sub(lambda match: _neutralize_bmtf_p_code(match.group(0)), value)
+        return _FREMTIND_STYLE_P_CODE_RE.sub(lambda match: _neutralize_bmtf_p_code(match.group(0), replacement_prefix), value)
 
     def _walk(node: object) -> None:
         if isinstance(node, dict):
@@ -13009,6 +13181,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _drop_unexpected_jargon_findings(analysis_output)
     _ensure_non_buyer_oriented_consequence_findings(detected_points, analysis_output, report_text or "")
     _normalize_non_buyer_oriented_consequence_findings(analysis_output)
+    _drop_buyer_only_consequence_public_claims(analysis_output)
     _ensure_finding_suggestions_differentiated(analysis_output)
     _normalize_report_level_finding_targets(analysis_output)
     _ensure_writing_help_fields(analysis_output)
@@ -13043,6 +13216,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _mark_duplicate_f001_informational(analysis_output)
     _normalize_category_summary_consequence_wording(analysis_output)
     _sanitize_user_facing_text_contracts(analysis_output)
+    _drop_buyer_only_consequence_public_claims(analysis_output)
     _finalize_category_summary_public_contracts(analysis_output)
     _ensure_tgiu_deductions_visible_in_all_findings(analysis_output)
     final_score_total = analysis_output.get("score_total")
@@ -13526,6 +13700,13 @@ class AIAnalyzer:
             if document_id:
                 context_info += f"Dokument-ID: {document_id}\n"
             report_regime_context = _extract_report_regime_context(normalized_text)
+            identity_report_date = _detect_report_date_from_document_identity(document_title, document_id)
+            if identity_report_date and _report_text_suggests_compressed_mixed_format(normalized_text):
+                report_regime_context["report_date"] = identity_report_date
+                report_regime_context["report_regime"] = _detect_report_regime(
+                    identity_report_date,
+                    report_regime_context.get("ns_version") or "",
+                )
             if any(report_regime_context.values()):
                 context_info += "Rapportmetadata utledet av backend før scoring:\n"
                 context_info += f"- report_date: {report_regime_context.get('report_date') or 'UNKNOWN'}\n"
@@ -13812,6 +13993,9 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
             _ensure_meta_fields(analysis_output, document_title, document_id)
             postprocess_analysis_output(analysis_output, normalized_text)
             meta = analysis_output.get("meta", {})
+            if isinstance(meta, dict) and identity_report_date and _report_text_suggests_compressed_mixed_format(normalized_text):
+                meta["report_date"] = identity_report_date
+                meta["report_regime"] = _detect_report_regime(identity_report_date, meta.get("ns_version") or meta.get("ns_standard_version") or "")
             if isinstance(meta, dict):
                 meta.setdefault("scoring_model_id", scoring_model_info.get("model_id", ""))
                 meta.setdefault("scoring_model_version", scoring_model_info.get("version", ""))
@@ -13835,6 +14019,7 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
                 document_hash=document_hash,
                 report_text=normalized_text,
             )
+            _drop_buyer_only_consequence_public_claims(feedback_v11)
             score_reconciliation = _build_score_reconciliation_payload(analysis_output, feedback_v11)
             _log_debug(
                 run_id,
@@ -13848,6 +14033,17 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
                 "feedback_v11": feedback_v11,
                 "score_reconciliation": score_reconciliation,
             }
+            analysis_output = sanitize_bmtf_public_point_taxonomy_payload(
+                analysis_output,
+                normalized_text,
+            )
+            scoring_result_payload["analysis_output"] = analysis_output
+            scoring_result_payload = sanitize_bmtf_public_point_taxonomy_payload(
+                scoring_result_payload,
+                normalized_text,
+            )
+            _drop_buyer_only_consequence_public_claims(analysis_output)
+            _drop_buyer_only_consequence_public_claims(scoring_result_payload)
             detected_points_payload = sanitize_bmtf_public_point_taxonomy_payload(
                 detected_points_payload,
                 normalized_text,

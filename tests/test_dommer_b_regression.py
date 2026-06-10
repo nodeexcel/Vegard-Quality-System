@@ -17,7 +17,11 @@ os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
 from app.services.ai_analyzer import (  # noqa: E402
+    _detect_report_date_from_document_identity,
+    _drop_buyer_only_consequence_public_claims,
     _ensure_generic_backstop_findings,
+    _extract_compressed_mixed_block_by_terms,
+    _normalize_report_text_for_analysis,
     _normalize_tg3_cost_text as normalize_text,
     _drop_tg3_missing_tiltak_for_semantic_tg2_not_applicable,
     _mark_duplicate_f001_informational,
@@ -699,15 +703,15 @@ def test_ns2018_category_summary_does_not_claim_2025_tg2_tiltak_regime():
     analysis_output = {
         "meta": {"ns_standard_version": "NS3600:2018"},
         "score_by_category": [{"category_id": "A", "category_name": "ARKAT", "deduction": 5, "max_deduction": 40}],
-        "category_breakdown": [{"category": "A - ARKAT", "summary": "Systematisk mangel på anbefalt tiltak i TG2-punkter og manglende konsekvens."}],
+        "category_breakdown": [{"category": "A - ARKAT", "summary": "Systematisk mangel på konkrete konsekvenser og anbefalt tiltak i TG2-punkter. Alle TG2-punkter mangler tydelig forklaring av hva avviket betyr for kjøper i praksis."}],
     }
 
     _sync_category_breakdown_with_score_by_category(analysis_output)
     summary = analysis_output["category_breakdown"][0]["summary"]
 
     assert "NS 3600:2025-regime" not in summary
-    assert "TG2-punkter" not in summary
     assert "anbefalt tiltak" not in summary.lower()
+    assert "kreves" not in summary.lower()
 
 
 def test_category_summary_does_not_claim_missing_tg3_tiltak_when_final_dommer_b_is_correct():
@@ -813,7 +817,7 @@ def test_final_category_summary_contract_removes_late_tg3_cost_claim_variant():
     assert "konsekvenser" in summary
 
 def test_untraceable_tg3_cost_summary_claim_is_removed_unless_visible_finding_exists():
-    summary = "ARKAT-kvalitet har betydelige mangler, særlig manglende kostnadsanslag for TG3, samt upresise konsekvenser for flere TG2-punkter"
+    summary = "ARKAT-kvalitet har betydelige mangler, særlig manglende anbefalt tiltak og kostnadsanslag for TG3, samt upresise konsekvenser for flere TG2-punkter"
 
     cleaned = _remove_untraceable_tg3_cost_summary_claims(summary, {"all_findings": []})
     kept = _remove_untraceable_tg3_cost_summary_claims(
@@ -855,6 +859,28 @@ def test_nonzero_score_d_long_sentence_finding_keeps_band():
 
     assert analysis_output["all_findings"][0]["deduction_band"] == "Lavt trekk"
 
+
+def test_compressed_mixed_public_sanitizer_removes_fremtind_p_codes():
+    payload = {
+        "points": [{"point_id": "P01D_DRAINAGE", "canonical_point_id": "P07A_WETROOM_INSTANCE"}],
+        "all_findings": [
+            {"title": "Punkt P01D_DRAINAGE: konsekvens vurdert som MISSING"},
+            {"exact_point_id": "P07D_SURFACES_SPESIALROM_1_ETASJE_TOALETTROM_OVERFLATER_OG_KON"},
+        ],
+        "feedback_v11": {"findings": [{"rule_id": "A_ARKAT.P01D_DRAINAGE", "message": "P07A_WETROOM_INSTANCE"}]},
+    }
+
+    actual = _sanitize_bmtf_feedback_v11_p_codes(payload, "Fremtind rapport. Sammendrag av boligens tilstand.")
+    blob = json.dumps(actual, ensure_ascii=False)
+
+    assert "P01D_DRAINAGE" not in blob
+    assert "P07A_WETROOM_INSTANCE" not in blob
+    assert "P07D_SURFACES" not in blob
+    assert "TOALETTROM" not in blob
+    assert "fremtind-drainage" in blob
+    assert "fremtind-wetroom-instance" in blob
+    assert "fremtind-surfaces-spesialrom-1-etasje-toalettrom-overflater-og-kon" in blob
+
 def test_bmtf_railings_backstop_does_not_surface_fremtind_p_code():
     report_text = (
         "Rapportdato: 2026-03-27. "
@@ -874,3 +900,90 @@ def test_bmtf_railings_backstop_does_not_surface_fremtind_p_code():
     assert finding["point_id"] == ""
     assert finding["exact_point_id"] == ""
     assert "P11G" not in json.dumps(finding, ensure_ascii=False)
+
+
+def test_buyer_only_consequence_rule_is_not_publicly_emitted():
+    analysis_output = {
+        "all_findings": [
+            {
+                "finding_id": "A_ARKAT_KONSEKVENS_NOT_BUYER_ORIENTED_1_1",
+                "rule_id": "gate_konsekvens_not_buyer_oriented",
+                "title": "Konsekvens ikke kjøperorientert",
+                "message": "Konsekvens beskriver teknisk skadeutvikling eller bygningsrisiko i stedet for hva forholdet betyr for kjøper.",
+                "rewrite_strategy": "consequence_buyer_orientation_required",
+            },
+            {"finding_id": "A_VALID", "title": "Konsekvens mangler", "message": "Konsekvensfeltet mangler."},
+        ],
+        "top_issues": [
+            {"rule_id": "gate_konsekvens_not_buyer_oriented", "message": "hva forholdet betyr for kjøper"},
+            {"rule_id": "A_VALID", "message": "Behold denne."},
+        ],
+        "how_to_improve": [
+            {"rewrite_strategy": "consequence_buyer_orientation_required", "message": "Presiser for kjøper."},
+            {"message": "Behold forbedringsråd."},
+        ],
+        "findings": [
+            {
+                "component_id": "1.1",
+                "deductions": [
+                    {"rule_id": "gate_konsekvens_not_buyer_oriented", "reason": "Konsekvens ikke kjøperorientert"},
+                    {"rule_id": "A_VALID", "reason": "Behold deduction."},
+                ],
+            }
+        ],
+    }
+
+    _drop_buyer_only_consequence_public_claims(analysis_output)
+    blob = json.dumps(analysis_output, ensure_ascii=False).lower()
+
+    assert "consequence_buyer_orientation_required" not in blob
+    assert "gate_konsekvens_not_buyer_oriented" not in blob
+    assert "hva forholdet betyr for kjøper" not in blob
+    assert "teknisk skadeutvikling" not in blob
+    assert "a_valid" in blob
+    assert analysis_output["findings"][0]["component_id"] == "1.1"
+
+
+def test_compressed_mixed_block_extraction_uses_component_body_not_summary_or_hms():
+    report_text = """
+[SIDE 5]
+Sammendrag av boligens tilstand
+Tomteforhold > Fuktsikring og drenering Gå til side
+Tomteforhold > Terrengforhold Gå til side
+[TABELLDATA]
+HELSE, MILJØ OG SIKKERHET
+FORHOLD SOM ÅPENBART KAN MEDFØRE FARE FOR HELSE, MILJØ OG SIKKERHET
+Det mangler håndløper på vegg i det innvendige trappeløpet.
+[SIDE 19]
+TOMTEFORHOLD
+Fuktsikring og drenering
+Punktet må sees i sammenheng ‘Rom under terreng’
+Beskrivelse
+Dagens drenering er fra boligens byggeår. Dreneringens funksjon og kapasitet forringes over tid.
+Vurdering av avvik:
+• Mer enn halvparten av forventet levetid på drenering er overskredet.
+Konsekvens/tiltak
+• Tiltak for redrenering rundt boligen kan ikke utelukkes.
+Grunnmur og fundamenter
+Beskrivelse
+Bygningen har grunnmur i lettklinkerblokker.
+"""
+
+    block = _extract_compressed_mixed_block_by_terms(
+        _normalize_report_text_for_analysis(report_text),
+        ["Fuktsikring og drenering"],
+        require_tg=False,
+    )
+
+    assert "Dagens drenering" in block
+    assert "redrenering" in block
+    assert "håndløper" not in block
+    assert "FORHOLD SOM ÅPENBART" not in block
+    assert "Gå til side" not in block
+
+
+def test_compressed_mixed_document_identity_date_is_detected():
+    assert _detect_report_date_from_document_identity(
+        "fremtind-sarpsborg-20-05-26.pdf",
+        "fremtind_sarpsborg_20_05_26",
+    ) == "2026-05-20"
