@@ -568,18 +568,23 @@ def _extract_compressed_mixed_wetroom_block_by_title(norm_report: str, title: st
     if not norm_report or not title or ">" not in title:
         return ""
     normalized_title = _normalize_report_text_for_analysis(title)
-    if "våtrom" not in normalized_title.lower() and "vatrom" not in normalized_title.lower():
+    title_low = normalized_title.lower()
+    if not any(marker in title_low for marker in ("våtrom", "vatrom", "spesialrom")):
         return ""
     segments = [part.strip() for part in normalized_title.split(">") if part.strip()]
     if len(segments) < 3:
         return ""
-    room_segments = segments[1:-1] if segments[0].lower() in {"våtrom", "vatrom"} else segments[:-1]
+    room_segments = segments[1:-1] if segments[0].lower() in {"våtrom", "vatrom", "spesialrom"} else segments[:-1]
     if not room_segments:
         return ""
     room_line = _normalize_report_text_for_analysis(" > ".join(room_segments)).lower()
     component_label = segments[-1].lower()
     if component_label.startswith("tilliggende"):
         component_candidates = {"tilliggende konstruksjoner våtrom", "tilliggende konstruksjoner vatrom"}
+    elif component_label.startswith("overflater"):
+        component_candidates = {component_label, "overflater og konstruksjon"}
+    elif component_label.startswith("teknisk"):
+        component_candidates = {component_label, "teknisk anlegg"}
     else:
         component_candidates = {component_label}
     lines = norm_report.splitlines()
@@ -638,7 +643,7 @@ def _extract_compressed_mixed_wetroom_block_by_title(norm_report: str, title: st
             break
         if j > component_idx + 2 and room_heading_re.match(stripped):
             next_norm = _norm_line(j + 1)
-            if next_norm in {"generell", "tilliggende konstruksjoner våtrom", "tilliggende konstruksjoner vatrom"}:
+            if next_norm in {"generell", "tilliggende konstruksjoner våtrom", "tilliggende konstruksjoner vatrom", "overflater og konstruksjon", "teknisk anlegg"}:
                 end_idx = j
                 break
         if seen_body and j > component_idx + 3:
@@ -1524,6 +1529,7 @@ def _run_client_arkat_semantic_pipeline(
     report_text: str,
     detected_points: List[Dict[str, object]],
     analysis_output: Dict[str, object],
+    report_date_override: str = "",
 ) -> None:
     if _report_text_suggests_compressed_mixed_format(report_text or "") and isinstance(detected_points, list):
         summary_tg_by_point = {
@@ -1541,6 +1547,14 @@ def _run_client_arkat_semantic_pipeline(
             if summary_tg in {"TG2", "TG3", "TGIU"}:
                 point["tg"] = summary_tg
                 point["tg_source"] = "fremtind_summary"
+    def _semantic_regime_context(text: str) -> Dict[str, object]:
+        context = _extract_report_regime_context(text)
+        override = str(report_date_override or "").strip()
+        if override:
+            context["report_date"] = override
+            context["report_regime"] = _detect_report_regime(override, str(context.get("ns_version") or ""))
+        return context
+
     _run_client_arkat_semantic_pipeline_service(
         report_text=report_text,
         detected_points=detected_points,
@@ -1551,7 +1565,7 @@ def _run_client_arkat_semantic_pipeline(
             "extract_arkat_section_text": _extract_arkat_section_text,
             "extract_linked_summary_text_per_point": _extract_linked_summary_text_per_point,
             "get_linked_summary_for_point": _get_linked_summary_for_point,
-            "extract_report_regime_context": _extract_report_regime_context,
+            "extract_report_regime_context": _semantic_regime_context,
             "effective_point_tg": lambda p: _effective_point_tg(p, report_text),
             "normalize_point_id": _normalize_point_id,
             "is_synthetic_supplement_point_id": _is_synthetic_supplement_point_id,
@@ -4334,8 +4348,8 @@ _SEGMENT_ARKAT_FIX_BY_KEY = {
         "Beskriv kort hva som kan skje dersom forholdet ikke håndteres, slik at kjøper kan vurdere alvorlighetsgrad.",
     ),
     "konsekvens": (
-        "konsekvens for kjøper (bruk/sikkerhet/økonomi/videre skade)",
-        "Presiser den praktiske konsekvensen for kjøper (f.eks. økte kostnader, behov for tiltak, eller sikkerhetsmessig betydning).",
+        "konkret konsekvens, enten bygningsteknisk eller praktisk for kjøper",
+        "Presiser konkret konsekvens, enten bygningsteknisk skade/risiko eller praktisk betydning for kjøper.",
     ),
     "anbefalt_tiltak": (
         "anbefalt(e) tiltak",
@@ -5719,6 +5733,128 @@ def _soften_no_tg_hms_findings(
             finding["message"] = "Forholdet er omtalt, men forklaring, konsekvens eller anbefalt oppfølging kan gjøres tydeligere for kjøper."
 
 
+
+_ELECTRICAL_TG_FORBIDDEN_RULE_IDS = {
+    "B_TG.el_anlegg_tg_forbudt",
+    "B_TG_el_anlegg_tg_forbudt_001",
+}
+
+
+def _point_is_electrical_installation(point: Dict[str, object]) -> bool:
+    if not isinstance(point, dict):
+        return False
+    blob = _normalize_tg3_cost_text(
+        " ".join(
+            str(point.get(key) or "")
+            for key in (
+                "point_id",
+                "id",
+                "canonical_id",
+                "title",
+                "component_title",
+                "effective_span_text",
+                "exact_span_text",
+                "span_text",
+            )
+        )
+    ).lower()
+    return "electrical-installation" in blob or "elektrisk anlegg" in blob or "sikringsskap" in blob
+
+
+def _point_has_real_tg_value(point: Dict[str, object]) -> bool:
+    if not isinstance(point, dict):
+        return False
+    for key in ("tg", "tg_grade", "tilstandsgrad", "condition_grade"):
+        if _normalize_tg_label(point.get(key)):
+            return True
+    return False
+
+
+def _has_electrical_installation_with_real_tg(detected_points: List[Dict[str, object]]) -> bool:
+    if not isinstance(detected_points, list):
+        return False
+    for point in detected_points:
+        if not isinstance(point, dict) or not _point_is_electrical_installation(point):
+            continue
+        if bool(point.get("no_tg_hms_point")) and not _point_has_real_tg_value(point):
+            continue
+        if _point_has_real_tg_value(point):
+            return True
+    return False
+
+
+def _is_electrical_tg_forbidden_item(item: object) -> bool:
+    if not isinstance(item, dict):
+        return False
+    rule_refs = item.get("rule_refs")
+    rule_ref_blob = " ".join(str(ref) for ref in rule_refs if isinstance(ref, str)) if isinstance(rule_refs, list) else ""
+    blob = _normalize_tg3_cost_text(
+        " ".join(
+            str(item.get(key) or "")
+            for key in ("finding_id", "rule_id", "exact_rule_id", "title", "message", "reason", "summary", "details")
+        )
+        + " "
+        + rule_ref_blob
+    ).lower()
+    return any(rule_id.lower() in blob for rule_id in _ELECTRICAL_TG_FORBIDDEN_RULE_IDS) or (
+        "elektrisk anlegg" in blob and "tilstandsgradert" in blob and "ikke tillatt" in blob
+    )
+
+
+def _drop_false_electrical_tg_forbidden_findings(
+    analysis_output: Dict[str, object],
+    detected_points: List[Dict[str, object]],
+) -> None:
+    if not isinstance(analysis_output, dict):
+        return
+    if _has_electrical_installation_with_real_tg(detected_points):
+        return
+
+    for key in (
+        "all_findings",
+        "top_issues",
+        "top_score_drivers",
+        "score_drivers",
+        "how_to_improve",
+        "improvement_suggestions",
+        "action_items",
+        "recommended_fixes",
+    ):
+        items = analysis_output.get(key)
+        if isinstance(items, list):
+            analysis_output[key] = [item for item in items if not _is_electrical_tg_forbidden_item(item)]
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            for key in ("issues", "deductions"):
+                items = component.get(key)
+                if isinstance(items, list):
+                    component[key] = [item for item in items if not _is_electrical_tg_forbidden_item(item)]
+
+    gate = analysis_output.get("gate")
+    if isinstance(gate, dict):
+        blocked_by = gate.get("blocked_by")
+        if isinstance(blocked_by, list):
+            gate["blocked_by"] = [
+                item for item in blocked_by
+                if str(item or "") not in _ELECTRICAL_TG_FORBIDDEN_RULE_IDS
+            ]
+            gate["blocked_by_count"] = len(gate["blocked_by"])
+            gate["blocked_96"] = bool(gate["blocked_by"])
+            gate["active"] = bool(gate["blocked_by"])
+
+    breakdown = analysis_output.get("category_breakdown")
+    if isinstance(breakdown, list):
+        for entry in breakdown:
+            if not isinstance(entry, dict):
+                continue
+            summary = str(entry.get("summary") or "")
+            if _is_electrical_tg_forbidden_item({"summary": summary}):
+                entry["summary"] = "Ingen scoretrekk i denne kategorien."
+
 def _ensure_electrical_no_tg_hms_findings(
     analysis_output: Dict[str, object],
     detected_points: List[Dict[str, object]],
@@ -6690,7 +6826,7 @@ def _dommer_b_missing_action_state(analysis_output: Dict[str, object]) -> Dict[s
             continue
         result = (((point.get("evaluation") or {}).get("field_results") or {}).get("anbefalt_tiltak") or {})
         status = str(result.get("status") or "").strip().upper() if isinstance(result, dict) else ""
-        if status != "MISSING":
+        if status not in {"MISSING", "WRONG"}:
             continue
         if tg == "TG2":
             state["tg2_missing"] = True
@@ -6758,8 +6894,29 @@ def _drop_legacy_consequence_unclear_when_semantic_missing(analysis_output: Dict
                     component[key] = [item for item in items if _keep(item)]
 
 
-def _has_visible_tg3_cost_finding(analysis_output: Dict[str, object]) -> bool:
-    claim_re = re.compile(r"(?i)(?:TG3|tilstandsgrad\s*3).{0,80}(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon)|(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon).{0,80}(?:TG3|tilstandsgrad\s*3)")
+def _has_verified_missing_tg3_cost_issue(analysis_output: Dict[str, object]) -> bool:
+    pipeline = analysis_output.get("arkat_semantic_pipeline") if isinstance(analysis_output, dict) else None
+    points = pipeline.get("points") if isinstance(pipeline, dict) else []
+    if isinstance(points, list):
+        for point in points:
+            if not isinstance(point, dict):
+                continue
+            tg = _normalize_tg_label(point.get("tg_grade") or point.get("tg"))
+            if tg != "TG3":
+                continue
+            field_results = ((point.get("evaluation") or {}).get("field_results") or {}) if isinstance(point.get("evaluation"), dict) else {}
+            if not isinstance(field_results, dict):
+                continue
+            for key in ("kostnadsanslag", "kostnadsestimat", "kostnad", "kostnadsinformasjon"):
+                result = field_results.get(key)
+                status = str(result.get("status") or "").strip().upper() if isinstance(result, dict) else ""
+                if status in {"MISSING", "WRONG"}:
+                    return True
+
+    claim_re = re.compile(
+        r"(?i)(?:TG3|tilstandsgrad\s*3).{0,120}(?:mangler|manglende|uten|ikke\s+(?:oppgitt|angitt|beskrevet)).{0,80}(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon)|"
+        r"(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon).{0,80}(?:mangler|manglende|uten|ikke\s+(?:oppgitt|angitt|beskrevet)).{0,120}(?:TG3|tilstandsgrad\s*3)"
+    )
     for key in ("all_findings", "top_issues", "top_score_drivers", "score_drivers", "how_to_improve", "improvement_suggestions", "action_items", "recommended_fixes"):
         items = analysis_output.get(key)
         if not isinstance(items, list):
@@ -6779,15 +6936,21 @@ def _has_visible_tg3_cost_finding(analysis_output: Dict[str, object]) -> bool:
 
 
 def _remove_untraceable_tg3_cost_summary_claims(summary: str, analysis_output: Dict[str, object]) -> str:
-    if not isinstance(summary, str) or not summary or _has_visible_tg3_cost_finding(analysis_output):
+    if not isinstance(summary, str) or not summary or _has_verified_missing_tg3_cost_issue(analysis_output):
         return summary
+    cost_words = r"(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon)"
     out = re.sub(
-        r"(?i)(?:særlig\s+)?manglende\s+(?:sjablonmessig\s+)?(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon)\s+for\s+TG3(?:-punkter?)?(?:\s*,?\s*samt|\s+og)?",
+        rf"(?i)(?:TG3(?:-?punkter?|-?punkt)?|tilstandsgrad\s*3(?:-?punkter?|-?punkt)?)\s+(?:har\s+)?(?:delvis\s+)?(?:manglende|mangler)\s+(?:også\s+)?(?:sjablonmessig|sjablongmessig)?\s*{cost_words}(?:\s*,?\s*(?:samt|og))?",
         "",
         summary,
     )
     out = re.sub(
-        r"(?i)(?:\s+og\s+|,\s*)?(?:kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon)\s+for\s+TG3(?:-punkter?)?",
+        rf"(?i)(?:særlig\s+)?manglende\s+(?:sjablonmessig\s+)?{cost_words}\s+for\s+TG3(?:-?punkter?|-?punkt)?(?:\s*,?\s*samt|\s+og)?",
+        "",
+        out,
+    )
+    out = re.sub(
+        rf"(?i)(?:\s+og\s+|,\s*)?{cost_words}\s+for\s+TG3(?:-?punkter?|-?punkt)?",
         "",
         out,
     )
@@ -6813,6 +6976,17 @@ def _remove_stale_missing_action_summary_claims(summary: str, analysis_output: D
         )
     )
     out = summary
+    if not action_state["tg3_missing"] and not action_state["tg2_missing"]:
+        out = re.sub(
+            r"(?i)(?:særlig\s+)?manglende\s+anbefalt\s+tiltak\s+og\s+",
+            "",
+            out,
+        )
+        out = re.sub(
+            r"(?i)(?:særlig\s+)?manglende\s+anbefalt\s+tiltak(?:\s*,?\s*(?:samt|og))?",
+            "",
+            out,
+        )
     if not action_state["tg3_missing"]:
         out = re.sub(
             r"(?i)manglende\s+anbefalt\s+tiltak\s+og\s+(kostnadsanslag\s+for\s+TG3)",
@@ -6838,7 +7012,11 @@ def _remove_stale_missing_action_summary_claims(summary: str, analysis_output: D
             "",
             out,
         )
-    out = re.sub(r"(?i)^\s*(?:og|,)\s+", "", out)
+    out = re.sub(r"(?i)\bMange\s+som\s+kreves\s+i\s+NS\s*3600:2018-regime\.?", "", out)
+    out = re.sub(r"(?i)\bHovedutfordringer\s+med\s+ved\s+TG3\s+og\s+enkelte\s+", "", out)
+    out = re.sub(r"(?i)\bved\s+TG3\s+og\s+enkelte\s+", "Enkelte ", out)
+    out = re.sub(r"(?i)\bmed\s+ved\s+TG3\b", "", out)
+    out = re.sub(r"(?i)^\s*(?:og|,|\.)\s+", "", out)
     out = re.sub(r"\s+", " ", out).strip(" ., ")
     return out
 
@@ -6884,6 +7062,10 @@ def _sync_category_breakdown_with_score_by_category(analysis_output: Dict[str, o
                 summary = "Ingen scoretrekk i denne kategorien."
             else:
                 summary = "Scoretrekk i denne kategorien er synliggjort i funnlisten."
+        elif deduction <= 0 and re.search(r"(?i)\bscoretrekk\b.*\bfunnlisten\b", summary):
+            summary = "Ingen scoretrekk i denne kategorien."
+        if category_id == "B" and deduction <= 0:
+            summary = "Ingen scoretrekk i denne kategorien."
         if category_id == "A":
             meta = analysis_output.get("meta") if isinstance(analysis_output.get("meta"), dict) else {}
             ns_blob = _normalize_tg3_cost_text(
@@ -6906,6 +7088,7 @@ def _sync_category_breakdown_with_score_by_category(analysis_output: Dict[str, o
                     summary = "Scoretrekk i denne kategorien er synliggjort i funnlisten."
             summary = _remove_stale_missing_action_summary_claims(summary, analysis_output)
             summary = _remove_untraceable_tg3_cost_summary_claims(summary, analysis_output)
+            summary = _remove_untraceable_schematic_summary_claims(summary, analysis_output)
             if deduction > 0 and not summary:
                 summary = "Scoretrekk i denne kategorien er synliggjort i funnlisten."
         entry["summary"] = _replace_legacy_buyer_oriented_consequence_wording(summary) if "_replace_legacy_buyer_oriented_consequence_wording" in globals() else summary
@@ -6937,6 +7120,7 @@ def _replace_legacy_buyer_oriented_consequence_wording(text: str) -> str:
         replacement,
         out,
     )
+    out = _replace_legacy_buyer_consequence_text(out)
     return re.sub(r"\s+", " ", out).strip()
 
 
@@ -6948,6 +7132,27 @@ def _normalize_category_summary_consequence_wording(analysis_output: Dict[str, o
                 entry["summary"] = _replace_legacy_buyer_oriented_consequence_wording(str(entry.get("summary") or ""))
 
 
+def _remove_untraceable_schematic_summary_claims(summary: str, analysis_output: Dict[str, object]) -> str:
+    if not isinstance(summary, str) or not summary:
+        return summary
+    blob_sources = []
+    for key in ("all_findings", "top_issues", "top_score_drivers", "score_drivers", "how_to_improve", "improvement_suggestions", "action_items", "recommended_fixes"):
+        items = analysis_output.get(key) if isinstance(analysis_output, dict) else None
+        if isinstance(items, list):
+            blob_sources.extend(json.dumps(item, ensure_ascii=False) for item in items if isinstance(item, dict))
+    findings_blob = _normalize_tg3_cost_text(" ".join(blob_sources)).lower()
+    supported = bool(re.search(r"(?i)sjablon|sjablong|kostnadsanslag|kostnadsestimat|kostnadsklasse|kostnadsinformasjon", findings_blob))
+    if supported:
+        return summary
+    out = re.sub(r"(?i)(?:og\s+)?sjablongmessig\s*,?\s*(?:samt|og)?", "", summary)
+    out = re.sub(r"(?i)(?:og\s+)?sjablonmessig\s*,?\s*(?:samt|og)?", "", out)
+    out = re.sub(r"(?i)\bsjablongmessig\b", "", out)
+    out = re.sub(r"(?i)\bsjablonmessig\b", "", out)
+    out = re.sub(r"\s+", " ", out).strip(" .,:")
+    out = re.sub(r"(?i)^\s*(?:og|samt|,)\s+", "", out).strip(" .,:")
+    return out
+
+
 def _finalize_category_summary_public_contracts(analysis_output: Dict[str, object]) -> None:
     breakdown = analysis_output.get("category_breakdown")
     if not isinstance(breakdown, list):
@@ -6956,13 +7161,35 @@ def _finalize_category_summary_public_contracts(analysis_output: Dict[str, objec
         if not isinstance(entry, dict) or not isinstance(entry.get("summary"), str):
             continue
         category = str(entry.get("category") or entry.get("category_id") or "").strip().upper()
+        summary = str(entry.get("summary") or "")
         if category.startswith("A"):
-            summary = str(entry.get("summary") or "")
             summary = _remove_stale_missing_action_summary_claims(summary, analysis_output)
             summary = _remove_untraceable_tg3_cost_summary_claims(summary, analysis_output)
+            summary = _remove_untraceable_schematic_summary_claims(summary, analysis_output)
             if not summary and _score_category_deduction_map(analysis_output).get("A", 0) > 0:
                 summary = "Scoretrekk i denne kategorien er synliggjort i funnlisten."
-            entry["summary"] = summary
+        if str(entry.get("deduction_band") or "").strip() == "Ikke scoretrekk" and re.search(r"(?i)\bscoretrekk\b.*\bfunnlisten\b", summary):
+            summary = "Ingen scoretrekk i denne kategorien."
+        if category.startswith("B") and str(entry.get("deduction_band") or "").strip() == "Ikke scoretrekk":
+            summary = "Ingen scoretrekk i denne kategorien."
+        entry["summary"] = _replace_legacy_buyer_oriented_consequence_wording(summary)
+    _scrub_age_only_category_summary_without_finding(analysis_output)
+
+
+def _dommer_b_tg_by_point(analysis_output: Dict[str, object]) -> Dict[str, str]:
+    pipeline = analysis_output.get("arkat_semantic_pipeline") if isinstance(analysis_output, dict) else None
+    points = pipeline.get("points") if isinstance(pipeline, dict) else []
+    out: Dict[str, str] = {}
+    if not isinstance(points, list):
+        return out
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        point_id = _normalize_point_id(str(point.get("point_id") or ""))
+        tg = _normalize_tg_label(point.get("tg_grade") or point.get("tg"))
+        if point_id and tg:
+            out[point_id] = tg
+    return out
 
 
 def _dommer_b_tg2_not_applicable_tiltak_points(analysis_output: Dict[str, object]) -> set:
@@ -7047,14 +7274,45 @@ def _replace_legacy_buyer_consequence_text(text: str) -> str:
     if not isinstance(text, str) or not text:
         return text
     replacement = "Konsekvenser bør beskrive konkrete følger tydeligere, enten bygningsteknisk eller praktisk for kjøper."
+    consequence_replacement = "konkret konsekvens, enten bygningsteknisk eller praktisk for kjøper"
+    fix_replacement = "Presiser konkret konsekvens, enten bygningsteknisk skade/risiko eller praktisk betydning for kjøper."
     out = text
     out = re.sub(r"(?i)konsekvens(?:en)?\s+ikke\s+kjøperorientert(?:e)?\s+nok", replacement, out)
     out = re.sub(r"(?i)mangler\s+tydelig\s+kjøperkonsekvens", "bør beskrive konkrete følger tydeligere", out)
+    out = re.sub(r"(?i)mangler\s+(?:tydelig\s+)?konsekvens\s+for\s+kjøper\s*\([^)]*\)", "mangler tydelig konkret konsekvens", out)
+    out = re.sub(r"(?i)mangler\s+(?:tydelig\s+)?konsekvens\s+for\s+kjøper", "mangler tydelig konkret konsekvens", out)
+    out = re.sub(r"(?i)konsekvens\s+for\s+kjøper\s+kunne\s+v[æa]rt\s+tydeligere", "konkret konsekvens kunne vært tydeligere", out)
+    out = re.sub(r"(?i)konsekvens\s+for\s+kjøper\s*\([^)]*\)", consequence_replacement, out)
+    out = re.sub(r"(?i)Presiser\s+den\s+praktiske\s+konsekvensen\s+for\s+kjøper\s*\([^)]*\)\.", fix_replacement, out)
+    out = re.sub(r"(?i)Presiser\s+den\s+praktiske\s+konsekvensen\s+for\s+kjøper", fix_replacement.rstrip('.'), out)
+    out = re.sub(
+        r"(?i)Konsekvens\s+må\s+beskrive\s+hva\s+forholdet\s+betyr\s+for\s+kjøper,?\s+ikke\s+bare\s+teknisk\s+skadeutvikling\.?",
+        "Konsekvens bør beskrive konkrete følger, enten bygningsteknisk eller praktisk for kjøper.",
+        out,
+    )
+    out = re.sub(
+        r"(?i)(?:alle\s+TG2-punkter\s+)?mangler\s+tydelig\s+forklaring\s+av\s+hva\s+avviket\s+betyr\s+for\s+kjøper\s+i\s+praksis",
+        "mangler tydelig konkret konsekvens",
+        out,
+    )
+    out = re.sub(
+        r"(?i)hva\s+avviket\s+betyr\s+for\s+kjøper\s+i\s+praksis",
+        "konkret konsekvens",
+        out,
+    )
+    out = re.sub(
+        r"(?i)Flere\s+punkter\s+beskriver\s+kun\s+tekniske\s+forhold\s+uten\s+å\s+forklare\s+praktisk\s+betydning\s+for\s+kjøper",
+        "Flere punkter mangler konkret konsekvens, enten bygningsteknisk eller praktisk for kjøper",
+        out,
+    )
     out = re.sub(r"(?i)kjøperkonsekvens(?:en)?", "konkret følge", out)
     out = re.sub(r"(?i)kjøperperspektiv(?:et)?", "konkrete følger", out)
     out = re.sub(r"(?i)kjøperorienterte?", "konkrete", out)
     out = re.sub(r"(?i)kjøperrettet", "konkret", out)
-    return re.sub(r"\s+", " ", out).strip()
+    out = re.sub(r"(?i)\bARKAT-kvalitet:\s*Hovedutfordringer\s+med\s*,\s*samt\s+enkelte\s+", "", out)
+    out = re.sub(r"(?i)\bHovedutfordringer\s+med\s*,\s*samt\s+enkelte\s+", "", out)
+    out = re.sub(r"(?i)\bmangler\s+konkrete\s+konsekvens\b", "mangler tydelig konkret konsekvens", out)
+    return re.sub(r"\s+", " ", out).strip(" .,:")
 
 
 _BUYER_ONLY_CONSEQUENCE_PUBLIC_RE = re.compile(
@@ -7079,7 +7337,7 @@ def _contains_buyer_only_consequence_public_claim(item: object) -> bool:
 def _is_public_finding_like_item(item: object) -> bool:
     if not isinstance(item, dict):
         return isinstance(item, str)
-    return any(key in item for key in ("finding_id", "rule_id", "message", "title", "recommended_fix_text", "suggested_rewrite_text", "reason"))
+    return any(key in item for key in ("finding_id", "rule_id", "message", "recommended_fix_text", "suggested_rewrite_text", "reason", "what_to_change"))
 
 
 def _drop_buyer_only_consequence_public_claims(payload: object) -> None:
@@ -7110,13 +7368,8 @@ def _drop_buyer_only_consequence_public_claims(payload: object) -> None:
         for value in list(payload.values()):
             _drop_buyer_only_consequence_public_claims(value)
     elif isinstance(payload, list):
-        payload[:] = [
-            item for item in payload
-            if not (
-                _is_public_finding_like_item(item)
-                and _contains_buyer_only_consequence_public_claim(item)
-            )
-        ]
+        # Generic lists may be Dommer B point lists. Only the named public finding
+        # keys above are filtered; all other lists are traversed in place.
         for item in payload:
             _drop_buyer_only_consequence_public_claims(item)
 
@@ -8303,6 +8556,108 @@ def _is_mechanical_missing_tiltak_item(item: Dict[str, object]) -> bool:
     )
 
 
+
+def _point_raw_text_has_action_wording(text: object) -> bool:
+    normalized = _normalize_tg3_cost_text(str(text or "")).lower()
+    if not normalized:
+        return False
+    return bool(
+        re.search(
+            r"(?ix)\b(?:"
+            r"det\s+anbefales|anbefales\s+[aå]|anbefalt\s+[aå]|"
+            r"b[oø]r\s+(?:utf[oø]res|skiftes|utbedres|kontrolleres|unders[oø]kes|vurderes|planlegges|totalrenoveres|renoveres|etableres)|"
+            r"m[aå]\s+(?:skiftes(?:\s+ut)?(?:/utbedres)?|utbedres|totalrenoveres|renoveres|repareres|p[åa]regnes\s+tiltak)|"
+            r"(?:skiftes\s+ut|utbedres|totalrenoveres|renoveres|repareres)\b|"
+            r"utskiftning\s+av|utbedring\s+av|kontroll\s+og\s+eventuell\s+utbedring|tiltaksplan"
+            r")\b",
+            normalized,
+        )
+    )
+
+
+def _dommer_b_tg3_points_with_raw_action(analysis_output: Dict[str, object]) -> Dict[str, Dict[str, object]]:
+    pipeline = analysis_output.get("arkat_semantic_pipeline") if isinstance(analysis_output, dict) else None
+    points = pipeline.get("points") if isinstance(pipeline, dict) else []
+    out: Dict[str, Dict[str, object]] = {}
+    if not isinstance(points, list):
+        return out
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        point_id = _normalize_point_id(str(point.get("point_id") or ""))
+        tg = _normalize_tg_label(point.get("tg_grade") or point.get("tg"))
+        if not point_id or tg != "TG3":
+            continue
+        raw = str(point.get("raw_point_text") or point.get("exact_point_text") or "")
+        fields = point.get("extracted_fields") if isinstance(point.get("extracted_fields"), dict) else {}
+        action_text = str(fields.get("anbefalt_tiltak") or "") if isinstance(fields, dict) else ""
+        if _point_raw_text_has_action_wording(f"{action_text}\n{raw}"):
+            out[point_id] = point
+    return out
+
+
+def _missing_tiltak_item_matches_action_point(item: Dict[str, object], action_points: Dict[str, Dict[str, object]]) -> bool:
+    if not isinstance(item, dict) or not _claims_missing_anbefalt_tiltak(item) or not action_points:
+        return False
+    point_id = _arkat_item_point_id(item)
+    if point_id and point_id in action_points:
+        return True
+    blob = _normalize_tg3_cost_text(
+        " ".join(
+            str(item.get(key) or "")
+            for key in ("finding_id", "rule_id", "title", "message", "reason", "exact_point_title", "exact_point_text", "recommended_fix_text")
+        )
+        + " "
+        + " ".join(str(snippet or "") for snippet in (item.get("evidence_snippets") or []) if isinstance(snippet, str))
+    ).lower()
+    for point_id, point in action_points.items():
+        title = _normalize_tg3_cost_text(str(point.get("title") or "")).lower()
+        raw = _normalize_tg3_cost_text(str(point.get("raw_point_text") or "")).lower()
+        title_leaf = title.split(">")[-1].strip() if ">" in title else title
+        if point_id and point_id.lower() in blob:
+            return True
+        if title_leaf and title_leaf in blob:
+            return True
+        if "kjølerom" in raw and "kjølerom" in blob:
+            return True
+        if "kjøleaggregat" in raw and "kjøleaggregat" in blob:
+            return True
+    return False
+
+
+def _drop_missing_tiltak_when_raw_action_present(analysis_output: Dict[str, object]) -> None:
+    if not isinstance(analysis_output, dict):
+        return
+    action_points = _dommer_b_tg3_points_with_raw_action(analysis_output)
+    if not action_points:
+        return
+
+    for key in ("all_findings", "top_issues", "top_score_drivers", "score_drivers", "how_to_improve", "improvement_suggestions", "action_items", "recommended_fixes"):
+        items = analysis_output.get(key)
+        if isinstance(items, list):
+            analysis_output[key] = [
+                item for item in items
+                if not (isinstance(item, dict) and _missing_tiltak_item_matches_action_point(item, action_points))
+            ]
+
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            component_id = _normalize_point_id(str(component.get("component_id") or ""))
+            for key in ("issues", "deductions"):
+                items = component.get(key)
+                if isinstance(items, list):
+                    component[key] = [
+                        item for item in items
+                        if not (
+                            isinstance(item, dict)
+                            and _claims_missing_anbefalt_tiltak(item)
+                            and (component_id in action_points or _missing_tiltak_item_matches_action_point(item, action_points))
+                        )
+                    ]
+
 def _drop_duplicate_missing_tiltak_findings(analysis_output: Dict[str, object]) -> None:
     """
     Keep one public deduction for the same point/field.
@@ -8347,13 +8702,33 @@ def _drop_duplicate_missing_tiltak_findings(analysis_output: Dict[str, object]) 
         deduped_garage.append(item)
     all_findings = deduped_garage
     analysis_output["all_findings"] = all_findings
+    tg_by_point = _dommer_b_tg_by_point(analysis_output)
     mechanical_missing_tiltak_points = {
         _arkat_item_point_id(item)
         for item in all_findings
         if isinstance(item, dict)
         and _arkat_item_point_id(item)
         and _is_mechanical_missing_tiltak_item(item)
+        and tg_by_point.get(_arkat_item_point_id(item), "TG3") == "TG3"
     }
+    non_tg3_mechanical_missing_tiltak_points = {
+        _arkat_item_point_id(item)
+        for item in all_findings
+        if isinstance(item, dict)
+        and _arkat_item_point_id(item)
+        and _is_mechanical_missing_tiltak_item(item)
+        and tg_by_point.get(_arkat_item_point_id(item), "TG3") != "TG3"
+    }
+    if non_tg3_mechanical_missing_tiltak_points:
+        all_findings = [
+            item for item in all_findings
+            if not (
+                isinstance(item, dict)
+                and _arkat_item_point_id(item) in non_tg3_mechanical_missing_tiltak_points
+                and _is_mechanical_missing_tiltak_item(item)
+            )
+        ]
+        analysis_output["all_findings"] = all_findings
     stronger_points = {
         _arkat_item_point_id(item)
         for item in all_findings
@@ -9029,6 +9404,39 @@ def _clean_feedback_example_text(example_text: object, fallback_text: object = "
     return ""
 
 
+
+def _age_only_blob_is_internal_water_or_drain_service_life(blob: str) -> bool:
+    low = _normalize_tg3_cost_text(blob or "").lower()
+    if not low:
+        return False
+    has_internal_pipe = bool(
+        re.search(r"(?ix)\binnvendige?\s+(?:vannledninger|avl[oø]psledninger|avl[oø]psr[oø]r)\b", low)
+        or re.search(r"(?ix)\btekniske\s+installasjoner\b.{0,80}\b(?:vannledninger|avl[oø]psr[oø]r)\b", low)
+        or "fremtind-water-pipes" in low
+        or "fremtind-drain-pipes" in low
+    )
+    has_service_life = bool(
+        re.search(r"(?ix)\b(?:mer\s+enn\s+)?halvparten\s+av\s+forventet\s+brukstid\s+er\s+passert\b", low)
+        or re.search(r"(?ix)\bforventet\s+(?:brukstid|levetid)\b", low)
+        or "passert" in low and "brukstid" in low
+    )
+    return has_internal_pipe and has_service_life
+
+
+def _age_only_item_only_refs_allowed_internal_pipe_service_life(item: Dict[str, object], segment_text: str) -> bool:
+    if not isinstance(item, dict):
+        return False
+    snippets = [snippet for snippet in (item.get("evidence_snippets") or []) if isinstance(snippet, str) and snippet.strip()]
+    if snippets:
+        age_snippets = [snippet for snippet in snippets if _segment_relies_on_age_only_reason(snippet) or "brukstid" in snippet.lower()]
+        if age_snippets and all(_age_only_blob_is_internal_water_or_drain_service_life(snippet) for snippet in age_snippets):
+            return True
+    blob = " ".join(
+        str(item.get(key) or "")
+        for key in ("finding_id", "rule_id", "title", "message", "reason", "exact_point_id", "point_id", "exact_point_title", "exact_point_text", "recommended_fix_text")
+    )
+    return _age_only_blob_is_internal_water_or_drain_service_life(f"{blob}\n{segment_text}")
+
 def _is_age_only_candidate(item: Dict[str, object]) -> bool:
     blob = _normalize_tg3_cost_text(
         f"{item.get('finding_id', '')} {item.get('rule_id', '')} {item.get('title', '')} {item.get('message', '')}"
@@ -9253,6 +9661,34 @@ def _report_point_has_concrete_non_age_support(
     return _segment_has_concrete_non_age_support(context)
 
 
+
+def _analysis_has_age_only_public_finding(analysis_output: Dict[str, object]) -> bool:
+    for key in ("all_findings", "top_issues", "top_score_drivers", "score_drivers"):
+        items = analysis_output.get(key) if isinstance(analysis_output, dict) else None
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if isinstance(item, dict) and _is_age_only_candidate(item):
+                return True
+    return False
+
+
+def _scrub_age_only_category_summary_without_finding(analysis_output: Dict[str, object]) -> None:
+    if not isinstance(analysis_output, dict) or _analysis_has_age_only_public_finding(analysis_output):
+        return
+    breakdown = analysis_output.get("category_breakdown")
+    if not isinstance(breakdown, list):
+        return
+    for entry in breakdown:
+        if not isinstance(entry, dict):
+            continue
+        category = str(entry.get("category") or entry.get("category_id") or "").strip().upper()
+        if not category.startswith("B"):
+            continue
+        summary = _normalize_tg3_cost_text(str(entry.get("summary") or ""))
+        if re.search(r"(?i)hovedsakelig\s+.*alder|alder\s+uten\s+tilstrekkelig\s+faglig\s+begrunnelse|age_only", summary):
+            entry["summary"] = "Ingen scoretrekk i denne kategorien."
+
 def _drop_age_only_false_positives(
     report_text: str,
     analysis_output: Dict[str, object],
@@ -9331,6 +9767,8 @@ def _drop_age_only_false_positives(
                 if candidate
             )
         ).lower()
+        if _age_only_item_only_refs_allowed_internal_pipe_service_life(item, segment_text):
+            return True
         if (
             "taktekking" in roof_blob
             or "undertak, lekter og yttertekking" in roof_blob
@@ -9370,6 +9808,8 @@ def _drop_age_only_false_positives(
             item for item in top_score_drivers
             if not (isinstance(item, dict) and _is_supported(item))
         ]
+
+    _scrub_age_only_category_summary_without_finding(analysis_output)
 
 
 def _drop_report_level_false_positives(report_text: str, analysis_output: Dict[str, object]) -> None:
@@ -9895,10 +10335,14 @@ def _ensure_feedback_findings_cover_deductions(
         existing_ids.add(finding_id)
 
 
-def _sanitize_feedback_missing_tiltak_findings(feedback_findings: List[Dict[str, object]]) -> None:
+def _sanitize_feedback_missing_tiltak_findings(
+    feedback_findings: List[Dict[str, object]],
+    point_tg_by_id: Optional[Dict[str, str]] = None,
+) -> None:
     if not isinstance(feedback_findings, list):
         return
     seen_missing_tiltak_points: set = set()
+    point_tg_by_id = point_tg_by_id or {}
     filtered: List[Dict[str, object]] = []
     for finding in feedback_findings:
         if not isinstance(finding, dict):
@@ -9936,6 +10380,9 @@ def _sanitize_feedback_missing_tiltak_findings(feedback_findings: List[Dict[str,
             filtered.append(finding)
             continue
         point_id = _normalize_point_id(str(finding.get("point_id") or _parse_point_id_from_v16_finding(finding) or ""))
+        point_tg = _normalize_tg_label(point_tg_by_id.get(point_id, "")) if point_id else ""
+        if point_id and point_tg and point_tg != "TG3":
+            continue
         if point_id and point_id in seen_missing_tiltak_points:
             continue
         if point_id:
@@ -11541,7 +11988,14 @@ def _build_feedback_v11(
         [f for f in all_findings_source if isinstance(f, dict)],
     )
     _ensure_special_feedback_findings_visible(analysis_output, feedback_findings)
-    _sanitize_feedback_missing_tiltak_findings(feedback_findings)
+    _sanitize_feedback_missing_tiltak_findings(
+        feedback_findings,
+        {
+            _normalize_point_id(str(pid)): _normalize_tg_label(point.get("tg") or point.get("tg_grade"))
+            for pid, point in point_lookup.items()
+            if isinstance(pid, str) and isinstance(point, dict)
+        },
+    )
     _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
@@ -12199,7 +12653,14 @@ def _build_feedback_v11_from_all_findings(
         [f for f in all_findings if isinstance(f, dict)],
     )
     _ensure_special_feedback_findings_visible(analysis_output, feedback_findings)
-    _sanitize_feedback_missing_tiltak_findings(feedback_findings)
+    _sanitize_feedback_missing_tiltak_findings(
+        feedback_findings,
+        {
+            _normalize_point_id(str(pid)): _normalize_tg_label(point.get("tg") or point.get("tg_grade"))
+            for pid, point in point_lookup.items()
+            if isinstance(pid, str) and isinstance(point, dict)
+        },
+    )
     _polish_feedback_findings(feedback_findings)
     return {
         "version": "v1.1",
@@ -12262,7 +12723,7 @@ def _sanitize_feedback_v11_legacy_consequence_unclear(
     return payload
 
 
-_FREMTIND_STYLE_P_CODE_RE = re.compile(r"(?i)\bp\d{2}[a-zæøå]?(?:[_\-.]?[a-z0-9æøå]+)+\b")
+_FREMTIND_STYLE_P_CODE_RE = re.compile(r"(?i)(?<![a-z0-9])p\d{2}[a-zæøå]?(?:[_\-.]?[a-z0-9æøå]+)+(?![a-z0-9])")
 
 
 def _neutralize_bmtf_p_code(value: str, prefix: str = "bmtf") -> str:
@@ -12998,7 +13459,11 @@ def ensure_analysis_evidence(analysis_output: Dict[str, object], report_text: st
     _sanitize_analysis_output_text(analysis_output)
 
 
-def postprocess_analysis_output(analysis_output: Dict[str, object], report_text: str) -> Dict[str, object]:
+def postprocess_analysis_output(
+    analysis_output: Dict[str, object],
+    report_text: str,
+    report_date_override: str = "",
+) -> Dict[str, object]:
     """
     Single source of truth for post-LLM validation/normalization.
     Applies cost false-positive filtering and per-segment ARK/ARKAT checks on merged text.
@@ -13011,6 +13476,9 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
         meta = {}
         analysis_output["meta"] = meta
     regime_context = _extract_report_regime_context(report_text or "")
+    if report_date_override:
+        regime_context["report_date"] = report_date_override
+        regime_context["report_regime"] = _detect_report_regime(report_date_override, regime_context.get("ns_version") or "")
     if regime_context.get("report_date"):
         meta["report_date"] = regime_context["report_date"]
     ns_standard_version = _detect_ns_standard_version(report_text or "")
@@ -13160,12 +13628,18 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     meta["runtime_points_raw_count"] = len(raw_detected_points)
     meta["runtime_points_whitelist_count"] = len(validated_detected_points or [])
     meta["runtime_points_scoring_count"] = len(detected_points)
-    _run_client_arkat_semantic_pipeline(report_text, detected_points, analysis_output)
+    _run_client_arkat_semantic_pipeline(
+        report_text,
+        detected_points,
+        analysis_output,
+        str(regime_context.get("report_date") or ""),
+    )
     _attach_exact_point_sources_to_findings(analysis_output, detected_points)
     _filter_tg3_cost_missing_false_positives(report_text, analysis_output, detected_points)
     _drop_tg_and_consequence_false_positives(report_text, analysis_output, detected_points)
     _filter_regime_conditioned_rules(report_text, analysis_output, detected_points)
     _drop_no_tg_hms_as_regular_tg_findings(analysis_output, detected_points)
+    _drop_false_electrical_tg_forbidden_findings(analysis_output, detected_points)
     _ensure_issue_evidence(analysis_output, report_text)
     _ensure_driver_evidence(analysis_output)
     _normalize_scoring_output(analysis_output)
@@ -13192,17 +13666,21 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _drop_known_client_false_positives(report_text, analysis_output)
     _drop_false_freestanding_garage_findings(analysis_output)
     _dedupe_all_findings_duplicate_safe(analysis_output)
+    _drop_missing_tiltak_when_raw_action_present(analysis_output)
     _drop_duplicate_missing_tiltak_findings(analysis_output)
+    _drop_missing_tiltak_when_raw_action_present(analysis_output)
     _drop_tg3_missing_tiltak_false_positives_from_point_text(analysis_output, detected_points, report_text or "")
     _drop_overlapping_consequence_missing_findings(analysis_output)
     _drop_missing_claims_when_semantic_field_correct(analysis_output)
     _drop_legacy_consequence_unclear_when_semantic_missing(analysis_output)
     _finalize_dommer_b_canonical_output(analysis_output)
     _drop_tg3_cost_top_issues_if_segments_have_cost(analysis_output) 
+    _drop_false_electrical_tg_forbidden_findings(analysis_output, detected_points)
     _drop_false_freestanding_garage_findings(analysis_output)
     _normalize_scoring_output(analysis_output)
     _sync_gate_from_all_findings(analysis_output)
     _sync_category_breakdown_with_score_by_category(analysis_output)
+    _scrub_age_only_category_summary_without_finding(analysis_output)
     _normalize_zero_score_language_findings(analysis_output)
     _ensure_tgiu_deductions_visible_in_all_findings(analysis_output)
     _sync_public_output_views(analysis_output)
@@ -13218,6 +13696,7 @@ def postprocess_analysis_output(analysis_output: Dict[str, object], report_text:
     _sanitize_user_facing_text_contracts(analysis_output)
     _drop_buyer_only_consequence_public_claims(analysis_output)
     _finalize_category_summary_public_contracts(analysis_output)
+    _scrub_age_only_category_summary_without_finding(analysis_output)
     _ensure_tgiu_deductions_visible_in_all_findings(analysis_output)
     final_score_total = analysis_output.get("score_total")
     if isinstance(final_score_total, (int, float)):
@@ -13991,7 +14470,11 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
                 raise ValueError("AI output is not a JSON object")
 
             _ensure_meta_fields(analysis_output, document_title, document_id)
-            postprocess_analysis_output(analysis_output, normalized_text)
+            postprocess_analysis_output(
+                analysis_output,
+                normalized_text,
+                identity_report_date if identity_report_date and _report_text_suggests_compressed_mixed_format(normalized_text) else "",
+            )
             meta = analysis_output.get("meta", {})
             if isinstance(meta, dict) and identity_report_date and _report_text_suggests_compressed_mixed_format(normalized_text):
                 meta["report_date"] = identity_report_date

@@ -89,7 +89,7 @@ _ARKAT_RISK_DEVELOPMENT_RE = re.compile(
 )
 _ARKAT_ACTION_RE = re.compile(
     r"(?ix)\b(?:det\s+anbefales(?:\s+[aå])?|anbefaler(?:\s+(?:at|[aå]))?|anbefalt\s+[aå]|b[oø]r\s+(?:utf[oø]res|skiftes|utbedres|kontrolleres|unders[oø]kes|"
-    r"vurderes|planlegges|totalrenoveres|renoveres|etableres)|m[aå]\s+(?:p[åa]regnes|totalrenoveres|renoveres|dokumenteres|[oø]kes|synliggj[oø]res)|"
+    r"vurderes|planlegges|totalrenoveres|renoveres|etableres)|m[aå]\s+(?:p[åa]regnes|skiftes(?:\s+ut)?(?:/utbedres)?|utbedres|repareres|totalrenoveres|renoveres|dokumenteres|[oø]kes|synliggj[oø]res)|"
     r"kan\s+v[æa]re\s+[aå]\s+(?:legge|montere|installere|utbedre|skifte)|planlegg|bestill|lokal\s+utbedring|utf[oø]res\s+av\s+fagperson)\b"
 )
 _ARKAT_AGE_ONLY_2018_RE = re.compile(
@@ -3421,6 +3421,8 @@ def _konsekvens_wrong_role_error_type(text: str, normalize_text) -> Optional[str
     ):
         return "LIMITATION_AS_KONSEKVENS"
     if re.search(r"(?ix)\b(?:det\s+er\s+)?behov\s+for\s+vedlikehold(?:\s+av\b|\b)|\bvedlikeholdsbehov\b", low):
+        return "TILTAK_AS_KONSEKVENS"
+    if re.search(r"(?ix)\b(?:tiltak|utbedring|redrenering|dreneringstiltak)\b.{0,80}\bkan\s+ikke\s+utelukkes\b", low):
         return "TILTAK_AS_KONSEKVENS"
     if re.search(r"(?ix)\bkan\s+skader?\s+plutselig\s+oppst[aå]\b|\bskader?\s+kan\s+plutselig\s+oppst[aå]\b", low):
         return "RISIKO_AS_KONSEKVENS"

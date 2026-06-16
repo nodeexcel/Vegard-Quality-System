@@ -18,11 +18,16 @@ os.environ.setdefault("SECRET_KEY", "dummy")
 
 from app.services.ai_analyzer import (  # noqa: E402
     _detect_report_date_from_document_identity,
+    _drop_age_only_false_positives,
+    _drop_false_electrical_tg_forbidden_findings,
+    _drop_missing_tiltak_when_raw_action_present,
     _drop_buyer_only_consequence_public_claims,
     _ensure_generic_backstop_findings,
     _extract_compressed_mixed_block_by_terms,
+    _extract_compressed_mixed_wetroom_block_by_title,
     _normalize_report_text_for_analysis,
     _normalize_tg3_cost_text as normalize_text,
+    _drop_buyer_only_consequence_public_claims,
     _drop_tg3_missing_tiltak_for_semantic_tg2_not_applicable,
     _mark_duplicate_f001_informational,
     _drop_legacy_consequence_unclear_when_semantic_missing,
@@ -30,15 +35,18 @@ from app.services.ai_analyzer import (  # noqa: E402
     _normalize_category_summary_consequence_wording,
     _normalize_zero_score_language_findings,
     _remove_untraceable_tg3_cost_summary_claims,
+    _sanitize_feedback_missing_tiltak_findings,
     _sanitize_feedback_v11_legacy_consequence_unclear,
     _sanitize_bmtf_feedback_v11_p_codes,
     _sanitize_user_facing_text_contracts,
+    _scrub_age_only_category_summary_without_finding,
     _sync_category_breakdown_with_score_by_category,
 )
 from app.services.arkat_semantic_pipeline import (  # noqa: E402
     _evaluate_arkat_point,
     _extract_fields_for_point,
     _finalize_arkat_fields,
+    _best_action_sentence_from_text,
     _normalize_arkat_eval_result,
     _sanitize_arkat_field_values,
     _strip_embedded_summary_tables_for_arkat_fields,
@@ -731,7 +739,7 @@ def test_category_summary_does_not_claim_missing_tg3_tiltak_when_final_dommer_b_
     summary = analysis_output["category_breakdown"][0]["summary"]
 
     assert "manglende anbefalt tiltak" not in summary.lower()
-    assert "kostnadsanslag for TG3" in summary
+    assert "kostnadsanslag for TG3" not in summary
     assert "upresise konsekvenser" in summary.lower()
 
 
@@ -987,3 +995,500 @@ def test_compressed_mixed_document_identity_date_is_detected():
         "fremtind-sarpsborg-20-05-26.pdf",
         "fremtind_sarpsborg_20_05_26",
     ) == "2026-05-20"
+
+
+def test_user_facing_text_sanitizer_removes_buyer_only_consequence_variants():
+    analysis_output = {
+        "meta": {"ns_standard_version": "NS3600:2018"},
+        "all_findings": [
+            {
+                "message": "Punkt 7.1.3: mangler konsekvens for kjøper (bruk/sikkerhet/økonomi/videre skade).",
+                "recommended_fix_text": "Presiser den praktiske konsekvensen for kjøper (f.eks. økte kostnader).",
+                "comment": "Konsekvens må beskrive hva forholdet betyr for kjøper, ikke bare teknisk skadeutvikling.",
+            }
+        ],
+        "category_breakdown": [
+            {
+                "category": "A - ARKAT",
+                "summary": "Systematisk mangel på konkrete konsekvens. Flere punkter beskriver kun tekniske forhold uten å forklare praktisk betydning for kjøper",
+            }
+        ],
+    }
+
+    _sanitize_user_facing_text_contracts(analysis_output)
+    _normalize_category_summary_consequence_wording(analysis_output)
+    blob = json.dumps(analysis_output, ensure_ascii=False)
+
+    assert "mangler konsekvens for kjøper" not in blob
+    assert "Presiser den praktiske konsekvensen for kjøper" not in blob
+    assert "uten å forklare praktisk betydning for kjøper" not in blob
+    assert "hva forholdet betyr for kjøper" not in blob
+    assert "konkret konsekvens, enten bygningsteknisk eller praktisk for kjøper" in blob
+
+
+def test_feedback_missing_tiltak_sanitizer_does_not_create_tg3_finding_for_tg2():
+    findings = [
+        {
+            "finding_id": "raw-7.1.3",
+            "rule_id": "A_ARKAT.ANBEFALT_TILTAK.MISSING",
+            "point_id": "7.1.3",
+            "message": "anbefalt tiltak mangler",
+            "what_to_change": "Skriv anbefalt tiltak",
+        },
+        {
+            "finding_id": "raw-7.2.3",
+            "rule_id": "A_ARKAT.ANBEFALT_TILTAK.MISSING",
+            "point_id": "7.2.3",
+            "message": "anbefalt tiltak mangler",
+            "what_to_change": "Skriv anbefalt tiltak",
+        },
+    ]
+
+    _sanitize_feedback_missing_tiltak_findings(findings, {"7.1.3": "TG2", "7.2.3": "TG3"})
+    blob = json.dumps(findings, ensure_ascii=False)
+
+    assert "TG3_MISSING_TILTAK_7_1_3" not in blob
+    assert "TG3_MISSING_TILTAK_7_2_3" in blob
+    assert len(findings) == 1
+
+
+def test_compressed_mixed_special_room_kjolerom_blocks_are_path_anchored():
+    report_text = """
+SPESIALROM
+1. ETASJE > TOALETTROM
+Overflater og konstruksjon
+Beskrivelse
+Toalettrom med toalett og servant.
+KJELLER > KJØLEROM
+Overflater og konstruksjon
+Beskrivelse
+Kjølerom
+Vurdering av avvik:
+• Det er påvist indikasjoner på feil utførelse av konstruksjoner i rommet.
+Konsekvens/tiltak
+• Det må gjennomføres ytterligere undersøkelser.
+[TABELLDATA]
+[SIDE 16]
+KJELLER > KJØLEROM
+Teknisk anlegg
+Beskrivelse
+Kjøleraggregat.
+Vurdering av avvik:
+• Det er påvist/opplyst at kjøleromsaggregat ikke fungerer.
+Konsekvens/tiltak
+• Kjøleaggregat må skiftes ut/utbedres.
+Kostnadsestimat: 20 000 - 100 000
+"""
+
+    surfaces = _extract_compressed_mixed_wetroom_block_by_title(
+        _normalize_report_text_for_analysis(report_text),
+        "Spesialrom > Kjeller > Kjølerom > Overflater og konstruksjon",
+    )
+    technical = _extract_compressed_mixed_wetroom_block_by_title(
+        _normalize_report_text_for_analysis(report_text),
+        "Spesialrom > Kjeller > Kjølerom > Teknisk anlegg",
+    )
+
+    assert "feil utførelse" in surfaces
+    assert "Kjøleraggregat" not in surfaces
+    assert "Kjøleraggregat" in technical
+    assert "feil utførelse" not in technical
+
+
+def test_buyer_only_scrubber_does_not_drop_dommer_b_point_objects():
+    payload = {
+        "arkat_semantic_pipeline": {
+            "points": [
+                {
+                    "point_id": "fremtind-drainage",
+                    "title": "Tomteforhold > Fuktsikring og drenering",
+                    "evaluation": {
+                        "field_results": {
+                            "konsekvens": {
+                                "status": "MISSING",
+                                "explanation": "Konsekvens må beskrive hva forholdet betyr for kjøper, ikke bare teknisk skadeutvikling.",
+                            }
+                        }
+                    },
+                }
+            ]
+        },
+        "all_findings": [
+            {"finding_id": "legacy", "message": "Konsekvens må beskrive hva forholdet betyr for kjøper, ikke bare teknisk skadeutvikling."}
+        ],
+    }
+
+    _sanitize_user_facing_text_contracts(payload)
+    _drop_buyer_only_consequence_public_claims(payload)
+    blob = json.dumps(payload, ensure_ascii=False)
+
+    assert payload["arkat_semantic_pipeline"]["points"][0]["point_id"] == "fremtind-drainage"
+    assert payload["all_findings"][0]["finding_id"] == "legacy"
+    assert "hva forholdet betyr for kjøper" not in blob
+    assert "Konsekvens bør beskrive konkrete følger" in blob
+
+
+def test_category_summary_removes_unverified_action_and_schematic_claims():
+    analysis_output = {
+        "meta": {"ns_standard_version": "NS3600:2018"},
+        "score_by_category": [{"category_id": "A", "category_name": "ARKAT", "deduction": 7}],
+        "category_breakdown": [
+            {
+                "category": "A - ARKAT",
+                "summary": "manglende anbefalt tiltak og sjablongmessig , samt flere TG2-punkter med upresise konsekvenser",
+            }
+        ],
+        "arkat_semantic_pipeline": {
+            "points": [
+                {"point_id": "2.1", "tg_grade": "TG3", "evaluation": {"field_results": {"anbefalt_tiltak": {"status": "CORRECT"}}}},
+                {"point_id": "7.2.2", "tg_grade": "TG3", "evaluation": {"field_results": {"anbefalt_tiltak": {"status": "CORRECT"}}}},
+                {"point_id": "3.1", "tg_grade": "TG2", "evaluation": {"field_results": {"anbefalt_tiltak": {"status": "NOT_APPLICABLE"}}}},
+            ]
+        },
+        "all_findings": [{"finding_id": "A_CONS", "title": "Upresis konsekvens"}],
+    }
+
+    _sync_category_breakdown_with_score_by_category(analysis_output)
+    _finalize_category_summary_public_contracts(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"].lower()
+
+    assert "manglende anbefalt tiltak" not in summary
+    assert "sjablong" not in summary
+    assert "sjablon" not in summary
+    assert "upresise konsekvenser" in summary
+
+
+def test_category_summary_rewrites_exact_buyer_only_consequence_phrase():
+    analysis_output = {
+        "meta": {"ns_standard_version": "NS3600:2018"},
+        "score_by_category": [{"category_id": "A", "category_name": "ARKAT", "deduction": 5}],
+        "category_breakdown": [
+            {"category": "A - ARKAT", "summary": "Flere TG2-punkter mangler tydelig konsekvens for kjøper"}
+        ],
+        "all_findings": [{"finding_id": "A_CONS", "title": "Manglende tydelig konkret konsekvens"}],
+    }
+
+    _sync_category_breakdown_with_score_by_category(analysis_output)
+    _finalize_category_summary_public_contracts(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"]
+
+    assert "konsekvens for kjøper" not in summary.lower()
+    assert "mangler tydelig konkret konsekvens" in summary.lower()
+
+
+def test_category_summary_removes_false_partial_tg3_cost_claim_when_tg3_costs_are_present():
+    analysis_output = {
+        "meta": {"ns_standard_version": "NS3600:2018"},
+        "score_by_category": [{"category_id": "A", "category_name": "ARKAT", "deduction": 5}],
+        "category_breakdown": [
+            {"category": "A - ARKAT", "summary": "Flere TG2-punkter mangler full ARK-struktur og TG3-punkt mangler kostnadsanslag"}
+        ],
+        "arkat_semantic_pipeline": {
+            "points": [
+                {
+                    "point_id": "fremtind-wetroom-instance",
+                    "tg_grade": "TG3",
+                    "raw_point_text": "Kostnadsestimat: 200 000 - 500 000",
+                    "evaluation": {"field_results": {"konsekvens": {"status": "CORRECT"}}},
+                },
+                {
+                    "point_id": "fremtind-wetroom-instance-v-trom-kjeller-vaskerom-generell",
+                    "tg_grade": "TG3",
+                    "raw_point_text": "Kostnadsestimat: 100 000 - 200 000",
+                    "evaluation": {"field_results": {"konsekvens": {"status": "CORRECT"}}},
+                },
+                {
+                    "point_id": "fremtind-special-room-surfaces",
+                    "tg_grade": "TG3",
+                    "raw_point_text": "Kostnadsestimat: 20 000 - 100 000",
+                    "evaluation": {"field_results": {"konsekvens": {"status": "CORRECT"}}},
+                },
+            ]
+        },
+        "all_findings": [],
+    }
+
+    _sync_category_breakdown_with_score_by_category(analysis_output)
+    _finalize_category_summary_public_contracts(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"].lower()
+
+    assert "manglende kostnadsanslag" not in summary
+    assert "mangler kostnadsanslag" not in summary
+    assert "flere tg2-punkter mangler full ark-struktur" in summary
+
+
+def test_category_summary_removes_stale_action_cleanup_fragments():
+    analysis_output = {
+        "meta": {"ns_standard_version": "NS3600:2018"},
+        "score_by_category": [{"category_id": "A", "category_name": "ARKAT", "deduction": 5}],
+        "category_breakdown": [
+            {"category": "A - ARKAT", "summary": "Hovedutfordringer med ved TG3 og enkelte Konsekvenser bør beskrive konkrete følger tydeligere"},
+            {"category": "A - ARKAT", "summary": "Mange som kreves i NS 3600:2018-regime. Konsekvenser bør beskrive konkrete følger tydeligere"},
+            {"category": "A - ARKAT", "summary": "ARKAT-kvalitet: Hovedutfordringer med , samt enkelte Konsekvenser bør beskrive konkrete følger tydeligere"},
+            {"category": "A - ARKAT", "summary": "Mange TG2-punkter mangler konkrete konsekvens"},
+        ],
+        "arkat_semantic_pipeline": {
+            "points": [
+                {"point_id": "2.1", "tg_grade": "TG3", "evaluation": {"field_results": {"anbefalt_tiltak": {"status": "CORRECT"}}}},
+                {"point_id": "3.1", "tg_grade": "TG2", "evaluation": {"field_results": {"anbefalt_tiltak": {"status": "NOT_APPLICABLE"}}}},
+            ]
+        },
+    }
+
+    _sync_category_breakdown_with_score_by_category(analysis_output)
+    _finalize_category_summary_public_contracts(analysis_output)
+    blob = json.dumps(analysis_output["category_breakdown"], ensure_ascii=False)
+
+    assert "ved TG3" not in blob
+    assert "som kreves i NS 3600:2018-regime" not in blob
+    assert "Hovedutfordringer med ," not in blob
+    assert "mangler konkrete konsekvens" not in blob
+    assert "mangler tydelig konkret konsekvens" in blob
+
+
+def test_electrical_tg_forbidden_suppressed_when_no_tg_hms_point_has_empty_tg():
+    analysis_output = {
+        "gate": {
+            "active": True,
+            "blocked_96": True,
+            "blocked_by": ["B_TG_el_anlegg_tg_forbudt_001", "L-BU-01"],
+            "blocked_by_count": 2,
+        },
+        "top_issues": [
+            {
+                "finding_id": "B_TG_el_anlegg_tg_forbudt_001",
+                "title": "Elektrisk anlegg tilstandsgradert - ikke tillatt",
+                "gate_effect": {"blocks_96_gate": True},
+            },
+            {"finding_id": "L-BU-01", "title": "Lovlighet", "gate_effect": {"blocks_96_gate": True}},
+        ],
+        "all_findings": [
+            {
+                "finding_id": "B_TG_el_anlegg_tg_forbudt_001",
+                "title": "Elektrisk anlegg tilstandsgradert - ikke tillatt",
+                "evidence_snippets": ["Elektrisk anlegg med diverse kurser med automatsikringer"],
+            },
+            {"finding_id": "L-BU-01", "title": "Lovlighet"},
+        ],
+        "how_to_improve": [
+            {"title": "Elektrisk anlegg tilstandsgradert - ikke tillatt"},
+            {"title": "Lovlighet"},
+        ],
+        "category_breakdown": [
+            {"category": "B - TG", "summary": "Elektrisk anlegg er feilaktig tilstandsgradert - dette er ikke tillatt fra 2026"},
+        ],
+    }
+    detected_points = [
+        {
+            "point_id": "fremtind-electrical-installation",
+            "title": "Elektrisk anlegg med diverse kurser med automatsikringer.",
+            "tg": "",
+            "no_tg_hms_point": True,
+        }
+    ]
+
+    _drop_false_electrical_tg_forbidden_findings(analysis_output, detected_points)
+    blob = json.dumps(analysis_output, ensure_ascii=False)
+
+    assert "B_TG_el_anlegg_tg_forbudt_001" not in blob
+    assert "Elektrisk anlegg tilstandsgradert" not in blob
+    assert analysis_output["gate"]["blocked_by"] == ["L-BU-01"]
+    assert analysis_output["gate"]["blocked_by_count"] == 1
+    assert analysis_output["category_breakdown"][0]["summary"] == "Ingen scoretrekk i denne kategorien."
+
+
+def test_electrical_tg_forbidden_kept_when_electrical_point_has_real_tg():
+    analysis_output = {
+        "all_findings": [
+            {"finding_id": "B_TG_el_anlegg_tg_forbudt_001", "title": "Elektrisk anlegg tilstandsgradert - ikke tillatt"}
+        ]
+    }
+    detected_points = [
+        {
+            "point_id": "fremtind-electrical-installation",
+            "title": "Elektrisk anlegg",
+            "tg": "TG2",
+            "no_tg_hms_point": False,
+        }
+    ]
+
+    _drop_false_electrical_tg_forbidden_findings(analysis_output, detected_points)
+
+    assert analysis_output["all_findings"][0]["finding_id"] == "B_TG_el_anlegg_tg_forbudt_001"
+
+
+def test_drainage_action_in_consequence_classified_as_tiltak_not_technical_development():
+    result = _evaluate_arkat_point(
+        point_id="fremtind-drainage",
+        point_label="Tomteforhold > Fuktsikring og drenering",
+        tg_grade="TG2",
+        report_format="compressed_mixed",
+        ns_version="NS3600:2018",
+        raw_point_text="Konsekvens/tiltak Tiltak for redrenering rundt boligen kan ikke utelukkes.",
+        extracted_fields={
+            "aarsak": "Dagens drenering er fra boligens byggeår.",
+            "risiko": "Dette kan påvirke boligens kjeller/underetasje negativt.",
+            "konsekvens": "Tiltak for redrenering rundt boligen kan ikke utelukkes.",
+            "anbefalt_tiltak": "MISSING",
+        },
+        report_context={},
+        normalize_text=normalize_text,
+        allow_llm=False,
+    )
+
+    consequence = result["field_results"]["konsekvens"]
+
+    assert consequence["status"] == "WRONG"
+    assert consequence["error_type"] == "TILTAK_AS_KONSEKVENS"
+    assert consequence["error_type"] != "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"
+
+
+def test_kjolerom_action_sentence_recovered_from_konsekvens_tiltak_raw_text():
+    raw = "KJELLER > KJØLEROM Teknisk anlegg Beskrivelse Kjøleraggregat. Vurdering av avvik: Det er påvist/opplyst at kjøleromsaggregat ikke fungerer. Konsekvens/tiltak Kjøleaggregat må skiftes ut/utbedres. Kostnadsestimat: 20 000 - 100 000"
+
+    action = _best_action_sentence_from_text(raw, normalize_text)
+    result = _normalize_arkat_eval_result(
+        None,
+        point_id="fremtind-special-room-surfaces",
+        point_label="Spesialrom > Kjeller > Kjølerom > Teknisk anlegg",
+        tg_grade="TG3",
+        extracted_fields={"aarsak": "Det er påvist/opplyst at kjøleromsaggregat ikke fungerer", "risiko": "MISSING", "konsekvens": "MISSING", "anbefalt_tiltak": "MISSING"},
+        raw_point_text=raw,
+        ns_version="NS3600:2018",
+        report_context={},
+        normalize_text=normalize_text,
+    )
+
+    assert "Kjøleaggregat må skiftes ut/utbedres" in action
+    assert result["field_results"]["anbefalt_tiltak"]["status"] == "WRONG"
+    assert result["field_results"]["anbefalt_tiltak"]["error_type"] == "TILTAK_IMPERATIVE_FORM"
+
+
+def test_missing_tg3_tiltak_finding_removed_when_final_raw_point_has_action():
+    analysis_output = {
+        "arkat_semantic_pipeline": {
+            "points": [
+                {
+                    "point_id": "fremtind-special-room-surfaces",
+                    "title": "Spesialrom > Kjeller > Kjølerom > Teknisk anlegg",
+                    "tg_grade": "TG3",
+                    "raw_point_text": "Konsekvens/tiltak Kjøleaggregat må skiftes ut/utbedres. Kostnadsestimat: 20 000 - 100 000",
+                    "extracted_fields": {"anbefalt_tiltak": "MISSING"},
+                }
+            ]
+        },
+        "top_issues": [
+            {"finding_id": "A_ARKAT.TG3.tiltak_missing_001", "title": "TG3 mangler anbefalt tiltak", "evidence_snippets": ["Spesialrom > Kjeller > Kjølerom > Teknisk anlegg - Det er påvist/opplyst at kjøleromsaggregat ikke fungerer"]},
+            {"finding_id": "OTHER", "title": "Annet"},
+        ],
+        "all_findings": [
+            {"finding_id": "A_ARKAT.TG3.tiltak_missing_001", "title": "TG3 mangler anbefalt tiltak", "evidence_snippets": ["Spesialrom > Kjeller > Kjølerom > Teknisk anlegg - Det er påvist/opplyst at kjøleromsaggregat ikke fungerer"]},
+            {"finding_id": "OTHER", "title": "Annet"},
+        ],
+    }
+
+    _drop_missing_tiltak_when_raw_action_present(analysis_output)
+    blob = json.dumps(analysis_output, ensure_ascii=False)
+
+    assert "A_ARKAT.TG3.tiltak_missing_001" not in blob
+    assert "TG3 mangler anbefalt tiltak" not in blob
+    assert "OTHER" in blob
+
+
+def test_age_only_rule_suppressed_for_internal_water_and_drain_service_life():
+    analysis_output = {
+        "all_findings": [
+            {
+                "finding_id": "B_TG.age_only_violation_001",
+                "title": "TG begrunnet hovedsakelig med alder uten tilstrekkelig faglig begrunnelse",
+                "evidence_snippets": [
+                    "Tekniske installasjoner > Vannledninger - Mer enn halvparten av forventet brukstid er passert på innvendige vannledninger",
+                    "Tekniske installasjoner > Avløpsrør - Mer enn halvparten av forventet brukstid er passert på innvendige avløpsledninger",
+                ],
+                "gate_effect": {"blocks_96_gate": True},
+            },
+            {"finding_id": "OTHER", "title": "Annet"},
+        ],
+        "top_issues": [
+            {
+                "finding_id": "B_TG.age_only_violation_001",
+                "title": "TG begrunnet hovedsakelig med alder uten tilstrekkelig faglig begrunnelse",
+                "evidence_snippets": [
+                    "Tekniske installasjoner > Vannledninger - Mer enn halvparten av forventet brukstid er passert på innvendige vannledninger",
+                    "Tekniske installasjoner > Avløpsrør - Mer enn halvparten av forventet brukstid er passert på innvendige avløpsledninger",
+                ],
+            }
+        ],
+    }
+    detected_points = [
+        {"point_id": "fremtind-water-pipes", "title": "Tekniske installasjoner > Vannledninger", "effective_span_text": "Mer enn halvparten av forventet brukstid er passert på innvendige vannledninger."},
+        {"point_id": "fremtind-drain-pipes", "title": "Tekniske installasjoner > Avløpsrør", "effective_span_text": "Mer enn halvparten av forventet brukstid er passert på innvendige avløpsledninger."},
+    ]
+
+    _drop_age_only_false_positives("", analysis_output, detected_points)
+    blob = json.dumps(analysis_output, ensure_ascii=False)
+
+    assert "B_TG.age_only_violation_001" not in blob
+    assert "OTHER" in blob
+
+
+def test_summary_sanitizer_removes_hva_avviket_betyr_for_kjoper_wording():
+    analysis_output = {
+        "category_breakdown": [
+            {"category": "A - ARKAT", "summary": "Systematisk mangel på konkrete konsekvenser Alle TG2-punkter mangler tydelig forklaring av hva avviket betyr for kjøper i praksis"}
+        ]
+    }
+
+    _normalize_category_summary_consequence_wording(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"]
+
+    assert "hva avviket betyr for kjøper" not in summary.lower()
+    assert "mangler tydelig konkret konsekvens" in summary.lower()
+
+
+def test_age_only_category_summary_removed_when_age_finding_suppressed():
+    analysis_output = {
+        "category_breakdown": [
+            {"category": "B - TG", "summary": "TG-setting basert hovedsakelig på alder uten tilstrekkelig faglig begrunnelse for bygningsdeler som ikke er på tillegg C-listen"}
+        ],
+        "all_findings": [],
+        "top_issues": [],
+    }
+
+    _scrub_age_only_category_summary_without_finding(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"]
+
+    assert "hovedsakelig på alder" not in summary.lower()
+    assert summary == "Ingen scoretrekk i denne kategorien."
+
+
+def test_final_category_summary_contract_sanitizes_non_a_buyer_wording():
+    analysis_output = {
+        "category_breakdown": [
+            {"category": "F - Lovlighetsmangler", "summary": "Lovlighetsmangler er omtalt men konsekvens for kjøper kunne vært tydeligere"}
+        ]
+    }
+
+    _finalize_category_summary_public_contracts(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"]
+
+    assert "konsekvens for kjøper" not in summary.lower()
+    assert "konkret konsekvens" in summary.lower()
+
+
+def test_final_category_summary_contract_removes_tg3_mangler_ogsaa_cost_variant():
+    analysis_output = {
+        "score_by_category": [{"category_id": "A", "deduction": 5}],
+        "category_breakdown": [
+            {"category": "A - ARKAT", "summary": "Flere TG2/TG3-punkter mangler deler av ARK/ARKAT-strukturen. TG3-punkter mangler også sjablongmessig kostnadsanslag"}
+        ],
+        "arkat_semantic_pipeline": {"points": [{"point_id": "x", "tg_grade": "TG3", "evaluation": {"field_results": {}}}]},
+        "all_findings": [],
+    }
+
+    _finalize_category_summary_public_contracts(analysis_output)
+    summary = analysis_output["category_breakdown"][0]["summary"].lower()
+
+    assert "kostnadsanslag" not in summary
+    assert "mangler også" not in summary
+
