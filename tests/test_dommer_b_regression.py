@@ -23,6 +23,9 @@ from app.services.ai_analyzer import (  # noqa: E402
     _drop_missing_tiltak_when_raw_action_present,
     _drop_buyer_only_consequence_public_claims,
     _ensure_generic_backstop_findings,
+    _ensure_semantic_tg3_cost_backstop,
+    _effective_point_tg,
+    _extract_local_tg_for_point_id,
     _extract_compressed_mixed_block_by_terms,
     _extract_compressed_mixed_wetroom_block_by_title,
     _normalize_report_text_for_analysis,
@@ -167,6 +170,86 @@ def test_markdown_test_set_is_parseable_and_schema_complete():
         assert expected["tg_grade"] == payload["tg_grade"], case["case_id"]
         assert required_fields <= set(expected["field_results"]), case["case_id"]
 
+
+
+def test_exact_point_tg_wins_over_merged_tg3_summary():
+    point = {
+        "point_id": "15.1",
+        "tg": "TG3",
+        "tg_source": "fremtind_summary",
+        "exact_span_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon.",
+        "effective_span_text": (
+            "OPPSUMMERING AV AVVIK SOM HAR FÅTT TG3 3 Terrengforhold ... "
+            "15.1 VVS-installasjoner. TG 2 15.1 VVS-INSTALLASJONER (SAMLET)"
+        ),
+    }
+
+    assert _effective_point_tg(point, "") == "TG2"
+
+
+def test_local_point_tg_prefers_header_attached_marker_over_summary_tg():
+    text = (
+        "15.1 VVS-installasjoner (samlet). Årsak: alder og manglende dokumentasjon. "
+        "OPPSUMMERING AV AVVIK SOM HAR FÅTT TG3 3 Terrengforhold ... "
+        "TG 2 15.1 VVS-INSTALLASJONER (SAMLET)"
+    )
+
+    assert _extract_local_tg_for_point_id("15.1", text) == "TG2"
+
+
+def test_semantic_tg3_cost_backstop_adds_missing_terrain_cost_only():
+    analysis_output = {
+        "meta": {"ns_version": "NS 3600:2025"},
+        "all_findings": [],
+        "arkat_semantic_pipeline": {
+            "ns_version": "NS3600:2025",
+            "report_format": "semi_structured",
+            "points": [
+                {
+                    "point_id": "P01E_TERRAIN",
+                    "title": "Utforming terreng",
+                    "tg_grade": "TG3",
+                    "raw_point_text": (
+                        "Konklusjon bygningsdel: TG 3. Flatt terreng ved grunnmur kan gi "
+                        "fuktbelastning og skade konstruksjonen. Det anbefales å etablere fall fra bygningen."
+                    ),
+                    "extracted_fields": {},
+                },
+                {
+                    "point_id": "15.1",
+                    "title": "VVS-installasjoner",
+                    "tg_grade": "TG3",
+                    "raw_point_text": "TG 2 15.1 VVS-INSTALLASJONER (SAMLET). Det anbefales kontroll.",
+                    "extracted_fields": {},
+                },
+            ],
+        },
+    }
+
+    _ensure_semantic_tg3_cost_backstop("", analysis_output)
+
+    cost_findings = [
+        item for item in analysis_output["all_findings"]
+        if "kostnad" in json.dumps(item, ensure_ascii=False).lower()
+    ]
+    assert [item["exact_point_id"] for item in cost_findings] == ["P01E_TERRAIN"]
+
+
+def test_zero_deduction_category_summary_guard_requires_visible_finding():
+    analysis_output = {
+        "score_by_category": [
+            {"category_id": "D", "category_name": "Klarspråk og struktur", "deduction": 0, "max_deduction": 15},
+        ],
+        "category_breakdown": [
+            {"category": "D - Klarspråk og struktur", "deduction_band": "Ikke scoretrekk", "summary": "Det finnes enkelte språk/faguttrykk-issues."},
+        ],
+        "all_findings": [],
+    }
+
+    _sync_category_breakdown_with_score_by_category(analysis_output)
+    _finalize_category_summary_public_contracts(analysis_output)
+
+    assert analysis_output["category_breakdown"][0]["summary"] == "Ingen scoretrekk i denne kategorien."
 
 
 def test_tabelldata_strip_drops_unanchored_cross_page_prose():

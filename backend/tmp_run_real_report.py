@@ -6,14 +6,8 @@ from app.services.pdf_extractor import PDFExtractor
 
 
 def main() -> None:
-    pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/E3-Horten-02.03.26.pdf")
-    #pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/e3-pedersen-23.03.26.pdf")
-    #pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/fremtind-fredrikstad-03.03.26 (1).pdf")
-    #pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/Rapportutkast_Tilstandsrapport_20816-1116 (1).pdf")
-    #pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/e3-bolavi-granberg-22.04.26.pdf")
     pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/e3-mathisen-27.03.26.pdf")
-    #pdf_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/e3rapport-joachimandrekarlsen-halden-15.04.26.pdf")
-    output_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_real_report_1810_full.json")
+    output_path = Path("/home/ubuntu/Quality/Vegard-Quality-System/files/dommer_b_real_report_1815_full.json")
 
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
@@ -28,14 +22,14 @@ def main() -> None:
         building_year=None,
         pdf_metadata=pdf_metadata,
         document_title=pdf_path.name,
-        document_id="1810",
+        document_id="1815",
         document_hash=None,
     )
 
     payload = {
         "meta": {
             "document_title": pdf_path.name,
-            "document_id": "1810",
+            "document_id": "1815",
         },
         "dommer_b_full": full_analysis.get("arkat_semantic_pipeline", {}),
         "analysis_output": full_analysis,

@@ -1185,7 +1185,7 @@ def _build_exact_point_source_lookup(
         point_id = _normalize_point_id(
             str(point.get("point_id") or point.get("numeric_id") or point.get("native_label") or "")
         )
-        if not _is_scoring_eligible_point_id(point_id):
+        if not _is_segment_validation_point_id(point_id):
             continue
         title = str(point.get("title") or point.get("excerpt") or point_id).strip()
         exact_text = str(point.get("exact_span_text") or _get_exact_point_text(point)).strip()
@@ -1326,12 +1326,27 @@ def _effective_point_tg(point: Dict[str, object], report_text: Optional[str] = N
     if bool(point.get("no_tg_hms_point")):
         return ""
     explicit_tg = _normalize_tg_label(point.get("tg"))
+    pid = _normalize_point_id(str(point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""))
     if str(point.get("tg_source") or "") == "fremtind_summary" and explicit_tg in {"TG2", "TG3", "TGIU"}:
+        target_re = re.compile(rf"(?i)(?<![\d.]){re.escape(pid)}(?![\d.])") if pid else None
+        for source_key in ("exact_span_text", "span_text", "effective_span_text", "excerpt"):
+            source_text = str(point.get(source_key) or "")
+            if not source_text:
+                continue
+            if target_re:
+                for match in target_re.finditer(source_text):
+                    window = source_text[max(0, match.start() - 32): match.end() + 520]
+                    local_tg = _extract_tg_label_from_text(window)
+                    if local_tg in {"TG2", "TG3", "TGIU"} and local_tg != explicit_tg:
+                        return local_tg
+            local_tg = _extract_tg_label_from_text(source_text)
+            if local_tg in {"TG2", "TG3", "TGIU"} and local_tg != explicit_tg:
+                return local_tg
         return explicit_tg
     raw_main = str(
-        point.get("effective_span_text")
-        or point.get("exact_span_text")
+        point.get("exact_span_text")
         or point.get("span_text")
+        or point.get("effective_span_text")
         or point.get("excerpt")
         or ""
     )
@@ -1387,6 +1402,32 @@ def _effective_point_tg(point: Dict[str, object], report_text: Optional[str] = N
     if _looks_like_structured_point_id(pid):
         return ""
     return explicit_tg
+
+
+def _extract_local_tg_for_point_id(point_id: str, text: str) -> str:
+    pid = _normalize_point_id(point_id)
+    source = str(text or "")
+    if not pid or not source:
+        return ""
+    target_re = re.compile(rf"(?i)(?<![\d.]){re.escape(pid)}(?![\d.])")
+    before_tg_re = re.compile(r"(?i)(TG\s*IU|TG\s*[0-3]|tilstandsgrad\s*[:\-]?\s*(?:IU|[0-3]))\s*$")
+    after_tg_re = re.compile(r"(?i)^.{0,140}?\b(TG\s*IU|TG\s*[0-3]|tilstandsgrad\s*[:\-]?\s*(?:IU|[0-3]))\b")
+    matches = list(target_re.finditer(source))
+    for match in matches:
+        before = source[max(0, match.start() - 32):match.start()]
+        before_match = before_tg_re.search(before)
+        if before_match:
+            local_tg = _extract_tg_label_from_text(before_match.group(1))
+            if local_tg in {"TG2", "TG3", "TGIU"}:
+                return local_tg
+    for match in matches:
+        after = source[match.end():match.end() + 180].split("\n", 1)[0]
+        after_match = after_tg_re.search(after)
+        if after_match:
+            local_tg = _extract_tg_label_from_text(after_match.group(1))
+            if local_tg in {"TG2", "TG3", "TGIU"}:
+                return local_tg
+    return ""
 
 
 def _merge_point_tg(existing_tg: object, candidate_tg: object) -> str:
@@ -1914,6 +1955,11 @@ def _is_scoring_eligible_point_id(value: str) -> bool:
     if _is_synthetic_supplement_point_id(value):
         return False
     return True
+
+
+def _is_segment_validation_point_id(value: str) -> bool:
+    """Point IDs eligible for per-segment ARKAT/cost validation."""
+    return _is_scoring_eligible_point_id(value) or _is_canonical_child_point_id(value)
 
 
 def _looks_like_date_point_id(value: str) -> bool:
@@ -3215,7 +3261,7 @@ def _filter_tg3_cost_missing_false_positives(
     for p in detected_points:
         if isinstance(p, dict) and p.get("point_id"):
             pid = _normalize_point_id(str(p["point_id"]))
-            if not _is_scoring_eligible_point_id(pid):
+            if not _is_segment_validation_point_id(pid):
                 continue
             combined = str(p.get("effective_span_text") or _get_effective_point_text(p)).strip()
             segment_by_point[pid] = combined
@@ -3244,7 +3290,7 @@ def _filter_tg3_cost_missing_false_positives(
             continue
         point_id = _normalize_point_id(str(_parse_runtime_point_ref_from_v16_finding(f) or ""))
         point_meta = point_by_id.get(point_id or "", {})
-        if not _is_scoring_eligible_point_id(point_id) or point_id not in point_by_id:
+        if not _is_segment_validation_point_id(point_id) or point_id not in point_by_id:
             # Exact point linkage is required before surfacing a TG3 cost finding.
             continue
         segment_text = segment_by_point.get(point_id or "", "")
@@ -4469,7 +4515,7 @@ def _run_ark_arkat_per_segment_validation(
         if not isinstance(point, dict):
             continue
         point_id = _normalize_point_id(str(point.get("point_id") or point.get("native_label") or "").strip())
-        if not _is_scoring_eligible_point_id(point_id):
+        if not _is_segment_validation_point_id(point_id):
             continue
         tg = _effective_point_tg(point, report_text)
         exact_text = str(point.get("exact_span_text") or _get_exact_point_text(point)).strip()
@@ -4493,6 +4539,7 @@ def _run_ark_arkat_per_segment_validation(
                 "report_uses_cost_class_as_schematic_model": bool(point.get("report_uses_cost_class_as_schematic_model")),
                 "exact_point_text": exact_text,
                 "exact_point_signals": dict(point.get("exact_point_signals") or point.get("normalized_signals") or {}),
+                "summary_tg_source": str(point.get("tg_source") or "") == "fremtind_summary",
             }
         else:
             existing = merged_by_id[point_id]
@@ -4503,6 +4550,8 @@ def _run_ark_arkat_per_segment_validation(
             if exact_text and not existing.get("exact_point_text"):
                 existing["exact_point_text"] = exact_text
             existing["tg"] = _merge_point_tg(existing.get("tg"), tg)
+            if str(point.get("tg_source") or "") == "fremtind_summary":
+                existing["summary_tg_source"] = True
             if no_tg_hms_point:
                 existing["no_tg_hms_point"] = True
             for signal_key in (
@@ -4531,6 +4580,13 @@ def _run_ark_arkat_per_segment_validation(
         exact_text = str(point.get("exact_point_text") or "").strip()
         linked_text = str(point.get("linked_summary_text") or "").strip()
         combined = "\n".join(part for part in (main_combined, linked_text) if part).strip()
+        local_tg = _extract_local_tg_for_point_id(
+            point_id,
+            "\n".join(part for part in (exact_text, combined, report_text if bool(point.get("summary_tg_source")) else "") if part),
+        )
+        if local_tg in {"TG2", "TG3", "TGIU"} and local_tg != tg:
+            tg = local_tg
+            point["tg"] = local_tg
         semantic_point = semantic_points.get(point_id)
         if semantic_point:
             present_keys, missing = _semantic_arkat_present_and_missing_keys(semantic_point, tg)
@@ -4644,6 +4700,120 @@ def _run_ark_arkat_per_segment_validation(
                 combined_text=str(seg.get("exact_point_text") or ""),
             ),
             "evidence_snippets": [str(seg.get("exact_point_text") or "")] if str(seg.get("exact_point_text") or "").strip() else [],
+            "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
+        })
+
+
+def _ensure_semantic_tg3_cost_backstop(
+    report_text: str,
+    analysis_output: Dict[str, object],
+) -> None:
+    """
+    Safety net for NS3600:2025/semi-structured reports where point segmentation can be
+    incomplete but Dommer B has a concrete TG3 point. Cost validation remains point-bound.
+    """
+    if not isinstance(analysis_output, dict):
+        return
+    pipeline = analysis_output.get("arkat_semantic_pipeline")
+    if not isinstance(pipeline, dict):
+        return
+    meta = analysis_output.get("meta") if isinstance(analysis_output.get("meta"), dict) else {}
+    ns_blob = _normalize_tg3_cost_text(
+        " ".join(
+            str(value or "")
+            for value in (
+                pipeline.get("ns_version"),
+                pipeline.get("report_format"),
+                pipeline.get("extraction_method_used"),
+                meta.get("ns_version"),
+                meta.get("ns_standard_version"),
+            )
+        )
+    ).lower()
+    if "2025" not in ns_blob and "semi_structured" not in ns_blob:
+        return
+    points = pipeline.get("points")
+    if not isinstance(points, list):
+        return
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        all_findings = []
+        analysis_output["all_findings"] = all_findings
+
+    def _has_existing_cost_finding(point_id: str) -> bool:
+        wanted = _normalize_point_id(point_id)
+        for item in all_findings:
+            if not isinstance(item, dict):
+                continue
+            item_point = _normalize_point_id(str(item.get("exact_point_id") or item.get("point_id") or ""))
+            blob = _normalize_tg3_cost_text(
+                " ".join(
+                    str(item.get(key) or "")
+                    for key in ("finding_id", "rule_id", "title", "message", "recommended_fix_text")
+                )
+            ).lower()
+            if item_point == wanted and ("kostnad" in blob or "cost" in blob):
+                return True
+        return False
+
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        point_id = _normalize_point_id(str(point.get("point_id") or ""))
+        if not point_id or _has_existing_cost_finding(point_id):
+            continue
+        tg = _normalize_tg_label(point.get("tg_grade") or point.get("tg"))
+        raw_point_text = str(point.get("raw_point_text") or "").strip()
+        explicit_tg = _extract_tg_label_from_text(raw_point_text)
+        if explicit_tg and explicit_tg != "TG3":
+            continue
+        if tg != "TG3":
+            continue
+        fields = point.get("extracted_fields") if isinstance(point.get("extracted_fields"), dict) else {}
+        field_text = "\n".join(str(fields.get(key) or "") for key in ("aarsak", "risiko", "konsekvens", "anbefalt_tiltak"))
+        evidence_text = raw_point_text or field_text
+        cost_status = _tg3_cost_status(evidence_text)
+        if cost_status == "pass":
+            continue
+        missing_key = "kostnad_single_only" if cost_status == "medium" else "kostnad"
+        title = str(point.get("title") or point.get("point_label") or point_id).strip()
+        deduction_band = "Middels trekk" if missing_key == "kostnad_single_only" else "Høyt trekk"
+        severity = "minor" if missing_key == "kostnad_single_only" else "major"
+        friendly = (
+            "TG3 har kun ett beløp - bruk intervall eller kostnadsklasse (E2)"
+            if missing_key == "kostnad_single_only"
+            else "kostnad / kostnadsklasse for TG3 (E1 - mangler helt)"
+        )
+        all_findings.append({
+            "finding_id": f"SEGMENT_ARKAT_{point_id.replace('.', '_')}_TG3_COST_BACKSTOP",
+            "point_id": point_id,
+            "exact_point_id": point_id,
+            "exact_point_title": title,
+            "exact_point_text": evidence_text,
+            "category": "A",
+            "severity": severity,
+            "title": f"Punkt {point_id} (TG3) mangler kostnadsvurdering",
+            "message": f"Punkt {point_id} ({title}): mangler {friendly}. Validering er gjort mot punktets egen TG3-tekst.",
+            "deduction_band": deduction_band,
+            "recommended_fix_text": _build_segment_arkat_recommended_fix(
+                point_label=point_id,
+                segment_title=title,
+                tg="TG3",
+                missing_keys=[missing_key],
+                friendly_names={
+                    "kostnad": "kostnad / kostnadsklasse for TG3 (E1 - mangler helt)",
+                    "kostnad_single_only": "TG3 har kun ett beløp - bruk intervall eller kostnadsklasse (E2)",
+                },
+            ),
+            "suggested_rewrite_text": _build_segment_arkat_suggested_rewrite_text(
+                point_label=point_id,
+                segment_title=title,
+                tg="TG3",
+                missing_keys=[missing_key],
+                combined_text=evidence_text,
+            ),
+            "evidence_snippets": [evidence_text[:1200]] if evidence_text else [],
+            "rewrite_strategy": "tg3_cost_backstop",
             "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
         })
 
@@ -7021,6 +7191,50 @@ def _remove_stale_missing_action_summary_claims(summary: str, analysis_output: D
     return out
 
 
+def _neutral_zero_category_summary(category_id: str) -> str:
+    if str(category_id or "").strip().upper() == "E":
+        return "Ingen scoretrekk i metodikk og lovforankring etter endelig validering."
+    return "Ingen scoretrekk i denne kategorien."
+
+
+def _category_has_visible_scored_findings(analysis_output: Dict[str, object], category_id: str) -> bool:
+    if not isinstance(analysis_output, dict):
+        return False
+    target = str(category_id or "").strip().upper()
+    if not target:
+        return False
+    for key in ("all_findings", "top_issues", "top_score_drivers", "score_drivers", "feedback_findings"):
+        items = analysis_output.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if _public_finding_category(item) == target and _is_public_scored_finding(item):
+                return True
+    findings = analysis_output.get("findings")
+    if isinstance(findings, list):
+        for component in findings:
+            if not isinstance(component, dict):
+                continue
+            for child_key in ("deductions", "issues"):
+                children = component.get(child_key)
+                if not isinstance(children, list):
+                    continue
+                for item in children:
+                    if not isinstance(item, dict):
+                        continue
+                    item_category = str(item.get("category_id") or item.get("category") or _infer_category_from_rule_id(str(item.get("rule_id") or "")) or "").strip().upper()
+                    points = item.get("points", item.get("deduction_points", item.get("deduction", 0)))
+                    try:
+                        point_value = int(float(points or 0))
+                    except (TypeError, ValueError):
+                        point_value = 0
+                    if item_category == target and point_value > 0:
+                        return True
+    return False
+
+
 def _sync_category_breakdown_with_score_by_category(analysis_output: Dict[str, object]) -> None:
     scoring_model = _load_scoring_model()
     category_names = scoring_model.get("category_names", {})
@@ -7045,6 +7259,7 @@ def _sync_category_breakdown_with_score_by_category(analysis_output: Dict[str, o
         if not category_id:
             continue
         deduction = int(row.get("deduction") or 0)
+        zero_without_visible_findings = deduction <= 0 and not _category_has_visible_scored_findings(analysis_output, category_id)
         category_name = str(row.get("category_name") or category_names.get(category_id) or "").strip()
         entry = dict(by_category.get(category_id) or {})
         entry["category"] = f"{category_id} - {category_name}" if category_name else category_id
@@ -7053,7 +7268,9 @@ def _sync_category_breakdown_with_score_by_category(analysis_output: Dict[str, o
         positive_without_deduction_re = re.compile(
             r"(?i)\b(?:ingen\s+(?:avvik|vesentlige\s+avvik|scoretrekk)|tilfredsstillende|tilstrekkelig|korrekt)\b"
         )
-        if deduction <= 0 and category_id == "E":
+        if zero_without_visible_findings:
+            summary = _neutral_zero_category_summary(category_id)
+        elif deduction <= 0 and category_id == "E":
             summary = "Ingen scoretrekk i metodikk og lovforankring etter endelig validering."
         elif deduction > 0 and (not summary or positive_without_deduction_re.search(summary)):
             summary = "Scoretrekk i denne kategorien er synliggjort i funnlisten."
@@ -7162,6 +7379,15 @@ def _finalize_category_summary_public_contracts(analysis_output: Dict[str, objec
             continue
         category = str(entry.get("category") or entry.get("category_id") or "").strip().upper()
         summary = str(entry.get("summary") or "")
+        category_id_match = re.match(r"^([A-F])\b", category)
+        category_id = category_id_match.group(1) if category_id_match else category[:1]
+        if (
+            str(entry.get("deduction_band") or "").strip() == "Ikke scoretrekk"
+            and category_id
+            and not _category_has_visible_scored_findings(analysis_output, category_id)
+        ):
+            entry["summary"] = _neutral_zero_category_summary(category_id)
+            continue
         if category.startswith("A"):
             summary = _remove_stale_missing_action_summary_claims(summary, analysis_output)
             summary = _remove_untraceable_tg3_cost_summary_claims(summary, analysis_output)
@@ -13644,6 +13870,7 @@ def postprocess_analysis_output(
     _ensure_driver_evidence(analysis_output)
     _normalize_scoring_output(analysis_output)
     _run_ark_arkat_per_segment_validation(report_text, detected_points, analysis_output)
+    _ensure_semantic_tg3_cost_backstop(report_text, analysis_output)
     _drop_arkat_false_positives(analysis_output)
     _drop_good_enough_content_false_positives(report_text, analysis_output, detected_points)
     _drop_segment_arkat_for_tg2_only_points(analysis_output)
