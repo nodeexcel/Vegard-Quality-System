@@ -1567,45 +1567,6 @@
         "duplicate_safe_key": "10.3|A_ARKAT_SEMANTIC|A|arkat semantic alignment"
       },
       {
-        "finding_id": "SEGMENT_ARKAT_15_1",
-        "point_id": "15.1",
-        "exact_point_id": "15.1",
-        "exact_point_title": "VVS-installasjoner (samlet)",
-        "exact_point_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk",
-        "exact_point_signals": {
-          "tiltak_present": false,
-          "andre_tiltak_present": false,
-          "konsekvens_tiltak_present": false,
-          "concrete_recommended_measure_in_free_text": true,
-          "vague_measure_guidance_present": false,
-          "cost_class_present": false,
-          "cost_interval_present": false,
-          "other_schematic_cost_estimate_present": false,
-          "single_amount_only_present": false,
-          "report_uses_cost_class_as_schematic_model": false,
-          "freestanding_building_deviation_without_tg": false,
-          "garage_avvik_uten_arkat": false,
-          "garage_tg_uten_full_arkat": false,
-          "habitable_annex_without_tg": false
-        },
-        "category": "A",
-        "severity": "major",
-        "title": "Punkt 15.1 (TG3) mangler full ARK/ARKAT-tekst",
-        "message": "Punkt 15.1 (VVS-installasjoner (samlet)): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering",
-        "deduction_band": "Høyt trekk",
-        "recommended_fix_text": "For punkt 15.1 (VVS-installasjoner (samlet)) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for 15.1 eller i en tydelig koblet oppsummering med samme punktnummer",
-        "suggested_rewrite_text": "Punkt 15.1: VVS-installasjoner (samlet): Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
-        "evidence_snippets": [
-          "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk"
-        ],
-        "gate_effect": {
-          "blocks_96_gate": false,
-          "caps_total_score_to": null
-        },
-        "rewrite_strategy": "cost_estimate_clarification",
-        "duplicate_safe_key": "15.1|SEGMENT|A|cost estimate clarification"
-      },
-      {
         "finding_id": "SEGMENT_ARKAT_P01E_TERRAIN",
         "point_id": "",
         "exact_point_id": "",
@@ -1975,21 +1936,21 @@
         "point_id": "10.3"
       },
       {
-        "finding_id": "SEGMENT_ARKAT_15_1",
+        "finding_id": "SEGMENT_ARKAT_P01E_TERRAIN",
         "rule_id": null,
-        "title": "Punkt 15.1 (TG3) mangler full ARK/ARKAT-tekst",
-        "message": "Punkt 15.1 (VVS-installasjoner (samlet)): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering",
+        "title": "Punkt P01E_TERRAIN (TG3) mangler full ARK/ARKAT-tekst",
+        "message": "Punkt P01E_TERRAIN (Utforming terreng: Flat tomt): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering",
         "category": "A",
         "severity": "major",
         "deduction_band": "Høyt trekk",
-        "recommended_fix_text": "For punkt 15.1 (VVS-installasjoner (samlet)) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for 15.1 eller i en tydelig koblet oppsummering med samme punktnummer",
+        "recommended_fix_text": "For punkt P01E_TERRAIN (Utforming terreng: Flat tomt) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for P01E_TERRAIN eller i en tydelig koblet oppsummering med samme punktnummer",
         "rewrite_strategy": "cost_estimate_clarification",
-        "suggested_rewrite_text": "Punkt 15.1: VVS-installasjoner (samlet): Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
+        "suggested_rewrite_text": "Punkt P01E_TERRAIN: Utforming terreng: Flat tomt: Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
         "gate_effect": {
           "blocks_96_gate": false,
           "caps_total_score_to": null
         },
-        "point_id": "15.1"
+        "point_id": ""
       }
     ],
     "top_score_drivers": [],
@@ -2013,12 +1974,12 @@
         "deduction_band": "Høyt trekk"
       },
       {
-        "title": "Punkt 15.1 (TG3) mangler full ARK/ARKAT-tekst",
+        "title": "Punkt P01E_TERRAIN (TG3) mangler full ARK/ARKAT-tekst",
         "category": "A",
-        "point_id": "15.1",
-        "recommended_fix_text": "For punkt 15.1 (VVS-installasjoner (samlet)) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for 15.1 eller i en tydelig koblet oppsummering med samme punktnummer",
+        "point_id": "",
+        "recommended_fix_text": "For punkt P01E_TERRAIN (Utforming terreng: Flat tomt) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for P01E_TERRAIN eller i en tydelig koblet oppsummering med samme punktnummer",
         "rewrite_strategy": "cost_estimate_clarification",
-        "suggested_rewrite_text": "Punkt 15.1: VVS-installasjoner (samlet): Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
+        "suggested_rewrite_text": "Punkt P01E_TERRAIN: Utforming terreng: Flat tomt: Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
         "deduction_band": "Høyt trekk"
       }
     ],
@@ -3262,11 +3223,9 @@
       },
       {
         "point_id": "15.1",
-        "tg": "TG3",
-        "passed": false,
-        "missing": [
-          "kostnad"
-        ],
+        "tg": "TG2",
+        "passed": true,
+        "missing": [],
         "combined_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. | Total: 1 OPPSUMMERING AV AVVI(cid:11) SOM HAR FÅTT TG3 3 Terrengforhold Tilstandsgrad T(cid:7)3 er registrert for terrengforholdene rundt bygningen, da det er observert flatt terreng ved grunnmur uten tilstrekkelig helning. Dette kan medføre økt fuktbelastning mot grunnmuren, noe som kan skade konstruksonen og påvirke tilknyttede rom under terreng negativt. Det anbefales å etablere nødvendig fall fra bygningen for å lede overflatevann bort fra konstruksonen. 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. | Total: 1 OPPSUMMERING AV AVVI(cid:11) SOM HAR FÅTT TG3 3 Terrengforhold Tilstandsgrad T(cid:7)3 er registrert for terrengforholdene rundt bygningen, da det er observert flatt terreng ved grunnmur uten tilstrekkelig helning. Dette kan medføre økt fuktbelastning mot grunnmuren, noe som kan skade konstruksonen og påvirke tilknyttede rom under terreng negativt. Det anbefales å etablere nødvendig fall fra bygningen for å lede overflatevann bort fra konstruksonen. [TABELLDATA] | TILSTANDSRAPPORT 52 av 53 Total: 1 OPPSUMMERING AV AVVI(cid:11) SOM HAR FÅTT TG3 3 Terrengforhold Tilstandsgrad T(cid:7)3 er registrert for terrengforholdene rundt bygningen, da det er observert flatt terreng ved grunnmur uten tilstrekkelig helning. Dette kan medføre økt fuktbelastning mot grunnmuren, noe som kan skade konstruksonen og påvirke tilknyttede rom under terreng negativt. Det anbefales å etablere nødvendig fall fra bygningen for å lede overflatevann bort fra konstruksonen. | 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. [TABELLDATA] | TILSTANDSRAPPORT 51 av 53 Det anbefales å forsegle overgang mellom kum og benkplate Det er fuktskader i bunnplateunder oppvaskkum rundt avløp. Sannsynlig årsak er lekkasje fra avløp Vann kan trenge videre ned og påføre fuktskader på veggkonstruksjon Det anbefales å demontere bunnplate for å avdekke og det er videre følgesskader. Bunnplate må erstattes 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. | TILSTANDSRAPPORT 51 av 53 Det anbefales å forsegle overgang mellom kum og benkplate Det er fuktskader i bunnplateunder oppvaskkum rundt avløp. Sannsynlig årsak er lekkasje fra avløp Vann kan trenge videre ned og påføre fuktskader på veggkonstruksjon Det anbefales å demontere bunnplate for å avdekke og det er videre følgesskader. Bunnplate må erstattes TG 2 15.1 VVS-INSTALLASJONER (SAMLET)",
         "exact_point_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk",
         "exact_point_title": "VVS-installasjoner (samlet)",
@@ -8124,45 +8083,6 @@
           "duplicate_safe_key": "10.3|A_ARKAT_SEMANTIC|A|arkat semantic alignment"
         },
         {
-          "finding_id": "SEGMENT_ARKAT_15_1",
-          "point_id": "15.1",
-          "exact_point_id": "15.1",
-          "exact_point_title": "VVS-installasjoner (samlet)",
-          "exact_point_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk",
-          "exact_point_signals": {
-            "tiltak_present": false,
-            "andre_tiltak_present": false,
-            "konsekvens_tiltak_present": false,
-            "concrete_recommended_measure_in_free_text": true,
-            "vague_measure_guidance_present": false,
-            "cost_class_present": false,
-            "cost_interval_present": false,
-            "other_schematic_cost_estimate_present": false,
-            "single_amount_only_present": false,
-            "report_uses_cost_class_as_schematic_model": false,
-            "freestanding_building_deviation_without_tg": false,
-            "garage_avvik_uten_arkat": false,
-            "garage_tg_uten_full_arkat": false,
-            "habitable_annex_without_tg": false
-          },
-          "category": "A",
-          "severity": "major",
-          "title": "Punkt 15.1 (TG3) mangler full ARK/ARKAT-tekst",
-          "message": "Punkt 15.1 (VVS-installasjoner (samlet)): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering",
-          "deduction_band": "Høyt trekk",
-          "recommended_fix_text": "For punkt 15.1 (VVS-installasjoner (samlet)) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for 15.1 eller i en tydelig koblet oppsummering med samme punktnummer",
-          "suggested_rewrite_text": "Punkt 15.1: VVS-installasjoner (samlet): Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
-          "evidence_snippets": [
-            "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk"
-          ],
-          "gate_effect": {
-            "blocks_96_gate": false,
-            "caps_total_score_to": null
-          },
-          "rewrite_strategy": "cost_estimate_clarification",
-          "duplicate_safe_key": "15.1|SEGMENT|A|cost estimate clarification"
-        },
-        {
           "finding_id": "SEGMENT_ARKAT_P01E_TERRAIN",
           "point_id": "",
           "exact_point_id": "",
@@ -8532,21 +8452,21 @@
           "point_id": "10.3"
         },
         {
-          "finding_id": "SEGMENT_ARKAT_15_1",
+          "finding_id": "SEGMENT_ARKAT_P01E_TERRAIN",
           "rule_id": null,
-          "title": "Punkt 15.1 (TG3) mangler full ARK/ARKAT-tekst",
-          "message": "Punkt 15.1 (VVS-installasjoner (samlet)): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering",
+          "title": "Punkt P01E_TERRAIN (TG3) mangler full ARK/ARKAT-tekst",
+          "message": "Punkt P01E_TERRAIN (Utforming terreng: Flat tomt): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering",
           "category": "A",
           "severity": "major",
           "deduction_band": "Høyt trekk",
-          "recommended_fix_text": "For punkt 15.1 (VVS-installasjoner (samlet)) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for 15.1 eller i en tydelig koblet oppsummering med samme punktnummer",
+          "recommended_fix_text": "For punkt P01E_TERRAIN (Utforming terreng: Flat tomt) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for P01E_TERRAIN eller i en tydelig koblet oppsummering med samme punktnummer",
           "rewrite_strategy": "cost_estimate_clarification",
-          "suggested_rewrite_text": "Punkt 15.1: VVS-installasjoner (samlet): Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
+          "suggested_rewrite_text": "Punkt P01E_TERRAIN: Utforming terreng: Flat tomt: Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
           "gate_effect": {
             "blocks_96_gate": false,
             "caps_total_score_to": null
           },
-          "point_id": "15.1"
+          "point_id": ""
         }
       ],
       "top_score_drivers": [],
@@ -8570,12 +8490,12 @@
           "deduction_band": "Høyt trekk"
         },
         {
-          "title": "Punkt 15.1 (TG3) mangler full ARK/ARKAT-tekst",
+          "title": "Punkt P01E_TERRAIN (TG3) mangler full ARK/ARKAT-tekst",
           "category": "A",
-          "point_id": "15.1",
-          "recommended_fix_text": "For punkt 15.1 (VVS-installasjoner (samlet)) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for 15.1 eller i en tydelig koblet oppsummering med samme punktnummer",
+          "point_id": "",
+          "recommended_fix_text": "For punkt P01E_TERRAIN (Utforming terreng: Flat tomt) (vurdert som TG3) mangler følgende. Slik retter du: kostnad / kostnadsklasse for TG3 (E1 – mangler helt): Angi enten et kostnadsintervall (f.eks. 200 000–500 000 kr), en kostnadsklasse (lav/middels/høy), eller et kostnadsestimat, slik at kjøper kan vurdere økonomisk belastning. Teksten kan stå i selve punktet for P01E_TERRAIN eller i en tydelig koblet oppsummering med samme punktnummer",
           "rewrite_strategy": "cost_estimate_clarification",
-          "suggested_rewrite_text": "Punkt 15.1: VVS-installasjoner (samlet): Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
+          "suggested_rewrite_text": "Punkt P01E_TERRAIN: Utforming terreng: Flat tomt: Oppgi kostnadsklasse eller kostnadsintervall for nødvendig oppfølging slik at økonomisk omfang blir tydelig",
           "deduction_band": "Høyt trekk"
         }
       ],
@@ -9819,11 +9739,9 @@
         },
         {
           "point_id": "15.1",
-          "tg": "TG3",
-          "passed": false,
-          "missing": [
-            "kostnad"
-          ],
+          "tg": "TG2",
+          "passed": true,
+          "missing": [],
           "combined_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. | Total: 1 OPPSUMMERING AV AVVI(cid:11) SOM HAR FÅTT TG3 3 Terrengforhold Tilstandsgrad T(cid:7)3 er registrert for terrengforholdene rundt bygningen, da det er observert flatt terreng ved grunnmur uten tilstrekkelig helning. Dette kan medføre økt fuktbelastning mot grunnmuren, noe som kan skade konstruksonen og påvirke tilknyttede rom under terreng negativt. Det anbefales å etablere nødvendig fall fra bygningen for å lede overflatevann bort fra konstruksonen. 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. | Total: 1 OPPSUMMERING AV AVVI(cid:11) SOM HAR FÅTT TG3 3 Terrengforhold Tilstandsgrad T(cid:7)3 er registrert for terrengforholdene rundt bygningen, da det er observert flatt terreng ved grunnmur uten tilstrekkelig helning. Dette kan medføre økt fuktbelastning mot grunnmuren, noe som kan skade konstruksonen og påvirke tilknyttede rom under terreng negativt. Det anbefales å etablere nødvendig fall fra bygningen for å lede overflatevann bort fra konstruksonen. [TABELLDATA] | TILSTANDSRAPPORT 52 av 53 Total: 1 OPPSUMMERING AV AVVI(cid:11) SOM HAR FÅTT TG3 3 Terrengforhold Tilstandsgrad T(cid:7)3 er registrert for terrengforholdene rundt bygningen, da det er observert flatt terreng ved grunnmur uten tilstrekkelig helning. Dette kan medføre økt fuktbelastning mot grunnmuren, noe som kan skade konstruksonen og påvirke tilknyttede rom under terreng negativt. Det anbefales å etablere nødvendig fall fra bygningen for å lede overflatevann bort fra konstruksonen. | 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. [TABELLDATA] | TILSTANDSRAPPORT 51 av 53 Det anbefales å forsegle overgang mellom kum og benkplate Det er fuktskader i bunnplateunder oppvaskkum rundt avløp. Sannsynlig årsak er lekkasje fra avløp Vann kan trenge videre ned og påføre fuktskader på veggkonstruksjon Det anbefales å demontere bunnplate for å avdekke og det er videre følgesskader. Bunnplate må erstattes 15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk. | TILSTANDSRAPPORT 51 av 53 Det anbefales å forsegle overgang mellom kum og benkplate Det er fuktskader i bunnplateunder oppvaskkum rundt avløp. Sannsynlig årsak er lekkasje fra avløp Vann kan trenge videre ned og påføre fuktskader på veggkonstruksjon Det anbefales å demontere bunnplate for å avdekke og det er videre følgesskader. Bunnplate må erstattes TG 2 15.1 VVS-INSTALLASJONER (SAMLET)",
           "exact_point_text": "15.1 VVS-installasjoner (samlet) Det er ikke fremlagt dokumentasjon på utførte arbeider på VVS-anlegget installert i bygget fra (cid:2)(cid:10)(cid:9)(cid:10). Manglende dokumentasjon medfører usikkerhet om arbeidene er utført fagmessig og i henhold til gjeldende krav. Usikkerheten knyttet til utførelsen kan føre til skjulte feil, lekkasjer eller andre avvik i anlegget. Dette kan resultere i kostbare skader over tid dersom avvikene ikke oppdages og utbedres. Det anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig, samt å gjennomføre jevnlig kontroll og vedlikehold av anlegget. VVS-anlegget er fra byggeåret (cid:2)(cid:10)(cid:9)(cid:10) og har passert 2(cid:6) år. Det er ingen synlige tegn til funksjonssvekelse, men anlegget vurderes som en risikokonstruksjon grunnet alder. Det kan forventes økt risiko for lekkasjer og skader over tid. Eldre anlegg kan medføre konsekvenser ved oppussing av rom med vanninstallasjoner. Det anbefales å gjennomføre jevnlig kontroll og oppfølging av VVS-installasjonene, samt vurdere oppgradering eller utskifting ved oppussing. 15.(cid:4) Varme$(m$e Det foreligger ingen dokumentasjon på utført servi(cid:31)e eller vedlikehold av varmepumpen siden installasjon i 2002. Dette kan indikere manglende oppfølging og potensielle driftsproblemer. Manglende servi(cid:31)e kan føre til redusert effekt, dårligere drift og kortere levetid på anlegget. Risikoen for slitasje eller funksjonssvikt over tid øker. Regelmessig servi(cid:31)e bør gjennomføres i henhold til produsentens anbefalinger, og fremtidig vedlikehold dokumenteres. Varmepumpen, installert i 2002, er over (cid:2)(cid:6) år gammel og har derfor passert mer enn halvparten av forventet levetid. Det er registrert redusert effekt og økt risiko for driftsstans eller lekkasjer over tid. Dersom varmepumpen ikke utbedres, kan det føre til ytterligere redusert funksjon og økt energiforbruk. Risikoen for driftsstans kan medføre dårligere inneklima og potensielle skader på bygningen. Det anbefales å vurdere utskifting av varmepumpen for å sikre tilfredsstillende drift og energiforbruk",
           "exact_point_title": "VVS-installasjoner (samlet)",
@@ -10172,7 +10090,7 @@
           {
             "rule_id": "A",
             "deduction": 0,
-            "message": "Punkt 15.1 (VVS-installasjoner (samlet)): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering"
+            "message": "Punkt fremtind-terrain (Utforming terreng: Flat tomt): mangler kostnad / kostnadsklasse for TG3 (E1 – mangler helt). Validering gjøres per punkt; tekst må finnes i selve punktet eller i en tydelig koblet oppsummering"
           }
         ]
       },
@@ -10195,12 +10113,12 @@
           "tg": "N/A",
           "summary": "Avvik funnet",
           "finding_ids": [
-            "f-v16-fremtind-foundation-walls-010",
-            "f-v16-fremtind-terrain-005",
+            "f-v16-fremtind-terrain-004",
+            "f-v16-fremtind-foundation-walls-009",
             "A_ARKAT_fremtind-foundation-walls-aarsak-observation-as-aarsak"
           ],
           "where": {
-            "page": 11
+            "page": 13
           },
           "children": [
             {
@@ -10233,7 +10151,7 @@
               "deduction_total": 3,
               "tg": "N/A",
               "finding_ids": [
-                "f-v16-fremtind-foundation-walls-010"
+                "f-v16-fremtind-foundation-walls-009"
               ],
               "where": {
                 "page": 13
@@ -10259,7 +10177,7 @@
               "deduction_total": 5,
               "tg": "N/A",
               "finding_ids": [
-                "f-v16-fremtind-terrain-005"
+                "f-v16-fremtind-terrain-004"
               ],
               "where": {
                 "page": 13
@@ -10363,7 +10281,7 @@
           "tg": "N/A",
           "summary": "Avvik funnet",
           "finding_ids": [
-            "f-v16-fremtind-windows-011",
+            "f-v16-fremtind-windows-010",
             "A_ARKAT_fremtind-windows-aarsak-observation-as-aarsak"
           ],
           "where": {
@@ -10378,7 +10296,7 @@
               "deduction_total": 3,
               "tg": "N/A",
               "finding_ids": [
-                "f-v16-fremtind-windows-011"
+                "f-v16-fremtind-windows-010"
               ],
               "where": {
                 "page": 8
@@ -10419,7 +10337,7 @@
           "tg": "N/A",
           "summary": "Avvik funnet",
           "finding_ids": [
-            "f-v16-fremtind-roof-covering-012",
+            "f-v16-fremtind-roof-covering-011",
             "A_ARKAT_fremtind-roof-covering-risiko-consequence-as-risiko"
           ],
           "where": {
@@ -10458,7 +10376,7 @@
               "deduction_total": 3,
               "tg": "N/A",
               "finding_ids": [
-                "f-v16-fremtind-roof-covering-012"
+                "f-v16-fremtind-roof-covering-011"
               ],
               "where": {
                 "page": 8
@@ -10617,7 +10535,7 @@
           "summary": "OK",
           "finding_ids": [],
           "where": {
-            "page": 8
+            "page": 11
           },
           "children": [
             {
@@ -10680,11 +10598,11 @@
           "summary": "Avvik funnet",
           "finding_ids": [
             "f-v16-fremtind-wetroom-instance-013",
-            "f-v16-fremtind-wetroom-instance-014",
+            "A_ARKAT_fremtind-wetroom-instance-konsekvens-observation-as-aarsak",
             "A_ARKAT_fremtind-wetroom-instance-risiko-technical-development-as-konsekvens",
-            "f-v16-fremtind-wetroom-instance-015",
             "A_ARKAT_fremtind-wetroom-instance-aarsak-missing-aarsak",
-            "A_ARKAT_fremtind-wetroom-instance-konsekvens-observation-as-aarsak"
+            "f-v16-fremtind-wetroom-instance-014",
+            "f-v16-fremtind-wetroom-instance-012"
           ],
           "where": {
             "page": 7
@@ -10698,9 +10616,9 @@
               "deduction_total": 7,
               "tg": "N/A",
               "finding_ids": [
+                "f-v16-fremtind-wetroom-instance-012",
                 "f-v16-fremtind-wetroom-instance-013",
-                "f-v16-fremtind-wetroom-instance-014",
-                "f-v16-fremtind-wetroom-instance-015"
+                "f-v16-fremtind-wetroom-instance-014"
               ],
               "where": {
                 "page": 7
@@ -10919,28 +10837,28 @@
           "tg": "TG2",
           "summary": "Avvik funnet",
           "finding_ids": [
+            "f-v16-fremtind-floors-015",
+            "A_ARKAT_10_2_ANBEFALT_TILTAK_MISSING_ANBEFALT_TILTAK",
+            "f-v16-fremtind-floors-006",
             "A_ARKAT_fremtind-floors-risiko-missing-risiko",
+            "f-v16-fremtind-floors-008",
+            "f-v16-fremtind-floors-002",
             "A_ARKAT_fremtind-floors-aarsak-observation-as-aarsak",
+            "A_ARKAT_fremtind-wetroom-instance-risiko-technical-development-as-konsekvens",
+            "A_ARKAT_10_1_KONSEKVENS_TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+            "A_ARKAT_10_3_KONSEKVENS_MISSING_KONSEKVENS",
+            "f-v16-fremtind-floors-007",
+            "A_ARKAT_10_3_ANBEFALT_TILTAK_MISSING_ANBEFALT_TILTAK",
+            "f-v16-fremtind-floors-017",
             "A_ARKAT_10_2_AARSAK_OBSERVATION_AS_AARSAK",
-            "A_ARKAT_10_1_RISIKO_MISSING_RISIKO",
+            "A_ARKAT_fremtind-wetroom-instance-konsekvens-observation-as-aarsak",
+            "f-v16-fremtind-floors-016",
+            "A_ARKAT_10_3_RISIKO_LIMITATION_USED_AS_RISK_SUBSTITUTE",
             "A_ARKAT_fremtind-wetroom-instance-aarsak-missing-aarsak",
             "A_ARKAT_fremtind-floors-anbefalt-tiltak-missing-anbefalt-tiltak",
-            "A_ARKAT_10_3_KONSEKVENS_MISSING_KONSEKVENS",
-            "A_ARKAT_fremtind-wetroom-instance-konsekvens-observation-as-aarsak",
-            "A_ARKAT_10_2_ANBEFALT_TILTAK_MISSING_ANBEFALT_TILTAK",
-            "f-v16-fremtind-floors-008",
-            "f-v16-fremtind-floors-018",
-            "A_ARKAT_10_1_KONSEKVENS_TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
-            "A_ARKAT_10_3_RISIKO_LIMITATION_USED_AS_RISK_SUBSTITUTE",
-            "f-v16-fremtind-floors-017",
-            "A_ARKAT_10_2_KONSEKVENS_OBSERVATION_AS_AARSAK",
-            "A_ARKAT_fremtind-wetroom-instance-risiko-technical-development-as-konsekvens",
-            "f-v16-fremtind-floors-002",
+            "A_ARKAT_10_1_RISIKO_MISSING_RISIKO",
             "A_ARKAT_fremtind-floors-konsekvens-missing-konsekvens",
-            "A_ARKAT_10_3_ANBEFALT_TILTAK_MISSING_ANBEFALT_TILTAK",
-            "f-v16-fremtind-floors-007",
-            "f-v16-fremtind-floors-016",
-            "f-v16-fremtind-floors-009"
+            "A_ARKAT_10_2_KONSEKVENS_OBSERVATION_AS_AARSAK"
           ],
           "where": {
             "page": 49
@@ -10967,12 +10885,12 @@
               "tg": "TG2",
               "finding_ids": [
                 "f-v16-fremtind-floors-002",
+                "f-v16-fremtind-floors-006",
                 "f-v16-fremtind-floors-007",
                 "f-v16-fremtind-floors-008",
-                "f-v16-fremtind-floors-009",
+                "f-v16-fremtind-floors-015",
                 "f-v16-fremtind-floors-016",
-                "f-v16-fremtind-floors-017",
-                "f-v16-fremtind-floors-018"
+                "f-v16-fremtind-floors-017"
               ],
               "where": {
                 "page": 49
@@ -11204,7 +11122,7 @@
           "deduction": 5
         },
         {
-          "finding_id": "f-v16-fremtind-terrain-005",
+          "finding_id": "f-v16-fremtind-terrain-004",
           "rule_id": "SEGMENT_ARKAT_fremtind-terrain",
           "rule_family": "SEGMENT",
           "severity": "high",
@@ -11225,7 +11143,7 @@
           "deduction": 5
         },
         {
-          "finding_id": "f-v16-fremtind-floors-007",
+          "finding_id": "f-v16-fremtind-floors-006",
           "rule_id": "A_ARKAT_10_2_AARSAK_OBSERVATION_AS_AARSAK",
           "rule_family": "A",
           "severity": "medium",
@@ -11246,7 +11164,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-floors-008",
+          "finding_id": "f-v16-fremtind-floors-007",
           "rule_id": "A_ARKAT_10_2_KONSEKVENS_OBSERVATION_AS_AARSAK",
           "rule_family": "A",
           "severity": "medium",
@@ -11267,7 +11185,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-foundation-walls-010",
+          "finding_id": "f-v16-fremtind-foundation-walls-009",
           "rule_id": "A_ARKAT_fremtind-foundation-walls-aarsak-observation-as-aarsak",
           "rule_family": "A",
           "severity": "medium",
@@ -11288,7 +11206,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-windows-011",
+          "finding_id": "f-v16-fremtind-windows-010",
           "rule_id": "A_ARKAT_fremtind-windows-aarsak-observation-as-aarsak",
           "rule_family": "A",
           "severity": "medium",
@@ -11309,7 +11227,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-roof-covering-012",
+          "finding_id": "f-v16-fremtind-roof-covering-011",
           "rule_id": "A_ARKAT_fremtind-roof-covering-risiko-consequence-as-risiko",
           "rule_family": "A",
           "severity": "medium",
@@ -11330,7 +11248,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-wetroom-instance-013",
+          "finding_id": "f-v16-fremtind-wetroom-instance-012",
           "rule_id": "A_ARKAT_fremtind-wetroom-instance-aarsak-missing-aarsak",
           "rule_family": "A",
           "severity": "medium",
@@ -11351,7 +11269,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-wetroom-instance-014",
+          "finding_id": "f-v16-fremtind-wetroom-instance-013",
           "rule_id": "A_ARKAT_fremtind-wetroom-instance-risiko-technical-development-as-konsekvens",
           "rule_family": "A",
           "severity": "medium",
@@ -11372,7 +11290,7 @@
           "deduction": 1
         },
         {
-          "finding_id": "f-v16-fremtind-wetroom-instance-015",
+          "finding_id": "f-v16-fremtind-wetroom-instance-014",
           "rule_id": "A_ARKAT_fremtind-wetroom-instance-konsekvens-observation-as-aarsak",
           "rule_family": "A",
           "severity": "medium",
@@ -11393,7 +11311,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-floors-016",
+          "finding_id": "f-v16-fremtind-floors-015",
           "rule_id": "A_ARKAT_fremtind-floors-aarsak-observation-as-aarsak",
           "rule_family": "A",
           "severity": "medium",
@@ -11414,7 +11332,7 @@
           "deduction": 3
         },
         {
-          "finding_id": "f-v16-fremtind-floors-017",
+          "finding_id": "f-v16-fremtind-floors-016",
           "rule_id": "A_ARKAT_fremtind-floors-risiko-missing-risiko",
           "rule_family": "A",
           "severity": "medium",
@@ -11458,8 +11376,8 @@
       ]
     },
     "run_meta": {
-      "run_id": "a7041a38-0f4c-44cb-91ac-0aacdb6c6d9d",
-      "analysis_timestamp_utc": "2026-06-19T13:45:53Z",
+      "run_id": "b04662c5-7038-4332-9928-2d9615e93aad",
+      "analysis_timestamp_utc": "2026-06-22T06:26:30Z",
       "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
       "temperature": 0.0,
       "top_p": 1.0,
