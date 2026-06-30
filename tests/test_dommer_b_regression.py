@@ -24,6 +24,8 @@ from app.services.ai_analyzer import (  # noqa: E402
     _drop_buyer_only_consequence_public_claims,
     _ensure_generic_backstop_findings,
     _ensure_semantic_tg3_cost_backstop,
+    _mark_incomplete_fallback_output,
+    _normalize_scoring_output,
     _effective_point_tg,
     _extract_local_tg_for_point_id,
     _extract_compressed_mixed_block_by_terms,
@@ -232,7 +234,73 @@ def test_semantic_tg3_cost_backstop_adds_missing_terrain_cost_only():
         item for item in analysis_output["all_findings"]
         if "kostnad" in json.dumps(item, ensure_ascii=False).lower()
     ]
-    assert [item["exact_point_id"] for item in cost_findings] == ["P01E_TERRAIN"]
+    assert {item["exact_point_id"] for item in cost_findings} == {"P01E_TERRAIN"}
+    compliance = [item for item in cost_findings if item.get("rule_id") == "E_METHOD.tg3_missing_cost_estimate"]
+    assert len(compliance) == 1
+    assert compliance[0]["category"] == "E"
+    assert compliance[0]["is_regulatory_breach"] is True
+    assert compliance[0]["gate_effect"]["blocks_96_gate"] is True
+
+
+def test_tg3_missing_cost_compliance_finding_scores_category_e_and_gate():
+    analysis_output = {
+        "meta": {"ns_version": "NS 3600:2025"},
+        "findings": [
+            {
+                "component_id": "P01E_TERRAIN",
+                "deductions": [{"rule_id": "A_ARKAT.example", "category_id": "A", "points": 5}],
+                "issues": [],
+            }
+        ],
+        "all_findings": [],
+        "arkat_semantic_pipeline": {
+            "ns_version": "NS3600:2025",
+            "report_format": "semi_structured",
+            "points": [
+                {
+                    "point_id": "P01E_TERRAIN",
+                    "title": "Utforming terreng",
+                    "tg_grade": "TG3",
+                    "raw_point_text": "Konklusjon bygningsdel: TG 3. Mangler kostnadsestimat.",
+                    "extracted_fields": {},
+                }
+            ],
+        },
+    }
+
+    _ensure_semantic_tg3_cost_backstop("", analysis_output)
+    _normalize_scoring_output(analysis_output)
+
+    rows = {row["category_id"]: row for row in analysis_output["score_by_category"]}
+    assert rows["E"]["deduction"] > 0
+    compliance = [item for item in analysis_output["all_findings"] if item.get("rule_id") == "E_METHOD.tg3_missing_cost_estimate"]
+    assert compliance and compliance[0]["gate_effect"]["blocks_96_gate"] is True
+
+
+def test_incomplete_fallback_marks_score_invalid_and_categories_unchecked():
+    analysis_output = {
+        "meta": {
+            "analysis_mode": "local_postprocess_dommer_b_fallback",
+            "incomplete_full_analyzer_reasons": ["input_truncated"],
+        },
+        "score_total": 60,
+        "trygghetsscore": 60,
+        "category_breakdown": [
+            {"category": "B - TG-setting og konsistens", "deduction": 0, "deduction_band": "Ikke scoretrekk", "summary": "Ingen scoretrekk i denne kategorien."},
+            {"category": "E - Metodikk og lovforankring", "deduction": 5, "deduction_band": "Høyt trekk", "summary": "Scoretrekk i denne kategorien er synliggjort i funnlisten."},
+        ],
+    }
+
+    _mark_incomplete_fallback_output(analysis_output)
+
+    assert analysis_output["analysis_complete"] is False
+    assert analysis_output["score_valid"] is False
+    assert analysis_output["ui_status"] == "incomplete_analysis"
+    assert analysis_output["incomplete_reason"] == "input_truncated"
+    assert analysis_output["score_total"] is None
+    assert analysis_output["trygghetsscore"] is None
+    assert analysis_output["category_breakdown"][0]["summary"] == "Ikke fullstendig kontrollert fordi analysen ble avbrutt."
+    assert analysis_output["category_breakdown"][1]["summary"] == "Scoretrekk i denne kategorien er synliggjort i funnlisten."
 
 
 def test_zero_deduction_category_summary_guard_requires_visible_finding():

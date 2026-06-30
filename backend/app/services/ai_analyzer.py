@@ -4679,12 +4679,13 @@ def _run_ark_arkat_per_segment_validation(
             missing_keys=missing_keys,
             friendly_names=friendly_names,
         )
+        exact_point_text = str(seg.get("exact_point_text") or "")
         all_findings.append({
             "finding_id": f"SEGMENT_ARKAT_{point_label.replace('.', '_')}",
             "point_id": point_label,
             "exact_point_id": point_label,
             "exact_point_title": title,
-            "exact_point_text": str(seg.get("exact_point_text") or ""),
+            "exact_point_text": exact_point_text,
             "exact_point_signals": dict(seg.get("exact_point_signals") or {}),
             "category": "A",
             "severity": severity,
@@ -4697,11 +4698,96 @@ def _run_ark_arkat_per_segment_validation(
                 segment_title=title,
                 tg=seg.get("tg", ""),
                 missing_keys=missing_keys,
-                combined_text=str(seg.get("exact_point_text") or ""),
+                combined_text=exact_point_text,
             ),
-            "evidence_snippets": [str(seg.get("exact_point_text") or "")] if str(seg.get("exact_point_text") or "").strip() else [],
+            "evidence_snippets": [exact_point_text] if exact_point_text.strip() else [],
             "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
         })
+        if "TG3" in str(seg.get("tg") or "").upper() and any(key in {"kostnad", "kostnad_single_only"} for key in missing_keys):
+            _ensure_tg3_missing_cost_compliance_finding(
+                all_findings,
+                point_id=str(point_label or ""),
+                title=str(title or ""),
+                evidence_text=exact_point_text,
+                missing_key="kostnad_single_only" if "kostnad_single_only" in missing_keys and "kostnad" not in missing_keys else "kostnad",
+            )
+
+
+def _ensure_tg3_missing_cost_compliance_finding(
+    all_findings: List[Dict[str, object]],
+    point_id: str,
+    title: str,
+    evidence_text: str,
+    missing_key: str = "kostnad",
+) -> None:
+    normalized_point_id = _normalize_point_id(str(point_id or ""))
+    if not normalized_point_id or not isinstance(all_findings, list):
+        return
+    rule_id = "E_METHOD.tg3_missing_cost_estimate"
+    finding_id = f"E_METHOD_tg3_missing_cost_estimate_{normalized_point_id.replace('.', '_')}"
+    for item in all_findings:
+        if not isinstance(item, dict):
+            continue
+        item_rule = str(item.get("rule_id") or "")
+        item_id = str(item.get("finding_id") or "")
+        item_point = _normalize_point_id(str(item.get("exact_point_id") or item.get("point_id") or ""))
+        if (item_rule == rule_id or item_id == finding_id) and item_point == normalized_point_id:
+            return
+    missing_text = (
+        "TG3 har kun ett beløp, men mangler gyldig kostnadsintervall eller kostnadsklasse"
+        if missing_key == "kostnad_single_only"
+        else "TG3 mangler påkrevd kostnadsestimat eller kostnadsklasse"
+    )
+    point_title = str(title or normalized_point_id).strip()
+    all_findings.append({
+        "finding_id": finding_id,
+        "rule_id": rule_id,
+        "point_id": normalized_point_id,
+        "exact_point_id": normalized_point_id,
+        "exact_point_title": point_title,
+        "exact_point_text": str(evidence_text or ""),
+        "category": "E",
+        "severity": "major",
+        "is_regulatory_breach": True,
+        "title": f"Punkt {normalized_point_id} (TG3) mangler påkrevd kostnadsvurdering",
+        "message": f"Punkt {normalized_point_id} ({point_title}): {missing_text}. Dette er en metodikk-/lovforankringsmangel for TG3, uavhengig av om ARKAT-teksten ellers beskriver årsak, risiko, konsekvens og tiltak.",
+        "deduction_band": "Høyt trekk",
+        "recommended_fix_text": "Legg inn kostnadsestimat, kostnadsintervall eller kostnadsklasse for TG3-forholdet, slik at økonomisk omfang er tydelig dokumentert.",
+        "suggested_rewrite_text": f"Punkt {normalized_point_id}: Oppgi kostnadsintervall eller kostnadsklasse for nødvendig oppfølging av TG3-forholdet.",
+        "evidence_snippets": [str(evidence_text or "")[:1200]] if str(evidence_text or "").strip() else [],
+        "rewrite_strategy": "tg3_cost_method_compliance",
+        "score_impact": "independent_category_e_compliance",
+        "gate_effect": {"blocks_96_gate": True, "caps_total_score_to": 95},
+    })
+
+
+def _ensure_tg3_missing_cost_compliance_from_segments(analysis_output: Dict[str, object]) -> None:
+    if not isinstance(analysis_output, dict):
+        return
+    segments = analysis_output.get("segment_validation")
+    if not isinstance(segments, list):
+        return
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        all_findings = []
+        analysis_output["all_findings"] = all_findings
+    for seg in segments:
+        if not isinstance(seg, dict):
+            continue
+        tg = str(seg.get("tg") or "").upper()
+        missing = seg.get("missing") if isinstance(seg.get("missing"), list) else []
+        if "TG3" not in tg or not any(key in {"kostnad", "kostnad_single_only"} for key in missing):
+            continue
+        point_id = str(seg.get("point_id") or "")
+        if not point_id:
+            continue
+        _ensure_tg3_missing_cost_compliance_finding(
+            all_findings,
+            point_id=point_id,
+            title=str(seg.get("exact_point_title") or point_id),
+            evidence_text=str(seg.get("exact_point_text") or seg.get("combined_text") or ""),
+            missing_key="kostnad_single_only" if "kostnad_single_only" in missing and "kostnad" not in missing else "kostnad",
+        )
 
 
 def _ensure_semantic_tg3_cost_backstop(
@@ -4816,6 +4902,13 @@ def _ensure_semantic_tg3_cost_backstop(
             "rewrite_strategy": "tg3_cost_backstop",
             "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
         })
+        _ensure_tg3_missing_cost_compliance_finding(
+            all_findings,
+            point_id=point_id,
+            title=title,
+            evidence_text=evidence_text,
+            missing_key=missing_key,
+        )
 
 
 def _ensure_finding_suggestions_differentiated(analysis_output: Dict[str, object]) -> None:
@@ -13013,6 +13106,17 @@ def build_feedback_v11(
     report_text: str = "",
 ) -> Dict[str, object]:
     payload = _build_feedback_v11(analysis_output, detected_points_payload, report_id, document_hash, report_text)
+    if isinstance(payload, dict) and _incomplete_fallback_reason(analysis_output):
+        warning = str(analysis_output.get("limited_analysis_warning") or "Analysen kunne ikke fullføres.")
+        payload["analysis_complete"] = False
+        payload["score_valid"] = False
+        payload["ui_status"] = "incomplete_analysis"
+        payload["incomplete_reason"] = str(analysis_output.get("incomplete_reason") or _incomplete_fallback_reason(analysis_output))
+        payload["limited_analysis_warning"] = warning
+        score = payload.get("score")
+        if isinstance(score, dict):
+            score["total"] = None
+            score["score_valid"] = False
     payload = _sanitize_feedback_v11_legacy_consequence_unclear(payload, analysis_output)
     return _sanitize_bmtf_feedback_v11_p_codes(payload, report_text)
 
@@ -13685,6 +13789,64 @@ def ensure_analysis_evidence(analysis_output: Dict[str, object], report_text: st
     _sanitize_analysis_output_text(analysis_output)
 
 
+def _incomplete_fallback_reason(analysis_output: Dict[str, object]) -> str:
+    if not isinstance(analysis_output, dict):
+        return ""
+    meta = analysis_output.get("meta") if isinstance(analysis_output.get("meta"), dict) else {}
+    mode = str(meta.get("analysis_mode") or analysis_output.get("analysis_mode") or "").strip()
+    if mode != "local_postprocess_dommer_b_fallback":
+        return ""
+    reasons = meta.get("incomplete_full_analyzer_reasons") or analysis_output.get("incomplete_full_analyzer_reasons") or []
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    if not isinstance(reasons, list):
+        reasons = []
+    cleaned = [str(reason or "").strip() for reason in reasons if str(reason or "").strip()]
+    return cleaned[0] if cleaned else "incomplete_full_analyzer"
+
+
+def _mark_incomplete_fallback_output(analysis_output: Dict[str, object]) -> None:
+    reason = _incomplete_fallback_reason(analysis_output)
+    if not reason:
+        return
+    meta = analysis_output.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+        analysis_output["meta"] = meta
+    warning = (
+        "Analysen kunne ikke fullføres fordi rapporten er for stor eller for kompleks for nåværende "
+        "analysegrense. Resultatet under er kun en begrenset/foreløpig kontroll og kan ikke brukes "
+        "som fullstendig vurdering av rapporten."
+    )
+    for target in (analysis_output, meta):
+        target["analysis_complete"] = False
+        target["score_valid"] = False
+        target["ui_status"] = "incomplete_analysis"
+        target["incomplete_reason"] = reason
+        target["limited_analysis_warning"] = warning
+    analysis_output["score_total"] = None
+    analysis_output["trygghetsscore"] = None
+    analysis_output["score_band"] = "Ukjent"
+    gate = analysis_output.get("gate")
+    if not isinstance(gate, dict):
+        gate = {}
+    gate.setdefault("active", True)
+    gate["message"] = warning
+    analysis_output["gate"] = gate
+    incomplete_summary = "Ikke fullstendig kontrollert fordi analysen ble avbrutt."
+    breakdown = analysis_output.get("category_breakdown")
+    if isinstance(breakdown, list):
+        for entry in breakdown:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                deduction = int(float(entry.get("deduction") or 0))
+            except (TypeError, ValueError):
+                deduction = 0
+            if deduction <= 0 or str(entry.get("deduction_band") or "").strip() == "Ikke scoretrekk":
+                entry["summary"] = incomplete_summary
+
+
 def postprocess_analysis_output(
     analysis_output: Dict[str, object],
     report_text: str,
@@ -13902,6 +14064,7 @@ def postprocess_analysis_output(
     _drop_legacy_consequence_unclear_when_semantic_missing(analysis_output)
     _finalize_dommer_b_canonical_output(analysis_output)
     _drop_tg3_cost_top_issues_if_segments_have_cost(analysis_output) 
+    _ensure_tg3_missing_cost_compliance_from_segments(analysis_output)
     _drop_false_electrical_tg_forbidden_findings(analysis_output, detected_points)
     _drop_false_freestanding_garage_findings(analysis_output)
     _normalize_scoring_output(analysis_output)
@@ -13925,6 +14088,7 @@ def postprocess_analysis_output(
     _finalize_category_summary_public_contracts(analysis_output)
     _scrub_age_only_category_summary_without_finding(analysis_output)
     _ensure_tgiu_deductions_visible_in_all_findings(analysis_output)
+    _mark_incomplete_fallback_output(analysis_output)
     final_score_total = analysis_output.get("score_total")
     if isinstance(final_score_total, (int, float)):
         analysis_output["trygghetsscore"] = int(final_score_total)
@@ -14100,7 +14264,13 @@ def _supplement_with_scored_legal_findings(
     category_totals: Dict[str, int],
 ) -> None:
     legal_rows, _ = _collect_scored_all_findings_deductions(analysis_output, allowed_categories={"F"})
-    if not legal_rows:
+    method_rows, _ = _collect_scored_all_findings_deductions(analysis_output, allowed_categories={"E"})
+    method_rows = [
+        row for row in method_rows
+        if str(row.get("rule_id") or "") == "E_METHOD.tg3_missing_cost_estimate"
+    ]
+    supplemental_rows = legal_rows + method_rows
+    if not supplemental_rows:
         return
     existing_keys = {
         (
@@ -14112,7 +14282,7 @@ def _supplement_with_scored_legal_findings(
         for row in deduction_rows
         if isinstance(row, dict)
     }
-    for row in legal_rows:
+    for row in supplemental_rows:
         key = (
             str(row.get("rule_id") or ""),
             str(row.get("point_id") or ""),
