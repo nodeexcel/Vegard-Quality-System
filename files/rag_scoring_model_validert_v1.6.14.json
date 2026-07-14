@@ -1,0 +1,690 @@
+{
+  "model": "VALIDERT_TRYGGHETSSCORE",
+  "version": "1.6.14",
+  "score_start": 100,
+  "no_bonus_points": true,
+  "principles": [
+    "TG3 skal ha full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak) + sjablongmessig kostnadsanslag.",
+    "TG2 skal minst ha ARK (Årsak, Risiko, Konsekvens).",
+    "Konsekvens skal være oversatt til kjøpers situasjon (bruk/økonomi/risiko).",
+    "Alder alene er ikke tilstrekkelig grunnlag for TG3.",
+    "TGIU skal være tydelig begrunnet og knyttet til hva som ikke er undersøkt.",
+    "Språk skal være tydelig og ikke motstridende.",
+    "Kategori F (Lovlighetsmangler) scores av egen lovlighetsmodul (legal_compliance) og inngår via category_config. Denne modellen dekker primært A–E. Lovlighetsopplysninger skal ikke gi trekk når takstmannen faktisk har opplyst forholdet korrekt.",
+    "TG2 krever ARK (Årsak, Risiko, Konsekvens). TG3 krever ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak) + sjablongmessig kostnadsanslag. For NS3600:2025 reports, missing anbefalt tiltak on TG2 is a valid A-category ARKAT finding with lower severity than at TG3, and never carries is_regulatory_breach or any gate effect. For NS3600:2018 reports, TG2 must not receive a missing-anbefalt-tiltak finding (forskrift paragraph 2-22 requires only aarsak and konsekvens at TG2).",
+    "96-gate og score-cap (til 95) styres via funn med gate_effect (blocks_96_gate/caps_total_score_to), ikke via hard_stop/hard_gates.",
+    "For E3 skal sammenkoblet hovedpunkt + korrekt lenket TG2/TG3-oppsummeringspunkt vurderes som én samlet kilde før scoring.",
+    "For TG3 kostnad er kostnadsklasse, intervall eller annet sjablongmessig kostnadsanslag gyldig oppfyllelse. Ett enkelt ca-beløp uten intervall eller kostnadsklasse skal ikke regnes som full oppfyllelse.",
+    "Konsekvens skal være praktisk forståelig for kjøper, men ordet «kjøper» behøver ikke stå eksplisitt.",
+    "For TG3 skal anbefalt tiltak anses oppfylt når rapporten inneholder en konkret anbefaling i felt merket Tiltak, Andre tiltak eller i fri løpende tekst i samme punkt.",
+    "For TG3 skal kostnadsintervall i normal tekstform, f.eks. '20 000 - 100 000' eller '200 000 - 500 000', godtas som sjablongmessig kostnadsanslag når det er tydelig knyttet til samme punkt.",
+    "Elektrisk anlegg skal ikke tilstandsgradsettes. Dette er en presisering av gjeldende rett — ikke en lovendring. TG på el-anlegg var aldri et forskriftskrav, men fra 01.01.2026 er det eksplisitt forbudt via forskriften (§ 2-23 + NS 3600:2025 pkt 12.5). Rapporter FØR 01.01.2026 skal ikke få trekk for TG på el-anlegg. Rapporter FRA 01.01.2026 skal få trekk dersom TG er satt — uavhengig av om rapporten bruker NS 3600:2018 eller NS 3600:2025.",
+    "Egenerklæring som ikke er levert skal alltid flagges som metodikk-avvik (kategori E), uavhengig av NS-versjon. Hjemlet i NS 3600:2018 pkt 9 og NS 3600:2025 pkt 14.4 f).",
+    "Arealmåling ved rapportdato fra og med 01.01.2026 skal være i samsvar med NS 3940:2023. Bruk av eldre måleregelformulering er et metodikk-avvik (kategori E). Hjemlet i forskriften § 2-20 (2026-endring).",
+    "Garasje, uthus og naust (uten varig opphold): Takstmannen har undersøkelsesplikt, men IKKE krav om å sette TG. Dette er ikke et direkte forskriftskrav — TG er en NS 3600-anbefaling. Åpenbare avvik skal beskrives med full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak). Dersom takstmannen likevel setter TG, skal ARKAT være komplett — ellers trekk. Anneks med varig opphold er en selvstendig boenhet og skal ha full tilstandsanalyse med TG på bygningsdelsnivå, jf. forskriften § 1-2 + § 2-22 og NS 3600:2025 A.3.22.9.",
+    "Aldersbasert TG2 er kun tillatt for bygningsdeler på den eksplisitte listen i NS 3600:2025 tillegg C (membran, undertak, drenering, varmtvannsbereder, vann- og avløpsrør m.fl.). For rapporter som bruker NS 3600:2018 er aldersbasert TG2 tillatt for de samme bygningsdelene, men årsak skal likevel knyttes til observert tilstand eller konkret levetidsvurdering."
+  ],
+  "categories": [
+    {
+      "id": "A",
+      "name": "ARKAT-kvalitet (TG2/TG3)",
+      "max_deduction": 40
+    },
+    {
+      "id": "B",
+      "name": "TG-setting og konsistens",
+      "max_deduction": 20
+    },
+    {
+      "id": "C",
+      "name": "TGIU og undersøkelsesbegrensninger",
+      "max_deduction": 15
+    },
+    {
+      "id": "D",
+      "name": "Klarspråk og struktur",
+      "max_deduction": 15
+    },
+    {
+      "id": "E",
+      "name": "Metodikk og lovforankring",
+      "max_deduction": 10
+    }
+  ],
+  "output_requirements": {
+    "include": [
+      "score",
+      "deductions",
+      "findings",
+      "improvements",
+      "category_breakdown"
+    ],
+    "must_include": [
+      "evidence_snippets",
+      "recommended_fix_text"
+    ],
+    "language": "nb-NO"
+  },
+  "updated_at": "2026-07-10",
+  "rule_catalog": [
+    {
+      "id": "A_ARKAT.arsak_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "Årsak/begrunnelse mangler helt i en TG2/TG3-vurdering.",
+      "acceptance_criteria": [
+        "Godtas dersom TG begrunnes i samme setning som TG settes (f.eks. 'TG2 settes med bakgrunn i registrert...').",
+        "Godtas dersom formuleringer som 'med bakgrunn i', 'basert på', 'registrert', 'påvist', 'vurdert ut fra', 'konstatert', 'som følge av' brukes i direkte tilknytning til TG.",
+        "Godtas dersom TG tydelig knyttes til en konkret observert tilstand (riss, sprekk, fukt, svikt, slitasje, lekkasje, etc.).",
+        "Skal ikke trigges dersom årsak er implisitt, men tydelig koblet til faktisk registrert forhold.",
+        "Skal ikke trigges dersom årsak fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG2/TG3) for samme punkt.",
+        "For bygningsdeler på NS 3600 tillegg C-listen (membran, undertak, drenering, varmtvannsbereder, vann- og avløpsrør m.fl.) godtas aldersbasert begrunnelse alene som årsak, men den bør kobles til konkret levetidsvurdering for høy score."
+      ],
+      "trigger_if": {
+        "TG_level": [
+          "TG2",
+          "TG3"
+        ],
+        "no_explicit_or_implicit_reason": true
+      },
+      "does_not_accept": [
+        "TG står alene uten begrunnelse.",
+        "TG begrunnes kun med alder eller passert brukstid uten kobling til observert tilstand, redusert funksjon, dokumentert skade eller konkret risiko – gjelder bygningsdeler som IKKE er på tillegg C-listen.",
+        "Teksten beskriver kun tiltak eller konsekvens uten å forklare hvorfor TG er satt.",
+        "Generell formulering uten konkret kobling til faktisk tilstand."
+      ],
+      "remediation": "Legg til kort årsak/begrunnelse (1–2 setninger) for hvorfor TG er satt, knyttet til observert tilstand."
+    },
+    {
+      "id": "A_ARKAT.konsekvens_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 10,
+      "trigger": "Konsekvensfelt mangler helt i en TG2/TG3-vurdering.",
+      "remediation": "Beskriv konsekvens kort og kjøperorientert (bruk/økonomi/risiko).",
+      "acceptance_criteria": [
+        "Skal ikke trigges dersom konsekvens fremgår tydelig i hovedpunktet.",
+        "Skal ikke trigges dersom konsekvens fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG2/TG3) for samme punkt.",
+        "Skal ikke trigges når konsekvens er implisitt, men praktisk tydelig uttrykt gjennom bruk, økonomi, sikkerhet eller videre skade."
+      ]
+    },
+    {
+      "id": "A_ARKAT.konsekvens_unclear",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 1,
+      "trigger": "Konsekvens finnes, men er ikke tydelig praktisk presisert (bruk/sikkerhet/økonomi/videre skade). Skal ikke trigges kun fordi ordet «kjøper» mangler.",
+      "acceptance_criteria": [
+        "Ikke krev at ordet «kjøper» brukes eksplisitt.",
+        "Ikke trigge når konsekvens allerede inneholder praktisk implikasjon, f.eks. behov for utbedring/utskifting/rehabilitering/overvåkning/vedlikehold.",
+        "Ikke trigge når videre skade, bruksbegrensning, helse/sikkerhet eller kostnadsimplikasjon er tydelig eller implisitt uttrykt.",
+        "Trigges kun når konsekvens i hovedsak er ren teknisk gjentakelse uten praktisk betydning."
+      ],
+      "remediation": "Presiser konsekvens med 1 kort setning om praktisk betydning (bruk/sikkerhet/økonomi/videre skade)."
+    },
+    {
+      "id": "A_ARKAT.risiko_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Risiko mangler helt ved TG2/TG3 der det er relevant.",
+      "remediation": "Legg til kort risiko (hva kan skje hvis forholdet ikke håndteres).",
+      "acceptance_criteria": [
+        "Skal ikke trigges dersom risiko fremgår tydelig i hovedpunktet.",
+        "Skal ikke trigges dersom risiko fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG2/TG3) for samme punkt.",
+        "Skal bare trigges når risiko faktisk er relevant og mangler helt.",
+        "Skal ikke trigges når risikobeskrivelsen er en undersøkelsesbegrensning formulert som risiko (f.eks. 'ikke synlig for inspeksjon') – dette er en begrensning, ikke en risikobeskrivelse. I slike tilfeller skal takstmannen i stedet beskrive hva som kan gå galt dersom forholdet ikke følges opp."
+      ]
+    },
+    {
+      "id": "A_ARKAT.observasjon_unclear",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 3,
+      "trigger": "Observasjon er uklar eller ikke målbar/beskrivende nok.",
+      "remediation": "Presiser hva som er observert (lokasjon, omfang, type avvik)."
+    },
+    {
+      "id": "A_ARKAT.tiltak_imperativ",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 3,
+      "trigger": "Anbefalt tiltak er formulert som ordre/pålegg eller fremstår prosjekterende.",
+      "note": "Ikke hard gate. Kun trekk ved tydelig prosjekterende/ordrepreget språk som 'må byttes', 'skal erstattes', 'må utbedres umiddelbart' uten faglig begrunnelse.",
+      "acceptance_criteria": [
+        "Ikke trigge når imperativt språk er faglig begrunnet og nødvendigheten av tiltaket fremgår tydelig av TG3-beskrivelsen.",
+        "Trigge når tiltak formuleres som pålegg uten begrunnelse, eller når formuleringen er klart prosjekterende (angir spesifikk metode, materiale eller dimensjon)."
+      ],
+      "remediation": "Omformuler til nøkternt anbefalt tiltak (f.eks. 'Det anbefales å…')."
+    },
+    {
+      "id": "A_ARKAT.TG3.tiltak_vague_without_necessity",
+      "category": "A",
+      "severity": "minor",
+      "deduction": 3,
+      "trigger": "TG3-tiltak er vagt uten behov (f.eks. 'vurder forbedring', 'bør sees på').",
+      "remediation": "Gjør tiltaket konkret og realistisk (f.eks. utskiftning/utbedring/videre undersøkelser)."
+    },
+    {
+      "id": "A_ARKAT.TG3.tiltak_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 10,
+      "trigger": "TG3-vurdering mangler anbefalt tiltak. Skal bare trigges når konkret anbefaling faktisk mangler i samlet punkttekst.",
+      "acceptance_criteria": [
+        "Gjelder kun TG3.",
+        "Tiltak skal være konkret og realistisk (ikke bare generell oppfordring uten innhold).",
+        "Tiltak skal ikke være prosjekterende; hold det nøkternt og anbefal avklaring/utbedring.",
+        "Skal ikke trigges dersom anbefalt tiltak fremgår i korrekt lenket E3-oppsummering (TAKSTMANNENS VURDERING VED TG3) for samme punkt.",
+        "Skal ikke trigges dersom konkret anbefaling står under felt merket Tiltak eller Andre tiltak.",
+        "Skal ikke trigges dersom konkret anbefaling fremgår som fri løpende tekst i samme punkt, f.eks. totalrenovering, utskiftning, utbedring, videre undersøkelser, fjerning av skadet konstruksjon eller etablering av riktig løsning."
+      ],
+      "remediation": "Oppgi anbefalt tiltak kort og konkret, f.eks. 'Utskiftning av drenering' / 'Etablere dokumentert tettesjikt' / 'Videre undersøkelser av fagperson'."
+    },
+    {
+      "id": "B_TG.inconsistent_with_text",
+      "category": "B",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "TG står i klar motstrid til tekstlig alvorlighetsgrad.",
+      "remediation": "Avklar om tekst eller TG er feil, og harmoniser."
+    },
+    {
+      "id": "B_TG.age_only_violation",
+      "category": "B",
+      "severity": "major",
+      "deduction": 10,
+      "trigger": "TG2/TG3 begrunnet hovedsakelig med alder eller passert brukstid uten tilstrekkelig faglig begrunnelse, for bygningsdeler der aldersbasert TG IKKE er eksplisitt tillatt.",
+      "acceptance_criteria": [
+        "Skal IKKE trigges for bygningsdeler på NS 3600 tillegg C-listen: vanntett sjikt i våtrom (membran), vanntett sjikt på tak, undertak, vann- og avløpsledninger, fuktsikring og drenering, varmtvannsbereder, oljetanker, ventilasjon/varmepumper, isolerglassruter.",
+        "Skal IKKE trigges for tilsvarende liste i NS 3600:2018 for rapporter som bruker dette regimet.",
+        "Skal trigges for alle andre bygningsdeler der alder brukes som eneste begrunnelse uten observert avvik, funksjonssvikt eller konkret risiko.",
+        "Gjelder for både NS 3600:2018 og NS 3600:2025 – listen over tillatte aldersbegrunnede bygningsdeler er tilnærmet identisk i begge versjoner."
+      ],
+      "remediation": "Knytt TG til observert tilstand, redusert brukstid, dokumentert skade, funksjonssvikt eller konkret risiko. Ikke bruk alder alene som hovedbegrunnelse for bygningsdeler som ikke er på tillegg C-listen."
+    },
+    {
+      "id": "B_TG.el_anlegg_tg_forbudt",
+      "category": "B",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "Tilstandsgrad er satt på elektrisk anlegg i rapport med rapportdato fra og med 01.01.2026.",
+      "acceptance_criteria": [
+        "Gjelder kun rapporter med rapportdato fra og med 01.01.2026.",
+        "Trigges uavhengig av om rapporten bruker NS 3600:2018 eller NS 3600:2025 — forbudet er forankret i forskriften via § 2-23 og NS 3600:2025 pkt 12.5, ikke i NS-versjonen.",
+        "Skal ikke trigges for rapporter med rapportdato før 01.01.2026 — TG på el-anlegg var aldri et krav, men heller ikke eksplisitt forbudt i forskriften i det gamle regimet.",
+        "Skal ikke trigges dersom el-anlegget er beskrevet som HMS-punkt uten TG, med forklaring av konsekvens og anbefaling om videre kontroll."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "remediation": "El-anlegg skal ikke ha tilstandsgrad fra og med 01.01.2026, jf. NS 3600:2025 pkt 12.5 forankret i forskriften § 2-23. Fjern TG og beskriv el-anlegget som et HMS-punkt med forklaring av konsekvens og anbefaling om kontroll av kvalifisert elektriker.",
+      "legal_reference": {
+        "law": "Forskrift til avhendingslova",
+        "section": "§ 2-23 siste ledd",
+        "standard": "NS 3600:2025 pkt 12.5",
+        "note": "Presisering av gjeldende rett — ikke en lovendring. TG på el-anlegg var aldri et forskriftskrav."
+      }
+    },
+    {
+      "id": "C_TGIU.missing_limitations",
+      "category": "C",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Relevant undersøkelsesbegrensning er ikke opplyst.",
+      "remediation": "Oppgi hva som ikke er undersøkt og hvorfor, samt mulig betydning.",
+      "acceptance_criteria": [
+        "Skal trigges når undersøkelsesbegrensning er relevant, men det ikke er opplyst hva som ikke er undersøkt eller hvorfor.",
+        "Skal ikke trigges når rapporten tydelig opplyser hva som ikke er undersøkt, hvorfor undersøkelsen ikke lot seg gjennomføre, eller hvilke begrensninger som forelå.",
+        "TGIU skal vurderes særskilt og ikke blandes med ordinær TG2/TG3-logikk."
+      ]
+    },
+    {
+      "id": "A_NO_TG_HMS.explanation_missing",
+      "category": "A",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Elektrisk anlegg eller annet HMS-forhold som ikke skal tilstandsgradsettes er opplyst, men konsekvens og/eller anbefaling er for svakt forklart.",
+      "acceptance_criteria": [
+        "Gjelder punkter som etter 2026-reglene ikke skal ha TG, men som fortsatt skal beskrives faglig.",
+        "Skal ikke vurderes som ordinært TG2/TG3-ARKAT-punkt.",
+        "Skal ikke trigges når forholdet er opplyst, konsekvensen er forklart og anbefaling eller videre oppfølging er gitt på en forståelig måte.",
+        "Skal bare trigges når beskrivelsen er så knapp eller teknisk at kjøper ikke forstår praktisk betydning eller anbefalt oppfølging."
+      ],
+      "remediation": "Forklar kort hva forholdet gjelder, hva konsekvensen/praktisk risikoen er, og hva som anbefales videre."
+    },
+    {
+      "id": "D_LANGUAGE.long_sentences",
+      "category": "D",
+      "severity": "minor",
+      "deduction": 0,
+      "trigger": "Flere setninger er unødvendig lange og blander flere ledd.",
+      "acceptance_criteria": [
+        "Ikke gi trekk for en teknisk korrekt årsakskjede når setningen handler om én bygningsdetalj og én teknisk funksjon.",
+        "Gi trekk når setningen blander flere vurderinger (observasjon+årsak+risiko+tiltak) eller svekker forståelsen for kjøper.",
+        "Foreslå deling i 2 setninger kun når det øker lesbarhet uten å miste teknisk presisjon."
+      ],
+      "remediation": "Del opp setningen i 2 dersom den blander flere vurderinger eller blir vanskelig å forstå. Behold teknisk årsakskjede samlet hvis den gir presisjon.",
+      "note": "Advisory only; påvirker ikke score per nå."
+    },
+    {
+      "id": "D_LANGUAGE.jargon_without_explanation",
+      "category": "D",
+      "severity": "minor",
+      "deduction": 2,
+      "trigger": "Fagspråk brukes uten forklaring for kjøper.",
+      "remediation": "Forklar kort hva uttrykket betyr i praksis."
+    },
+    {
+      "id": "E_METHOD.tg3_cost_missing",
+      "category": "E",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "TG3 mangler sjablongmessig kostnadsanslag helt. Kostnadsklasse, intervall eller annet sjablongmessig kostnadsanslag oppfyller kravet. Enkeltbeløp alene regnes ikke som full oppfyllelse.",
+      "acceptance_criteria": [
+        "Gjelder kun TG3.",
+        "Godtas dersom punktet inneholder sjablongmessig kostnad som intervall (min–maks), inkludert vanlig tekstform som '20 000 - 100 000', '200 000 - 500 000', 'kr 200.000 - 350.000' eller tilsvarende.",
+        "Godtas dersom punktet inneholder kostnadsklasse, f.eks. lav/middels/høy eller tydelig klasse som er knyttet til malens standard kostnadsramme.",
+        "Godtas dersom formulering tydelig uttrykker sjablong/usikkerhet, f.eks. kan ligge i størrelsesorden, anslås i intervallet eller i størrelsesorden ca. X–Y.",
+        "Godtas også når kostnaden fremgår i korrekt lenket E3-oppsummering for samme TG3-punkt.",
+        "Skal IKKE trigges dersom punktet har kostnadsklasse eller intervall selv om dette står i hovedteksten, kostnadsestimat-feltet eller på oppsummeringssiden.",
+        "Skal trigges bare når kostnadsanslag mangler helt."
+      ],
+      "remediation": "Oppgi sjablongmessig kostnad for TG3: bruk kostnadsklasse (lav/middels/høy) eller et intervall (f.eks. «100 000–300 000»).",
+      "note": "Manglende kostnadsanslag helt skal gi høyt trekk. Enkeltbeløp alene uten intervall/klasse håndteres av egen regel med middels trekk. Vanlige intervaller skrevet i løpende tekst skal godtas."
+    },
+    {
+      "id": "E_METHOD.tg3_cost_single_amount_only",
+      "category": "E",
+      "severity": "minor",
+      "deduction": 4,
+      "trigger": "TG3 har kun ett enkeltbeløp eller ca-beløp som kostnadsanslag, uten intervall eller kostnadsklasse.",
+      "acceptance_criteria": [
+        "Gjelder kun TG3.",
+        "Trigges når rapporten bare oppgir ett enkelt kr-beløp eller omtrent-beløp uten intervall, kostnadsklasse eller annen tydelig sjablongramme.",
+        "Skal ikke trigges dersom rapporten i tillegg oppgir kostnadsklasse, intervall eller annet sjablongmessig kostnadsanslag.",
+        "Skal ikke trigges dersom kostnadsklasse eller intervall fremgår i korrekt lenket E3-oppsummering for samme punkt.",
+        "Skal ikke trigges når rapporten bruker vanlig intervalltekst som '20 000 - 100 000' eller tilsvarende."
+      ],
+      "remediation": "Erstatt enkeltbeløp alene med kostnadsklasse (lav/middels/høy) eller intervall.",
+      "note": "Kun enkeltbeløp uten intervall eller kostnadsklasse skal gi middels trekk, ikke høyt trekk."
+    },
+    {
+      "id": "E_METHOD.egenerklaring_missing",
+      "category": "E",
+      "severity": "info",
+      "deduction": 0,
+      "trigger": "Egenerklæring fra eier er ikke levert og dette fremgår av rapporten, men konsekvensen for analysens faglige grunnlag er ikke forklart.",
+      "acceptance_criteria": [
+        "Trigges kun når rapporten eksplisitt opplyser at egenerklæring ikke er levert eller ikke foreligger.",
+        "Skal ikke trigges dersom rapporten forklarer at analysen er gjennomført uten egenerklæring og beskriver hvilken usikkerhet og risiko dette medfører for kjøper.",
+        "Skal ikke trigges dersom egenerklæring faktisk er fremlagt og gjennomgått.",
+        "Egenerklæring er ikke et direkte forskriftskrav, men et krav i NS 3600 (begge versjoner). Trekk gis fordi manglende egenerklæring uten forklaring svekker rapportens faglige grunnlag og eksponerer takstmannen for ansvar — ikke fordi det er et forskriftsbrudd.",
+        "Gjelder uavhengig av NS-versjon. Hjemlet i NS 3600:2018 pkt 5 og 9, NS 3600:2025 pkt 8 c) og 14.4 f)."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "remediation": "Rapporten bør presisere at egenerklæring ikke er levert og forklare konsekvensen: Takstmannen har ikke hatt tilgang til eierens kjente opplysninger om feil, mangler og arbeider på boligen. Dette svekker analysens faglige grunnlag og kjøper bør gjøres oppmerksom på at vesentlige forhold kan ha blitt oversett. Jf. NS 3600:2025 pkt 14.4 f).",
+      "legal_reference": {
+        "note": "Egenerklæring er IKKE et direkte forskriftskrav. Hjemmelen er NS 3600:2018 pkt 5 og 9 (skal foreligge forut for analysen) og NS 3600:2025 pkt 8 c) (skal senest foreligge før rapporten ferdigstilles) og pkt 14.4 f) (skal fremgå om egenerklæring ikke er fylt ut). Trekk begrunnes i faglig metodikk og takstmannens ansvar — ikke i forskriften.",
+        "standard_2018": "NS 3600:2018 pkt 5 og pkt 9",
+        "standard_2025": "NS 3600:2025 pkt 8 c) og pkt 14.4 f)"
+      }
+    },
+    {
+      "id": "E_METHOD.areal_ns3940_2023",
+      "category": "E",
+      "severity": "major",
+      "deduction": 5,
+      "trigger": "Arealmåling ved rapportdato fra og med 01.01.2026 er ikke utført i samsvar med NS 3940:2023 — basert på faktisk feil målemetode eller manglende BRA-fordeling, ikke bare manglende årstallsreferanse i teksten.",
+      "acceptance_criteria": [
+        "Gjelder kun rapporter med rapportdato fra og med 01.01.2026.",
+        "Trigges dersom rapporten bruker P-ROM / S-ROM i stedet for BRA-i / BRA-e / BRA-b — dette er en faktisk feil målemetode.",
+        "Trigges dersom rapporten mangler BRA-fordeling (BRA-i, BRA-e, BRA-b) helt.",
+        "Skal IKKE trigges bare fordi rapporten bruker formuleringen «slik målereglene var praktisert i bransjen på måletidspunktet». Denne formuleringen alene er ikke nok til å fastslå feil målemetode.",
+        "Skal IKKE trigges dersom rapporten oppgir BRA-fordeling korrekt (BRA-i, BRA-e, BRA-b) selv om «NS 3940:2023» ikke er eksplisitt nevnt med årstall.",
+        "Skal IKKE trigges dersom rapporten skriver «NS 3940» uten årstall — årstallet alene er ikke avgjørende, det er selve målemetoden og BRA-fordelingen som teller.",
+        "Hjemlet i den oppdaterte forskriften § 2-20 første og andre ledd (ikrafttreden 01.01.2026)."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "remediation": "Arealmålingen skal følge NS 3940:2023 og rapporten skal oppgi total BRA samt fordeling mellom BRA-i (internt bruksareal), BRA-e (eksternt bruksareal) og BRA-b (innglasset balkong), jf. forskriften § 2-20. Bruk av P-ROM / S-ROM er ikke lenger korrekt fra 01.01.2026.",
+      "legal_reference": {
+        "law": "Forskrift til avhendingslova",
+        "section": "§ 2-20",
+        "standard": "NS 3940:2023 tillegg A"
+      }
+    },
+    {
+      "id": "E_METHOD.garasje_avvik_uten_arkat",
+      "category": "E",
+      "severity": "major",
+      "deduction": 5,
+      "trigger": "Åpenbart avvik er beskrevet i frittstående bygg uten varig opphold (garasje, uthus, bod, naust) uten full ARKAT (Årsak, Risiko, Konsekvens, Anbefalt tiltak).",
+      "acceptance_criteria": [
+        "Takstmannen har undersøkelsesplikt for garasje/uthus/naust, men IKKE krav om TG. Åpenbare avvik skal likevel ha full ARKAT.",
+        "Trigges når et konkret avvik beskrives i garasje/uthus/naust uten at alle fire ARKAT-elementer er til stede.",
+        "Skal ikke trigges dersom avvik ikke er observert og bygget beskrives uten avvik.",
+        "Skal ikke trigges dersom TGIU er benyttet med tydelig begrunnelse.",
+        "Systemet skal IKKE gi trekk for manglende TG alene på garasje/uthus/naust — TG er ikke et forskriftskrav for disse bygningene. Trekk gis kun for manglende ARKAT ved beskrevet avvik.",
+        "Gjelder uavhengig av NS-versjon og rapportdato."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "remediation": "Åpenbare avvik i garasje, uthus eller naust skal beskrives med full ARKAT: Årsak (hva er observert), Risiko (hva kan skje videre), Konsekvens (hva betyr dette for kjøper) og Anbefalt tiltak. TG er ikke påkrevd for disse bygningene, men avvik skal alltid beskrives faglig.",
+      "legal_reference": {
+        "law": "Ingen direkte hjemmel for TG-krav i forskriften for garasje/uthus/naust",
+        "standard_2025": "NS 3600:2025 A.3.22.8 — undersøkelsesplikt, men TG er standardens anbefaling",
+        "standard_2018": "NS 3600:2018 pkt 6 — tilsvarende",
+        "note": "TG på garasje/uthus/naust er IKKE et forskriftskrav. Undersøkelsesplikten er reell, men TG-kravet kommer fra NS 3600, ikke fra forskriften. Åpenbare avvik skal alltid ha full ARKAT uavhengig av om TG settes eller ikke."
+      }
+    },
+    {
+      "id": "E_METHOD.garasje_tg_uten_full_arkat",
+      "category": "E",
+      "severity": "major",
+      "deduction": 6,
+      "trigger": "Takstmannen har satt TG på frittstående bygg uten varig opphold (garasje, uthus, naust), men ARKAT er ikke komplett.",
+      "acceptance_criteria": [
+        "Trigges kun når TG faktisk er satt på garasje/uthus/naust og ARKAT ikke er komplett.",
+        "Når takstmannen velger å sette TG, påtar han seg samme ARKAT-krav som for boligen.",
+        "Skal ikke trigges dersom TG ikke er satt — TG er ikke et krav for disse bygningene.",
+        "Full ARKAT betyr: Årsak, Risiko, Konsekvens og Anbefalt tiltak.",
+        "Gjelder uavhengig av NS-versjon og rapportdato."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      },
+      "remediation": "Når TG er satt på garasje, uthus eller naust, skal full ARKAT følge med: Årsak, Risiko, Konsekvens og Anbefalt tiltak. Alternativt kan TG fjernes og avviket beskrives som en observasjon med ARKAT uten TG.",
+      "legal_reference": {
+        "note": "TG på garasje/uthus/naust er ikke et forskriftskrav, men når takstmannen velger å sette TG gjelder samme ARKAT-krav som for øvrige bygningsdeler i boligen."
+      }
+    },
+    {
+      "id": "E_METHOD.anneks_varig_opphold_mangler_tg",
+      "category": "E",
+      "severity": "major",
+      "deduction": 8,
+      "trigger": "Frittstående anneks godkjent for varig opphold er omtalt i rapporten uten tilstandsanalyse på bygningsdelsnivå med TG.",
+      "acceptance_criteria": [
+        "Trigges kun når et anneks med varig opphold er beskrevet uten TG på bygningsdelsnivå.",
+        "Et anneks godkjent for varig opphold er en selvstendig boenhet og skal ha full tilstandsanalyse med TG på bygningsdelsnivå, jf. forskriften § 1-2 + § 2-22.",
+        "Skal ikke trigges dersom annekset beskrives uten avvik (TG0/TG1 er implisitt OK).",
+        "Skal ikke trigges for anneks uten godkjenning for varig opphold — disse behandles som garasje/uthus etter E_METHOD.garasje_avvik_uten_arkat.",
+        "Gjelder uavhengig av NS-versjon og rapportdato."
+      ],
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "remediation": "Anneks godkjent for varig opphold er en selvstendig boenhet og skal ha full tilstandsanalyse med TG på bygningsdelsnivå — på samme måte som boligen. Jf. forskriften § 1-2 + § 2-22 og NS 3600:2025 A.3.22.9.",
+      "legal_reference": {
+        "law": "Forskrift til avhendingslova § 1-2 + § 2-22",
+        "standard_2025": "NS 3600:2025 A.3.22.9",
+        "note": "Et anneks med varig opphold er en selvstendig boenhet. Kjøper har krav på tilstandsanalyse av alle boliger på eiendommen, jf. forskriftens formål og virkeområde."
+      }
+    },
+    {
+      "id": "GATE_TG2_ARK_MISSING",
+      "category": "A",
+      "severity": "major",
+      "deduction": 0,
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "TG2 mangler en eller flere av ARK-delene (Årsak/Risiko/Konsekvens) etter vurdering av samlet punkttekst og korrekt lenket oppsummering.",
+      "trigger_if": {
+        "TG_level": [
+          "TG2"
+        ],
+        "missing_any": [
+          "arsak",
+          "risiko",
+          "konsekvens"
+        ]
+      },
+      "remediation": "For TG2: legg til kort Årsak, Risiko og Konsekvens (kjøper-orientert)."
+    },
+    {
+      "id": "GATE_TG3_ARKAT_MISSING",
+      "category": "A",
+      "severity": "major",
+      "deduction": 0,
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "TG3 mangler en eller flere av ARKAT-delene (Årsak/Risiko/Konsekvens/Anbefalt tiltak) etter vurdering av samlet punkttekst og korrekt lenket oppsummering.",
+      "trigger_if": {
+        "TG_level": [
+          "TG3"
+        ],
+        "missing_any": [
+          "arsak",
+          "risiko",
+          "konsekvens",
+          "anbefalt_tiltak"
+        ]
+      },
+      "remediation": "For TG3: legg til Årsak, Risiko, Konsekvens og Anbefalt tiltak (kort og konkret)."
+    },
+    {
+      "id": "GATE_KONSEKVENS_NOT_BUYER_ORIENTED",
+      "category": "A",
+      "severity": "major",
+      "deduction": 0,
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "Konsekvens er mangelfull eller kun teknisk – ikke oversatt til kjøpers situasjon. Skal ikke trigges bare fordi ordet «kjøper» mangler.",
+      "trigger_if": {
+        "TG_level": [
+          "TG2",
+          "TG3"
+        ],
+        "konsekvens_missing_or_only_technical": true
+      },
+      "remediation": "Presiser konsekvens for kjøper: bruk/økonomi/risiko (1 setning)."
+    },
+    {
+      "id": "GATE_TG_TEXT_SEVERE_MISMATCH",
+      "category": "B",
+      "severity": "major",
+      "deduction": 0,
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "Alvorlig inkonsistens mellom TG og tekstlig alvorlighetsgrad.",
+      "trigger_if": {
+        "tg_text_mismatch": "severe"
+      },
+      "remediation": "Harmoniser TG og tekst: enten juster TG, eller juster teksten slik at den samsvarer."
+    },
+    {
+      "id": "GATE_OBSERVATION_EVALUATION_MIX_REPEATED",
+      "category": "D",
+      "severity": "major",
+      "deduction": 0,
+      "gate_effect": {
+        "blocks_96_gate": true,
+        "caps_total_score_to": 95
+      },
+      "trigger": "Systematisk blanding av observasjon og vurdering som gir utydelig språk for kjøper.",
+      "trigger_if": {
+        "observation_contains_evaluation": {
+          "repeated": true
+        }
+      },
+      "remediation": "Skill tydelig mellom hva som er observert og hva som er vurdert/konkludert."
+    }
+  ],
+  "scoring_mechanics": {
+    "score_start": 100,
+    "score_floor": 0,
+    "score_ceiling": 100,
+    "deduct_per_occurrence": true,
+    "aggregate_level": "bygningsdel",
+    "category_caps": {
+      "A": 40,
+      "B": 20,
+      "C": 15,
+      "D": 15,
+      "E": 10
+    },
+    "severity_weights": {
+      "info": 0,
+      "minor": 1,
+      "major": 1
+    },
+    "notes": [
+      "TG2 skal ikke trekkes for manglende anbefalt tiltak.",
+      "Dobbelttrekk skal unngås hvis samme avvik fanges av flere moduler.",
+      "Gate/cap er gate_effect-basert; gate-funn har deduction=0.",
+      "For E3 skal korrekt lenket TG2/TG3-oppsummering vurderes sammen med hovedpunktet før ARK/ARKAT- og kostnadsregler trigges.",
+      "TG3 kostnad: mangler helt = høyt trekk; kun enkeltbeløp uten intervall/klasse = middels trekk; intervall eller kostnadsklasse = OK.",
+      "For TG3 skal konkret anbefaling i feltet Tiltak, Andre tiltak eller i fri løpende tekst godtas som anbefalt tiltak når den tydelig er knyttet til samme punkt.",
+      "Vanlige kostnadsintervaller i løpende tekst, f.eks. '20 000 - 100 000', skal godtas som TG3-kostnad når de tydelig gjelder samme punkt.",
+      "Elektrisk anlegg og andre HMS-forhold uten TG skal vurderes særskilt og ikke som ordinære TG2/TG3-ARKAT-avvik.",
+      "Aldersbasert TG2 er kun tillatt uten observert avvik for bygningsdeler på NS 3600 tillegg C-listen. For alle andre bygningsdeler kreves observert tilstand eller konkret risiko.",
+      "E_METHOD-regler (egenerklæring, areal, frittstående bygg) scorer mot kategori E med max_deduction 10. Disse skal ikke dobbeltscores mot kategori F."
+    ]
+  },
+  "handled_categories": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
+  "external_modules": [
+    {
+      "module_id": "validert_lovlighet",
+      "category": "F",
+      "notes": "Lovlighet og offentlige forhold – håndteres av legal_compliance ruleset."
+    },
+    {
+      "module_id": "tg2_tg3_age_service_life_validation",
+      "notes": "Validator-only; findings deduplicated; no direct scoring"
+    }
+  ],
+  "regime_table": {
+    "description": "Styrer hvilke regler og standardversjoner som gjelder basert på rapportdato og oppgitt NS-versjon. Systemet må lese rapportdato og oppgitt normativt grunnlag fra rapporten og aktivere riktig regime.",
+    "regimes": [
+      {
+        "regime_id": "PRE_2025",
+        "label": "Gammelt regime",
+        "rapportdato_before": "2025-12-17",
+        "ns_version": "NS 3600:2018",
+        "tg_criteria": "NS 3600:2018",
+        "areal_standard": "Eldre praksis tillatt",
+        "hms_konsekvens_krav": false,
+        "active_forskrift_paragraphs": [
+          "§ 2-18",
+          "§ 2-19",
+          "§ 2-22",
+          "§ 2-23"
+        ],
+        "notes": "Fullt gammelt regime. El-anlegg TG var aldri et forskriftskrav, men heller ikke eksplisitt forbudt i forskriften. Systemet skal ikke gi trekk for TG på el-anlegg i disse rapportene — verken for at TG er satt eller mangler. Rekkverk og arealmåling etter eldre praksis er ikke avvik i dette regimet.",
+        "el_anlegg_tg": null,
+        "rekkverk_tg": true,
+        "el_anlegg_tg_forbidden": false
+      },
+      {
+        "regime_id": "TRANSITION_DEC_2025",
+        "label": "Overgang desember 2025",
+        "rapportdato_from": "2025-12-17",
+        "rapportdato_before": "2026-01-01",
+        "ns_version": "NS 3600:2018 eller NS 3600:2025",
+        "tg_criteria": "NS 3600:2025 (NS 3600:2018 tillatt)",
+        "areal_standard": "Eldre praksis tillatt",
+        "hms_konsekvens_krav": false,
+        "active_forskrift_paragraphs": [
+          "§ 2-23 siste ledd (ny fra 17.12.2025)"
+        ],
+        "notes": "§ 2-23 siste ledd endret fra 17.12.2025. El-anlegg TG ikke ennå forbudt via forskrift — øvrige 2026-endringer trer ikke i kraft før 01.01.2026. Systemet skal ikke gi trekk for TG på el-anlegg i denne perioden.",
+        "el_anlegg_tg_forbidden": false
+      },
+      {
+        "regime_id": "TRANSITION_2026",
+        "label": "Overgangsperiode 01.01.2026–30.06.2026",
+        "rapportdato_from": "2026-01-01",
+        "rapportdato_before": "2026-07-01",
+        "ns_version": "NS 3600:2018 ELLER NS 3600:2025 — begge tillatt",
+        "tg_criteria": "Følger oppgitt NS-versjon i rapporten. NS 3600:2018 tillatt frem til 01.07.2026.",
+        "areal_standard": "NS 3940:2023 obligatorisk (§ 2-20 gjelder fra 01.01.2026)",
+        "hms_konsekvens_krav": true,
+        "active_forskrift_paragraphs": [
+          "§ 2-18",
+          "§ 2-19",
+          "§ 2-20 (ny fra 01.01.2026)",
+          "§ 2-21 tredje ledd (nytt fra 01.01.2026)",
+          "§ 2-22",
+          "§ 2-23"
+        ],
+        "ns_version_specific_rules": {
+          "NS 3600:2018": {
+            "tillegg_C_alderskriterier": false,
+            "age_only_tg2_permitted_components": [
+              "membran",
+              "undertak",
+              "drenering",
+              "varmtvannsbereder",
+              "vann- og avloepsroer",
+              "oljetanker"
+            ],
+            "note": "Tillegg C finnes ikke i NS 3600:2018. Aldersbasert TG2 tillatt for samme bygningsdelkategorier som i 2025, men uten eksplisitte årstallsgrenser. VIKTIG: El-anlegg skal fortsatt ha TG (tabell B.2) under NS 3600:2018. Rekkverk skal fortsatt ha TG under NS 3600:2018 — ingen TG er en NS 3600:2025-endring. Konsekvens for HMS-avvik (§ 2-21 tredje ledd) kreves uavhengig av NS-versjon fra 01.01.2026."
+          },
+          "NS 3600:2025": {
+            "tillegg_C_alderskriterier": true,
+            "age_only_tg2_permitted_components": [
+              "vanntett sjikt vaatrom",
+              "vanntett sjikt tak",
+              "undertak",
+              "vann- og avloepsroer",
+              "fuktsikring og drenering",
+              "oljetanker",
+              "varmtvannsbereder",
+              "ventilasjon og varmepumper",
+              "isolerglassruter"
+            ],
+            "note": "Tillegg C er normativt med eksplisitte alderskriterier i tabell C.1-C.8. TG3 ikke tillatt på alder alene unntatt vaatrom foer 2000. VIKTIG: El-anlegg skal IKKE ha TG (NS 3600:2025 pkt 12.5). Rekkverk skal IKKE ha TG (NS 3600:2025 pkt 12.9). Begge skal beskrives som HMS-forhold med konsekvens (§ 2-21 tredje ledd)."
+          }
+        },
+        "notes": "KRITISK: Areal (§ 2-20) og HMS-konsekvens (§ 2-21 tredje ledd) gjelder fra 01.01.2026 uavhengig av NS-versjon. El-anlegg TG er nå forbudt via forskriften (§ 2-23 + NS 3600:2025 pkt 12.5 forankret i forskrift). Dette styres av RAPPORTDATO (fra 01.01.2026), ikke NS-versjon. En rapport som bruker NS 3600:2018 i overgangsperioden skal FORTSATT få trekk dersom TG settes på el-anlegg. TG-kriterier og aldersvurdering styres fortsatt av oppgitt NS-versjon.",
+        "el_anlegg_tg_forbidden": true
+      },
+      {
+        "regime_id": "FULL_2026",
+        "label": "Fullt 2026-regime fra 01.07.2026",
+        "rapportdato_from": "2026-07-01",
+        "ns_version": "NS 3600:2025 obligatorisk",
+        "tg_criteria": "NS 3600:2025",
+        "areal_standard": "NS 3940:2023 obligatorisk",
+        "hms_konsekvens_krav": true,
+        "active_forskrift_paragraphs": [
+          "§ 2-18",
+          "§ 2-19",
+          "§ 2-20",
+          "§ 2-21",
+          "§ 2-22",
+          "§ 2-23"
+        ],
+        "notes": "NS 3600:2018 ikke lenger tillatt for TG-kriterier. El-anlegg TG forbudt (styres av rapportdato, ikke NS-versjon). Fullt 2026-regime gjelder.",
+        "el_anlegg_tg_forbidden": true
+      }
+    ],
+    "how_to_detect_regime": "Les rapportdato fra rapporten. Les oppgitt normativt grunnlag (f.eks. \"NS 3600:2018 benyttes som normativt grunnlag\" eller \"NS 3600:2025\"). Aktiver regime basert på rapportdato. For TG-kriterier og aldersvurdering: bruk ns_version_specific_rules for den NS-versjonen rapporten oppgir. For areal (§ 2-20) og HMS-konsekvens (§ 2-21): bruk alltid gjeldende forskriftskrav for rapportdato uavhengig av NS-versjon."
+  }
+}

@@ -272,11 +272,20 @@ def _repair_common_pdf_word_artifacts(text: str) -> str:
     out = str(text or "")
     if not out:
         return ""
+    out = re.sub(r"\(cid:\d+\)", "", out)
     replacements = (
         (r"\blstand\b", "tilstand"),
         (r"\bLstand\b", "Tilstand"),
         (r"\blstrekkelig\b", "tilstrekkelig"),
         (r"\bLstrekkelig\b", "Tilstrekkelig"),
+        (r"\bhø5\b", "høy"),
+        (r"\bHø5\b", "Høy"),
+        (r"\bsk[’']øter\b", "skjøter"),
+        (r"\bSk[’']øter\b", "Skjøter"),
+        (r"\bsk[’']ulte\b", "skjulte"),
+        (r"\bSk[’']ulte\b", "Skjulte"),
+        (r"\bkonstruks[’']on(?:en|er|s)?\b", lambda m: "konstruksjon" + m.group(0).split("'")[-1][2:] if "'" in m.group(0) else "konstruksjon" + m.group(0).split("’")[-1][2:]),
+        (r"\binnemil[’']ø(?:et)?\b", lambda m: "innemiljøet" if m.group(0).lower().endswith("øet") else "innemiljø"),
     )
     for pattern, replacement in replacements:
         out = re.sub(pattern, replacement, out)
@@ -767,20 +776,28 @@ def _looks_like_structured_point_id(point_id: str) -> bool:
     if not pid:
         return False
     parts = pid.split(".")
-    if len(parts) < 2 or len(parts) > 4:
+    if len(parts) == 1:
+        if not parts[0].isdigit() or len(parts[0]) > 2:
+            return False
+        try:
+            first = int(parts[0])
+        except ValueError:
+            return False
+        return 1 <= first <= 20
+    if len(parts) > 4:
         return False
     for part in parts:
         if not part.isdigit():
             return False
         if len(part) > 2:
             return False
-    # Building-part point IDs in this domain are section-based (1..12.*).
+    # Building-part point IDs in this domain are section-based (1..20.*).
     # This avoids date-like tokens such as 23.02.
     try:
         first = int(parts[0])
     except ValueError:
         return False
-    if first < 1 or first > 12:
+    if first < 1 or first > 20:
         return False
     return True
 
@@ -861,6 +878,7 @@ def _semantic_point_lookup_id(point: Dict[str, object], normalize_point_id) -> s
 def _candidate_priority_for_point(point: Dict[str, object], effective_point_tg, normalize_text) -> tuple:
     return (
         _tg_rank_for_arkat(effective_point_tg(point)),
+        1 if bool(point.get("source_primary_tg_conclusion")) else 0,
         1 if str(point.get("tg_source") or "") == "fremtind_summary" else 0,
         len(normalize_text(str(point.get("title") or ""))),
         len(
@@ -1195,6 +1213,9 @@ def _collect_contextual_point_text_candidates(
 
 
 def _structured_extract_arkat_fields(raw_point_text: str, extract_arkat_section_text, normalize_text) -> Dict[str, str]:
+    explicit = _extract_explicit_arkat_subsection_fields(raw_point_text, normalize_text)
+    if explicit:
+        return explicit
     extracted = {
         "aarsak": extract_arkat_section_text(raw_point_text, "årsak"),
         "risiko": extract_arkat_section_text(raw_point_text, "risiko"),
@@ -1225,6 +1246,109 @@ def _structured_extract_arkat_fields(raw_point_text: str, extract_arkat_section_
         if better_consequence:
             merged["konsekvens"] = better_consequence
     return merged
+
+
+_EXPLICIT_ARKAT_SUBHEADING_RE = re.compile(
+    r"(?im)^\s*(?:(?P<number>\d{1,2})\.\s*)?"
+    r"(?P<label>"
+    r"Avvik\s*/\s*(?:Årsak|Arsak)|"
+    r"Risiko\s*/\s*Konsekvens|"
+    r"Anbefalte?\s+tiltak|"
+    r"Vurdering(?:\s+av\s+avvik)?"
+    r")\s*:?\s*(?P<tail>[^\n]*)$"
+)
+
+
+def _clean_explicit_arkat_block(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = re.sub(r"(?im)^\s*(?:Nøkkelfakta|Hvordan kontrollen er utført|Konklusjon bygningsdel)\s*:?\s*$", " ", text)
+    text = re.sub(r"(?i)\bTILSTANDSRAPPORT\s+\d+\s+av\s+\d+\b", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip(" :-")
+
+
+def _field_for_explicit_arkat_label(label: str) -> str:
+    low = re.sub(r"\s+", " ", str(label or "").strip().lower())
+    if "avvik" in low and ("årsak" in low or "arsak" in low):
+        return "aarsak"
+    if "risiko" in low and "konsekvens" in low:
+        return "risiko"
+    if "tiltak" in low:
+        return "anbefalt_tiltak"
+    if low.startswith("vurdering"):
+        return "aarsak"
+    return ""
+
+
+def _extract_explicit_arkat_subsection_binding_evidence(raw_point_text: str, normalize_text) -> Dict[str, List[Dict[str, object]]]:
+    text = str(raw_point_text or "")
+    if not text.strip():
+        return {}
+    matches = list(_EXPLICIT_ARKAT_SUBHEADING_RE.finditer(text))
+    if not matches:
+        return {}
+    evidence: Dict[str, List[Dict[str, object]]] = {"aarsak": [], "risiko": [], "konsekvens": [], "anbefalt_tiltak": []}
+    for idx, match in enumerate(matches):
+        label = str(match.group("label") or "").strip()
+        field = _field_for_explicit_arkat_label(label)
+        if not field:
+            continue
+        body_start = match.end()
+        body_end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        tail = str(match.group("tail") or "").strip()
+        body = text[body_start:body_end].strip()
+        value = _clean_explicit_arkat_block(f"{tail}\n{body}".strip())
+        if _is_semantically_missing_text(normalize_text, value):
+            continue
+        row = {
+            "field": field,
+            "subsection_heading": label,
+            "offset": int(match.start()),
+            "length_chars": len(value),
+            "text": value,
+            "preview": value[:220],
+        }
+        evidence.setdefault(field, []).append(row)
+        if field == "risiko":
+            consequence_row = dict(row)
+            consequence_row["field"] = "konsekvens"
+            consequence_row["subsection_heading"] = label
+            evidence.setdefault("konsekvens", []).append(consequence_row)
+    return {key: value for key, value in evidence.items() if value}
+
+
+def _extract_explicit_arkat_subsection_fields(raw_point_text: str, normalize_text) -> Dict[str, str]:
+    evidence = _extract_explicit_arkat_subsection_binding_evidence(raw_point_text, normalize_text)
+    if not evidence:
+        return {}
+    fields: Dict[str, str] = {}
+    for field_name in ("aarsak", "risiko", "konsekvens", "anbefalt_tiltak"):
+        rows = evidence.get(field_name) or []
+        if not rows:
+            fields[field_name] = "MISSING"
+            continue
+        values = [str(row.get("text") or "").strip() for row in rows if str(row.get("text") or "").strip()]
+        fields[field_name] = " ".join(values).strip() if values else "MISSING"
+    return fields
+
+
+def _apply_explicit_arkat_subsection_bindings(
+    fields: Dict[str, str],
+    raw_point_text: str,
+    normalize_text,
+) -> Tuple[Dict[str, str], Dict[str, List[Dict[str, object]]]]:
+    evidence = _extract_explicit_arkat_subsection_binding_evidence(raw_point_text, normalize_text)
+    if not evidence:
+        return fields, {}
+    explicit_fields = _extract_explicit_arkat_subsection_fields(raw_point_text, normalize_text)
+    out = dict(fields or {})
+    for field_name, value in explicit_fields.items():
+        if _is_semantically_missing_text(normalize_text, value):
+            continue
+        out[field_name] = value
+    return out, evidence
 
 
 def _enrich_fields_from_combined_konsekvens_tiltak(
@@ -2678,8 +2802,42 @@ def finalize_client_arkat_semantic_pipeline_output(analysis_output: Dict[str, ob
     if not isinstance(points, list):
         return
     _collapse_within_point_duplicate_fields(points, normalize_text)
+    _reapply_explicit_arkat_bindings_to_results(points, normalize_text)
     _enforce_missing_field_result_consistency(points, normalize_text)
+    _drop_arkat_semantic_findings_from_analysis_output(analysis_output)
     _ensure_arkat_semantic_findings_from_pipeline(analysis_output)
+
+
+def _drop_arkat_semantic_findings_from_analysis_output(analysis_output: Dict[str, object]) -> None:
+    def _is_arkat_rule_id(value: object) -> bool:
+        return str(value or "").startswith("A_ARKAT_SEMANTIC.")
+
+    for key in ("all_findings", "top_issues", "how_to_improve", "top_score_drivers", "score_drivers", "feedback_findings"):
+        rows = analysis_output.get(key)
+        if isinstance(rows, list):
+            analysis_output[key] = [row for row in rows if not (isinstance(row, dict) and _is_arkat_rule_id(row.get("rule_id")))]
+
+    components = analysis_output.get("findings")
+    if not isinstance(components, list):
+        return
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        issues = component.get("issues")
+        if isinstance(issues, list):
+            component["issues"] = [
+                issue for issue in issues
+                if not (
+                    isinstance(issue, dict)
+                    and any(_is_arkat_rule_id(rule_id) for rule_id in (issue.get("rule_refs") or []))
+                )
+            ]
+        deductions = component.get("deductions")
+        if isinstance(deductions, list):
+            component["deductions"] = [
+                deduction for deduction in deductions
+                if not (isinstance(deduction, dict) and _is_arkat_rule_id(deduction.get("rule_id")))
+            ]
 
 
 def _repair_bolavi_field_assignments(results: List[Dict[str, object]], normalize_text) -> None:
@@ -2720,6 +2878,26 @@ def _repair_bolavi_field_assignments(results: List[Dict[str, object]], normalize
                 fields["konsekvens"] = "MISSING"
 
 
+def _reapply_explicit_arkat_bindings_to_results(results: List[Dict[str, object]], normalize_text) -> None:
+    for point in results or []:
+        if not isinstance(point, dict):
+            continue
+        raw_point_text = str(point.get("raw_point_text") or "")
+        if not raw_point_text:
+            continue
+        fields = point.get("extracted_fields")
+        if not isinstance(fields, dict):
+            fields = {}
+        rebound_fields, binding_evidence = _apply_explicit_arkat_subsection_bindings(
+            fields,
+            raw_point_text,
+            normalize_text,
+        )
+        if binding_evidence:
+            point["extracted_fields"] = rebound_fields
+            point["arkat_field_binding_evidence"] = binding_evidence
+
+
 def _enforce_missing_field_result_consistency(results: List[Dict[str, object]], normalize_text) -> None:
     for point in results or []:
         if not isinstance(point, dict):
@@ -2736,11 +2914,37 @@ def _enforce_missing_field_result_consistency(results: List[Dict[str, object]], 
         if tg == "TGIU":
             _force_tgiu_field_results_not_applicable(evaluation, tg)
             continue
+        binding = point.get("arkat_field_binding_evidence") if isinstance(point.get("arkat_field_binding_evidence"), dict) else {}
+        risk_consequence_from_combined_heading = bool(
+            binding.get("risiko")
+            and binding.get("konsekvens")
+            and all(
+                isinstance(row, dict)
+                and str(row.get("subsection_heading") or "").strip().lower().replace(" ", "") in {"risiko/konsekvens", "risiko/konsekvens:"}
+                for row in list(binding.get("risiko") or []) + list(binding.get("konsekvens") or [])
+            )
+        )
         has_errors = False
         for field_name in _ARKAT_FIELD_NAMES:
             if not _is_semantically_missing_text(normalize_text, fields.get(field_name)):
                 result = field_results.get(field_name)
                 if isinstance(result, dict):
+                    if (
+                        field_name in {"risiko", "konsekvens"}
+                        and risk_consequence_from_combined_heading
+                        and str(result.get("status") or "").strip().upper() == "WRONG"
+                        and str(result.get("error_type") or "") == "PURE_DUPLICATION"
+                    ):
+                        field_results[field_name] = {"status": "CORRECT", "error_type": None, "explanation": ""}
+                        result = field_results[field_name]
+                    if (
+                        field_name == "risiko"
+                        and risk_consequence_from_combined_heading
+                        and str(result.get("status") or "").strip().upper() == "WRONG"
+                        and str(result.get("error_type") or "") == "CONSEQUENCE_AS_RISIKO"
+                    ):
+                        field_results[field_name] = {"status": "CORRECT", "error_type": None, "explanation": ""}
+                        result = field_results[field_name]
                     if str(result.get("status") or "").strip().upper() == "MISSING":
                         recovered = _heuristic_evaluate_arkat_field(field_name, str(fields.get(field_name) or ""), ns, tg, normalize_text)
                         field_results[field_name] = recovered
@@ -2753,6 +2957,25 @@ def _enforce_missing_field_result_consistency(results: List[Dict[str, object]], 
                         recovered = _heuristic_evaluate_arkat_field(field_name, str(fields.get(field_name) or ""), ns, tg, normalize_text)
                         field_results[field_name] = recovered
                         result = recovered
+                    if (
+                        field_name == "risiko"
+                        and str(result.get("status") or "").strip().upper() == "WRONG"
+                        and str(result.get("error_type") or "") == "PURE_DUPLICATION"
+                    ):
+                        recovered = _heuristic_evaluate_arkat_field(field_name, str(fields.get(field_name) or ""), ns, tg, normalize_text)
+                        if str(recovered.get("error_type") or "") == "PURE_DUPLICATION":
+                            recovered = {"status": "CORRECT", "error_type": None, "explanation": ""}
+                        field_results[field_name] = recovered
+                        result = recovered
+                    if (
+                        field_name == "risiko"
+                        and str(result.get("status") or "").strip().upper() == "WRONG"
+                        and str(result.get("error_type") or "") == "LIMITATION_AS_RISIKO"
+                    ):
+                        recovered = _heuristic_evaluate_arkat_field(field_name, str(fields.get(field_name) or ""), ns, tg, normalize_text)
+                        if str(recovered.get("status") or "").strip().upper() == "CORRECT":
+                            field_results[field_name] = recovered
+                            result = recovered
                     if (
                         field_name == "anbefalt_tiltak"
                         and str(result.get("status") or "").strip().upper() == "WRONG"
@@ -3198,13 +3421,17 @@ def _detect_ns_version_for_dommer_b(
     """
     meta: Dict[str, object] = {"source": "default", "detail": ""}
     blob = normalize_text((report_text or "")[:70000]).lower()
-    if re.search(r"(?i)ns\s*3600\D{0,12}2025\b", blob):
+    explicit_2025 = re.search(r"(?i)ns\s*3600\D{0,12}2025\b", blob)
+    if explicit_2025:
         meta["source"] = "report_text"
         meta["detail"] = "ns3600_2025"
+        meta["evidence_span"] = explicit_2025.group(0)[:120]
         return "NS3600:2025", meta
-    if re.search(r"(?i)ns\s*3600\D{0,12}2018\b", blob) or "overgangsordning" in blob:
+    explicit_2018 = re.search(r"(?i)ns\s*3600\D{0,12}2018\b", blob)
+    if explicit_2018 or "overgangsordning" in blob:
         meta["source"] = "report_text"
         meta["detail"] = "ns3600_2018"
+        meta["evidence_span"] = explicit_2018.group(0)[:120] if explicit_2018 else "overgangsordning"
         return "NS3600:2018", meta
     gap = re.search(r"(?i)ns.{0,18}3600.{0,26}(2018|2025)\b", blob)
     if gap:
@@ -4195,11 +4422,24 @@ def _evaluate_arkat_point(
     return out
 
 
+_FIELD_BOUND_ERROR_ALIASES = {
+    ("konsekvens", "OBSERVATION_AS_AARSAK"): "LIMITATION_AS_KONSEKVENS",
+    ("risiko", "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"): "PRESENT_STATE_AS_RISIKO",
+}
+
+
+def _normalize_field_bound_error_type(field_name: str, error_type: str) -> str:
+    return _FIELD_BOUND_ERROR_ALIASES.get(
+        (str(field_name or "").strip().lower(), str(error_type or "").strip()),
+        str(error_type or "").strip(),
+    )
+
+
 def _status_to_scoring_meta(field_name: str, result: Dict[str, object]) -> Optional[Dict[str, object]]:
     status = str(result.get("status") or "").strip().upper()
     if not status or status in {"CORRECT", "NOT_APPLICABLE"}:
         return None
-    bridge_key = str(result.get("error_type") or "").strip()
+    bridge_key = _normalize_field_bound_error_type(field_name, str(result.get("error_type") or ""))
     if status == "MISSING" and not bridge_key:
         bridge_key = f"MISSING ({field_name})"
     if not bridge_key:
@@ -4678,6 +4918,7 @@ def _detect_report_format_for_arkat(report_text: str, detected_points: List[Dict
     text = normalize_text(_first_report_pages_text(report_text, split_pages)).lower()
     point_preview = "\n".join(str(point.get("span_text") or "") for point in detected_points[:10] if isinstance(point, dict)).lower()
     search_blob = f"{text}\n{point_preview}"
+    basis: List[str] = []
     strong_hits: Dict[str, int] = {}
     for profile in profiles:
         if not isinstance(profile, dict):
@@ -4692,21 +4933,29 @@ def _detect_report_format_for_arkat(report_text: str, detected_points: List[Dict
                 hits += 1
         if fmt:
             strong_hits[fmt] = hits
-    if strong_hits.get("structured_arkat", 0) >= 3:
+    is_befar_independent = "befar.io" in search_blob or "rapporten er bygget med befar" in search_blob
+    if is_befar_independent:
+        chosen = "semi_structured"
+        basis.append("befar.io independent template marker")
+    elif strong_hits.get("structured_arkat", 0) >= 3:
         chosen = "structured_arkat"
+        basis.append("structured_arkat strong indicators")
     elif strong_hits.get("compressed_mixed", 0) >= 1:
         chosen = "compressed_mixed"
+        basis.append("compressed_mixed strong indicators")
     elif 0 < strong_hits.get("structured_arkat", 0) < 3 or strong_hits.get("semi_structured", 0) >= 1:
         chosen = "semi_structured"
+        basis.append("semi_structured/partial structured indicators")
     else:
         chosen = "unlabeled_prose"
+        basis.append("fallback: no strong format indicator")
     extraction_method = {
         "structured_arkat": "field_label_extraction",
         "compressed_mixed": "semantic_block_extraction",
         "semi_structured": "hybrid_extraction",
         "unlabeled_prose": "semantic_block_extraction",
     }.get(chosen, "semantic_block_extraction")
-    return {"report_format": chosen, "extraction_method_used": extraction_method, "signals": strong_hits}
+    return {"report_format": chosen, "extraction_method_used": extraction_method, "signals": strong_hits, "classification_basis": basis}
 
 
 def _build_report_context_for_point(
@@ -4730,10 +4979,10 @@ def _build_report_context_for_point(
     building_method_summary = ""
     method_match = re.search(r"(?is)(om byggemetoden|byggemetode|konstruksjon)\s*[:\-]?\s*(.{0,700})", header)
     if method_match:
-        building_method_summary = str(method_match.group(2) or "").strip()
+        building_method_summary = _sanitize_pdf_layout_text_for_arkat(str(method_match.group(2) or "").strip())
     relevant_context = f"{point_id} {point_title}".strip()
     if raw_point_text:
-        relevant_context = f"{relevant_context}. {normalize_text(raw_point_text)[:1200]}".strip()
+        relevant_context = f"{relevant_context}. {_sanitize_pdf_layout_text_for_arkat(normalize_text(raw_point_text)[:1200])}".strip()
     if report_date:
         relevant_context = f"{relevant_context} Rapportdato: {report_date}."
     return {
@@ -4884,6 +5133,10 @@ def run_client_arkat_semantic_pipeline(
         if str(tg_grade or "").strip().upper() not in {"TG2", "TG3", "TGIU"}:
             continue
         is_canonical_child_point = _looks_like_canonical_child_point_id(point_id)
+        is_source_primary_tg_section = any(
+            isinstance(candidate, dict) and bool(candidate.get("source_primary_tg_conclusion"))
+            for candidate in candidates
+        )
         raw_point_text_candidates: List[str] = []
         primary_field_chunks: List[str] = []
         candidate_debug: List[Dict[str, object]] = []
@@ -4899,21 +5152,22 @@ def run_client_arkat_semantic_pipeline(
                     "reason": reason,
                     "length_chars": len(text or ""),
                     "length_norm_chars": len(normalized),
-                    "preview": (text or "")[:220],
+                    "preview": _sanitize_pdf_layout_text_for_arkat((text or "")[:220]),
                 }
             )
 
         for candidate in candidates:
             candidate_text = str(candidate.get("effective_span_text") or candidate.get("exact_span_text") or candidate.get("span_text") or "").strip()
             candidate_text = _trim_text_to_point_window(candidate_text, point_id, normalize_text)
-            candidate_text = _augment_point_text_with_linked_summary(
-                candidate_text,
-                point_id,
-                linked_summary_by_point,
-                get_linked_summary_for_point,
-                available_point_ids,
-                normalize_text,
-            )
+            if not is_source_primary_tg_section:
+                candidate_text = _augment_point_text_with_linked_summary(
+                    candidate_text,
+                    point_id,
+                    linked_summary_by_point,
+                    get_linked_summary_for_point,
+                    available_point_ids,
+                    normalize_text,
+                )
             if candidate_text:
                 raw_point_text_candidates.append(candidate_text)
                 primary_field_chunks.append(candidate_text)
@@ -4923,7 +5177,7 @@ def run_client_arkat_semantic_pipeline(
                     source_point_id=_semantic_point_lookup_id(candidate, normalize_point_id),
                     reason="canonical_point_group_candidate",
                 )
-            if not is_canonical_child_point and _point_text_needs_report_fallback(candidate_text, point_id, str(candidate.get("title") or ""), normalize_text):
+            if not is_source_primary_tg_section and not is_canonical_child_point and _point_text_needs_report_fallback(candidate_text, point_id, str(candidate.get("title") or ""), normalize_text):
                 recovered = _recover_point_text_from_report(report_text, point_id, str(candidate.get("title") or ""), normalize_text)
                 recovered = _trim_text_to_point_window(recovered, point_id, normalize_text)
                 recovered = _augment_point_text_with_linked_summary(
@@ -4943,7 +5197,7 @@ def run_client_arkat_semantic_pipeline(
                         source_point_id=point_id,
                         reason="point_text_needs_report_fallback=true",
                     )
-        if not is_canonical_child_point:
+        if not is_source_primary_tg_section and not is_canonical_child_point:
             contextual_candidates = _collect_contextual_point_text_candidates(
                 point_id,
                 str(point.get("title") or ""),
@@ -4970,7 +5224,7 @@ def run_client_arkat_semantic_pipeline(
         raw_point_text = _cut_known_cross_section_bleed(raw_point_text, point_id)
         if not raw_point_text:
             recovered = ""
-            if not is_canonical_child_point:
+            if not is_source_primary_tg_section and not is_canonical_child_point:
                 recovered = _recover_point_text_from_report(report_text, point_id, str(point.get("title") or ""), normalize_text)
             recovered = _trim_text_to_point_window(recovered, point_id, normalize_text)
             recovered = _strip_embedded_summary_tables_for_arkat_fields(recovered, point_id)
@@ -5022,8 +5276,12 @@ def run_client_arkat_semantic_pipeline(
         if not normalize_text(field_extraction_text).strip():
             field_extraction_text = _trim_text_to_point_window(raw_point_text, point_id, normalize_text)
         extracted_fields = _extract_and_sanitize_fields(field_extraction_text)
+        arkat_field_binding_evidence = _extract_explicit_arkat_subsection_binding_evidence(
+            field_extraction_text,
+            normalize_text,
+        )
         recovered = ""
-        if not is_canonical_child_point:
+        if not is_source_primary_tg_section and not is_canonical_child_point:
             recovered = _recover_point_text_from_report(report_text, point_id, str(point.get("title") or ""), normalize_text)
         recovered = _trim_text_to_point_window(recovered, point_id, normalize_text)
         recovered = _strip_embedded_summary_tables_for_arkat_fields(recovered, point_id)
@@ -5100,6 +5358,13 @@ def run_client_arkat_semantic_pipeline(
             _collapse_identical_arkat_field_triplet(extracted_fields, normalize_text),
             normalize_text,
         )
+        extracted_fields, explicit_binding_evidence = _apply_explicit_arkat_subsection_bindings(
+            extracted_fields,
+            field_extraction_text or raw_point_text,
+            normalize_text,
+        )
+        if explicit_binding_evidence:
+            arkat_field_binding_evidence = explicit_binding_evidence
         arkat_evaluation_text = raw_point_text
         evaluation = _evaluate_arkat_point(
             point_id=point_id,
@@ -5128,6 +5393,7 @@ def run_client_arkat_semantic_pipeline(
             "extraction_method_used": format_meta.get("extraction_method_used") or "",
             "raw_point_text": raw_point_text,
             "extracted_fields": extracted_fields,
+            "arkat_field_binding_evidence": arkat_field_binding_evidence,
             "report_context": report_context,
             "evaluation": evaluation,
             "no_tg_hms_point": bool(point.get("no_tg_hms_point")),
@@ -5146,6 +5412,7 @@ def run_client_arkat_semantic_pipeline(
     _clear_cross_point_duplicate_fields(results, normalize_text)
     _repair_bolavi_field_assignments(results, normalize_text)
     _collapse_within_point_duplicate_fields(results, normalize_text)
+    _reapply_explicit_arkat_bindings_to_results(results, normalize_text)
     _enforce_missing_field_result_consistency(results, normalize_text)
     for point_payload in results:
         evaluation = point_payload.get("evaluation") if isinstance(point_payload, dict) else None
@@ -5174,6 +5441,7 @@ def run_client_arkat_semantic_pipeline(
         "active": True,
         "report_format": format_meta.get("report_format") or "",
         "extraction_method_used": format_meta.get("extraction_method_used") or "",
+        "classification_basis": format_meta.get("classification_basis") or [],
         "ns_version": ns_version,
         "ns_version_detection": ns_version_detection,
         "report_date": report_date,

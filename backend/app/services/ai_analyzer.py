@@ -13,6 +13,7 @@ from pathlib import Path
 from app.config import settings
 from app.schemas import AnalysisResult, ComponentBase, FindingBase
 from app.services.arkat_semantic_pipeline import (
+    _is_semantically_missing_text,
     _looks_like_structured_point_id,
     _trim_text_to_point_window,
     finalize_client_arkat_semantic_pipeline_output,
@@ -26,6 +27,7 @@ from app.services.validert_files import (
     get_building_part_whitelist_v22,
     get_canonical_points_v30,
     get_category_config_text,
+    get_arkat_error_deduction_mapping_text,
     get_legality_arkat_map_text,
     get_legality_arkat_templates_text,
     get_legality_rules_text,
@@ -35,6 +37,7 @@ from app.services.validert_files import (
     get_ui_overlay_config,
     get_points_overview_mapping_config,
     get_migration_map,
+    get_runtime_manifest,
 )
 
 logger = logging.getLogger(__name__)
@@ -461,6 +464,19 @@ _COMPRESSED_MIXED_STRONG_MARKERS = (
 def _report_text_suggests_compressed_mixed_format(report_text: str) -> bool:
     low = _normalize_report_text_for_analysis(report_text or "")[:120000].lower()
     return any(marker in low for marker in _COMPRESSED_MIXED_STRONG_MARKERS)
+
+
+def _report_text_suggests_fremtind_template(report_text: str) -> bool:
+    normalized = _normalize_report_text_for_analysis(report_text or "")[:160000]
+    low = normalized.lower()
+    if "fremtind" in low:
+        return True
+    return bool(re.search(r"(?im)^\s*P\d{2}[A-Z]_[A-Z0-9_]+\b", normalized))
+
+
+def _report_text_suggests_befar_template(report_text: str) -> bool:
+    normalized = _normalize_report_text_for_analysis(report_text or "")[:160000].lower()
+    return "befar.io" in normalized or "rapporten er bygget med befar" in normalized
 
 
 def _p_style_heading_token(title: str) -> str:
@@ -960,7 +976,7 @@ def _summary_child_id_with_instance(base_id: str, title: str, used_ids: set) -> 
 
 
 def _extract_compressed_mixed_summary_tg_points(report_text: str) -> List[Dict[str, object]]:
-    if not _report_text_suggests_compressed_mixed_format(report_text or ""):
+    if not _report_text_suggests_fremtind_template(report_text or ""):
         return []
     pages = _split_pages(_normalize_report_text_for_analysis(report_text or ""))
     mapping_cfg = get_points_overview_mapping_config() or {}
@@ -1083,7 +1099,7 @@ def _hydrate_compressed_mixed_p_style_spans(report_text: str, points: List[Dict[
     """
     if not report_text or not points:
         return
-    if not _report_text_suggests_compressed_mixed_format(report_text):
+    if not _report_text_suggests_fremtind_template(report_text):
         return
     norm_report = _normalize_report_text_for_analysis(report_text)
     for point in points:
@@ -1572,7 +1588,7 @@ def _run_client_arkat_semantic_pipeline(
     analysis_output: Dict[str, object],
     report_date_override: str = "",
 ) -> None:
-    if _report_text_suggests_compressed_mixed_format(report_text or "") and isinstance(detected_points, list):
+    if _report_text_suggests_fremtind_template(report_text or "") and isinstance(detected_points, list):
         summary_tg_by_point = {
             _normalize_point_id(str(point.get("point_id") or "")): _normalize_tg_label(point.get("tg"))
             for point in _extract_compressed_mixed_summary_tg_points(report_text or "")
@@ -1590,14 +1606,37 @@ def _run_client_arkat_semantic_pipeline(
                 point["tg_source"] = "fremtind_summary"
     def _semantic_regime_context(text: str) -> Dict[str, object]:
         context = _extract_report_regime_context(text)
+        meta = analysis_output.get("meta") if isinstance(analysis_output.get("meta"), dict) else {}
+        meta_report_date = str(meta.get("report_date") or analysis_output.get("report_date") or "").strip()
+        meta_ns_version = str(meta.get("ns_version") or meta.get("ns_standard_version") or analysis_output.get("ns_version") or "").strip()
+        if meta_report_date and not context.get("report_date"):
+            context["report_date"] = meta_report_date
+        if meta_ns_version and not context.get("ns_version"):
+            context["ns_version"] = meta_ns_version
         override = str(report_date_override or "").strip()
         if override:
             context["report_date"] = override
-            context["report_regime"] = _detect_report_regime(override, str(context.get("ns_version") or ""))
+        if context.get("report_date") or context.get("ns_version"):
+            context["report_regime"] = _detect_report_regime(
+                str(context.get("report_date") or ""),
+                str(context.get("ns_version") or ""),
+            )
         return context
 
+    semantic_report_text = report_text or ""
+    meta = analysis_output.get("meta") if isinstance(analysis_output.get("meta"), dict) else {}
+    meta_report_date = str(meta.get("report_date") or analysis_output.get("report_date") or report_date_override or "").strip()
+    meta_ns_version = str(meta.get("ns_version") or meta.get("ns_standard_version") or analysis_output.get("ns_version") or "").strip()
+    regime_prefix_lines = []
+    if meta_report_date and not _detect_report_date(semantic_report_text):
+        regime_prefix_lines.append(f"Rapportdato: {meta_report_date}")
+    if meta_ns_version and not _detect_ns_standard_version(semantic_report_text):
+        regime_prefix_lines.append(meta_ns_version.replace("NS3600", "NS 3600"))
+    if regime_prefix_lines:
+        semantic_report_text = "\n".join(regime_prefix_lines) + "\n\n" + semantic_report_text
+
     _run_client_arkat_semantic_pipeline_service(
-        report_text=report_text,
+        report_text=semantic_report_text,
         detected_points=detected_points,
         analysis_output=analysis_output,
         deps={
@@ -1703,6 +1742,135 @@ def _normalize_title_for_trace(title: str) -> str:
     return " ".join(str(title).strip().lower().split())[:80]
 
 
+_BEFAR_PRIMARY_TG_HEADER_RE = re.compile(
+    r"(?i)^\s*TG\s*(?P<tg>2|3|IU)\s+"
+    r"(?P<main>\d{1,2})(?:[.\s]+(?P<sub>\d{1,2}))?\.?\s+"
+    r"(?P<title>[A-ZÆØÅ0-9][^\n]{2,})\s*$"
+)
+
+
+def _clean_befar_primary_title(value: str) -> str:
+    text = re.sub(r"\(cid:\d+\)", "", str(value or ""))
+    text = re.sub(r"\s+", " ", text).strip(" .:-")
+    return text.title() if text.isupper() else text
+
+
+def _befar_primary_point_id(main: str, sub: str = "") -> str:
+    main_norm = str(main or "").strip().lstrip("0") or str(main or "").strip()
+    sub_norm = str(sub or "").strip().lstrip("0")
+    if sub_norm:
+        return f"{main_norm}.{sub_norm}"
+    return main_norm
+
+
+def _befar_page_primary_text(page_text: str) -> str:
+    text = str(page_text or "")
+    if "[TABELLDATA]" in text:
+        text = text.split("[TABELLDATA]", 1)[0]
+    return text.strip()
+
+
+def _extract_befar_primary_tg_sections(report_text: str) -> List[Dict[str, object]]:
+    if not _report_text_suggests_befar_template(report_text or ""):
+        return []
+    sections: List[Dict[str, object]] = []
+    seen_keys: set = set()
+    for page in _split_pages(report_text or ""):
+        page_text = _befar_page_primary_text(page.get("text") or "")
+        if not page_text:
+            continue
+        lines = page_text.splitlines()
+        header_idx = -1
+        header_match = None
+        for idx, line in enumerate(lines[:8]):
+            match = _BEFAR_PRIMARY_TG_HEADER_RE.match(line.strip())
+            if match:
+                header_idx = idx
+                header_match = match
+                break
+        if not header_match or header_idx < 0:
+            continue
+        span_lines = lines[header_idx:]
+        span_text = "\n".join(span_lines).strip()
+        if "konklusjon bygningsdel" not in span_text.lower():
+            continue
+        tg = f"TG{str(header_match.group('tg')).upper()}".replace("TGIU", "TGIU")
+        point_id = _befar_primary_point_id(header_match.group("main"), header_match.group("sub") or "")
+        title = _clean_befar_primary_title(header_match.group("title") or "")
+        title_norm = _normalize_tg3_cost_text(title).lower()
+        key = (point_id, title_norm, int(page.get("page") or 1))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        sections.append(
+            {
+                "point_key": f"B{len(sections) + 1:04d}",
+                "native_label": point_id,
+                "numeric_id": point_id,
+                "native_path": [],
+                "kind": "point",
+                "point_id": point_id,
+                "title": title or f"Punkt {point_id}",
+                "page_start": int(page.get("page") or 1),
+                "page_end": int(page.get("page") or 1),
+                "order_in_doc": len(sections) + 1,
+                "anchor_text": lines[header_idx].strip(),
+                "span_hash": hashlib.sha256(span_text.encode("utf-8")).hexdigest() if span_text else "",
+                "excerpt": title or span_text[:200].strip(),
+                "tg": tg,
+                "span_text": span_text,
+                "exact_span_text": span_text,
+                "effective_span_text": span_text,
+                "source_primary_tg_conclusion": True,
+                "source_tg_marker": lines[header_idx].strip(),
+            }
+        )
+    return sections
+
+
+def _merge_befar_primary_sections(
+    detected: List[Dict[str, object]],
+    primary_sections: List[Dict[str, object]],
+) -> List[Dict[str, object]]:
+    if not primary_sections:
+        return detected
+    primary_by_id: Dict[str, Dict[str, object]] = {}
+    for section in primary_sections:
+        if not isinstance(section, dict):
+            continue
+        point_id = _normalize_point_id(str(section.get("point_id") or ""))
+        if not point_id:
+            continue
+        existing = primary_by_id.get(point_id)
+        if not existing or len(str(section.get("span_text") or "")) > len(str(existing.get("span_text") or "")):
+            primary_by_id[point_id] = section
+
+    merged: List[Dict[str, object]] = []
+    replaced_ids: set = set()
+    for point in detected:
+        if not isinstance(point, dict):
+            continue
+        point_id = _normalize_point_id(str(point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""))
+        replacement = primary_by_id.get(point_id)
+        if replacement:
+            if point_id in replaced_ids:
+                continue
+            merged.append(dict(replacement))
+            replaced_ids.add(point_id)
+            continue
+        if bool(point.get("synthetic_supplement")):
+            continue
+        merged.append(point)
+    for point_id, section in primary_by_id.items():
+        if point_id not in replaced_ids:
+            merged.append(dict(section))
+    for idx, point in enumerate(merged, start=1):
+        if isinstance(point, dict):
+            point["order_in_doc"] = idx
+            point.setdefault("point_key", f"P{idx:04d}")
+    return merged
+
+
 def _extract_detected_points(report_text: str, trace: Optional[Dict[str, object]] = None) -> List[Dict[str, object]]:
     pages = _split_pages(report_text)
     line_index: List[Dict[str, object]] = []
@@ -1775,11 +1943,27 @@ def _extract_detected_points(report_text: str, trace: Optional[Dict[str, object]
                 }
             )
 
+    befar_primary_sections = _extract_befar_primary_tg_sections(report_text or "")
+    detected = _merge_befar_primary_sections(detected, befar_primary_sections)
+    if trace is not None:
+        trace["befar_primary_tg_sections_count"] = len(befar_primary_sections)
+        trace["befar_primary_tg_sections"] = [
+            {
+                "point_id": section.get("point_id"),
+                "title": section.get("title"),
+                "tg": section.get("tg"),
+                "page": section.get("page_start"),
+                "span_hash": section.get("span_hash"),
+            }
+            for section in befar_primary_sections
+            if isinstance(section, dict)
+        ]
+
     # Supplement extraction with heading-like lines classified by whitelist v2.2.
     # Some templates have partial/unstable numeric structure; keep this available
     # even when numeric headers exist so canonical mapping can still recover.
     wl = _get_whitelist_v22_lookup()
-    if wl and line_index:
+    if wl and line_index and not befar_primary_sections:
         norm_cfg = wl.get("norm_cfg") or {}
         reject_patterns = wl.get("reject_patterns") or []
         building_parts = wl.get("building_parts") or []
@@ -1893,6 +2077,52 @@ def _build_detected_points_payload(
     }
 
 
+def _dedupe_detected_physical_points(points: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    if not isinstance(points, list):
+        return []
+    deduped: List[Dict[str, object]] = []
+    seen: set = set()
+    seen_physical_sections: set = set()
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        canonical = _normalize_point_id(
+            str(point.get("canonical_point_id") or point.get("point_id") or "")
+        )
+        numeric = _normalize_point_id(str(point.get("numeric_id") or point.get("native_label") or ""))
+        title = _normalize_tg3_cost_text(str(point.get("title") or point.get("excerpt") or "")).lower()
+        page = str(point.get("page_start") or "")
+        tg = _normalize_tg_label(point.get("tg") or point.get("tg_grade") or "")
+        physical_key = (title, page, tg)
+        if title and page and physical_key in seen_physical_sections:
+            continue
+        if title and page:
+            seen_physical_sections.add(physical_key)
+        key = (canonical or numeric, numeric, title, page)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(point)
+    return deduped
+
+
+def _preserve_report_point_ids_for_non_fremtind(points: List[Dict[str, object]], report_text: str) -> List[Dict[str, object]]:
+    if _report_text_suggests_fremtind_template(report_text or ""):
+        return points if isinstance(points, list) else []
+    preserved: List[Dict[str, object]] = []
+    for point in points if isinstance(points, list) else []:
+        if not isinstance(point, dict):
+            continue
+        item = dict(point)
+        report_id = _normalize_point_id(str(item.get("numeric_id") or item.get("native_label") or ""))
+        if report_id and _is_numeric_point_id(report_id):
+            item["point_id"] = report_id
+            item["native_label"] = item.get("native_label") or report_id
+            item["numeric_id"] = item.get("numeric_id") or report_id
+        preserved.append(item)
+    return preserved
+
+
 def get_validated_detected_points_payload(
     extracted_text: str,
     document_hash: str = "",
@@ -1918,8 +2148,10 @@ def get_validated_detected_points_payload(
     detected = _extract_detected_points(normalized_text, trace=trace)
     trace["total_after_stray"] = len(detected)
     trace["total_detected_before_stray"] = len(detected) + int(trace.get("stray_rejected_count", 0) or 0)
+    detected = _dedupe_detected_physical_points(detected)
     validated = _validate_detected_points_against_whitelist(detected, trace=trace)
-    validated = _normalize_runtime_scoring_signals(validated)
+    validated = _dedupe_detected_physical_points(_normalize_runtime_scoring_signals(validated))
+    validated = _preserve_report_point_ids_for_non_fremtind(validated, normalized_text)
     trace["total_after_whitelist"] = len(validated)
     trace["validated_point_ids"] = [p.get("point_id") for p in validated if isinstance(p, dict) and p.get("point_id")]
     payload = _build_detected_points_payload(
@@ -2432,6 +2664,27 @@ def _validate_detected_points_against_whitelist_v22(
             continue
         bp = _classify_to_building_part_v22(norm_title, building_parts)
         if not bp:
+            if p.get("source_primary_tg_conclusion"):
+                classified_heading += 1
+                canonical_point_id = (
+                    _infer_canonical_child_from_text(
+                        f"{title}\n{p.get('span_text') or p.get('exact_span_text') or p.get('excerpt') or ''}",
+                        mapping_points_for_inference,
+                    )
+                    if mapping_points_for_inference
+                    else ""
+                )
+                validated.append({
+                    **dict(p),
+                    "canonical_building_part_id": "BP_SOURCE_PRIMARY_TG",
+                    "canonical_display_name": title,
+                    "required_by_forskrift": True,
+                    "ui_badge": None,
+                    "legal_status": "lovpålagt",
+                    "instance_label": None,
+                    "canonical_point_id": canonical_point_id or "",
+                })
+                continue
             e3_parent = _match_e3_p11_p12_heading(norm_title)
             if e3_parent:
                 classified_heading += 1
@@ -3160,7 +3413,8 @@ def _normalize_user_facing_child_titles(payload: object) -> None:
         for key, value in list(payload.items()):
             if key in {"point_id", "exact_point_id", "point_key"} and isinstance(value, str):
                 normalized = _normalize_point_id(value)
-                if finding_like_payload and (_is_report_level_rule(rule_id) or _is_canonical_child_point_id(normalized)):
+                keep_canonical_ref = rule_id == "E_METHOD.tg3_cost_missing" and key in {"point_id", "exact_point_id"}
+                if finding_like_payload and not keep_canonical_ref and (_is_report_level_rule(rule_id) or _is_canonical_child_point_id(normalized)):
                     payload[key] = ""
                     continue
             if isinstance(value, (dict, list)):
@@ -3202,7 +3456,7 @@ def _public_point_reference(point_id: str, rule_id: str = "") -> str:
         return ""
     if _is_report_level_rule(rule_id):
         return ""
-    if _is_canonical_child_point_id(normalized):
+    if _is_canonical_child_point_id(normalized) and rule_id != "E_METHOD.tg3_cost_missing":
         return ""
     if normalized.startswith("9."):
         return normalized
@@ -3790,6 +4044,9 @@ def _merge_detected_points_with_linked_summary(
     merged: List[Dict[str, object]] = []
     for p in detected_points:
         if not isinstance(p, dict):
+            continue
+        if p.get("source_primary_tg_conclusion"):
+            merged.append(p)
             continue
         point_id = _normalize_point_id(str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or ""))
         if not point_id:
@@ -4656,7 +4913,20 @@ def _run_ark_arkat_per_segment_validation(
         all_findings = []
         analysis_output["all_findings"] = all_findings
     for seg in failed_segments:
-        missing_keys = seg.get("missing") or []
+        missing_keys = list(seg.get("missing") or [])
+        cost_missing_keys = [key for key in missing_keys if key in {"kostnad", "kostnad_single_only"}]
+        arkat_missing_keys = [key for key in missing_keys if key not in {"kostnad", "kostnad_single_only"}]
+        if "TG3" in str(seg.get("tg") or "").upper() and cost_missing_keys:
+            _ensure_tg3_missing_cost_compliance_finding(
+                all_findings,
+                point_id=str(seg.get("point_id") or ""),
+                title=str(seg.get("title") or ""),
+                evidence_text=str(seg.get("exact_point_text") or ""),
+                missing_key="kostnad_single_only" if "kostnad_single_only" in cost_missing_keys and "kostnad" not in cost_missing_keys else "kostnad",
+            )
+        if not arkat_missing_keys:
+            continue
+        missing_keys = arkat_missing_keys
         friendly_names = {
             "årsak": "årsak (hva som er feil / hvorfor forholdet har oppstått)",
             "risiko": "risiko (hva som kan skje videre)",
@@ -4703,14 +4973,6 @@ def _run_ark_arkat_per_segment_validation(
             "evidence_snippets": [exact_point_text] if exact_point_text.strip() else [],
             "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
         })
-        if "TG3" in str(seg.get("tg") or "").upper() and any(key in {"kostnad", "kostnad_single_only"} for key in missing_keys):
-            _ensure_tg3_missing_cost_compliance_finding(
-                all_findings,
-                point_id=str(point_label or ""),
-                title=str(title or ""),
-                evidence_text=exact_point_text,
-                missing_key="kostnad_single_only" if "kostnad_single_only" in missing_keys and "kostnad" not in missing_keys else "kostnad",
-            )
 
 
 def _ensure_tg3_missing_cost_compliance_finding(
@@ -4723,8 +4985,8 @@ def _ensure_tg3_missing_cost_compliance_finding(
     normalized_point_id = _normalize_point_id(str(point_id or ""))
     if not normalized_point_id or not isinstance(all_findings, list):
         return
-    rule_id = "E_METHOD.tg3_missing_cost_estimate"
-    finding_id = f"E_METHOD_tg3_missing_cost_estimate_{normalized_point_id.replace('.', '_')}"
+    rule_id = "E_METHOD.tg3_cost_missing"
+    finding_id = f"E_METHOD_tg3_cost_missing_{normalized_point_id.replace('.', '_')}"
     for item in all_findings:
         if not isinstance(item, dict):
             continue
@@ -4752,12 +5014,14 @@ def _ensure_tg3_missing_cost_compliance_finding(
         "title": f"Punkt {normalized_point_id} (TG3) mangler påkrevd kostnadsvurdering",
         "message": f"Punkt {normalized_point_id} ({point_title}): {missing_text}. Dette er en metodikk-/lovforankringsmangel for TG3, uavhengig av om ARKAT-teksten ellers beskriver årsak, risiko, konsekvens og tiltak.",
         "deduction_band": "Høyt trekk",
+        "points": 8,
+        "deduction_points": 8,
         "recommended_fix_text": "Legg inn kostnadsestimat, kostnadsintervall eller kostnadsklasse for TG3-forholdet, slik at økonomisk omfang er tydelig dokumentert.",
         "suggested_rewrite_text": f"Punkt {normalized_point_id}: Oppgi kostnadsintervall eller kostnadsklasse for nødvendig oppfølging av TG3-forholdet.",
         "evidence_snippets": [str(evidence_text or "")[:1200]] if str(evidence_text or "").strip() else [],
         "rewrite_strategy": "tg3_cost_method_compliance",
         "score_impact": "independent_category_e_compliance",
-        "gate_effect": {"blocks_96_gate": True, "caps_total_score_to": 95},
+        "gate_effect": {"blocks_96_gate": True},
     })
 
 
@@ -4870,38 +5134,6 @@ def _ensure_semantic_tg3_cost_backstop(
             if missing_key == "kostnad_single_only"
             else "kostnad / kostnadsklasse for TG3 (E1 - mangler helt)"
         )
-        all_findings.append({
-            "finding_id": f"SEGMENT_ARKAT_{point_id.replace('.', '_')}_TG3_COST_BACKSTOP",
-            "point_id": point_id,
-            "exact_point_id": point_id,
-            "exact_point_title": title,
-            "exact_point_text": evidence_text,
-            "category": "A",
-            "severity": severity,
-            "title": f"Punkt {point_id} (TG3) mangler kostnadsvurdering",
-            "message": f"Punkt {point_id} ({title}): mangler {friendly}. Validering er gjort mot punktets egen TG3-tekst.",
-            "deduction_band": deduction_band,
-            "recommended_fix_text": _build_segment_arkat_recommended_fix(
-                point_label=point_id,
-                segment_title=title,
-                tg="TG3",
-                missing_keys=[missing_key],
-                friendly_names={
-                    "kostnad": "kostnad / kostnadsklasse for TG3 (E1 - mangler helt)",
-                    "kostnad_single_only": "TG3 har kun ett beløp - bruk intervall eller kostnadsklasse (E2)",
-                },
-            ),
-            "suggested_rewrite_text": _build_segment_arkat_suggested_rewrite_text(
-                point_label=point_id,
-                segment_title=title,
-                tg="TG3",
-                missing_keys=[missing_key],
-                combined_text=evidence_text,
-            ),
-            "evidence_snippets": [evidence_text[:1200]] if evidence_text else [],
-            "rewrite_strategy": "tg3_cost_backstop",
-            "gate_effect": {"blocks_96_gate": False, "caps_total_score_to": None},
-        })
         _ensure_tg3_missing_cost_compliance_finding(
             all_findings,
             point_id=point_id,
@@ -9103,9 +9335,9 @@ def _drop_duplicate_missing_tiltak_findings(analysis_output: Dict[str, object]) 
         if point_title.lower().startswith("punkt "):
             point_title = ""
         label = f"Punkt {point_id}" + (f" {point_title}" if point_title else "")
-        item["finding_id"] = f"TG3_MISSING_TILTAK_{point_id.replace('.', '_')}"
-        item["rule_id"] = "TG3_MISSING_RECOMMENDED_ACTION"
-        item["title"] = "TG3 mangler anbefalt tiltak"
+        item["finding_id"] = f"A_ARKAT_{point_id.replace('.', '_')}_ANBEFALT_TILTAK_MISSING_ANBEFALT_TILTAK"
+        item["rule_id"] = "A_ARKAT_SEMANTIC.ANBEFALT_TILTAK.MISSING_ANBEFALT_TILTAK"
+        item["title"] = f"Punkt {point_id} mangler anbefalt tiltak"
         item["message"] = f"{label} mangler konkret anbefalt tiltak."
         item["recommended_fix_text"] = (
             f"Formuler anbefalt tiltak for punkt {point_id} tydelig, slik at kjøper vet hva som bør undersøkes, "
@@ -9134,7 +9366,7 @@ def _drop_duplicate_missing_tiltak_findings(analysis_output: Dict[str, object]) 
                 for deduction in deductions:
                     if not isinstance(deduction, dict) or not _is_mechanical_missing_tiltak_item(deduction):
                         continue
-                    deduction["rule_id"] = "TG3_MISSING_RECOMMENDED_ACTION"
+                    deduction["rule_id"] = "A_ARKAT_SEMANTIC.ANBEFALT_TILTAK.MISSING_ANBEFALT_TILTAK"
                     deduction["category_id"] = "A"
                     deduction["points"] = max(5, int(deduction.get("points") or 0))
                     deduction["severity"] = "major"
@@ -10433,14 +10665,7 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
     for finding in all_findings:
         if not isinstance(finding, dict):
             continue
-        if _is_mechanical_arkat_public_finding(finding):
-            finding["public_visibility"] = "internal"
-        elif (
-            _public_finding_category(finding) == "A"
-            and _is_public_scored_finding(finding)
-            and str(finding.get("public_visibility") or "").lower() == "internal"
-        ):
-            finding["public_visibility"] = ""
+        finding.pop("public_visibility", None)
         if _is_tg3_missing_recommended_action_public_finding(finding):
             finding["suggested_rewrite_text"] = _clean_tg3_missing_recommended_action_text(finding)
         if _is_low_quality_public_suggested_rewrite_text(finding.get("suggested_rewrite_text")):
@@ -10448,7 +10673,7 @@ def _sync_public_output_views(analysis_output: Dict[str, object]) -> None:
 
     visible_findings = [
         f for f in all_findings
-        if isinstance(f, dict) and str(f.get("public_visibility") or "").lower() != "internal"
+        if isinstance(f, dict)
     ]
     scored_visible_findings = [f for f in visible_findings if _is_public_scored_finding(f)]
     score_driver_findings = [
@@ -10660,67 +10885,23 @@ def _sanitize_feedback_missing_tiltak_findings(
 ) -> None:
     if not isinstance(feedback_findings, list):
         return
-    seen_missing_tiltak_points: set = set()
-    point_tg_by_id = point_tg_by_id or {}
+    # Content-preserving policy: do not rewrite rule/category/TG semantics in feedback.
+    # Only dedupe truly identical items by source identity to avoid double-rendering.
+    seen_keys: set = set()
     filtered: List[Dict[str, object]] = []
     for finding in feedback_findings:
         if not isinstance(finding, dict):
             filtered.append(finding)
             continue
-        blob = _normalize_tg3_cost_text(
-            f"{finding.get('finding_id', '')} {finding.get('rule_id', '')} {finding.get('message', '')} "
-            f"{finding.get('what_to_change', '')} {finding.get('arkat_section', '')}"
-        ).lower()
-        if _is_freestanding_garage_arkat_item(finding):
-            if str(finding.get("rule_id") or "") == "TG3_MISSING_RECOMMENDED_ACTION":
-                finding["rule_id"] = "E_METHOD.garasje_avvik_uten_arkat"
-            finding["rule_family"] = "METHOD"
-            finding["severity"] = "medium"
-            finding["arkat_section"] = "annet"
-            finding["message"] = "Avvik i garasje/uthus/naust mangler full ARKAT."
-            finding["what_to_change"] = (
-                "Beskriv avviket med full ARKAT: hva som er observert, hvilken risiko det gir, hvilken praktisk konsekvens "
-                "det har for kjøper, og hvilket tiltak som anbefales. TG er ikke nødvendig for slike bygg."
-            )
-            finding["example_fix"] = {
-                "good_example": (
-                    "Det er registrert et avvik i garasje/uthus/naust. Forholdet bør beskrives med full ARKAT: "
-                    "hva som er observert, hvilken risiko det gir videre, hvilken konsekvens det har for kjøper, og hvilket tiltak som anbefales."
-                )
-            }
-            finding["deduction"] = min(3, int(finding.get("deduction") or 3))
-            filtered.append(finding)
-            continue
-        is_missing_tiltak = (
-            bool(re.search(r"\b(?:anbefalt[_\s-]?tiltak|tiltak)\b", blob))
-            and bool(re.search(r"\b(?:missing|mangler|manglende)\b", blob))
+        dedupe_key = (
+            str(finding.get("source_finding_id") or "").strip(),
+            str(finding.get("rule_id") or "").strip(),
+            _normalize_point_id(str(finding.get("point_id") or finding.get("point_key") or "")),
+            _normalize_tg3_cost_text(str(finding.get("message") or "")).lower(),
         )
-        if not is_missing_tiltak:
-            filtered.append(finding)
+        if dedupe_key in seen_keys:
             continue
-        point_id = _normalize_point_id(str(finding.get("point_id") or _parse_point_id_from_v16_finding(finding) or ""))
-        point_tg = _normalize_tg_label(point_tg_by_id.get(point_id, "")) if point_id else ""
-        if point_id and point_tg and point_tg != "TG3":
-            continue
-        if point_id and point_id in seen_missing_tiltak_points:
-            continue
-        if point_id:
-            seen_missing_tiltak_points.add(point_id)
-        label = f"Punkt {point_id}" if point_id else "TG3-punktet"
-        finding["finding_id"] = f"TG3_MISSING_TILTAK_{point_id.replace('.', '_')}" if point_id else "TG3_MISSING_TILTAK"
-        finding["rule_id"] = "TG3_MISSING_RECOMMENDED_ACTION"
-        finding["rule_family"] = "ARKAT"
-        finding["severity"] = "high"
-        finding["arkat_section"] = "anbefalt_tiltak"
-        finding["message"] = f"TG3 mangler anbefalt tiltak. {label} mangler konkret anbefalt tiltak."
-        finding["what_to_change"] = (
-            f"Formuler anbefalt tiltak for {label.lower()} tydelig, slik at kjøper vet hva som bør undersøkes, "
-            "utbedres eller følges opp videre."
-        )
-        finding["example_fix"] = {
-            "good_example": f"{label}: Det anbefales å undersøke og utbedre forholdet nærmere av kvalifisert fagperson."
-        }
-        finding["deduction"] = max(5, int(finding.get("deduction") or 0))
+        seen_keys.add(dedupe_key)
         filtered.append(finding)
     feedback_findings[:] = filtered
 
@@ -10772,6 +10953,18 @@ def _polish_analysis_text_fields(payload: object) -> None:
                 payload[idx] = _polish_feedback_text(item)
 
 
+def _remove_dead_public_visibility_fields(payload: object) -> None:
+    if isinstance(payload, dict):
+        payload.pop("public_visibility", None)
+        for value in list(payload.values()):
+            if isinstance(value, (dict, list)):
+                _remove_dead_public_visibility_fields(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, (dict, list)):
+                _remove_dead_public_visibility_fields(item)
+
+
 def _ensure_special_feedback_findings_visible(
     analysis_output: Dict[str, object],
     feedback_findings: List[Dict[str, object]],
@@ -10806,21 +10999,29 @@ def _ensure_special_feedback_findings_visible(
             or (evidence_snippets[0] if evidence_snippets and isinstance(evidence_snippets[0], str) else "")
             or str(item.get("message") or item.get("title") or "Ikke tilgjengelig.")
         )
+        customer_title, customer_message, customer_change, customer_example = _customer_text_from_source_finding(
+            item,
+            str(item.get("title") or item.get("message") or "Avvik"),
+        )
         feedback_findings.append(
             {
                 "finding_id": f"f-special-{rule_id.replace('.', '_')}",
+                "source_finding_id": str(item.get("finding_id") or ""),
                 "rule_id": rule_id,
                 "rule_family": _derive_rule_family(rule_id) or "UNKNOWN",
-                "severity": "high" if item.get("severity") == "major" else "medium" if item.get("severity") == "minor" else "low",
+                "severity": str(item.get("severity") or "minor"),
                 "affects_96_gate": bool(isinstance(item.get("gate_effect"), dict) and item.get("gate_effect", {}).get("blocks_96_gate")),
                 "point_id": public_point_id,
                 "point_key": "",
                 "arkat_section": "annet",
-                "message": item.get("title") or item.get("message") or "Avvik",
-                "what_to_change": item.get("recommended_fix_text") or item.get("message") or "Se forbedringsforslag.",
-                "example_fix": {"good_example": item.get("suggested_rewrite_text") or item.get("recommended_fix_text") or item.get("message") or ""},
+                "title": customer_title,
+                "message": customer_message,
+                "what_to_change": customer_change,
+                "example_fix": {"good_example": customer_example},
                 "evidence": {"page": 1, "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.", "match": "Forced visible from all_findings."},
                 "deduction": deduction,
+                "deduction_band": str(item.get("deduction_band") or ""),
+                "potential_deduction": _finding_potential_deduction(item) or deduction,
             }
         )
         existing.add(rule_id)
@@ -11510,7 +11711,7 @@ def _build_feedback_v11(
         # so strict whitelist drops can still be recovered during canonical roll-up.
         mapping_input_points: List[Dict[str, object]] = []
         if isinstance(points, list):
-            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+            mapping_input_points.extend([dict(p) for p in points if isinstance(p, dict)])
         if isinstance(points_before_whitelist, list):
             seen_ids = {
                 str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
@@ -11523,7 +11724,7 @@ def _build_feedback_v11(
                 pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
                 if pid and pid in seen_ids:
                     continue
-                mapping_input_points.append(p)
+                mapping_input_points.append(dict(p))
 
         segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
         for canon_id, seg in segment_map.items():
@@ -11552,7 +11753,7 @@ def _build_feedback_v11(
     if mapping_points:
         mapping_input_points: List[Dict[str, object]] = []
         if isinstance(points, list):
-            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+            mapping_input_points.extend([dict(p) for p in points if isinstance(p, dict)])
         if isinstance(points_before_whitelist, list):
             seen_ids = {
                 str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
@@ -11565,7 +11766,7 @@ def _build_feedback_v11(
                 pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
                 if pid and pid in seen_ids:
                     continue
-                mapping_input_points.append(p)
+                mapping_input_points.append(dict(p))
         pre_segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
         for canon_id, seg in pre_segment_map.items():
             if canon_id:
@@ -12119,7 +12320,7 @@ def _build_feedback_v11(
         canonical_requirement_tags = canonical_cfg.get("requirement_tags") if isinstance(canonical_cfg, dict) else {}
         mapping_points: List[Dict[str, object]] = []
         if isinstance(points, list):
-            mapping_points.extend([p for p in points if isinstance(p, dict)])
+            mapping_points.extend([dict(p) for p in points if isinstance(p, dict)])
         if isinstance(points_before_whitelist, list):
             seen_ids = {
                 str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
@@ -12132,7 +12333,7 @@ def _build_feedback_v11(
                 pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
                 if pid and pid in seen_ids:
                     continue
-                mapping_points.append(p)
+                mapping_points.append(dict(p))
         segment_map = _map_segments_to_canonical(mapping_points, canonical_points)
         _emit_canonical_mapping_debug(
             report_id=report_id,
@@ -12403,7 +12604,7 @@ def _build_feedback_v11_from_all_findings(
         # so strict whitelist drops can still be recovered during canonical roll-up.
         mapping_input_points: List[Dict[str, object]] = []
         if isinstance(points, list):
-            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+            mapping_input_points.extend([dict(p) for p in points if isinstance(p, dict)])
         if isinstance(points_before_whitelist, list):
             seen_ids = {
                 str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
@@ -12416,7 +12617,7 @@ def _build_feedback_v11_from_all_findings(
                 pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
                 if pid and pid in seen_ids:
                     continue
-                mapping_input_points.append(p)
+                mapping_input_points.append(dict(p))
 
         segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
         for canon_id, seg in segment_map.items():
@@ -12443,7 +12644,7 @@ def _build_feedback_v11_from_all_findings(
     if mapping_points:
         mapping_input_points: List[Dict[str, object]] = []
         if isinstance(points, list):
-            mapping_input_points.extend([p for p in points if isinstance(p, dict)])
+            mapping_input_points.extend([dict(p) for p in points if isinstance(p, dict)])
         if isinstance(points_before_whitelist, list):
             seen_ids = {
                 str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
@@ -12456,7 +12657,7 @@ def _build_feedback_v11_from_all_findings(
                 pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
                 if pid and pid in seen_ids:
                     continue
-                mapping_input_points.append(p)
+                mapping_input_points.append(dict(p))
         pre_segment_map = _map_segments_to_canonical(mapping_input_points, mapping_points)
         for canon_id, seg in pre_segment_map.items():
             if canon_id:
@@ -12534,39 +12735,59 @@ def _build_feedback_v11_from_all_findings(
             continue
         if is_tg3:
             linked_tg3_count += 1
-        rid = f.get("finding_id") or f.get("rule_id") or f"v16-{idx}"
+        rid = f.get("rule_id") or f.get("finding_id") or f"v16-{idx}"
         internal_point_id = point_id
         public_point_id = _public_point_reference(internal_point_id, str(f.get("rule_id") or f.get("finding_id") or ""))
         if isinstance(f.get("gate_effect"), dict) and f.get("gate_effect", {}).get("blocks_96_gate") and rid not in blocked_by:
             blocked_by.append(rid)
         band = (f.get("deduction_band") or "").strip()
-        deduction_pts = band_to_deduction.get(band, 0)
+        explicit_deduction = f.get("points", f.get("deduction_points", f.get("deduction")))
+        try:
+            deduction_pts = int(explicit_deduction) if explicit_deduction is not None else band_to_deduction.get(band, 0)
+        except (TypeError, ValueError):
+            deduction_pts = band_to_deduction.get(band, 0)
         if internal_point_id and not is_report_level:
             deduction_totals[internal_point_id] = deduction_totals.get(internal_point_id, 0) + deduction_pts
             existing_band = point_worst_band.get(internal_point_id, "Ikke scoretrekk")
             if _PUBLIC_BAND_RANK.get(band, 0) > _PUBLIC_BAND_RANK.get(existing_band, 0):
                 point_worst_band[internal_point_id] = band
-        finding_id = f"f-v16-{(internal_point_id or 'global')}-{idx + 1:03d}"
+        source_finding_id = str(f.get("finding_id") or "").strip()
+        finding_id = source_finding_id or f"unknown-{idx + 1:03d}"
         snips = f.get("evidence_snippets") or []
         snippet = (
             str(f.get("exact_point_text") or "").strip()
             or (snips[0] if snips and isinstance(snips[0], str) else "")
             or (f.get("message") or "Ingen utdrag.")
         )
+        customer_title, customer_message, customer_change, customer_example = _customer_text_from_source_finding(
+            f,
+            str(f.get("title") or f.get("message") or "Avvik"),
+        )
+        potential_deduction = _finding_potential_deduction(f)
+        evidence_page = 1
+        page_meta = point_lookup.get(internal_point_id) or point_lookup.get(str(f.get("point_id") or "")) or point_lookup.get(str(f.get("exact_point_id") or "")) or {}
+        if isinstance(page_meta, dict):
+            evidence_page = int(page_meta.get("page_start") or page_meta.get("page") or 1)
         feedback_findings.append({
             "finding_id": finding_id,
+            "source_finding_id": source_finding_id,
             "rule_id": rid,
             "rule_family": _derive_rule_family(str(rid)) or "UNKNOWN",
-            "severity": "high" if f.get("severity") == "major" else "medium" if f.get("severity") == "minor" else "low",
+            "category": str(f.get("category") or _infer_category_from_rule_id(str(rid)) or ""),
+            "is_regulatory_breach": bool(f.get("is_regulatory_breach")),
+            "severity": str(f.get("severity") or ""),
             "affects_96_gate": bool(isinstance(f.get("gate_effect"), dict) and f.get("gate_effect", {}).get("blocks_96_gate")),
             "point_id": public_point_id,
             "point_key": point_lookup.get(internal_point_id, {}).get("point_key") or internal_point_id or public_point_id,
             "arkat_section": "annet",
-            "message": f.get("title") or f.get("message") or "Avvik",
-            "what_to_change": f.get("recommended_fix_text") or f.get("message") or "Se forbedringsforslag.",
-            "example_fix": {"good_example": f.get("suggested_rewrite_text") or f.get("recommended_fix_text") or f.get("message") or ""},
-            "evidence": {"page": 1, "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.", "match": "From exact point source." if f.get("exact_point_text") else "From all_findings."},
+            "title": customer_title,
+            "message": customer_message,
+            "what_to_change": customer_change,
+            "example_fix": {"good_example": customer_example},
+            "evidence": {"page": evidence_page, "snippet": snippet[:500] if snippet else "Ikke tilgjengelig.", "match": "From exact point source." if f.get("exact_point_text") else "From all_findings."},
             "deduction": deduction_pts,
+            "deduction_band": str(f.get("deduction_band") or ""),
+            "potential_deduction": int(potential_deduction) if potential_deduction is not None else 0,
         })
         if internal_point_id:
             finding_ids_by_point.setdefault(internal_point_id, []).append(finding_id)
@@ -12876,7 +13097,7 @@ def _build_feedback_v11_from_all_findings(
     ):
         mapping_points: List[Dict[str, object]] = []
         if isinstance(points, list):
-            mapping_points.extend([p for p in points if isinstance(p, dict)])
+            mapping_points.extend([dict(p) for p in points if isinstance(p, dict)])
         if isinstance(points_before_whitelist, list):
             seen_ids = {
                 str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
@@ -12889,7 +13110,7 @@ def _build_feedback_v11_from_all_findings(
                 pid = str(p.get("point_id") or p.get("numeric_id") or p.get("native_label") or "")
                 if pid and pid in seen_ids:
                     continue
-                mapping_points.append(p)
+                mapping_points.append(dict(p))
         segment_map = _map_segments_to_canonical(mapping_points, canonical_points)
         _emit_canonical_mapping_debug(
             report_id=report_id,
@@ -12988,7 +13209,7 @@ def _build_feedback_v11_from_all_findings(
         "ordering": {"mode": mode, "dedupe_key": dedupe_key, "source": "detected_points", "note": ordering_note},
         "score": {
             "total": score_total,
-            "category_deductions": [
+            "now": [
                 {"category": item.get("category_id", ""), "deduction": item.get("deduction", 0), "max_deduction": item.get("max_deduction", 0)}
                 for item in score_by_category if isinstance(item, dict)
             ],
@@ -13093,6 +13314,1243 @@ def _sanitize_bmtf_feedback_v11_p_codes(payload: Dict[str, object], report_text:
     return payload
 
 
+_INTERNAL_CANONICAL_P_CODE_RE = re.compile(r"\bP\d{2}[A-Z]_[A-Z0-9_]+\b")
+_INTERNAL_CANONICAL_SLUG_RE = re.compile(r"\b(?:fremtind|bmtf)-[a-z0-9]+(?:-[a-z0-9]+)+\b", re.IGNORECASE)
+
+
+def _clean_pdf_cid_artifacts(value: str) -> str:
+    return re.sub(r"\(cid:\d+\)", "", str(value or "")).replace("  ", " ").strip()
+
+
+def _point_public_label_lookup(detected_points_payload: Dict[str, object]) -> Dict[str, str]:
+    lookup: Dict[str, str] = {}
+    points: List[object] = []
+    if isinstance(detected_points_payload, dict):
+        for key in ("points", "points_before_whitelist"):
+            value = detected_points_payload.get(key)
+            if isinstance(value, list):
+                points.extend(value)
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        title = _clean_pdf_cid_artifacts(str(point.get("title") or point.get("excerpt") or ""))
+        native = _normalize_point_id(str(point.get("native_label") or point.get("numeric_id") or ""))
+        label = title or (native if native and not native.startswith("900") else "") or "punktet"
+        for key in ("point_id", "canonical_point_id", "point_key", "native_label", "numeric_id"):
+            raw = point.get(key)
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            normalized = _normalize_point_id(raw)
+            if normalized and normalized not in lookup:
+                lookup[normalized] = label
+            raw_clean = raw.strip()
+            if raw_clean and raw_clean not in lookup:
+                lookup[raw_clean] = label
+    return lookup
+
+
+def _slugify_public_finding_id_part(value: str) -> str:
+    text = _clean_pdf_cid_artifacts(value).lower()
+    text = re.sub(r"[^a-z0-9æøå]+", "_", text).strip("_")
+    return text or "punkt"
+
+
+def _public_label_for_internal_ref(ref: str, label_lookup: Dict[str, str]) -> str:
+    normalized = _normalize_point_id(ref)
+    label = label_lookup.get(normalized) or label_lookup.get(str(ref or "").strip()) or ""
+    return label or "punktet"
+
+
+def _sanitize_customer_text_internal_ids(payload: object, detected_points_payload: Dict[str, object]) -> None:
+    label_lookup = _point_public_label_lookup(detected_points_payload)
+    text_keys = {"message", "title", "what_to_change", "good_example", "bad_example", "summary", "snippet"}
+    id_keys = {"point_id", "point_key", "canonical_id"}
+
+    def _clean_text(value: str) -> str:
+        text = str(value or "")
+        text = _INTERNAL_CANONICAL_P_CODE_RE.sub(lambda m: _public_label_for_internal_ref(m.group(0), label_lookup), text)
+        text = _INTERNAL_CANONICAL_SLUG_RE.sub("punktet", text)
+        return _clean_pdf_cid_artifacts(text)
+
+    def _walk(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in list(node.items()):
+                if isinstance(value, str) and str(key) in text_keys:
+                    node[key] = _clean_text(value)
+                elif isinstance(value, str) and str(key) in id_keys:
+                    cleaned = _clean_text(value)
+                    candidate = _normalize_point_id(cleaned)
+                    if str(key) == "point_id" and re.fullmatch(r"overview-\d{2}(?:-child-\d{2})?", cleaned):
+                        node[key] = cleaned
+                    elif _is_numeric_point_id(candidate):
+                        node[key] = candidate
+                    else:
+                        node[key] = ""
+                elif isinstance(value, (dict, list)):
+                    _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                if isinstance(item, (dict, list)):
+                    _walk(item)
+
+    _walk(payload)
+
+
+@lru_cache(maxsize=1)
+def _governed_rule_deductions() -> Dict[str, int]:
+    governed: Dict[str, int] = {}
+    try:
+        scoring = json.loads(get_scoring_model_text())
+    except json.JSONDecodeError:
+        scoring = {}
+    rule_catalog = scoring.get("rule_catalog") if isinstance(scoring, dict) else None
+    if isinstance(rule_catalog, list):
+        for item in rule_catalog:
+            if not isinstance(item, dict):
+                continue
+            rid = str(item.get("id") or "").strip()
+            if not rid:
+                continue
+            try:
+                governed[rid] = int(item.get("deduction") or 0)
+            except (TypeError, ValueError):
+                governed[rid] = 0
+    return governed
+
+
+@lru_cache(maxsize=1)
+def _arkat_semantic_rule_points() -> Dict[str, int]:
+    governed: Dict[str, int] = {}
+    try:
+        mapping = json.loads(get_arkat_error_deduction_mapping_text())
+    except Exception:
+        return governed
+    deductions = mapping.get("deductions") if isinstance(mapping, dict) else {}
+    if not isinstance(deductions, dict):
+        return governed
+    for field, field_rules in deductions.items():
+        if not isinstance(field, str) or not isinstance(field_rules, dict):
+            continue
+        field_upper = field.upper()
+        for error_type, rule_meta in field_rules.items():
+            if not isinstance(error_type, str) or not isinstance(rule_meta, dict):
+                continue
+            try:
+                points = int(rule_meta.get("points") or 0)
+            except (TypeError, ValueError):
+                points = 0
+            governed[f"A_ARKAT_SEMANTIC.{field_upper}.{error_type}"] = points
+            if error_type == f"MISSING ({field})":
+                governed[f"A_ARKAT_SEMANTIC.{field_upper}.MISSING_{field_upper}"] = points
+    return governed
+
+
+def _arkat_semantic_rule_is_governed(rule_id: str) -> bool:
+    rid = str(rule_id or "").strip()
+    if rid in _arkat_semantic_rule_points():
+        return True
+    prefix = "A_ARKAT_SEMANTIC."
+    if not rid.startswith(prefix):
+        return False
+    parts = rid.split(".")
+    if len(parts) < 3:
+        return False
+    field = parts[1].strip().lower()
+    error_type = parts[2].strip()
+    try:
+        mapping = json.loads(get_arkat_error_deduction_mapping_text())
+    except Exception:
+        return False
+    deductions = mapping.get("deductions") if isinstance(mapping, dict) else {}
+    field_rules = deductions.get(field) if isinstance(deductions, dict) else {}
+    if not isinstance(field_rules, dict):
+        return False
+    if error_type in field_rules:
+        return True
+    missing_alias = f"MISSING ({field})"
+    if error_type.startswith("MISSING_") and missing_alias in field_rules:
+        return True
+    for candidate_rules in deductions.values() if isinstance(deductions, dict) else []:
+        if isinstance(candidate_rules, dict) and error_type in candidate_rules:
+            return True
+    return False
+
+
+def _invalid_arkat_field_bindings(findings: List[object]) -> List[Dict[str, str]]:
+    try:
+        mapping = json.loads(get_arkat_error_deduction_mapping_text())
+    except Exception:
+        return []
+    deductions = mapping.get("deductions") if isinstance(mapping, dict) else {}
+    if not isinstance(deductions, dict):
+        return []
+    invalid: List[Dict[str, str]] = []
+    prefix = "A_ARKAT_SEMANTIC."
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        rid = str(item.get("rule_id") or "").strip()
+        if not rid.startswith(prefix):
+            continue
+        parts = rid.split(".")
+        if len(parts) < 3:
+            continue
+        field = parts[1].strip().lower()
+        error_type = parts[2].strip()
+        field_rules = deductions.get(field)
+        if not isinstance(field_rules, dict):
+            invalid.append({"rule_id": rid, "field": field, "error_type": error_type})
+            continue
+        missing_alias = f"MISSING ({field})"
+        valid = error_type in field_rules or (error_type.startswith("MISSING_") and missing_alias in field_rules)
+        if not valid:
+            invalid.append({"rule_id": rid, "field": field, "error_type": error_type})
+    return invalid
+
+
+def _finding_potential_deduction(item: Dict[str, object]) -> Optional[int]:
+    for key in ("potential_deduction", "points", "deduction_points", "deduction"):
+        value = item.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    governed = _governed_rule_deductions()
+    rule_id = str(item.get("rule_id") or "").strip()
+    if rule_id in governed:
+        return governed[rule_id]
+    arkat_points = _arkat_semantic_rule_points()
+    if rule_id in arkat_points:
+        return arkat_points[rule_id]
+    band = str(item.get("deduction_band") or "").strip()
+    return {"Høyt trekk": 5, "Middels trekk": 3, "Lavt trekk": 1, "Ikke scoretrekk": 0}.get(band)
+
+
+def _public_safe_finding_id(value: str, label_lookup: Dict[str, str]) -> str:
+    raw = _clean_pdf_cid_artifacts(str(value or ""))
+    if not raw:
+        return ""
+    text = raw
+    for ref, label in sorted(label_lookup.items(), key=lambda item: len(str(item[0])), reverse=True):
+        ref_text = str(ref or "")
+        if not ref_text or not _INTERNAL_CANONICAL_P_CODE_RE.fullmatch(ref_text):
+            continue
+        if ref_text in text:
+            text = text.replace(ref_text, _slugify_public_finding_id_part(label))
+    text = _INTERNAL_CANONICAL_P_CODE_RE.sub(
+        lambda m: _slugify_public_finding_id_part(_public_label_for_internal_ref(m.group(0), label_lookup)),
+        text,
+    )
+    text = re.sub(
+        r"(?i)(?<![A-Za-z0-9])(?:fremtind|bmtf)-[a-z0-9]+(?:-[a-z0-9]+)+",
+        "punkt",
+        text,
+    )
+    text = re.sub(r"[^A-Za-z0-9_.-]+", "_", text).strip("_.-")
+    return text or "finding"
+
+
+def _point_id_from_arkat_finding_id(finding_id: str) -> str:
+    """Extract canonical point_id encoded in an ARKAT finding_id.
+
+    Pattern: ``A_ARKAT_{POINT_ID}_{FIELD}_{ERROR_TYPE}``
+    Returns the point_id segment, e.g. ``P10B_FLOORS`` from
+    ``A_ARKAT_P10B_FLOORS_KONSEKVENS_MISSING_KONSEKVENS``, or "" if not matched.
+    """
+    m = re.match(r"^A_ARKAT_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)_(AARSAK|RISIKO|KONSEKVENS|ANBEFALT_TILTAK)_", finding_id or "")
+    if m:
+        return m.group(1)
+    return ""
+
+
+def _normalize_incomplete_source_finding_ids(
+    analysis_output: Dict[str, object],
+    payload: Dict[str, object],
+    detected_points_payload: Dict[str, object],
+) -> None:
+    label_lookup = _point_public_label_lookup(detected_points_payload)
+    old_to_new: Dict[str, str] = {}
+    seen: Dict[str, int] = {}
+    all_findings = analysis_output.get("all_findings")
+    if isinstance(all_findings, list):
+        for idx, item in enumerate(all_findings):
+            if not isinstance(item, dict):
+                continue
+            old_id = str(item.get("finding_id") or item.get("rule_id") or f"finding_{idx + 1}").strip()
+            new_id = _public_safe_finding_id(old_id, label_lookup) or f"finding_{idx + 1}"
+            count = seen.get(new_id, 0)
+            seen[new_id] = count + 1
+            if count:
+                new_id = f"{new_id}_{count + 1}"
+            old_to_new[old_id] = new_id
+            item["finding_id"] = new_id
+            # Backfill empty point_id from ARKAT finding_id pattern when possible
+            if not str(item.get("point_id") or "").strip() and not str(item.get("exact_point_id") or "").strip():
+                derived = _point_id_from_arkat_finding_id(old_id)
+                if derived:
+                    item["point_id"] = derived
+                    item["exact_point_id"] = derived
+
+    def _rewrite_item(item: Dict[str, object]) -> None:
+        for key in ("finding_id", "source_finding_id"):
+            raw = str(item.get(key) or "").strip()
+            if raw in old_to_new:
+                item[key] = old_to_new[raw]
+            elif raw:
+                item[key] = _public_safe_finding_id(raw, label_lookup)
+
+    findings = payload.get("findings")
+    if isinstance(findings, list):
+        for item in findings:
+            if isinstance(item, dict):
+                _rewrite_item(item)
+    overview = payload.get("points_overview")
+    if isinstance(overview, list):
+        for entry in overview:
+            if not isinstance(entry, dict):
+                continue
+            fids = entry.get("finding_ids")
+            if isinstance(fids, list):
+                entry["finding_ids"] = [old_to_new.get(str(fid), _public_safe_finding_id(str(fid), label_lookup)) for fid in fids]
+            children = entry.get("children")
+            if isinstance(children, list):
+                for child in children:
+                    if not isinstance(child, dict):
+                        continue
+                    child_fids = child.get("finding_ids")
+                    if isinstance(child_fids, list):
+                        child["finding_ids"] = [old_to_new.get(str(fid), _public_safe_finding_id(str(fid), label_lookup)) for fid in child_fids]
+
+
+def _normalize_incomplete_feedback_finding(item: Dict[str, object]) -> None:
+    potential = _finding_potential_deduction(item)
+    item["preliminary"] = True
+    item["verified"] = False
+    item["verification_status"] = "unverified_incomplete_analysis"
+    item["deduction_valid"] = False
+    item["deduction"] = None
+    item["potential_deduction"] = int(potential) if potential is not None else 0
+    item["deduction_band"] = "Ikke vurdert"
+    item["affects_96_gate"] = False
+    item.pop("public_visibility", None)
+    gate_effect = item.get("gate_effect")
+    if isinstance(gate_effect, dict):
+        gate_effect["blocks_96_gate"] = False
+        gate_effect.pop("caps_total_score_to", None)
+    else:
+        item["gate_effect"] = {"blocks_96_gate": False}
+
+
+def _clean_customer_point_title(value: object) -> str:
+    text = _clean_pdf_cid_artifacts(str(value or ""))
+    text = re.sub(r"\bTG\s*[0-3IU]+\)?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*[:\-]+\s*$", "", text).strip(" :;-")
+    text = re.sub(r"\s{2,}", " ", text)
+    return text or "punktet"
+
+
+def _arkat_customer_feedback_text(finding: Dict[str, object], point_label: str) -> Tuple[str, str, str, str]:
+    rule_id = str(finding.get("rule_id") or "")
+    parts = rule_id.split(".")
+    field = parts[1].lower() if len(parts) > 2 else ""
+    error_type = parts[2] if len(parts) > 2 else ""
+    definite_field_label = {
+        "aarsak": "årsaksbeskrivelsen",
+        "risiko": "risikovurderingen",
+        "konsekvens": "konsekvensbeskrivelsen",
+        "anbefalt_tiltak": "tiltaksbeskrivelsen",
+    }.get(field, "beskrivelsen")
+    indefinite_field_label = {
+        "aarsak": "årsaksbeskrivelse",
+        "risiko": "risikovurdering",
+        "konsekvens": "konsekvensbeskrivelse",
+        "anbefalt_tiltak": "tiltaksbeskrivelse",
+    }.get(field, "beskrivelsen")
+    title = f"{point_label}: forbedre {definite_field_label}"
+    if error_type.startswith("MISSING"):
+        message = f"Punktet mangler en tydelig {indefinite_field_label}."
+        change = f"Legg inn en konkret {indefinite_field_label} som er knyttet til avviket i dette punktet."
+    elif "PRESENT_STATE_AS_RISIKO" in error_type:
+        message = "Teksten beskriver hovedsakelig dagens tilstand, men forklarer ikke tydelig hva som kan utvikle seg videre."
+        change = "Beskriv hvilken videre skadeutvikling eller risiko kjøper bør være oppmerksom på."
+    elif "LIMITATION_AS_KONSEKVENS" in error_type:
+        message = "Teksten forklarer kontroll eller observasjon, men ikke tydelig hvilken praktisk følge avviket har."
+        change = "Beskriv hva avviket kan bety for bruk, skadeutvikling, vedlikehold eller behov for videre oppfølging."
+    elif "OBSERVATION_AS_AARSAK" in error_type:
+        message = "Teksten beskriver observasjonen, men forklarer ikke tydelig hvorfor avviket har oppstått."
+        change = "Legg til en kort faglig forklaring på årsaken til avviket."
+    elif "CONSEQUENCE_AS_RISIKO" in error_type:
+        message = "Teksten beskriver konsekvensen, men bør også forklare hva som kan utvikle seg videre."
+        change = "Legg til en kort risikovurdering som beskriver mulig videre utvikling."
+    elif "LIMITATION_USED_AS_RISK_SUBSTITUTE" in error_type:
+        message = "Teksten beskriver en undersøkelsesbegrensning, men ikke en konkret risiko."
+        change = "Forklar hvilken risiko begrensningen eller avviket gir for kjøper."
+    else:
+        message = f"{definite_field_label.capitalize()} bør gjøres tydeligere for kjøper."
+        change = f"Oppdater {definite_field_label} med konkret og punktspesifikk informasjon."
+    example = f"{point_label}: Beskriv avviket med konkret årsak, mulig videre utvikling, praktisk betydning og anbefalt oppfølging der dette er relevant."
+    return title, message, change, example
+
+
+def _customer_text_from_source_finding(finding: Dict[str, object], fallback_title: str) -> Tuple[str, str, str, str]:
+    point_title = _clean_customer_point_title(finding.get("exact_point_title") or fallback_title)
+    point_id = _normalize_point_id(str(finding.get("exact_point_id") or finding.get("point_id") or ""))
+    point_label = f"Punkt {point_id} {point_title}".strip() if _is_numeric_point_id(point_id) else point_title
+    rule_id = str(finding.get("rule_id") or "")
+    if rule_id.startswith("A_ARKAT_SEMANTIC."):
+        return _arkat_customer_feedback_text(finding, point_label)
+    title = _clean_pdf_cid_artifacts(str(finding.get("title") or fallback_title or "Avvik"))
+    message = _clean_pdf_cid_artifacts(str(finding.get("message") or title))
+    change = _clean_pdf_cid_artifacts(str(finding.get("recommended_fix_text") or message or "Oppdater punktteksten."))
+    example = _clean_pdf_cid_artifacts(str(finding.get("suggested_rewrite_text") or change or message))
+    return title, message, change, example
+
+
+def _feedback_item_from_internal_finding(
+    finding: Dict[str, object],
+    idx: int,
+    detected_points_payload: Dict[str, object],
+) -> Dict[str, object]:
+    point_id = _arkat_item_point_id(finding)
+    label_lookup = _point_public_label_lookup(detected_points_payload)
+    public_point = _public_point_reference(point_id, str(finding.get("rule_id") or finding.get("finding_id") or ""))
+    if not public_point and point_id:
+        public_point = point_id if _is_numeric_point_id(point_id) else ""
+    snippet_source = (
+        str(finding.get("exact_point_text") or "").strip()
+        or next((s for s in finding.get("evidence_snippets") or [] if isinstance(s, str) and s.strip()), "")
+        or str(finding.get("message") or finding.get("title") or "")
+    )
+    title = str(finding.get("title") or finding.get("message") or "Foreløpig funn").strip()
+    message = str(finding.get("message") or title).strip()
+    if point_id and not public_point:
+        label = _public_label_for_internal_ref(point_id, label_lookup)
+        title = title.replace(point_id, label)
+        message = message.replace(point_id, label)
+    source_finding_id = str(finding.get("finding_id") or "").strip()
+    customer_title, customer_message, customer_change, customer_example = _customer_text_from_source_finding(finding, title)
+    page = 1
+    for point in (detected_points_payload.get("points") or []) if isinstance(detected_points_payload, dict) else []:
+        if not isinstance(point, dict):
+            continue
+        candidate_ids = {
+            _normalize_point_id(str(point.get("point_id") or "")),
+            _normalize_point_id(str(point.get("numeric_id") or "")),
+            _normalize_point_id(str(point.get("native_label") or "")),
+        }
+        if point_id and point_id in candidate_ids:
+            page = int(point.get("page_start") or 1)
+            break
+    item = {
+        "finding_id": source_finding_id or f"unknown-{idx}",
+        "source_finding_id": source_finding_id,
+        "rule_id": str(finding.get("rule_id") or finding.get("finding_id") or f"unknown-{idx}"),
+        "rule_family": _derive_rule_family(str(finding.get("rule_id") or finding.get("finding_id") or "")) or "UNKNOWN",
+        "category": str(finding.get("category") or _infer_category_from_rule_id(str(finding.get("rule_id") or "")) or ""),
+        "severity": str(finding.get("severity") or "medium"),
+        "is_regulatory_breach": bool(finding.get("is_regulatory_breach")),
+        "point_id": public_point,
+        "point_key": public_point or point_id,
+        "arkat_section": "annet",
+        "title": customer_title,
+        "message": customer_message,
+        "what_to_change": customer_change,
+        "example_fix": {"good_example": customer_example},
+        "evidence": {"page": page, "snippet": snippet_source[:500] if snippet_source else "Ikke tilgjengelig.", "match": "From all_findings."},
+    }
+    _normalize_incomplete_feedback_finding(item)
+    return item
+
+
+def _sync_feedback_pass_through_from_sources(
+    payload: Dict[str, object],
+    analysis_output: Dict[str, object],
+) -> None:
+    findings = payload.get("findings")
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(findings, list) or not isinstance(all_findings, list):
+        return
+    source_by_id: Dict[str, Dict[str, object]] = {}
+    for source in all_findings:
+        if not isinstance(source, dict):
+            continue
+        for key in ("finding_id", "rule_id"):
+            source_id = str(source.get(key) or "").strip()
+            if source_id:
+                source_by_id.setdefault(source_id, source)
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        source_id = str(item.get("source_finding_id") or item.get("finding_id") or "").strip()
+        source = source_by_id.get(source_id)
+        if not isinstance(source, dict):
+            continue
+        source_rule = str(source.get("rule_id") or source.get("finding_id") or "").strip()
+        source_category = str(source.get("category") or _infer_category_from_rule_id(source_rule) or "").strip()
+        source_severity = str(source.get("severity") or "").strip()
+        potential = _finding_potential_deduction(source)
+        item["source_finding_id"] = str(source.get("finding_id") or source_id)
+        item["finding_id"] = item["source_finding_id"]
+        item["rule_id"] = source_rule
+        item["category"] = source_category
+        item["severity"] = source_severity
+        item["potential_deduction"] = int(potential) if potential is not None else 0
+        source_point_id = _normalize_point_id(str(source.get("point_id") or source.get("exact_point_id") or ""))
+        if _is_numeric_point_id(source_point_id):
+            item["point_id"] = source_point_id
+            item["point_key"] = source_point_id
+        if item.get("deduction_valid") is False:
+            item["deduction"] = None
+            item["deduction_band"] = "Ikke vurdert"
+        else:
+            item["deduction_band"] = str(source.get("deduction_band") or item.get("deduction_band") or "")
+
+
+def _ensure_incomplete_feedback_traceability(
+    payload: Dict[str, object],
+    analysis_output: Dict[str, object],
+    detected_points_payload: Dict[str, object],
+) -> None:
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        findings = []
+        payload["findings"] = findings
+    present_source_ids = {
+        str(item.get("source_finding_id") or item.get("rule_id") or item.get("finding_id") or "")
+        for item in findings
+        if isinstance(item, dict)
+    }
+    present_rule_ids = {
+        str(item.get("rule_id") or "")
+        for item in findings
+        if isinstance(item, dict)
+    }
+    present_rule_points = {
+        (
+            str(item.get("rule_id") or ""),
+            _normalize_point_id(str(item.get("point_key") or item.get("point_id") or "")),
+        )
+        for item in findings
+        if isinstance(item, dict)
+    }
+    all_findings = analysis_output.get("all_findings")
+    if not isinstance(all_findings, list):
+        return
+
+    def _id_variants(value: str) -> set:
+        raw = str(value or "")
+        variants = {raw}
+        for prefix in ("bmtf", "fremtind", "punkt"):
+            variants.add(_FREMTIND_STYLE_P_CODE_RE.sub(lambda match: _neutralize_bmtf_p_code(match.group(0), prefix), raw))
+        return {item for item in variants if item}
+
+    for idx, finding in enumerate(all_findings):
+        if not isinstance(finding, dict):
+            continue
+        source_id = str(finding.get("finding_id") or "")
+        rule_id = str(finding.get("rule_id") or finding.get("finding_id") or "")
+        point_id = _arkat_item_point_id(finding)
+        rule_point = (rule_id, point_id)
+        if (
+            (source_id and bool(_id_variants(source_id) & present_source_ids))
+            or (rule_id and rule_id in present_rule_ids and rule_point in present_rule_points)
+            or (not source_id and rule_id in present_rule_ids)
+        ):
+            continue
+        item = _feedback_item_from_internal_finding(finding, len(findings), detected_points_payload)
+        findings.append(item)
+        present_source_ids.add(source_id or item["finding_id"])
+        present_rule_ids.add(rule_id)
+        present_rule_points.add((rule_id, _normalize_point_id(str(item.get("point_key") or item.get("point_id") or ""))))
+
+
+def _normalize_incomplete_points_overview(payload: Dict[str, object], detected_points_payload: Dict[str, object]) -> None:
+    overview = payload.get("points_overview")
+    if not isinstance(overview, list):
+        overview = []
+        payload["points_overview"] = overview
+    if isinstance(detected_points_payload, dict):
+        points = detected_points_payload.get("points")
+        feedback_findings = payload.get("findings") if isinstance(payload.get("findings"), list) else []
+        finding_ids_by_point: Dict[str, List[str]] = {}
+        for finding in feedback_findings:
+            if not isinstance(finding, dict):
+                continue
+            finding_id = str(finding.get("finding_id") or finding.get("source_finding_id") or finding.get("rule_id") or "").strip()
+            point_id = _normalize_point_id(str(finding.get("source_point_id") or finding.get("point_id") or finding.get("point_key") or ""))
+            if finding_id and point_id:
+                finding_ids_by_point.setdefault(point_id, []).append(finding_id)
+        if isinstance(points, list) and points:
+            overview.clear()
+            for idx, point in enumerate(points):
+                if not isinstance(point, dict):
+                    continue
+                pid = str(point.get("point_id") or point.get("numeric_id") or point.get("native_label") or "")
+                norm_pid = _normalize_point_id(pid)
+                fids = finding_ids_by_point.get(norm_pid, [])
+                overview.append({
+                    "display_index": idx + 1,
+                    "point_id": _public_point_reference(pid, "") or (norm_pid if _is_numeric_point_id(norm_pid) else f"overview-{idx + 1:02d}"),
+                    "point_key": pid,
+                    "title": _clean_pdf_cid_artifacts(str(point.get("title") or point.get("excerpt") or "Ukjent")),
+                    "tg": point.get("tg") or "UNKNOWN",
+                    "status": "incomplete_analysis",
+                    "summary": "Ikke fullstendig kontrollert fordi analysen ble avbrutt.",
+                    "deduction_total": None,
+                    "potential_deduction_total": sum(
+                        int(_finding_potential_deduction(finding) or 0)
+                        for finding in feedback_findings
+                        if isinstance(finding, dict)
+                        and str(finding.get("finding_id") or finding.get("source_finding_id") or finding.get("rule_id") or "") in set(fids)
+                    ),
+                    "deduction_valid": False,
+                    "deduction_band": "Ikke vurdert",
+                    "finding_ids": fids,
+                    "where": {"page": int(point.get("page_start") or 1)},
+                    "children": [],
+                })
+    for entry in overview:
+        if not isinstance(entry, dict):
+            continue
+        display_index = int(entry.get("display_index") or (overview.index(entry) + 1))
+        raw_entry_id = _normalize_point_id(str(entry.get("point_id") or entry.get("canonical_id") or entry.get("point_key") or ""))
+        if not raw_entry_id or _is_canonical_child_point_id(raw_entry_id):
+            entry["point_id"] = f"overview-{display_index:02d}"
+        elif _is_numeric_point_id(raw_entry_id):
+            entry["point_id"] = raw_entry_id
+        entry["status"] = "incomplete_analysis"
+        entry["summary"] = "Ikke fullstendig kontrollert fordi analysen ble avbrutt."
+        entry["deduction_total"] = None
+        entry["potential_deduction_total"] = int(entry.get("potential_deduction_total") or 0)
+        entry["deduction_valid"] = False
+        entry["deduction_band"] = "Ikke vurdert"
+        children = entry.get("children")
+        if isinstance(children, list):
+            child_tgs = [
+                str(child.get("tg") or "").strip().upper()
+                for child in children
+                if isinstance(child, dict)
+                and str(child.get("status") or "").lower() != "not_found_in_report"
+                and str(child.get("tg") or "").strip().upper() in {"TG0", "TG1", "TG2", "TG3", "TGIU"}
+            ]
+            if child_tgs:
+                entry["tg"] = max(child_tgs, key=_tg_rank)
+            for child_idx, child in enumerate(children, start=1):
+                if not isinstance(child, dict):
+                    continue
+                child["deduction_total"] = None
+                child["potential_deduction_total"] = int(child.get("potential_deduction_total") or 0)
+                child["deduction_valid"] = False
+                child["deduction_band"] = "Ikke vurdert"
+                raw_child_id = _normalize_point_id(str(child.get("point_id") or child.get("canonical_id") or child.get("point_key") or ""))
+                if not raw_child_id or _is_canonical_child_point_id(raw_child_id):
+                    child["point_id"] = f"{entry['point_id']}-child-{child_idx:02d}"
+                elif _is_numeric_point_id(raw_child_id):
+                    child["point_id"] = raw_child_id
+            entry["children"] = []
+
+
+def _validate_incomplete_policy_invariants(
+    analysis_output: Dict[str, object],
+    feedback_payload: Dict[str, object],
+    detected_points_payload: Dict[str, object],
+) -> List[Dict[str, object]]:
+    findings = analysis_output.get("all_findings") if isinstance(analysis_output, dict) else []
+    feedback_findings = feedback_payload.get("findings") if isinstance(feedback_payload, dict) else []
+    detected_points = detected_points_payload.get("points") if isinstance(detected_points_payload, dict) else []
+    findings = findings if isinstance(findings, list) else []
+    feedback_findings = feedback_findings if isinstance(feedback_findings, list) else []
+    detected_points = detected_points if isinstance(detected_points, list) else []
+
+    def _rule_governance_evidence(rule_id: str) -> Dict[str, object]:
+        rid = str(rule_id or "").strip()
+        if not rid:
+            return {}
+        if rid in _governed_rule_deductions():
+            return {
+                "rule_id": rid,
+                "defining_file_id": "rag_scoring_model_validert",
+                "derivation": "rule_catalog.id",
+                "deduction": _governed_rule_deductions().get(rid),
+            }
+        if _arkat_semantic_rule_is_governed(rid):
+            parts = rid.split(".")
+            field = parts[1].strip().lower() if len(parts) > 2 else ""
+            error_type = parts[2].strip() if len(parts) > 2 else ""
+            deduction = _arkat_semantic_rule_points().get(rid)
+            return {
+                "rule_id": rid,
+                "defining_file_id": "arkat_semantic_rules",
+                "deduction_file_id": "arkat_error_to_deduction_mapping",
+                "derivation": "A_ARKAT_SEMANTIC field/error_type mapping",
+                "field": field,
+                "error_type": error_type,
+                "deduction": deduction,
+            }
+        return {"rule_id": rid, "defining_file_id": "", "derivation": "not_found"}
+
+    def _customer_text_values(node: object) -> List[str]:
+        values: List[str] = []
+        if isinstance(node, dict):
+            for value in node.values():
+                if isinstance(value, str):
+                    values.append(value)
+                elif isinstance(value, (dict, list)):
+                    values.extend(_customer_text_values(value))
+        elif isinstance(node, list):
+            for item in node:
+                values.extend(_customer_text_values(item))
+        return values
+
+    def _customer_message_values(node: object) -> List[str]:
+        values: List[str] = []
+        customer_keys = {
+            "title",
+            "message",
+            "what_to_change",
+            "good_example",
+            "summary",
+            "limited_analysis_warning",
+            "inactive_reason",
+        }
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if isinstance(value, str) and str(key) in customer_keys:
+                    values.append(value)
+                elif isinstance(value, (dict, list)):
+                    values.extend(_customer_message_values(value))
+        elif isinstance(node, list):
+            for item in node:
+                values.extend(_customer_message_values(item))
+        return values
+
+    feedback_text_blob = "\n".join(_customer_text_values(feedback_payload))
+    customer_message_blob = "\n".join(_customer_message_values(feedback_payload))
+    feedback_source_ids = {
+        str(item.get("source_finding_id") or item.get("rule_id") or item.get("finding_id") or "")
+        for item in feedback_findings
+        if isinstance(item, dict)
+    }
+    def _id_variants(value: str) -> set:
+        raw = str(value or "")
+        variants = {raw}
+        for prefix in ("bmtf", "fremtind", "punkt"):
+            variants.add(_FREMTIND_STYLE_P_CODE_RE.sub(lambda match: _neutralize_bmtf_p_code(match.group(0), prefix), raw))
+        return {item for item in variants if item}
+
+    missing = []
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        source_id = str(item.get("finding_id") or item.get("rule_id") or "")
+        if source_id and not (_id_variants(source_id) & feedback_source_ids):
+            rule_id = str(item.get("rule_id") or "")
+            if rule_id not in feedback_source_ids:
+                missing.append(source_id)
+    gate = analysis_output.get("gate") if isinstance(analysis_output.get("gate"), dict) else {}
+    active_gate_findings = [
+        str(item.get("finding_id") or item.get("rule_id") or "")
+        for item in findings
+        if isinstance(item, dict) and isinstance(item.get("gate_effect"), dict) and item["gate_effect"].get("blocks_96_gate")
+    ]
+    duplicate_sections = []
+    point_resolution_evidence = []
+    section_seen: Dict[tuple, str] = {}
+    label_lookup = _point_public_label_lookup(detected_points_payload)
+    for point in detected_points:
+        if not isinstance(point, dict):
+            continue
+        title_key = _normalize_tg3_cost_text(str(point.get("title") or point.get("excerpt") or "")).lower()
+        page_key = str(point.get("page_start") or "")
+        canonical_key = _normalize_point_id(str(point.get("canonical_point_id") or point.get("point_id") or ""))
+        if not title_key or not page_key:
+            continue
+        key = (canonical_key, title_key, page_key)
+        point_id = str(point.get("point_id") or point.get("numeric_id") or point.get("native_label") or "")
+        point_resolution_evidence.append({
+            "point_id": _public_label_for_internal_ref(point_id, label_lookup),
+            "internal_point_id_present": bool(_normalize_point_id(point_id)),
+            "title": _clean_pdf_cid_artifacts(str(point.get("title") or "")),
+            "page": page_key,
+            "tg": str(point.get("tg") or point.get("tg_grade") or ""),
+            "section_key": "|".join(str(part) for part in (_public_label_for_internal_ref(canonical_key or point_id, label_lookup), title_key, page_key)),
+        })
+        previous = section_seen.get(key)
+        if previous and previous != point_id:
+            duplicate_sections.append({
+                "first": _public_label_for_internal_ref(previous, label_lookup),
+                "duplicate": _public_label_for_internal_ref(point_id, label_lookup),
+                "title": _clean_pdf_cid_artifacts(str(point.get("title") or "")),
+                "page": page_key,
+            })
+        else:
+            section_seen[key] = point_id
+    governed = _governed_rule_deductions()
+    ungoverned = []
+    governed_rule_evidence: Dict[str, Dict[str, object]] = {}
+    fired_rule_items: List[Dict[str, object]] = []
+    fired_rule_items.extend(item for item in findings if isinstance(item, dict))
+    fired_rule_items.extend(item for item in feedback_findings if isinstance(item, dict))
+    for item in fired_rule_items:
+        if not isinstance(item, dict):
+            continue
+        rid = str(item.get("rule_id") or "").strip()
+        if not rid:
+            continue
+        governed_rule_evidence[rid] = _rule_governance_evidence(rid)
+        if rid not in governed and not _arkat_semantic_rule_is_governed(rid):
+            ungoverned.append(rid)
+    invalid_field_bindings = _invalid_arkat_field_bindings(findings)
+    definite_deductions = [
+        str(item.get("finding_id") or item.get("rule_id") or "")
+        for item in feedback_findings
+        if isinstance(item, dict) and item.get("deduction_valid") is False and item.get("deduction") is not None
+    ]
+    invalid_bands = [
+        str(row.get("deduction_band"))
+        for row in (analysis_output.get("category_breakdown") or [])
+        if isinstance(row, dict) and str(row.get("deduction_band") or "") in {"Ikke scoretrekk", "Ingen scoretrekk"}
+    ]
+    manifest = (
+        feedback_payload.get("runtime_manifest")
+        or analysis_output.get("runtime_manifest")
+        or (analysis_output.get("meta") or {}).get("runtime_manifest")
+    )
+    policy_invariant_ids: List[str] = []
+    try:
+        policy_path = Path(__file__).resolve().parents[3] / "files" / "validert_incomplete_analysis_policy_v1_5.json"
+        policy_payload = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy_rows = ((policy_payload.get("regression_invariants") or {}).get("invariants") or [])
+        if isinstance(policy_rows, list):
+            policy_invariant_ids = [
+                str(row.get("id") or "")
+                for row in policy_rows
+                if isinstance(row, dict) and str(row.get("id") or "")
+            ]
+    except Exception:
+        policy_invariant_ids = []
+    internal_id_leaks = bool(_INTERNAL_CANONICAL_P_CODE_RE.search(feedback_text_blob) or _INTERNAL_CANONICAL_SLUG_RE.search(feedback_text_blob))
+    overview = feedback_payload.get("points_overview") if isinstance(feedback_payload.get("points_overview"), list) else []
+    overview_missing_ids = [
+        str(entry.get("title") or entry.get("display_index") or "")
+        for entry in overview
+        if isinstance(entry, dict) and not str(entry.get("point_id") or "").strip()
+    ]
+    overview_child_missing_ids: List[str] = []
+    for entry in overview:
+        if not isinstance(entry, dict):
+            continue
+        children = entry.get("children")
+        if not isinstance(children, list):
+            continue
+        for child in children:
+            if isinstance(child, dict) and not str(child.get("point_id") or "").strip():
+                overview_child_missing_ids.append(str(child.get("title") or entry.get("title") or "child"))
+
+    source_by_id = {
+        str(item.get("finding_id") or ""): item
+        for item in findings
+        if isinstance(item, dict) and str(item.get("finding_id") or "").strip()
+    }
+    mapping_mismatch = []
+    passthrough_mismatch = []
+    evidence_page_mismatch = []
+    for item in feedback_findings:
+        if not isinstance(item, dict):
+            continue
+        source_id = str(item.get("source_finding_id") or "").strip()
+        if not source_id:
+            continue
+        source = source_by_id.get(source_id)
+        if not isinstance(source, dict):
+            continue
+        feedback_rule = str(item.get("rule_id") or "").strip()
+        source_rule = str(source.get("rule_id") or source.get("finding_id") or "").strip()
+        feedback_category = str(item.get("category") or "").strip().upper()
+        source_category = str(source.get("category") or _infer_category_from_rule_id(source_rule) or "").strip().upper()
+        feedback_severity = str(item.get("severity") or "").strip()
+        source_severity = str(source.get("severity") or "").strip()
+        feedback_potential = _finding_potential_deduction(item)
+        source_potential = _finding_potential_deduction(source)
+        feedback_point_id = _normalize_point_id(str(item.get("point_id") or ""))
+        source_point_id = _normalize_point_id(str(source.get("point_id") or source.get("exact_point_id") or ""))
+        expected_page = None
+        for point in detected_points:
+            if not isinstance(point, dict):
+                continue
+            point_ids = {
+                _normalize_point_id(str(point.get("point_id") or "")),
+                _normalize_point_id(str(point.get("numeric_id") or "")),
+                _normalize_point_id(str(point.get("native_label") or "")),
+            }
+            if source_point_id and source_point_id in point_ids:
+                expected_page = int(point.get("page_start") or 1)
+                break
+        feedback_evidence = item.get("evidence") if isinstance(item.get("evidence"), dict) else {}
+        feedback_page = feedback_evidence.get("page") if isinstance(feedback_evidence, dict) else None
+        if feedback_rule != source_rule or (feedback_category and source_category and feedback_category != source_category):
+            mapping_mismatch.append({
+                "source_finding_id": source_id,
+                "feedback_rule_id": feedback_rule,
+                "source_rule_id": source_rule,
+                "feedback_category": feedback_category,
+                "source_category": source_category,
+            })
+        if feedback_severity != source_severity or feedback_potential != source_potential or (
+            _is_numeric_point_id(source_point_id) and feedback_point_id != source_point_id
+        ):
+            passthrough_mismatch.append({
+                "source_finding_id": source_id,
+                "feedback_severity": feedback_severity,
+                "source_severity": source_severity,
+                "feedback_potential_deduction": feedback_potential,
+                "source_potential_deduction": source_potential,
+                "feedback_point_id": feedback_point_id,
+                "source_point_id": source_point_id,
+            })
+        if expected_page is not None and int(feedback_page or 0) != int(expected_page):
+            evidence_page_mismatch.append({
+                "source_finding_id": source_id,
+                "feedback_page": feedback_page,
+                "expected_page": expected_page,
+                "point_id": source_point_id,
+            })
+
+    customer_jargon_hits = sorted(
+        set(
+            match.group(0)
+            for match in re.finditer(
+                r"(?i)\b(?:WRONG|MISSING|aarsak|anbefalt_tiltak)\b",
+                customer_message_blob,
+            )
+        )
+    )
+    missing_internal_point_ids = []
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        if _is_report_level_rule(str(item.get("rule_id") or item.get("finding_id") or "")):
+            continue
+        point_id = _normalize_point_id(str(item.get("exact_point_id") or item.get("point_id") or ""))
+        if not point_id:
+            missing_internal_point_ids.append(str(item.get("finding_id") or item.get("rule_id") or "unknown"))
+    for point in detected_points:
+        if isinstance(point, dict) and not _normalize_point_id(str(point.get("point_id") or "")):
+            missing_internal_point_ids.append(str(point.get("title") or point.get("excerpt") or "detected_point"))
+
+    pipeline_meta = analysis_output.get("arkat_semantic_pipeline") if isinstance(analysis_output.get("arkat_semantic_pipeline"), dict) else {}
+    format_basis = pipeline_meta.get("classification_basis") if isinstance(pipeline_meta.get("classification_basis"), list) else []
+    report_format = str(pipeline_meta.get("report_format") or "")
+    extraction_method = str(pipeline_meta.get("extraction_method_used") or "")
+    fremtind_point_outputs = [
+        str(point.get("point_id") or "")
+        for point in detected_points
+        if isinstance(point, dict)
+        and (
+            _is_canonical_child_point_id(str(point.get("point_id") or ""))
+            or str(point.get("tg_source") or "") == "fremtind_summary"
+        )
+    ]
+    non_fremtind_format = any("befar" in str(item).lower() for item in format_basis) or report_format in {"semi_structured", "unlabeled_prose"}
+    format_binding_ok = bool(report_format and extraction_method and format_basis) and not (non_fremtind_format and fremtind_point_outputs)
+    source_primary_conclusions = (
+        analysis_output.get("source_primary_tg_conclusions")
+        if isinstance(analysis_output.get("source_primary_tg_conclusions"), list)
+        else []
+    )
+    evaluated_ids = {
+        _normalize_point_id(str(point.get("point_id") or ""))
+        for point in (pipeline_meta.get("points") or [])
+        if isinstance(point, dict)
+    } if isinstance(pipeline_meta.get("points"), list) else set()
+    detected_by_id: Dict[str, List[Dict[str, object]]] = {}
+    for point in detected_points:
+        if not isinstance(point, dict):
+            continue
+        point_id = _normalize_point_id(str(point.get("point_id") or point.get("numeric_id") or point.get("native_label") or ""))
+        if point_id:
+            detected_by_id.setdefault(point_id, []).append(point)
+    inv13_evidence = []
+    inv13_violations = []
+    for source in source_primary_conclusions:
+        if not isinstance(source, dict):
+            continue
+        point_id = _normalize_point_id(str(source.get("point_id") or ""))
+        source_tg = _normalize_tg_label(source.get("tg") or "")
+        matches = [
+            point for point in detected_by_id.get(point_id, [])
+            if _normalize_tg_label(point.get("tg") or point.get("tg_grade") or "") == source_tg
+        ]
+        evidence = {
+            "source_point_id": point_id,
+            "source_title": source.get("title"),
+            "source_tg": source_tg,
+            "source_page": source.get("page"),
+            "source_span_hash": source.get("span_hash"),
+            "resolved_detected_count": len(matches),
+            "resolved_point_ids": [_normalize_point_id(str(point.get("point_id") or "")) for point in matches],
+            "evaluated": point_id in evaluated_ids,
+        }
+        inv13_evidence.append(evidence)
+        if len(matches) != 1 or point_id not in evaluated_ids:
+            inv13_violations.append(evidence)
+    expected_tg_points_from_source = [
+        _normalize_point_id(str(item.get("point_id") or ""))
+        for item in source_primary_conclusions
+        if isinstance(item, dict) and _normalize_point_id(str(item.get("point_id") or ""))
+    ]
+    pipeline_expected = [
+        _normalize_point_id(str(item or ""))
+        for item in (pipeline_meta.get("expected_tg_points") or [])
+        if _normalize_point_id(str(item or ""))
+    ] if isinstance(pipeline_meta.get("expected_tg_points"), list) else []
+    inv13_expected_mismatch = sorted(set(expected_tg_points_from_source) - set(pipeline_expected))
+    inv13_ok = (
+        bool(source_primary_conclusions)
+        and not inv13_violations
+        and not inv13_expected_mismatch
+    ) if non_fremtind_format else True
+    single_id_mismatch = []
+    for item in feedback_findings:
+        if not isinstance(item, dict):
+            continue
+        finding_id = str(item.get("finding_id") or "")
+        source_id = str(item.get("source_finding_id") or "")
+        if not source_id or source_id not in source_by_id or finding_id != source_id:
+            single_id_mismatch.append({
+                "finding_id": finding_id,
+                "source_finding_id": source_id,
+                "source_exists": source_id in source_by_id,
+            })
+    inv14_evidence = []
+    inv14_violations = []
+    method_text_re = re.compile(r"(?i)\b(?:Hvordan kontrollen er utført|Formålet er å avdekke|Det vurderes også forhold)\b")
+    pipeline_points = pipeline_meta.get("points") if isinstance(pipeline_meta.get("points"), list) else []
+    for point in pipeline_points:
+        if not isinstance(point, dict):
+            continue
+        binding = point.get("arkat_field_binding_evidence") if isinstance(point.get("arkat_field_binding_evidence"), dict) else {}
+        if not binding:
+            continue
+        fields = point.get("extracted_fields") if isinstance(point.get("extracted_fields"), dict) else {}
+        row = {"point_id": point.get("point_id"), "title": point.get("title"), "fields": {}}
+        for field_name, evidence_rows in binding.items():
+            value = str(fields.get(field_name) or "")
+            present = not _is_semantically_missing_text(_normalize_tg3_cost_text, value)
+            has_method_text = bool(method_text_re.search(value))
+            row["fields"][field_name] = {
+                "present": present,
+                "has_method_text": has_method_text,
+                "binding": [
+                    {
+                        "subsection_heading": ev.get("subsection_heading"),
+                        "offset": ev.get("offset"),
+                        "length_chars": ev.get("length_chars"),
+                        "preview": ev.get("preview"),
+                    }
+                    for ev in evidence_rows
+                    if isinstance(ev, dict)
+                ][:10],
+            }
+            if not present or has_method_text:
+                inv14_violations.append({"point_id": point.get("point_id"), "field": field_name, "present": present, "has_method_text": has_method_text})
+        inv14_evidence.append(row)
+    inv14_ok = bool(inv14_evidence) and not inv14_violations
+
+    meta = analysis_output.get("meta") if isinstance(analysis_output.get("meta"), dict) else {}
+    pipeline_detection = pipeline_meta.get("ns_version_detection") if isinstance(pipeline_meta.get("ns_version_detection"), dict) else {}
+    meta_report_date = str(meta.get("report_date") or analysis_output.get("report_date") or "").strip()
+    pipeline_report_date = str(pipeline_meta.get("report_date") or "").strip()
+    meta_ns_version = str(meta.get("ns_version") or meta.get("ns_standard_version") or analysis_output.get("ns_version") or "").strip()
+    pipeline_ns_version = str(pipeline_meta.get("ns_version") or "").strip()
+
+    def _normalize_ns_version(v: str) -> str:
+        """Normalise NS version strings for comparison: 'NS 3600:2025' == 'NS3600:2025'."""
+        return v.upper().replace(" ", "")
+
+    point_ns_mismatch = [
+        {
+            "point_id": point.get("point_id"),
+            "point_ns_version": point.get("ns_version"),
+            "pipeline_ns_version": pipeline_ns_version,
+        }
+        for point in pipeline_points
+        if isinstance(point, dict)
+        and pipeline_ns_version
+        and _normalize_ns_version(str(point.get("ns_version") or "").strip()) != _normalize_ns_version(pipeline_ns_version)
+    ]
+    inv16_violations = []
+    if not meta_report_date or not pipeline_report_date or meta_report_date != pipeline_report_date:
+        inv16_violations.append({
+            "type": "report_date_mismatch",
+            "meta_report_date": meta_report_date,
+            "pipeline_report_date": pipeline_report_date,
+        })
+    if not meta_ns_version or not pipeline_ns_version or _normalize_ns_version(meta_ns_version) != _normalize_ns_version(pipeline_ns_version):
+        inv16_violations.append({
+            "type": "ns_version_mismatch",
+            "meta_ns_version": meta_ns_version,
+            "pipeline_ns_version": pipeline_ns_version,
+        })
+    detection_source = str(pipeline_detection.get("source") or "")
+    detection_detail = str(pipeline_detection.get("detail") or "")
+    if detection_source != "report_text" or detection_detail not in {"ns3600_2018", "ns3600_2025"}:
+        inv16_violations.append({
+            "type": "detection_source_not_report_text",
+            "source": detection_source,
+            "detail": detection_detail,
+        })
+    inv16_violations.extend(point_ns_mismatch[:20])
+    inv16_ok = not inv16_violations
+
+    overview_finding_assignments = []
+    feedback_finding_point_by_id: Dict[str, str] = {}
+    for finding in feedback_findings:
+        if not isinstance(finding, dict):
+            continue
+        fid = str(finding.get("finding_id") or finding.get("source_finding_id") or finding.get("rule_id") or "").strip()
+        point_id = _normalize_point_id(str(finding.get("source_point_id") or finding.get("point_id") or finding.get("point_key") or ""))
+        if fid and point_id:
+            feedback_finding_point_by_id[fid] = point_id
+    for entry in overview:
+        if not isinstance(entry, dict):
+            continue
+        for fid in entry.get("finding_ids") or []:
+            overview_finding_assignments.append({
+                "overview_point_id": entry.get("point_id"),
+                "title": entry.get("title"),
+                "finding_id": fid,
+                "expected_point_id": feedback_finding_point_by_id.get(str(fid) or ""),
+            })
+        for child in entry.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            for fid in child.get("finding_ids") or []:
+                overview_finding_assignments.append({
+                    "overview_point_id": child.get("point_id"),
+                    "title": child.get("title"),
+                    "finding_id": fid,
+                    "expected_point_id": feedback_finding_point_by_id.get(str(fid) or ""),
+                })
+    inv17_mismatches = [
+        row for row in overview_finding_assignments
+        if _normalize_point_id(str(row.get("overview_point_id") or "")) != _normalize_point_id(str(row.get("expected_point_id") or ""))
+    ]
+    inv17_ok = not inv17_mismatches
+
+    executed_invariant_ids = [
+        "INV-01_finding_traceability",
+        "INV-02_points_overview_completeness",
+        "INV-03_gate_score_coherence",
+        "INV-04_no_ungoverned_rules",
+        "INV-05_taxonomy_field_binding",
+        "INV-06_no_internal_id_leakage",
+        "INV-07_no_duplicate_physical_points",
+        "INV-08_preliminary_consistency",
+        "INV-09_score_band_consistency",
+        "INV-10_manifest_presence",
+        "INV-11_single_id_scheme",
+        "INV-12_format_extraction_binding",
+        "INV-13_source_anchored_tg_coverage",
+        "INV-14_arkat_subsection_binding",
+        "INV-15_customer_message_language",
+        "INV-16_regime_consistency",
+        "INV-17_overview_finding_assignment",
+    ]
+    runner_set_matches_policy = bool(policy_invariant_ids) and executed_invariant_ids == policy_invariant_ids
+
+    checks = [
+        ("INV-01_finding_traceability", not missing and not mapping_mismatch and not passthrough_mismatch and not evidence_page_mismatch, {"missing": missing[:20], "missing_count": len(missing), "mapping_mismatch": mapping_mismatch[:20], "passthrough_mismatch": passthrough_mismatch[:20], "evidence_page_mismatch": evidence_page_mismatch[:20]}),
+        ("INV-02_points_overview_completeness", (bool(overview) or not detected_points) and not overview_missing_ids and not overview_child_missing_ids, {"points_overview_count": len(overview), "detected_points_count": len(detected_points), "overview_missing_ids": overview_missing_ids[:20], "overview_child_missing_ids": overview_child_missing_ids[:20]}),
+        ("INV-03_gate_score_coherence", not bool(gate.get("active")) and not bool(gate.get("blocked_96")) and not active_gate_findings, {"active_gate_findings": active_gate_findings[:20]}),
+        ("INV-04_no_ungoverned_rules", not ungoverned and all(item.get("defining_file_id") for item in governed_rule_evidence.values()), {"ungoverned_rule_ids": sorted(set(ungoverned))[:20], "governed_rule_evidence": [governed_rule_evidence[key] for key in sorted(governed_rule_evidence.keys())]}),
+        ("INV-05_taxonomy_field_binding", not invalid_field_bindings, {"invalid_bindings": invalid_field_bindings[:20], "invalid_count": len(invalid_field_bindings)}),
+        ("INV-06_no_internal_id_leakage", not internal_id_leaks and not missing_internal_point_ids, {"missing_internal_point_ids": missing_internal_point_ids[:20]}),
+        ("INV-07_no_duplicate_physical_points", not duplicate_sections, {"duplicates": duplicate_sections[:20], "duplicate_count": len(duplicate_sections), "point_resolution_evidence": point_resolution_evidence[:80]}),
+        ("INV-08_preliminary_consistency", not definite_deductions and all(isinstance(item, dict) and item.get("preliminary") is True and item.get("verification_status") == "unverified_incomplete_analysis" for item in feedback_findings), {"definite_deductions": definite_deductions[:20]}),
+        ("INV-09_score_band_consistency", analysis_output.get("score_total") is None and not invalid_bands, {"invalid_bands": invalid_bands}),
+        ("INV-10_manifest_presence", isinstance(manifest, dict) and bool(manifest.get("loaded")) and runner_set_matches_policy, {"executed_invariant_ids": executed_invariant_ids, "policy_invariant_ids": policy_invariant_ids, "runner_set_matches_policy": runner_set_matches_policy}),
+        ("INV-11_single_id_scheme", not single_id_mismatch, {"single_id_mismatch": single_id_mismatch[:20]}),
+        ("INV-12_format_extraction_binding", format_binding_ok, {"report_format": report_format, "extraction_method_used": extraction_method, "classification_basis": format_basis, "fremtind_point_outputs": fremtind_point_outputs[:20]}),
+        ("INV-13_source_anchored_tg_coverage", inv13_ok, {"expected_tg_points_from_source": expected_tg_points_from_source, "pipeline_expected_tg_points": pipeline_expected, "missing_from_pipeline_expected": inv13_expected_mismatch, "violations": inv13_violations[:20], "primary_tg_evidence": inv13_evidence[:80], "summary_duplicate_markers_linked": []}),
+        ("INV-14_arkat_subsection_binding", inv14_ok, {"violations": inv14_violations[:20], "field_binding_evidence": inv14_evidence[:80]}),
+        ("INV-15_customer_message_language", not customer_jargon_hits, {"customer_jargon_hits": customer_jargon_hits, "checked_field_classes": ["title", "message", "what_to_change", "example_fix.good_example", "summary"]}),
+        ("INV-16_regime_consistency", inv16_ok, {"violations": inv16_violations[:20], "meta_report_date": meta_report_date, "pipeline_report_date": pipeline_report_date, "meta_ns_version": meta_ns_version, "pipeline_ns_version": pipeline_ns_version, "ns_version_detection": pipeline_detection, "point_ns_versions": sorted({str(point.get("ns_version") or "") for point in pipeline_points if isinstance(point, dict)})}),
+        ("INV-17_overview_finding_assignment", inv17_ok, {"strategy": "source-point finding_ids in incomplete points_overview", "overview_finding_assignments": overview_finding_assignments[:20], "mismatches": inv17_mismatches[:20]}),
+    ]
+    return [
+        {"id": check_id, "passed": bool(passed), "details": details}
+        for check_id, passed, details in checks
+    ]
+
+
+def _apply_incomplete_feedback_policy(
+    payload: Dict[str, object],
+    analysis_output: Dict[str, object],
+    detected_points_payload: Dict[str, object],
+) -> None:
+    reason = str(analysis_output.get("incomplete_reason") or _incomplete_fallback_reason(analysis_output) or "incomplete_full_analyzer")
+    warning = str(analysis_output.get("limited_analysis_warning") or "Analysen kunne ikke fullføres.")
+    runtime_manifest = get_runtime_manifest(str(analysis_output.get("analysis_mode") or "local_postprocess_dommer_b_fallback"))
+    payload["analysis_mode"] = str(runtime_manifest.get("analysis_mode") or "local_postprocess_dommer_b_fallback")
+    payload["analysis_complete"] = False
+    payload["score_valid"] = False
+    payload["ui_status"] = "incomplete_analysis"
+    payload["incomplete_reason"] = reason
+    payload["limited_analysis_warning"] = warning
+    payload["runtime_manifest"] = runtime_manifest
+    gate = payload.get("gate")
+    if not isinstance(gate, dict):
+        gate = {}
+        payload["gate"] = gate
+    gate["active"] = False
+    gate["blocked_96"] = False
+    gate["blocked_by"] = []
+    gate["message"] = "96-gate er ikke vurdert fordi analysen ikke ble fullført."
+    gate["inactive_reason"] = reason
+    _normalize_incomplete_source_finding_ids(analysis_output, payload, detected_points_payload)
+    _ensure_incomplete_feedback_traceability(payload, analysis_output, detected_points_payload)
+    findings = payload.get("findings")
+    if isinstance(findings, list):
+        for item in findings:
+            if not isinstance(item, dict):
+                continue
+            source_id = str(item.get("source_finding_id") or "").strip()
+            if not source_id:
+                source_id = str(item.get("finding_id") or item.get("rule_id") or "").strip()
+                if source_id:
+                    item["source_finding_id"] = source_id
+            if source_id:
+                item["finding_id"] = source_id
+            elif not str(item.get("finding_id") or "").strip():
+                item["finding_id"] = str(item.get("rule_id") or "")
+            _normalize_incomplete_feedback_finding(item)
+        _sync_feedback_pass_through_from_sources(payload, analysis_output)
+    _normalize_incomplete_points_overview(payload, detected_points_payload)
+    score = payload.get("score")
+    if isinstance(score, dict):
+        score["total"] = None
+        score["score_valid"] = False
+        for key in ("category_deductions", "now"):
+            rows = score.get(key)
+            if isinstance(rows, list):
+                for row in rows:
+                    if isinstance(row, dict):
+                        row["deduction"] = None
+                        row["deduction_valid"] = False
+        score["top_drivers"] = []
+    _remove_dead_public_visibility_fields(analysis_output)
+    _remove_dead_public_visibility_fields(payload)
+    _sanitize_customer_text_internal_ids(payload, detected_points_payload)
+    payload.pop("policy_invariants", None)
+    analysis_output.pop("policy_invariants", None)
+    invariants = _validate_incomplete_policy_invariants(analysis_output, payload, detected_points_payload)
+    # policy_invariants is QA/diagnostic data - kept in analysis_output only, NOT in customer-facing feedback_v11
+    analysis_output["policy_invariants"] = invariants
+
+
 def sanitize_bmtf_public_point_taxonomy_payload(payload: Dict[str, object], report_text: str) -> Dict[str, object]:
     """Remove public traces of Fremtind canonical point taxonomy from BMTF/unlabeled payloads."""
     return _sanitize_bmtf_feedback_v11_p_codes(payload, report_text)
@@ -13107,18 +14565,12 @@ def build_feedback_v11(
 ) -> Dict[str, object]:
     payload = _build_feedback_v11(analysis_output, detected_points_payload, report_id, document_hash, report_text)
     if isinstance(payload, dict) and _incomplete_fallback_reason(analysis_output):
-        warning = str(analysis_output.get("limited_analysis_warning") or "Analysen kunne ikke fullføres.")
-        payload["analysis_complete"] = False
-        payload["score_valid"] = False
-        payload["ui_status"] = "incomplete_analysis"
-        payload["incomplete_reason"] = str(analysis_output.get("incomplete_reason") or _incomplete_fallback_reason(analysis_output))
-        payload["limited_analysis_warning"] = warning
-        score = payload.get("score")
-        if isinstance(score, dict):
-            score["total"] = None
-            score["score_valid"] = False
+        _apply_incomplete_feedback_policy(payload, analysis_output, detected_points_payload)
     payload = _sanitize_feedback_v11_legacy_consequence_unclear(payload, analysis_output)
-    return _sanitize_bmtf_feedback_v11_p_codes(payload, report_text)
+    payload = _sanitize_bmtf_feedback_v11_p_codes(payload, report_text)
+    if isinstance(payload, dict) and _incomplete_fallback_reason(analysis_output):
+        _apply_incomplete_feedback_policy(payload, analysis_output, detected_points_payload)
+    return payload
 
 
 def _build_evidence_for_component(
@@ -13818,33 +15270,72 @@ def _mark_incomplete_fallback_output(analysis_output: Dict[str, object]) -> None
         "analysegrense. Resultatet under er kun en begrenset/foreløpig kontroll og kan ikke brukes "
         "som fullstendig vurdering av rapporten."
     )
+    runtime_manifest = get_runtime_manifest("local_postprocess_dommer_b_fallback")
     for target in (analysis_output, meta):
+        target["analysis_mode"] = "local_postprocess_dommer_b_fallback"
         target["analysis_complete"] = False
         target["score_valid"] = False
         target["ui_status"] = "incomplete_analysis"
         target["incomplete_reason"] = reason
         target["limited_analysis_warning"] = warning
+        target["runtime_manifest"] = runtime_manifest
     analysis_output["score_total"] = None
     analysis_output["trygghetsscore"] = None
     analysis_output["score_band"] = "Ukjent"
-    gate = analysis_output.get("gate")
-    if not isinstance(gate, dict):
-        gate = {}
-    gate.setdefault("active", True)
-    gate["message"] = warning
-    analysis_output["gate"] = gate
+    preliminary_note = "Preliminært funn: ikke bekreftet fordi full analyse ble avbrutt."
+    for key in ("all_findings", "top_issues", "top_score_drivers", "score_drivers", "feedback_findings"):
+        items = analysis_output.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item["preliminary"] = True
+            item["verified"] = False
+            item["verification_status"] = "unverified_incomplete_analysis"
+            item["preliminary_reason"] = reason
+            item["deduction_valid"] = False
+            potential = _finding_potential_deduction(item)
+            item["deduction"] = None
+            if potential is not None:
+                item["potential_deduction"] = potential
+            gate_effect = item.get("gate_effect")
+            has_gate = isinstance(gate_effect, dict) and bool(gate_effect.get("blocks_96_gate"))
+            has_regulatory = bool(item.get("is_regulatory_breach"))
+            if has_gate or has_regulatory:
+                item["regulatory_breach_status"] = "preliminary_unverified"
+                item["gate_effect"] = {"blocks_96_gate": False}
+                msg = str(item.get("message") or "").strip()
+                if preliminary_note not in msg:
+                    item["message"] = f"{msg} {preliminary_note}".strip()
+    analysis_output["gate"] = {
+        "active": False,
+        "blocked_96": False,
+        "blocked_by": [],
+        "blocked_by_count": 0,
+        "max_score_if_blocked": None,
+        "message": "96-gate er ikke vurdert fordi analysen ikke ble fullført.",
+        "inactive_reason": reason,
+    }
+    score_rows = analysis_output.get("score_by_category")
+    if isinstance(score_rows, list):
+        for row in score_rows:
+            if not isinstance(row, dict):
+                continue
+            row["deduction"] = None
+            row["deduction_valid"] = False
+    for key in ("top_score_drivers", "score_drivers"):
+        if isinstance(analysis_output.get(key), list):
+            analysis_output[key] = []
     incomplete_summary = "Ikke fullstendig kontrollert fordi analysen ble avbrutt."
     breakdown = analysis_output.get("category_breakdown")
     if isinstance(breakdown, list):
         for entry in breakdown:
             if not isinstance(entry, dict):
                 continue
-            try:
-                deduction = int(float(entry.get("deduction") or 0))
-            except (TypeError, ValueError):
-                deduction = 0
-            if deduction <= 0 or str(entry.get("deduction_band") or "").strip() == "Ikke scoretrekk":
-                entry["summary"] = incomplete_summary
+            entry["summary"] = incomplete_summary
+            entry["deduction"] = None
+            entry["deduction_band"] = "Ikke vurdert"
 
 
 def postprocess_analysis_output(
@@ -13878,7 +15369,7 @@ def postprocess_analysis_output(
         meta["report_regime"] = regime_context["report_regime"]
     raw_detected_points = _extract_detected_points(report_text or "")
     validated_detected_points = _validate_detected_points_against_whitelist(raw_detected_points)
-    use_validated_canonical_scoring = _report_text_suggests_compressed_mixed_format(report_text or "")
+    use_validated_canonical_scoring = _report_text_suggests_fremtind_template(report_text or "")
     # Critical: ARKAT scoring must cover all extracted numeric points, not only the
     # whitelist-classified subset used for canonical/UI mapping.
     scoring_points = []
@@ -13988,9 +15479,11 @@ def postprocess_analysis_output(
         if inferred_count:
             logger.info("Fallback TG inference assigned TG for %s scoring points", inferred_count)
     detected_points = _merge_detected_points_with_linked_summary(scoring_points, report_text or "")
+    detected_points = _dedupe_detected_physical_points(detected_points)
     detected_points = _normalize_runtime_scoring_signals(detected_points)
     _hydrate_compressed_mixed_p_style_spans(report_text or "", detected_points)
-    detected_points = _normalize_runtime_scoring_signals(detected_points)
+    detected_points = _dedupe_detected_physical_points(_normalize_runtime_scoring_signals(detected_points))
+    detected_points = _preserve_report_point_ids_for_non_fremtind(detected_points, report_text or "")
     for point in detected_points:
         if not isinstance(point, dict):
             continue
@@ -14016,6 +15509,18 @@ def postprocess_analysis_output(
     meta["runtime_points_raw_count"] = len(raw_detected_points)
     meta["runtime_points_whitelist_count"] = len(validated_detected_points or [])
     meta["runtime_points_scoring_count"] = len(detected_points)
+    analysis_output["source_primary_tg_conclusions"] = [
+        {
+            "point_id": point.get("point_id"),
+            "title": point.get("title"),
+            "tg": point.get("tg"),
+            "page": point.get("page_start"),
+            "span_hash": point.get("span_hash"),
+            "source_tg_marker": point.get("source_tg_marker"),
+        }
+        for point in detected_points
+        if isinstance(point, dict) and point.get("source_primary_tg_conclusion")
+    ]
     _run_client_arkat_semantic_pipeline(
         report_text,
         detected_points,
@@ -14088,6 +15593,7 @@ def postprocess_analysis_output(
     _finalize_category_summary_public_contracts(analysis_output)
     _scrub_age_only_category_summary_without_finding(analysis_output)
     _ensure_tgiu_deductions_visible_in_all_findings(analysis_output)
+    _remove_dead_public_visibility_fields(analysis_output)
     _mark_incomplete_fallback_output(analysis_output)
     final_score_total = analysis_output.get("score_total")
     if isinstance(final_score_total, (int, float)):
@@ -14215,7 +15721,11 @@ def _collect_scored_all_findings_deductions(
         if not isinstance(finding, dict):
             continue
         band = str(finding.get("deduction_band") or "").strip()
-        points = band_to_points.get(band, 0)
+        explicit_points = finding.get("points", finding.get("deduction_points", finding.get("deduction")))
+        try:
+            points = int(explicit_points) if explicit_points is not None else band_to_points.get(band, 0)
+        except (TypeError, ValueError):
+            points = band_to_points.get(band, 0)
         if points <= 0:
             continue
         rule_id = str(finding.get("rule_id") or finding.get("finding_id") or "")
@@ -14267,7 +15777,7 @@ def _supplement_with_scored_legal_findings(
     method_rows, _ = _collect_scored_all_findings_deductions(analysis_output, allowed_categories={"E"})
     method_rows = [
         row for row in method_rows
-        if str(row.get("rule_id") or "") == "E_METHOD.tg3_missing_cost_estimate"
+        if str(row.get("rule_id") or "") in {"E_METHOD.tg3_cost_missing", "E_METHOD.tg3_cost_single_amount_only"}
     ]
     supplemental_rows = legal_rows + method_rows
     if not supplemental_rows:
@@ -14880,7 +16390,10 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
                 meta.setdefault("scoring_model_id", scoring_model_info.get("model_id", ""))
                 meta.setdefault("scoring_model_version", scoring_model_info.get("version", ""))
                 meta.setdefault("scoring_model_updated_at", scoring_model_info.get("updated_at", ""))
+                meta.setdefault("analysis_mode", "full")
+                meta["runtime_manifest"] = get_runtime_manifest(str(meta.get("analysis_mode") or "full"))
                 analysis_output["meta"] = meta
+                analysis_output["runtime_manifest"] = meta["runtime_manifest"]
             if settings.USE_AWS_BEDROCK:
                 seed_used = None
             else:
@@ -14890,6 +16403,7 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
             run_meta = dict(run_meta_base)
             run_meta["model_name"] = model_name
             run_meta["seed"] = seed_used
+            run_meta["runtime_manifest"] = analysis_output.get("runtime_manifest") or get_runtime_manifest(str(meta.get("analysis_mode") or "full"))
             logger.info("Detected %s points before scoring", len(detected_points))
 
             feedback_v11 = build_feedback_v11(

@@ -1,0 +1,114 @@
+{
+  "meta": {
+    "name": "arkat_semantic_rules",
+    "version": "1.2.3",
+    "description": "v1.2.0 introduces TGIU-specific taxonomy and aligns field definitions with pipeline_step. v1.2.1 removes stale deprecated_error_types and clarifies Konsekvens boundary between actual consequence, technical process, and generic risk. v1.2.2 removes the stale '[TG3 only]' qualifier from the anbefalt_tiltak error_type_if_wrong list; MISSING (anbefalt_tiltak) also fires at TG2 under NS3600:2025 per punkt 13.",
+    "applies_to": "All TG2, TG3, and TGIU points across all report formats"
+  },
+  "field_definitions": {
+    "aarsak": {
+      "label": "Årsak",
+      "correct_content": "Explains HOW or WHY the defect has occurred. Describes the cause of the condition, not what was visually observed and not what might happen next.",
+      "forbidden_content": [
+        "A description of what the assessor saw or measured (observation)",
+        "A description of what might happen in the future (risk)",
+        "A statement about who is responsible",
+        "A narrative or history of the building"
+      ],
+      "uncertainty_rule": "If the cause is unknown or uncertain, this must be stated explicitly. Age or expected service life may be used as part of the cause rationale when it reflects ordinary assessment of components approaching end of service life.",
+      "error_signatures": [
+        "Det registreres / Det observeres / Det ble avdekket [beskrivelse av funn]",
+        "Medfører økt risiko for",
+        "Kan føre til",
+        "Kan medføre"
+      ],
+      "error_type_if_wrong": "MISSING (aarsak), OBSERVATION_AS_AARSAK, or RISK_AS_AARSAK"
+    },
+    "risiko": {
+      "label": "Risiko",
+      "correct_content": "Describes what COULD happen to the building or component if the defect is not addressed. Future, conditional, possible development — not a certain outcome. Not a consequence for the buyer.",
+      "forbidden_content": [
+        "What is currently happening to the building (present tense condition)",
+        "What this means for the buyer in practical or economic terms",
+        "A description of the inspection limitation used as a substitute for risk",
+        "A cause explanation presented as risk"
+      ],
+      "language_test": "Risiko should be answerable with: 'If this is not addressed, [building component] could [develop/deteriorate/fail] in [this way].'",
+      "error_signatures": [
+        "Kjøper må påregne [buyer consequence in risk field]",
+        "Dreneringen er ikke synlig for inspeksjon [limitation as risk]",
+        "Kledningen mister evnen til å beskytte [present state]",
+        "Manglende vedlikehold har ført til [past tense causal explanation]",
+        "Dreneringen er utett fra byggeår [cause stated as risk]"
+      ],
+      "error_type_if_wrong": "MISSING (risiko), CONSEQUENCE_AS_RISIKO, LIMITATION_AS_RISIKO, PRESENT_STATE_AS_RISIKO, LIMITATION_USED_AS_RISK_SUBSTITUTE, or AARSAK_AS_RISIKO"
+    },
+    "konsekvens": {
+      "label": "Konsekvens",
+      "legal_basis": "Forskrift til avhendingslova § 2-22 og NS 3600:2025 punkt 13.",
+      "correct_content": "Explains what the defect means for the buyer (cost, safety, use, obligations). Conditional language is explicitly permitted. Damage spreading, reduced lifespan, continued deterioration, safety risk, or practical function loss are accepted because buyer relevance is implicit.",
+      "critical_clarification": "Conditional language ('kan', 'dersom', 'hvis') is NOT an error in Konsekvens. Konsekvens does not need to explicitly say kjøper, kostnad, or funksjonssvikt when the sentence describes an actual følge — damage, råte, reduced lifespan, reduced function, safety risk, investigation or repair need. A sentence that only describes a technical process underway (fukt that can 'trenge inn', 'spre seg', 'trekke videre') without stating what it leads to is NOT sufficient as konsekvens — that is TECHNICAL_DEVELOPMENT_AS_KONSEKVENS. Use RISIKO_AS_KONSEKVENS when the text is only a generic risk formulation without a concrete technical process.",
+      "error_signatures": [
+        "Only technical development with no buyer connection",
+        "Recommended action or maintenance need placed in konsekvens",
+        "Risk formulation placed in konsekvens",
+        "Inspection limitation placed in konsekvens",
+        "Word-for-word duplication of risiko field"
+      ],
+      "error_type_if_wrong": "MISSING (konsekvens), TECHNICAL_DEVELOPMENT_AS_KONSEKVENS, TILTAK_AS_KONSEKVENS, RISIKO_AS_KONSEKVENS, LIMITATION_AS_KONSEKVENS, or PURE_DUPLICATION",
+      "pure_duplication_detection_nb": "Hvis konsekvens-teksten er ordrett identisk med risiko-teksten, eller en nesten-identisk omformulering med samme kjernebetydning og uten å legge til informasjon om hva dette betyr for kjøper konkret, skal dette klassifiseres som PURE_DUPLICATION og ikke som TECHNICAL_DEVELOPMENT_AS_KONSEKVENS."
+    },
+    "anbefalt_tiltak": {
+      "label": "Anbefalt tiltak",
+      "correct_content": "Points to a concrete next step. Should indicate what should be done, by whom or what type of professional, and when.",
+      "error_type_if_wrong": "MISSING (anbefalt_tiltak), EXPLANATION_AS_TILTAK, CONSEQUENCE_AS_TILTAK, TILTAK_IMPERATIVE_FORM, or TILTAK_VAGUE_WITHOUT_NECESSITY",
+      "tiltak_imperative_form_detection_nb": "Tiltak formulert som pålegg eller prosjekterende instruksjon. Kjennetegn: 'Skal utbedres...', 'Må utføres i henhold til...', 'Det kreves at...'. Ikke trigge på 'skal' alene når ordet står i en formåls-/funksjonsleddsetning innenfor en anbefalingsramme, f.eks. 'Det anbefales å ... for at vann skal kunne ledes ...' eller teknisk funksjonsbeskrivelse som 'overflatevann skal ledes ...'. Korrekt form er anbefaling: 'Det anbefales å...', 'Bør utbedres...', 'Videre undersøkelser anbefales...'",
+      "tiltak_vague_without_necessity_detection_nb": "Tiltak er vagt formulert ved TG3 uten å gjøre det klart at utbedring er nødvendig. Kjennetegn: 'Kan vurderes...', 'Eventuelt kan...', 'Kan på sikt...'. Ved TG3 kreves mer forpliktende anbefaling om nødvendig handling.",
+      "consequence_as_tiltak_detection_nb": "Tiltak-feltet beskriver kjøperkonsekvens (kostnader, brukspåvirkning) i stedet for konkret handling. Kjennetegn: 'Må påregne kostnader...', 'Kjøper må være oppmerksom...', 'Forholdet vil medføre...'"
+    }
+  },
+  "tgiu_field_definitions": {
+    "_description_nb": "Evaluering av TGIU-punkter. TGIU-punkter skal IKKE evalueres mot feltdefinisjonene for aarsak/risiko/konsekvens/anbefalt_tiltak. TGIU-punkter skal kun evalueres mot de fire TGIU-spesifikke feiltypene definert under.",
+    "_legal_basis_nb": "NS 3600:2018/2025 punkt 12.1 og 13.1 siste avsnitt. Forskrift til avhendingsloven § 2-14 tredje ledd gir særskilt 'bør'-krav for krypkjeller.",
+    "TGIU_MISSING_REASON": {
+      "description_nb": "TGIU gitt uten tilstrekkelig begrunnelse av hvorfor bygningsdelen ikke var mulig å undersøke.",
+      "correct_content_nb": "Forklaring av hvorfor inspeksjon ikke var mulig: ingen inspeksjonsluke, luke fastskrudd/låst, tak tildekt med snø, lukket konstruksjon uten destruktive inngrep, etc.",
+      "error_signatures_nb": [
+        "Kun 'lukket, ingen tilkomst' uten forklaring av hvorfor",
+        "Kun 'ikke undersøkt' uten kontekst",
+        "Ren konstatering av tilstand uten begrunnelse"
+      ]
+    },
+    "TGIU_MISSING_FURTHER_INVESTIGATION": {
+      "description_nb": "TGIU gitt uten anbefaling om ytterligere undersøkelser.",
+      "correct_content_nb": "Eksplisitt anbefaling om videre undersøkelser.",
+      "error_signatures_nb": [
+        "TGIU-punkt uten noen form for anbefaling om videre undersøkelser",
+        "Kun beskrivelse av hva som ikke ble undersøkt, uten veiledning videre"
+      ]
+    },
+    "TGIU_MISSING_MOISTURE_FLAG": {
+      "description_nb": "Bygningsdel som er eller åpenbart kan være særlig fuktutsatt er gitt TGIU uten at fuktrisiko er tatt stilling til.",
+      "applies_to_building_parts_nb": [
+        "krypkjeller",
+        "rom under terreng",
+        "yttertak med eldre tekking",
+        "våtrom",
+        "innvendig isolerte vegger under terreng"
+      ],
+      "correct_content_nb": "Eksplisitt vurdering av fuktrisiko.",
+      "note_nb": "Skal kun fyres når bygningsdelen er reell risikokonstruksjon."
+    },
+    "TGIU_CRAWLSPACE_MISSING_RISK_CONSEQUENCE": {
+      "description_nb": "Krypkjeller gitt TGIU uten at skaderisiko og konsekvens av manglende inspeksjon er omtalt.",
+      "legal_basis_nb": "Forskrift § 2-14 tredje ledd.",
+      "applies_only_to_nb": "Skal kun fyres på krypkjeller-punkter.",
+      "correct_content_nb": "Omtale av skaderisiko og konsekvens ved manglende inspeksjon av krypkjeller."
+    }
+  },
+  "scoring_integration": {
+    "_note_nb": "Denne filen er ikke lenger eneansvarlig for feil-til-straff-mapping. Mapping av feiltyper til poengtrekk er flyttet til den separate filen arkat_error_to_deduction_mapping_v1_1_0.json. Dommer B returnerer strukturerte feilklassifiseringer; scoring-laget slår opp poengverdier i mapping-tabellen.",
+    "source_of_truth": "arkat_error_to_deduction_mapping_v1_1_0.json",
+    "integration_contract": "See 'integration_contract' section in the mapping file for input/output schema."
+  }
+}

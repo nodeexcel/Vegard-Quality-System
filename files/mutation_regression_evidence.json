@@ -1,0 +1,211 @@
+{
+  "generated_at": "2026-07-14T06:35:47Z",
+  "summary": {
+    "mutation_checks": {
+      "total": 4,
+      "passed": 4,
+      "all_passed": true
+    },
+    "cross_format_regression": {
+      "total": 7,
+      "passed": 7,
+      "all_passed": true
+    },
+    "overall_passed": true
+  },
+  "mutation_checks": [
+    {
+      "field": "aarsak",
+      "tg_grade": "TG2",
+      "mutation": {
+        "before_value": "Manglende fall mot sluk er registrert.",
+        "mutated_value": "MISSING"
+      },
+      "before_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "mutated_run": {
+        "status": "MISSING",
+        "error_type": "MISSING (aarsak)",
+        "finding_fires": true,
+        "expected_status": "MISSING",
+        "expected_error_type": "MISSING (aarsak)"
+      },
+      "revert_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "passed": true
+    },
+    {
+      "field": "risiko",
+      "tg_grade": "TG2",
+      "mutation": {
+        "before_value": "Manglende fall kan føre til vannansamlinger og økt risiko for fuktskader.",
+        "mutated_value": "MISSING"
+      },
+      "before_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "mutated_run": {
+        "status": "MISSING",
+        "error_type": "MISSING (risiko)",
+        "finding_fires": true,
+        "expected_status": "MISSING",
+        "expected_error_type": "MISSING (risiko)"
+      },
+      "revert_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "passed": true
+    },
+    {
+      "field": "konsekvens",
+      "tg_grade": "TG2",
+      "mutation": {
+        "before_value": "Dette kan gi skjulte fuktskader og økte utbedringskostnader over tid.",
+        "mutated_value": "Fukt kan trenge inn bak konstruksjonen."
+      },
+      "before_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "mutated_run": {
+        "status": "WRONG",
+        "error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+        "finding_fires": true,
+        "expected_status": "WRONG",
+        "expected_error_type": "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"
+      },
+      "revert_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "passed": true
+    },
+    {
+      "field": "anbefalt_tiltak",
+      "tg_grade": "TG3",
+      "mutation": {
+        "before_value": "Det anbefales å etablere tilfredsstillende fall mot sluk.",
+        "mutated_value": "MISSING"
+      },
+      "before_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "mutated_run": {
+        "status": "MISSING",
+        "error_type": "MISSING (anbefalt_tiltak)",
+        "finding_fires": true,
+        "expected_status": "MISSING",
+        "expected_error_type": "MISSING (anbefalt_tiltak)"
+      },
+      "revert_run": {
+        "status": "CORRECT",
+        "error_type": null,
+        "finding_fires": false
+      },
+      "passed": true
+    }
+  ],
+  "cross_format_regression": [
+    {
+      "case": "E3/BMTF (unlabeled_prose)",
+      "report_id": "synthetic-E3-BMTF-7.1.3",
+      "ns_version": "NS3600:2025",
+      "report_format": "unlabeled_prose",
+      "expected_findings": [],
+      "actual_has_errors": false,
+      "actual_findings": [],
+      "passed": true
+    },
+    {
+      "case": "Fremtind (compressed_mixed)",
+      "report_id": "synthetic-Fremtind-extraction",
+      "ns_version": "NS3600:2025",
+      "report_format": "compressed_mixed",
+      "expected_findings": [
+        "aarsak extracted",
+        "risiko extracted"
+      ],
+      "actual_extracted_fields": [
+        "aarsak",
+        "risiko",
+        "konsekvens",
+        "anbefalt_tiltak"
+      ],
+      "passed": true
+    },
+    {
+      "case": "NS3600:2018 regime detection",
+      "report_id": "synthetic-NS2018-detection",
+      "input_text": "Rapporten er utarbeidet etter NS 3600:2018.",
+      "report_date": "2025-12-20",
+      "expected_ns_version": "NS3600:2018",
+      "expected_source": "report_text",
+      "actual_ns_version": "NS3600:2018",
+      "actual_source": "report_text",
+      "passed": true
+    },
+    {
+      "case": "NS3600:2025 regime detection",
+      "report_id": "synthetic-NS2025-detection",
+      "input_text": "Rapporten er utarbeidet etter NS 3600:2025.",
+      "report_date": "2026-05-26",
+      "expected_ns_version": "NS3600:2025",
+      "expected_detail": "ns3600_2025",
+      "actual_ns_version": "NS3600:2025",
+      "actual_detail": "ns3600_2025",
+      "passed": true
+    },
+    {
+      "case": "TG3-cost backstop",
+      "report_id": "synthetic-TG3-cost-backstop",
+      "ns_version": "NS3600:2025",
+      "expected_findings": [
+        "E_METHOD.tg3_cost_missing"
+      ],
+      "actual_findings": [
+        "E_METHOD.tg3_cost_missing"
+      ],
+      "passed": true
+    },
+    {
+      "case": "TGIU case",
+      "report_id": "synthetic-TGIU-loft",
+      "ns_version": "NS3600:2025",
+      "expected_findings": [
+        "tgiu_findings present"
+      ],
+      "actual_tgiu_findings": [
+        null,
+        null,
+        null
+      ],
+      "passed": true
+    },
+    {
+      "case": "lovlighet/el/no-TG (el_tg_forbidden kept when TG2 present)",
+      "report_id": "synthetic-el-tg-forbidden",
+      "input": "Point L-EL has TG2, el_tg_forbidden finding present",
+      "expected_findings": [
+        "E_METHOD.el_tg_forbidden kept (TG2 present on el point)"
+      ],
+      "actual_findings": [
+        "E_METHOD.el_tg_forbidden"
+      ],
+      "passed": true
+    }
+  ]
+}

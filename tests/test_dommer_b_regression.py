@@ -46,14 +46,17 @@ from app.services.ai_analyzer import (  # noqa: E402
     _sanitize_user_facing_text_contracts,
     _scrub_age_only_category_summary_without_finding,
     _sync_category_breakdown_with_score_by_category,
+    build_feedback_v11,
 )
 from app.services.arkat_semantic_pipeline import (  # noqa: E402
+    _detect_ns_version_for_dommer_b,
     _evaluate_arkat_point,
     _extract_fields_for_point,
     _finalize_arkat_fields,
     _best_action_sentence_from_text,
     _normalize_arkat_eval_result,
     _sanitize_arkat_field_values,
+    _sanitize_pdf_layout_text_for_arkat,
     _strip_embedded_summary_tables_for_arkat_fields,
 )
 
@@ -235,10 +238,11 @@ def test_semantic_tg3_cost_backstop_adds_missing_terrain_cost_only():
         if "kostnad" in json.dumps(item, ensure_ascii=False).lower()
     ]
     assert {item["exact_point_id"] for item in cost_findings} == {"P01E_TERRAIN"}
-    compliance = [item for item in cost_findings if item.get("rule_id") == "E_METHOD.tg3_missing_cost_estimate"]
+    compliance = [item for item in cost_findings if item.get("rule_id") == "E_METHOD.tg3_cost_missing"]
     assert len(compliance) == 1
     assert compliance[0]["category"] == "E"
     assert compliance[0]["is_regulatory_breach"] is True
+    assert compliance[0]["points"] == 8
     assert compliance[0]["gate_effect"]["blocks_96_gate"] is True
 
 
@@ -272,8 +276,8 @@ def test_tg3_missing_cost_compliance_finding_scores_category_e_and_gate():
     _normalize_scoring_output(analysis_output)
 
     rows = {row["category_id"]: row for row in analysis_output["score_by_category"]}
-    assert rows["E"]["deduction"] > 0
-    compliance = [item for item in analysis_output["all_findings"] if item.get("rule_id") == "E_METHOD.tg3_missing_cost_estimate"]
+    assert rows["E"]["deduction"] == 8
+    compliance = [item for item in analysis_output["all_findings"] if item.get("rule_id") == "E_METHOD.tg3_cost_missing"]
     assert compliance and compliance[0]["gate_effect"]["blocks_96_gate"] is True
 
 
@@ -289,6 +293,18 @@ def test_incomplete_fallback_marks_score_invalid_and_categories_unchecked():
             {"category": "B - TG-setting og konsistens", "deduction": 0, "deduction_band": "Ikke scoretrekk", "summary": "Ingen scoretrekk i denne kategorien."},
             {"category": "E - Metodikk og lovforankring", "deduction": 5, "deduction_band": "Høyt trekk", "summary": "Scoretrekk i denne kategorien er synliggjort i funnlisten."},
         ],
+        "all_findings": [
+            {
+                "finding_id": "E_METHOD_tg3_cost_missing_P01E_TERRAIN",
+                "rule_id": "E_METHOD.tg3_cost_missing",
+                "category": "E",
+                "is_regulatory_breach": True,
+                "points": 8,
+                "deduction": 8,
+                "gate_effect": {"blocks_96_gate": True},
+                "message": "Punkt P01E_TERRAIN mangler kostnad.",
+            }
+        ],
     }
 
     _mark_incomplete_fallback_output(analysis_output)
@@ -299,8 +315,215 @@ def test_incomplete_fallback_marks_score_invalid_and_categories_unchecked():
     assert analysis_output["incomplete_reason"] == "input_truncated"
     assert analysis_output["score_total"] is None
     assert analysis_output["trygghetsscore"] is None
+    assert analysis_output["gate"]["active"] is False
+    assert analysis_output["category_breakdown"][0]["deduction_band"] == "Ikke vurdert"
     assert analysis_output["category_breakdown"][0]["summary"] == "Ikke fullstendig kontrollert fordi analysen ble avbrutt."
-    assert analysis_output["category_breakdown"][1]["summary"] == "Scoretrekk i denne kategorien er synliggjort i funnlisten."
+    assert analysis_output["category_breakdown"][1]["deduction_band"] == "Ikke vurdert"
+    assert analysis_output["category_breakdown"][1]["summary"] == "Ikke fullstendig kontrollert fordi analysen ble avbrutt."
+    finding = analysis_output["all_findings"][0]
+    assert finding["is_regulatory_breach"] is True
+    assert finding["verification_status"] == "unverified_incomplete_analysis"
+    assert finding["deduction"] is None
+    assert finding["potential_deduction"] == 8
+    assert finding["deduction_valid"] is False
+    assert finding["gate_effect"]["blocks_96_gate"] is False
+    assert analysis_output["runtime_manifest"]["loaded"]
+
+
+def test_incomplete_feedback_policy_preserves_findings_and_points_overview():
+    analysis_output = {
+        "meta": {
+            "analysis_mode": "local_postprocess_dommer_b_fallback",
+            "incomplete_full_analyzer_reasons": ["input_truncated"],
+        },
+        "analysis_mode": "local_postprocess_dommer_b_fallback",
+        "incomplete_full_analyzer_reasons": ["input_truncated"],
+        "score_total": None,
+        "score_by_category": [{"category_id": "E", "deduction": None, "max_deduction": 10, "deduction_valid": False}],
+        "all_findings": [
+            {
+                "finding_id": "E_METHOD_tg3_cost_missing_P01E_TERRAIN",
+                "rule_id": "E_METHOD.tg3_cost_missing",
+                "category": "E",
+                "severity": "major",
+                "point_id": "P01E_TERRAIN",
+                "exact_point_id": "P01E_TERRAIN",
+                "exact_point_title": "Utforming terreng",
+                "message": "Punkt P01E_TERRAIN mangler kostnad.",
+                "recommended_fix_text": "Legg inn kostnad for P01E_TERRAIN.",
+                "suggested_rewrite_text": "P01E_TERRAIN: oppgi kostnadsklasse.",
+                "points": 8,
+                "deduction": 8,
+                "is_regulatory_breach": True,
+                "gate_effect": {"blocks_96_gate": False},
+            },
+            {
+                "finding_id": "A_ARKAT_10_1_RISIKO_MISSING_RISIKO",
+                "rule_id": "A_ARKAT_SEMANTIC.RISIKO.MISSING_RISIKO",
+                "category": "A",
+                "severity": "minor",
+                "point_id": "10.1",
+                "exact_point_id": "10.1",
+                "exact_point_title": "Vegger/himlinger",
+                "message": "Punkt 10.1 mangler risiko.",
+                "deduction_band": "Middels trekk",
+                "gate_effect": {"blocks_96_gate": False},
+            },
+        ],
+    }
+    detected_points_payload = {
+        "points": [
+            {"point_id": "P01E_TERRAIN", "canonical_point_id": "P01E_TERRAIN", "title": "Utforming terreng", "page_start": 13, "tg": "TG3"},
+            {"point_id": "10.1", "numeric_id": "10.1", "native_label": "10.1", "title": "Vegger/himlinger", "page_start": 49, "tg": "TG2"},
+        ]
+    }
+
+    _mark_incomplete_fallback_output(analysis_output)
+    feedback = build_feedback_v11(analysis_output, detected_points_payload, "1815", "hash", "")
+
+    assert feedback["analysis_complete"] is False
+    assert feedback["score_valid"] is False
+    assert feedback["runtime_manifest"]["loaded"]
+    assert len(feedback["findings"]) == 2
+    assert len(feedback["points_overview"]) >= 2
+    cost = next(item for item in feedback["findings"] if item["rule_id"] == "E_METHOD.tg3_cost_missing")
+    assert cost["is_regulatory_breach"] is True
+    assert cost["verification_status"] == "unverified_incomplete_analysis"
+    assert cost["deduction"] is None
+    assert cost["potential_deduction"] == 8
+    assert cost["deduction_valid"] is False
+    assert cost["affects_96_gate"] is False
+    public_text = json.dumps(
+        [
+            item.get("message")
+            for item in feedback["findings"]
+        ]
+        + [
+            item.get("what_to_change")
+            for item in feedback["findings"]
+        ],
+        ensure_ascii=False,
+    )
+    assert "P01E_TERRAIN" not in public_text
+    # policy_invariants is QA/diagnostic data - lives in analysis_output, not in customer-facing feedback_v11
+    assert "policy_invariants" not in feedback, "policy_invariants must not appear in customer-facing feedback_v11"
+    invariant_results = {item["id"]: item["passed"] for item in analysis_output.get("policy_invariants", [])}
+    assert invariant_results["INV-01_finding_traceability"] is True
+    assert invariant_results["INV-02_points_overview_completeness"] is True
+    assert invariant_results["INV-03_gate_score_coherence"] is True
+    assert invariant_results["INV-06_no_internal_id_leakage"] is True
+
+
+@pytest.mark.parametrize(
+    ("field_name", "mutated_value", "expected_status", "expected_error"),
+    [
+        ("aarsak", "MISSING", "MISSING", "MISSING (aarsak)"),
+        ("risiko", "MISSING", "MISSING", "MISSING (risiko)"),
+        ("konsekvens", "Fukt kan trenge inn bak konstruksjonen.", "WRONG", "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"),
+        ("anbefalt_tiltak", "MISSING", "MISSING", "MISSING (anbefalt_tiltak)"),
+    ],
+)
+def test_bolavi_mutation_checks_fire_for_each_arkat_field_class(field_name, mutated_value, expected_status, expected_error):
+    fields = {
+        "aarsak": "Manglende fall mot sluk er registrert.",
+        "risiko": "Manglende fall kan føre til vannansamlinger og økt risiko for fuktskader.",
+        "konsekvens": "Dette kan gi skjulte fuktskader og økte utbedringskostnader over tid.",
+        "anbefalt_tiltak": "Det anbefales å etablere tilfredsstillende fall mot sluk.",
+    }
+    fields[field_name] = mutated_value
+
+    actual = _evaluate_arkat_point(
+        point_id="MUT-1",
+        point_label="Mutasjonstest våtrom",
+        tg_grade="TG3" if field_name == "anbefalt_tiltak" else "TG2",
+        report_format="semi_structured",
+        ns_version="NS3600:2025",
+        raw_point_text="\n".join(str(value) for value in fields.values()),
+        extracted_fields=fields,
+        report_context={},
+        normalize_text=normalize_text,
+        allow_llm=False,
+    )
+
+    result = actual["field_results"][field_name]
+    assert result["status"] == expected_status
+    assert result["error_type"] == expected_error
+
+
+def test_cross_format_regression_smoke_set_covers_required_runtime_axes():
+    e3_bmtf = _evaluate_arkat_point(
+        point_id="7.1.3",
+        point_label="Membran, tettesjiktet og sluk",
+        tg_grade="TG2",
+        report_format="unlabeled_prose",
+        ns_version="NS3600:2025",
+        raw_point_text="Membran har alder. Fukt kan gi skjulte skader. Dette kan medføre behov for omfattende utbedring og kostnader for kjøper. Oppgradering bør vurderes.",
+        extracted_fields={
+            "aarsak": "Membran har alder.",
+            "risiko": "Fukt kan gi skjulte skader.",
+            "konsekvens": "Dette kan medføre behov for omfattende utbedring og kostnader for kjøper.",
+            "anbefalt_tiltak": "Oppgradering bør vurderes.",
+        },
+        report_context={},
+        normalize_text=normalize_text,
+        allow_llm=False,
+    )
+    assert e3_bmtf["has_errors"] is False
+
+    fremtind = _extract_fields_for_point(
+        "compressed_mixed",
+        "Årsak: Avviket skyldes alder. Risiko: Det kan føre til fuktskader. Konsekvens: Skader kan gi utbedringsbehov. Tiltak: Utbedring anbefales.",
+        lambda _text, _field: "",
+        normalize_text,
+    )
+    assert "aarsak" in fremtind and "risiko" in fremtind
+
+    ns_2018, meta_2018 = _detect_ns_version_for_dommer_b(
+        "Rapporten er utarbeidet etter NS 3600:2018.",
+        report_date="2025-12-20",
+        context_ns_version="",
+        normalize_text=normalize_text,
+    )
+    ns_2025, meta_2025 = _detect_ns_version_for_dommer_b(
+        "Rapporten er utarbeidet etter NS 3600:2025.",
+        report_date="2026-05-26",
+        context_ns_version="",
+        normalize_text=normalize_text,
+    )
+    assert (ns_2018, meta_2018["source"]) == ("NS3600:2018", "report_text")
+    assert (ns_2025, meta_2025["detail"]) == ("NS3600:2025", "ns3600_2025")
+
+    tg3_output = {"meta": {"ns_version": "NS 3600:2025"}, "all_findings": [], "arkat_semantic_pipeline": {"ns_version": "NS3600:2025", "report_format": "semi_structured", "points": [{"point_id": "3", "title": "Terrengforhold", "tg_grade": "TG3", "raw_point_text": "TG 3 Terrengforhold. Det anbefales fall fra grunnmur.", "extracted_fields": {}}]}}
+    _ensure_semantic_tg3_cost_backstop("", tg3_output)
+    assert any(item.get("rule_id") == "E_METHOD.tg3_cost_missing" for item in tg3_output["all_findings"])
+
+    tgiu = _evaluate_arkat_point(
+        point_id="TGIU-1",
+        point_label="Loft",
+        tg_grade="TGIU",
+        report_format="semi_structured",
+        ns_version="NS3600:2025",
+        raw_point_text="Loftkonstruksjonen er lukket og kan ikke vurderes.",
+        extracted_fields={"aarsak": "", "risiko": "", "konsekvens": "", "anbefalt_tiltak": ""},
+        report_context={},
+        normalize_text=normalize_text,
+        allow_llm=False,
+    )
+    assert tgiu["tgiu_findings"]["findings"]
+
+    legal_no_tg = {"all_findings": [{"rule_id": "E_METHOD.el_tg_forbidden", "point_id": "L-EL", "message": "Elektrisk anlegg skal ikke ha TG."}]}
+    _drop_false_electrical_tg_forbidden_findings(legal_no_tg, [{"point_id": "L-EL", "title": "Elektrisk anlegg", "tg": "TG2"}])
+    assert legal_no_tg["all_findings"]
+
+
+def test_pdf_glyph_cleanup_runs_before_dommer_b_text_use():
+    raw = "Manglende fall kan føre til hø5 fuktbelastning. Slitte sk’øter kan gi sk’ulte skader i konstruks’onen. (cid:17)TG2"
+    cleaned = _sanitize_pdf_layout_text_for_arkat(raw)
+    assert "(cid:" not in cleaned
+    assert "høy fuktbelastning" in cleaned
+    assert "skjøter" in cleaned
+    assert "skjulte" in cleaned
+    assert "konstruksjonen" in cleaned
 
 
 def test_zero_deduction_category_summary_guard_requires_visible_finding():
@@ -1199,8 +1422,8 @@ def test_feedback_missing_tiltak_sanitizer_does_not_create_tg3_finding_for_tg2()
     blob = json.dumps(findings, ensure_ascii=False)
 
     assert "TG3_MISSING_TILTAK_7_1_3" not in blob
-    assert "TG3_MISSING_TILTAK_7_2_3" in blob
-    assert len(findings) == 1
+    assert "TG3_MISSING_TILTAK_7_2_3" not in blob
+    assert [item["finding_id"] for item in findings] == ["raw-7.1.3", "raw-7.2.3"]
 
 
 def test_compressed_mixed_special_room_kjolerom_blocks_are_path_anchored():
@@ -1642,4 +1865,3 @@ def test_final_category_summary_contract_removes_tg3_mangler_ogsaa_cost_variant(
 
     assert "kostnadsanslag" not in summary
     assert "mangler også" not in summary
-

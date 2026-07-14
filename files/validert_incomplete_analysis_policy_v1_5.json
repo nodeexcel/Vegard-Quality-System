@@ -1,0 +1,379 @@
+{
+  "file_id": "validert_incomplete_analysis_policy",
+  "version": "1.5.0",
+  "status": "active",
+  "created": "2026-07-06",
+  "language": "en",
+  "purpose": "Governs all pipeline behavior when a run cannot be completed (analysis_complete = false), including the local_postprocess_dommer_b_fallback path. Core principle: the fallback path must not produce stronger claims than the completeness of the run justifies.",
+  "decision_log": [
+    {
+      "decision": "breach_semantics_class_state_separation",
+      "description": "is_regulatory_breach is a static property of the rule class; run state is carried by verification_status.",
+      "decided_by": "product_owner",
+      "date": "2026-07-06"
+    },
+    {
+      "decision": "deny_list_absolute_no_exceptions",
+      "description": "The deny list in section 'forbidden_in_fallback' has no provisional/exception clause.",
+      "decided_by": "product_owner",
+      "date": "2026-07-06"
+    },
+    {
+      "decision": "runtime_manifest_required",
+      "description": "Every run must self-report loaded governance files with versions and hashes.",
+      "decided_by": "product_owner",
+      "date": "2026-07-06"
+    },
+    {
+      "decision": "inv01_bidirectional_content_preserving",
+      "description": "INV-01 strengthened: bidirectional traceability and content preservation (rule_id, category, TG reference identical to source). Motivated by the TG3_MISSING_TILTAK mutation found 2026-07-07.",
+      "decided_by": "product_owner",
+      "date": "2026-07-07"
+    },
+    {
+      "decision": "single_finding_id_scheme",
+      "description": "One finding_id scheme across all layers; source_finding_id must be an exact all_findings id.",
+      "decided_by": "product_owner",
+      "date": "2026-07-07"
+    },
+    {
+      "decision": "inv06_all_customer_payload_fields",
+      "description": "Internal-ID ban extended from text fields to all customer-payload fields including finding_id, point_id, canonical_id and points_overview children.",
+      "decided_by": "product_owner",
+      "date": "2026-07-07"
+    },
+    {
+      "decision": "deduction_rule_layer_independent",
+      "description": "No definite deduction values in any customer-facing field when deduction_valid is false, including points_overview children.",
+      "decided_by": "product_owner",
+      "date": "2026-07-07"
+    },
+    {
+      "decision": "inv10_real_hash_verification",
+      "description": "INV-10 requires actual hash verification, rejects empty-file hash for content-bearing files, and adds version uniqueness: for the same file_id, the same version string implies byte-identical content.",
+      "decided_by": "product_owner",
+      "date": "2026-07-07"
+    },
+    {
+      "decision": "qa_verification_basis_labeling",
+      "description": "Cross-file claims in QA reports must state their verification basis (byte-verified vs version-string match vs unverified).",
+      "decided_by": "product_owner",
+      "date": "2026-07-07"
+    },
+    {
+      "decision": "baseline_reset_conditional",
+      "description": "One-time controlled baseline reset (option B+): the runtime_manifest of the 2026-07-08 Bolavi run is declared the canonical hash baseline for all loaded file_id+version pairs, CONDITIONAL on delivery of the runtime file set whose hashes match that manifest exactly. From that baseline run onward, any byte change to the same file_id requires a version bump with no exceptions. Files changed to fix findings from this round must be bumped (minimum: rag_language_rules to 1.7, arkat_semantic_rules to 1.2.3; arkat_error_to_deduction_mapping must be bumped when changed for the severity/deduction pass-through fix).",
+      "decided_by": "product_owner",
+      "date": "2026-07-08"
+    },
+    {
+      "decision": "inv01_full_passthrough",
+      "description": "INV-01c extended: severity and potential_deduction must pass through unchanged from source finding to feedback; deduction_band follows the explicit band rule (source value in complete runs, 'Ikke vurdert'/null while deduction_valid is false). The feedback layer must not maintain a parallel severity or deduction vocabulary or recompute values.",
+      "decided_by": "product_owner",
+      "date": "2026-07-08"
+    },
+    {
+      "decision": "public_visibility_semantics",
+      "description": "public_visibility is currently unenforced and inconsistently populated (mix of 'internal', empty, null). It must either be removed as a dead field, or proposed as a documented feedback filter for explicit product-owner decision. It must NOT be enforced as a visibility filter without a decision_log entry and a corresponding filter rule in visibility_policy - enforcing it as-is would hide 14 of 19 findings and recreate the content-loss regression.",
+      "decided_by": "product_owner",
+      "date": "2026-07-08"
+    },
+    {
+      "decision": "format_extraction_binding",
+      "description": "Each report is classified into exactly one report format, and only that format's extraction path produces evaluated points. Canonical/P-code mapping may be used as metadata/annotation on correctly extracted points, but a non-matching canonical/P-code or template-specific extraction/evaluation path must not run as a separate point-producing path. Motivated by Bolavi (an independent template) being partially processed through the Fremtind path, producing duplicate point detection.",
+      "decided_by": "product_owner",
+      "date": "2026-07-08"
+    },
+    {
+      "decision": "internal_ids_required_internally",
+      "description": "INV-06 scope clarification: the internal-ID ban applies to customer payload only. Internal layers (dommer_b_full, detected_points, all_findings) MUST carry stable point identifiers; empty point_id in internal layers is a violation.",
+      "decided_by": "product_owner",
+      "date": "2026-07-08"
+    },
+    {
+      "decision": "invariant_runner_evidence",
+      "description": "Invariant runners must output evidence per invariant, not only pass/fail (e.g. INV-07 must list which report section each evaluated point resolves to). Motivated by both developer-side and reviewer-side INV-07 runners passing on a renamed duplicate.",
+      "decided_by": "product_owner",
+      "date": "2026-07-08"
+    },
+    {
+      "decision": "inv13_source_anchored_tg_coverage",
+      "description": "New invariant class after the Track-3 coverage regression (2026-07-09): removing the misclassified extraction path also removed section assembly, silently dropping 8 of 11 TG points including a verified TG3 regulatory breach. INV-13 requires source-anchored TG coverage: every primary TG2/TG3/TGIU section conclusion in the report text (summary-aware: overview/TOC/duplicate markers link to the same point) must resolve to exactly one assembled, evaluated point, with per-marker evidence. Added under the production-gate clause permitting new invariants only for new finding classes.",
+      "decided_by": "product_owner",
+      "date": "2026-07-09"
+    },
+    {
+      "decision": "manifest_self_versioning",
+      "description": "The MANIFEST registry file follows the same version-uniqueness rule as all governance files: when its content changes, its own version must bump. Registry updates are not exempt.",
+      "decided_by": "product_owner",
+      "date": "2026-07-09"
+    },
+    {
+      "decision": "inv14_arkat_subsection_binding",
+      "description": "New invariant after the field-binding regression (2026-07-10): section assembly is correct but extracted_fields binds method text ('Hvordan kontrollen er utført', 'Formålet er å avdekke...') as risiko/aarsak in sections that contain explicit ARKAT subheadings, producing false A-findings (>=5 of 11 findings on the Bolavi run). New finding class, added under the production-gate clause.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "inv15_customer_message_language_adopted",
+      "description": "The customer-message-language invariant Atul introduced ad hoc is adopted into governance as INV-15. Good content, wrong process: invariants enter via this file, never by runner-side substitution.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "runner_set_derived_from_policy",
+      "description": "The executed invariant set must be derived from the loaded policy file: executed invariant IDs must equal the policy's invariant IDs exactly. Substituting or omitting an invariant (ref. INV-11_single_id_scheme replaced by a language check on 2026-07-10) is an INV-10-class governance failure.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "inv04_evidence_specification",
+      "description": "INV-04 evidence must list, per fired rule_id, the defining governance file and the derivation (e.g. field + error_type from arkat_semantic_rules, deduction from arkat_error_to_deduction_mapping). An empty ungoverned-list without attribution counts as not run.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "evidence_page_passthrough",
+      "description": "feedback evidence.page must equal the resolved source page (INV-13 source_page); defaulted page values are INV-01 violations. Found 2026-07-10: all 11 feedback findings carried page 1 while INV-13 held correct pages 11-42.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "customer_rendering_boundary",
+      "description": "feedback_v11 is the only customer-facing layer in incomplete/fallback mode; internal layers must never render to customers.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "inv16_regime_consistency",
+      "description": "New invariant after the regime-detection regression (2026-07-10): the assembly fix broke ns-version/date detection (source flipped to hard_default_2018, report_date empty, per-point ns_version 2018 while top-level says 2025). Regime drives the TG2-tiltak rule and all rapportdato-gated legal rules; silent regime flips are a new finding class.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "inv17_overview_finding_assignment",
+      "description": "New invariant after the overview misassignment (2026-07-10): the single E finding was attached to two wrong parents in points_overview. Finding-to-parent assignment must be derivable from the finding's point.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    },
+    {
+      "decision": "regression_set_and_mutation_tests",
+      "description": "Before the 97% reliability claim: (a) mutation tests - one per ARKAT field class, degrade a known-good text and confirm the expected finding fires, then revert; (b) a cross-format regression set: one E3/BMTF report, one Fremtind report, one NS3600:2018 report, one NS3600:2025 report, one TG3-cost case, one TGIU case, one lovlighet/el/no-TG case, each verified against documented expected findings.",
+      "decided_by": "product_owner",
+      "date": "2026-07-10"
+    }
+  ],
+  "scope": {
+    "applies_when": "meta.analysis_complete == false OR meta.score_valid == false OR analysis_mode is any fallback mode",
+    "applies_to_layers": [
+      "meta",
+      "dommer_b_full",
+      "analysis_output",
+      "detected_points_payload",
+      "scoring_result_payload",
+      "feedback_v11"
+    ],
+    "does_not_apply": "Complete runs (analysis_complete == true AND score_valid == true). The 2018 pipeline is out of scope and must remain untouched."
+  },
+  "allowed_in_fallback": [
+    "Preliminary findings, each carrying preliminary: true and a verification_status value",
+    "Warnings and limited_analysis_warning texts",
+    "Extracted observations and detected points",
+    "Null score with score_valid: false and ui_status: incomplete_analysis"
+  ],
+  "forbidden_in_fallback": {
+    "note": "Absolute. No provisional or exception clause. New product logic enters only via versioned governance file changes plus MANIFEST update.",
+    "rules": [
+      "MUST NOT introduce rule IDs that do not exist in exactly one loaded rule-governance file reported in runtime_manifest",
+      "MUST NOT introduce finding types or error types not defined in the loaded governance files",
+      "MUST NOT apply deduction values that do not exist in the loaded scoring model or deduction mapping",
+      "MUST NOT introduce new gate logic or activate any gate effect",
+      "MUST NOT introduce new category mappings or new severity levels",
+      "MUST NOT present any score, deduction total, or gate result as authoritative",
+      "MUST NOT expose internal score reconciliation values (e.g. internally computed totals) in any output layer consumed by UI, API or export"
+    ]
+  },
+  "finding_semantics": {
+    "is_regulatory_breach": {
+      "meaning": "Static classification of the RULE: true when the rule enforces a requirement anchored in forskrift til avhendingslova. Never toggled by run state.",
+      "fallback_value": "Same as in a complete run. A forskrift-anchored rule keeps is_regulatory_breach: true even when the finding is preliminary."
+    },
+    "verification_status": {
+      "meaning": "State of the RUN for this finding.",
+      "allowed_values": [
+        "verified_complete_analysis",
+        "unverified_incomplete_analysis"
+      ],
+      "fallback_value": "unverified_incomplete_analysis"
+    },
+    "preliminary": {
+      "meaning": "true on every finding emitted from an incomplete run.",
+      "fallback_value": true
+    },
+    "gate_effect": {
+      "fallback_value": "All gate effects disabled (blocks_96_gate: false, no caps). Gate effects activate only in a complete run."
+    },
+    "deduction_presentation": {
+      "rule": "No definite deduction number may be presented while deduction_valid is false. Either the finding's deduction is null in incomplete runs, or it is explicitly labeled as potential (e.g. potential_deduction). A definite number next to an invalid category total is forbidden. This rule is layer-independent and applies to points_overview children and any other customer-facing structure.",
+      "canonical_incomplete_example": {
+        "is_regulatory_breach": true,
+        "verification_status": "unverified_incomplete_analysis",
+        "preliminary": true,
+        "deduction": null,
+        "potential_deduction": 8,
+        "deduction_valid": false,
+        "gate_effect": {
+          "blocks_96_gate": false
+        }
+      },
+      "band_rule": "deduction_band: in complete runs, pass-through from the source finding; while deduction_valid is false, 'Ikke vurdert' or null. No other band values or vocabularies are permitted in the feedback layer."
+    }
+  },
+  "gate_policy": {
+    "rule": "gate.active MUST be false whenever score_valid is false. gate.message must state why the gate was not assessed and must never contain unrelated warning texts. gate.inactive_reason must be populated.",
+    "canonical_message": "96-gate er ikke vurdert fordi analysen ikke ble fullført."
+  },
+  "score_policy": {
+    "rule": "score_total and overall_score are null. All category deductions are null with deduction_valid: false. Category breakdown bands use 'Ikke vurdert' (or null), never 'Ikke scoretrekk' or 'Ingen scoretrekk'. Internal reconciliation may compute values for diagnostics but they must never surface in customer-facing or API layers."
+  },
+  "visibility_policy": {
+    "rule": "All preliminary findings remain visible in feedback_v11 with preliminary marking. Hiding findings is only permitted via an explicit filter rule defined in this file. points_overview MUST be generated whenever detected points exist, with per-point status reflecting incomplete analysis where applicable.",
+    "feedback_filter_rules": [
+      {
+        "filter_id": "none_active_v1_0",
+        "description": "No suppression filters are currently defined. Every finding in analysis_output.all_findings must appear in feedback_v11.findings. Any future filter must be added here with an id, a predicate description, and a product-owner decision entry in decision_log."
+      }
+    ],
+    "customer_communication": "The customer must always be able to understand: this report was not fully analyzed; findings shown are preliminary; the score and 96-gate were not assessed. Customer-facing text must use the report's own point numbers and titles, never internal canonical IDs (P-codes, fremtind-* slugs or successors).",
+    "public_visibility_field": {
+      "status": "unenforced_pending_decision",
+      "rule": "The public_visibility field on findings is not an active filter. It is inconsistently populated and must either be removed from output as a dead field, or proposed as a documented feedback filter rule for explicit product-owner decision (decision_log entry plus feedback_filter_rules entry). Enforcing it without that decision is a violation of visibility_policy."
+    },
+    "customer_rendering_boundary": "In incomplete/fallback mode, only feedback_v11 may be used for customer-facing rendering. analysis_output (including all_findings, top_issues and raw evidence snippets), dommer_b_full, detected_points_payload and any debug layers must never be rendered to customers; they contain internal status literals and extraction artifacts by design."
+  },
+  "runtime_manifest_requirement": {
+    "rule": "Every run (complete and fallback) must include a runtime_manifest object reporting exactly which governance files were loaded.",
+    "required_fields_per_file": [
+      "file_id",
+      "version",
+      "hash"
+    ],
+    "required_run_fields": [
+      "pipeline_version",
+      "timestamp",
+      "analysis_mode"
+    ],
+    "example": {
+      "runtime_manifest": {
+        "pipeline_version": "x.y.z",
+        "timestamp": "ISO-8601",
+        "analysis_mode": "full | local_postprocess_dommer_b_fallback",
+        "loaded": [
+          {
+            "file_id": "rag_scoring_model_validert",
+            "version": "1.6.13",
+            "hash": "sha256:..."
+          },
+          {
+            "file_id": "dommer_b_system_prompt",
+            "version": "12",
+            "hash": "sha256:..."
+          },
+          {
+            "file_id": "validert_incomplete_analysis_policy",
+            "version": "<current_policy_version>",
+            "hash": "sha256:..."
+          }
+        ]
+      }
+    }
+  },
+  "regression_invariants": {
+    "note": "Invariants are constructed so that degenerate (empty) output FAILS. One-sided subset/count inequalities are insufficient because they pass on empty output. Invariant runners must emit per-invariant evidence, not only pass/fail; a pass without inspectable evidence is treated as not run. The executed invariant set must be derived from the loaded policy file; executed IDs must equal policy IDs exactly.",
+    "invariants": [
+      {
+        "id": "INV-01_finding_traceability",
+        "rule": "Bidirectional and content-preserving: (a) every finding in analysis_output.all_findings exists in feedback_v11.findings or matches exactly one active filter rule; (b) every feedback_v11 finding has source_finding_id equal to an existing all_findings finding_id; (c) the feedback finding's rule_id, category, severity, potential_deduction, point_id and TG reference are identical to (pass-through from) its source finding's; deduction_band follows the band rule in finding_semantics.deduction_presentation (source band in complete runs, 'Ikke vurdert'/null while deduction_valid is false) and is never drawn from a parallel vocabulary; the feedback layer must not maintain a parallel severity or deduction vocabulary or recompute any of these values. Renaming, re-grading, re-labeling or re-valuing in the mapping layer is a violation (ref. TG3_MISSING_TILTAK 2026-07-07; severity/potential_deduction mutation 2026-07-08). Evidence metadata must pass through from the resolved source section: feedback_v11.findings[].evidence.page must equal the INV-13 source_page of the point the finding belongs to; a defaulted page (e.g. 1 for all findings) is a violation."
+      },
+      {
+        "id": "INV-02_points_overview_completeness",
+        "rule": "points_overview entry count equals the number of detected points passing the documented display filter. With no active display filter: count(points_overview) == count(detected points). Empty overview with non-empty detected points is a failure. The display filter producing the overview set must be named in this file; an undocumented count is a failure even if non-zero."
+      },
+      {
+        "id": "INV-03_gate_score_coherence",
+        "rule": "score_valid == false implies gate.active == false and gate.blocked_96 == false and no finding carries an active gate effect."
+      },
+      {
+        "id": "INV-04_no_ungoverned_rules",
+        "rule": "Every fired rule_id (in all_findings AND feedback_v11) exists in exactly one of the loaded rule-governance files reported in runtime_manifest (rag_scoring_model_validert, arkat_error_to_deduction_mapping, arkat_semantic_rules, or successors), and the defining file is identifiable. Every applied or potential deduction value matches the loaded scoring model / deduction mapping. Rule_ids with zero or multiple defining files: violation. Evidence requirement: per fired rule_id, the defining governance file and the derivation path (e.g. field + error_type from arkat_semantic_rules; deduction from arkat_error_to_deduction_mapping). An empty ungoverned-list without per-rule attribution counts as not run."
+      },
+      {
+        "id": "INV-05_taxonomy_field_binding",
+        "rule": "Every (arkat_field, error_type) pair matches the field-bound catalog in the loaded dommer B prompt version. Out-of-catalog pairs: zero (log and map to nearest valid type per guard rule)."
+      },
+      {
+        "id": "INV-06_no_internal_id_leakage",
+        "rule": "No internal canonical IDs (P-code pattern, fremtind-* slugs or successors) in ANY customer-payload field of feedback_v11: message, title, what_to_change, example_fix, finding_id, source-references exposed to UI, point_id, point_key, canonical_id, and points_overview entries including children[].point_id. Customer payload uses the report's own point numbers and titles. Scope clarification: this ban applies to customer payload only. Internal layers (dommer_b_full, detected_points_payload, analysis_output) MUST carry stable non-empty point identifiers; empty point_id in internal layers is a violation."
+      },
+      {
+        "id": "INV-07_no_duplicate_physical_points",
+        "rule": "No two evaluated points resolve to the same underlying report section. Duplicate detection is keyed on physical section identity (source span/section in the report), NOT on point_id equality - renamed or re-slugged duplicates are still duplicates. The invariant runner must output, as evidence, the source section each evaluated point resolves to; two points overlapping the same section is a violation regardless of their IDs (ref. 10.2 + P10B_FLOORS/gulv_tg2, unresolved through two ID schemes)."
+      },
+      {
+        "id": "INV-08_preliminary_consistency",
+        "rule": "analysis_complete == false implies every emitted finding has preliminary == true and verification_status == unverified_incomplete_analysis, and no finding presents a definite deduction while deduction_valid is false. Layer-independent: no definite deduction_total, deduction or band implying a definite value may appear in any customer-facing structure (including points_overview children) while deduction_valid is false; use null or potential_ fields."
+      },
+      {
+        "id": "INV-09_score_band_consistency",
+        "rule": "score_valid == false implies no category band value of 'Ikke scoretrekk'/'Ingen scoretrekk' anywhere, and score_total == null in every layer including feedback_v11."
+      },
+      {
+        "id": "INV-10_manifest_presence",
+        "rule": "runtime_manifest exists and is non-empty; every entry's hash is the actual SHA256 of the loaded bytes (verified, not asserted); no content-bearing governance file may carry the empty-file hash e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; every file_id resolves to a file whose internal version matches the manifest entry; and version uniqueness holds: two files sharing a version string for the same file_id must be byte-identical."
+      },
+      {
+        "id": "INV-11_single_id_scheme",
+        "rule": "Exactly one finding_id scheme across all layers. all_findings.finding_id, feedback_v11.findings.finding_id and source_finding_id values are drawn from the same namespace; source_finding_id string-matches an existing all_findings finding_id. Multiple parallel ID schemes: violation."
+      },
+      {
+        "id": "INV-12_format_extraction_binding",
+        "rule": "Each report is classified into exactly one report format by report_format_detection, recorded in the output. Only the extraction path for that format runs and produces evaluated points. Canonical point mapping MAY be applied as metadata/annotation on points produced by the correct path (e.g. for grouping or overview), but canonical/P-code extraction must never run as a separate extraction or evaluation path producing additional points for a non-matching report. Points originating from a non-matching format's extraction scheme are a violation. The classification decision and its basis must be present in the output for review."
+      },
+      {
+        "id": "INV-13_source_anchored_tg_coverage",
+        "rule": "Source-anchored TG coverage, summary-aware: every PRIMARY TG2/TG3/TGIU conclusion in a detailed report section (e.g. 'Konklusjon bygningsdel: TG x' within the section body) must resolve to exactly one assembled detected point carrying that TG, and every such point must be evaluated. TG markers in summary tables, tables of contents, repeated overview text and duplicate excerpts must be LINKED to the same physical point, not counted as separate required points. expected_tg_points must be derived from the source text's primary TG conclusions, not from the extraction path's own output. Evidence: the runner lists every primary TG conclusion found, its section, and the point it resolved to, plus which summary/duplicate markers were linked rather than counted. Primary conclusions resolving to zero or multiple points are violations. A run whose expected_tg_points shrinks against the source's primary TG conclusions is a coverage failure regardless of all other invariants passing."
+      },
+      {
+        "id": "INV-14_arkat_subsection_binding",
+        "rule": "When an assembled section contains explicit ARKAT subheadings (e.g. 'Avvik/Årsak', 'Risiko/Konsekvens', 'Anbefalte tiltak', 'Vurdering'), extracted_fields MUST bind to the text of those subblocks. Method/boilerplate text (e.g. 'Hvordan kontrollen er utført', 'Formålet er å avdekke...', 'Det vurderes også forhold...') must never be used as aarsak/risiko/konsekvens/anbefalt_tiltak when an explicit subblock exists, and a field must not be reported MISSING when its subheading is present with content. Sections with multiple avvik must capture all of them, not only the first header line. Evidence: per point and field, the subsection heading and character offset the extracted text was bound to; bindings to method text where an explicit block exists are violations."
+      },
+      {
+        "id": "INV-15_customer_message_language",
+        "rule": "Customer-facing messages and titles contain no QA status codes (WRONG/MISSING), no internal field names (aarsak/anbefalt_tiltak as literals), no internal IDs, no (cid:) artifacts, and grammatically correct Norwegian (no indefinite-article/definite-noun mismatches). Evidence: the checked field set and zero-violation confirmation per field class."
+      },
+      {
+        "id": "INV-16_regime_consistency",
+        "rule": "NS-version and report-date consistency across all layers: ns_version_detection.source must not be 'default' when the report text contains version or date evidence; per-point ns_version must equal the top-level detected version; report_date must be populated and identical in meta, analysis_output and dommer_b_full. Evidence: the detection source, the text span it was derived from, and the per-layer values. A silent fallback to hard_default_2018 on a report with detectable 2025/date evidence is a violation - regime drives TG2-tiltak enforcement and all rapportdato-gated legal rules."
+      },
+      {
+        "id": "INV-17_overview_finding_assignment",
+        "rule": "Every finding_id referenced in points_overview (parents or children) must belong to a point that maps to that overview entry, and each finding_id appears under exactly one parent. Evidence: per overview entry, the finding_ids and the point-to-parent mapping used. Until this invariant passes, finding_ids must not be rendered in points_overview in incomplete mode."
+      }
+    ]
+  },
+  "change_control": "Changes to this policy require a version bump, a decision_log entry, and a MANIFEST.json update. No behavior governed by this file may be changed in code alone. Any byte change to any governance file requires a version bump; for the same file_id, the same version string with different bytes is a change-control breach.",
+  "qa_reporting_requirement": {
+    "rule": "QA reports and invariant results that compare against governance files must state the verification basis per claim: 'byte-verified against runtime hash', 'version-string match only', or 'unverified'. Version-string match alone must never be reported as verified."
+  },
+  "baseline_reset": {
+    "status": "conditional",
+    "declared": "2026-07-08",
+    "condition": "Runtime file set delivered with SHA256 hashes exactly matching the 2026-07-08 Bolavi run manifest. Until delivered and verified, the baseline is not in force and all same-version byte drift remains open findings.",
+    "effect": "Upon verification, the manifest hashes of that run become canonical for their file_id+version pairs. From then on the version-uniqueness rule applies with zero tolerance.",
+    "required_bumps_this_round": [
+      "rag_language_rules -> 1.7 (content changed under 1.6)",
+      "arkat_semantic_rules -> 1.2.3 (two different contents observed under 1.2.2)",
+      "arkat_error_to_deduction_mapping -> bump when changed for the pass-through fix"
+    ]
+  }
+}

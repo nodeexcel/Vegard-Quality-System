@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
+from datetime import datetime, timezone
 import hashlib
 import json
 import re
@@ -10,8 +11,8 @@ MANIFEST_PATH = FILES_DIR / "MANIFEST.json"
 SYSTEM_PROMPT_PATH = FILES_DIR / "system_prompt_validert_v1_10.txt"
 RAG_LEGAL_PATH = FILES_DIR / "rag_legal_framework_validert_v1.4.txt"
 RAG_RULES_PATH = FILES_DIR / "rag_validert_rules_v1.4.txt"
-RAG_LANGUAGE_PATH = FILES_DIR / "rag_language_rules_v1.6.txt"
-SCORING_MODEL_PATH = FILES_DIR / "rag_scoring_model_validert_v1.6.json"
+RAG_LANGUAGE_PATH = FILES_DIR / "rag_language_rules_v1.7.txt"
+SCORING_MODEL_PATH = FILES_DIR / "rag_scoring_model_validert_v1.6.15.json"
 OUTPUT_SCHEMA_PATH = FILES_DIR / "output_schema_validert_v1.5.json"
 OUTPUT_OVERLAY_PATH = FILES_DIR / "scoring_policy.validert_output_overlay.v1.1.json"
 DETECTED_POINTS_SCHEMA_PATH = FILES_DIR / "validert_detected_points_v1.0.schema.json"
@@ -22,7 +23,7 @@ LEGALITY_ARKAT_TEMPLATES_PATH = FILES_DIR / "validert_arkat_templates_lovlighet_
 LEGALITY_ARKAT_MAP_PATH = FILES_DIR / "validert_lovlighet_to_arkat_map_v1_1.json"
 LEGALITY_GUARDRAILS_PATH = FILES_DIR / "validert_no_prosjektering_guardrails_v1_1.json"
 ORCHESTRATOR_PIPELINE_PATH = FILES_DIR / "validert_orchestrator_pipeline_v2.1.json"
-ACTIVE_CONFIG_PATH = FILES_DIR / "validert_active_config_v1.0.json"
+ACTIVE_CONFIG_PATH = FILES_DIR / "validert_active_config_v1.2.json"
 AGE_SERVICE_LIFE_VALIDATION_PATH = FILES_DIR / "tg2_tg3_age_service_life_validation_v2_3.json"
 
 # Client bundle (2026-02-27): core hierarchy, punkt-for-punkt, room instances, meta rules, lovlighet patches
@@ -44,12 +45,13 @@ CANONICAL_POINTS_V30_PATH = FILES_DIR / "validert_canonical_points_v3_0.json"
 MIGRATION_MAP_V33_TO_V34_PATH = FILES_DIR / "validert_migration_map_v3.3_to_v3.4.json"
 FORSKRIFT_MATRIX_PATH = FILES_DIR / "validert_forskrift_matrix_v1.0.json"
 MANDATORY_EXPLANATION_ONLY_PATH = FILES_DIR / "validert_mandatory_explanation_only_rules_v1.0.json"
-ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules_v1_2_2.json"
+ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules_v1_2_3.json"
 ARKAT_EVALUATION_PIPELINE_STEP_PATH = FILES_DIR / "arkat_evaluation_pipeline_step.json"
 DOMMER_B_SYSTEM_PROMPT_PATH = FILES_DIR / "dommer_b_system_prompt_v12.md"
-ARKAT_ERROR_DEDUCTION_MAPPING_PATH = FILES_DIR / "arkat_error_to_deduction_mapping_v1_1_0.json"
+ARKAT_ERROR_DEDUCTION_MAPPING_PATH = FILES_DIR / "arkat_error_to_deduction_mapping_v1_1_2.json"
 REPORT_FORMAT_DETECTION_PATH = FILES_DIR / "report_format_detection.json"
 ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples_v1_1_1.json"
+INCOMPLETE_ANALYSIS_POLICY_PATH = FILES_DIR / "validert_incomplete_analysis_policy_v1_5.json"
 
 # Routing: if element.tg_policy == "FORBIDDEN" -> apply optional_tg_forbidden_meta_rule_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
@@ -146,6 +148,151 @@ def get_manifest_text() -> str:
     if manifest:
         return json.dumps(manifest, ensure_ascii=False, sort_keys=True)
     return _read_text(MANIFEST_PATH)
+
+
+def _bump_manifest_registry_version(version_str: str) -> str:
+    """Increment the v-number in a MANIFEST version string.
+
+    Examples:
+        '3.11-v36-12parent-A'  →  '3.11-v37-12parent-A'
+        'v5'                   →  'v6'
+        'no-version'           →  'no-version-v1'
+    """
+    bumped, count = re.subn(r"v(\d+)", lambda m: f"v{int(m.group(1)) + 1}", version_str, count=1)
+    if count == 0:
+        return version_str + "-v1"
+    return bumped
+
+
+def write_manifest_with_version_bump() -> str:
+    """Bump the registry version in MANIFEST.json and write it back atomically.
+
+    Reads the current MANIFEST.json, increments the v-number in the ``version``
+    field (e.g. v36 → v37), and writes the file back.  Must be called on every
+    programmatic write so the version always reflects the current byte content.
+
+    Returns the new version string.
+    """
+    manifest = get_manifest()
+    if not isinstance(manifest, dict):
+        raise ValueError("MANIFEST.json is missing or not a valid JSON object")
+    current_version = str(manifest.get("version") or "")
+    new_version = _bump_manifest_registry_version(current_version)
+    manifest["version"] = new_version
+    MANIFEST_PATH.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return new_version
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _version_from_filename(path: Path) -> str:
+    stem = path.stem
+    match = re.search(r"(?:^|[_\-.])v?(\d+(?:[._]\d+)*)(?:$|[_\-.])", stem, flags=re.IGNORECASE)
+    if match:
+        return match.group(1).replace("_", ".")
+    match = re.search(r"v(\d+)$", stem, flags=re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return ""
+
+
+def _runtime_file_entry(path: Path, file_id: str = "") -> Dict[str, str]:
+    resolved = path if path.exists() else _resolve_file_from_name(str(path.name))
+    payload = _load_json_file(resolved) if resolved.exists() and resolved.suffix.lower() == ".json" else {}
+    inferred_file_id = file_id
+    if not inferred_file_id and isinstance(payload, dict):
+        inferred_file_id = str(
+            payload.get("file_id")
+            or payload.get("model")
+            or payload.get("name")
+            or payload.get("title")
+            or ""
+        ).strip()
+    if not inferred_file_id:
+        inferred_file_id = resolved.stem
+    version = ""
+    if isinstance(payload, dict):
+        meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        version = str(payload.get("version") or meta.get("version") or metadata.get("version") or "").strip()
+    if not version:
+        version = _version_from_filename(resolved)
+    return {
+        "file_id": inferred_file_id,
+        "version": version,
+        "hash": f"sha256:{_file_sha256(resolved)}" if resolved.exists() else "",
+    }
+
+
+def _runtime_governance_paths() -> List[tuple[Path, str]]:
+    overview_files = _get_active_points_overview_files()
+    return [
+        (SYSTEM_PROMPT_PATH, "system_prompt_validert"),
+        (RAG_LEGAL_PATH, "rag_legal_framework_validert"),
+        (RAG_RULES_PATH, "rag_validert_rules"),
+        (RAG_LANGUAGE_PATH, "rag_language_rules"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "scoring_model_file", SCORING_MODEL_PATH), "rag_scoring_model_validert"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "output_schema_file", OUTPUT_SCHEMA_PATH), "output_schema_validert"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "scoring_policy_overlay_file", OUTPUT_OVERLAY_PATH), "scoring_policy_validert_output_overlay"),
+        (DETECTED_POINTS_SCHEMA_PATH, "validert_detected_points_schema"),
+        (FEEDBACK_SCHEMA_PATH, "validert_feedback_schema"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "category_config_file", CATEGORY_CONFIG_PATH), "validert_category_config"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "legal_compliance_rules_file", LEGALITY_RULES_PATH), "validert_legal_compliance_rules"),
+        (LEGALITY_ARKAT_TEMPLATES_PATH, "validert_arkat_templates_lovlighet"),
+        (LEGALITY_ARKAT_MAP_PATH, "validert_lovlighet_to_arkat_map"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "no_prosjektering_guardrails_file", LEGALITY_GUARDRAILS_PATH), "validert_no_prosjektering_guardrails"),
+        (MANIFEST_PATH, "MANIFEST"),
+        (get_active_pipeline_file_path(), "validert_orchestrator_pipeline"),
+        (ARKAT_SEMANTIC_RULES_PATH, "arkat_semantic_rules"),
+        (ARKAT_EVALUATION_PIPELINE_STEP_PATH, "arkat_evaluation_pipeline_step"),
+        (DOMMER_B_SYSTEM_PROMPT_PATH, "dommer_b_system_prompt"),
+        (ARKAT_ERROR_DEDUCTION_MAPPING_PATH, "arkat_error_to_deduction_mapping"),
+        (REPORT_FORMAT_DETECTION_PATH, "report_format_detection"),
+        (ARKAT_CANONICAL_EXAMPLES_PATH, "arkat_canonical_examples"),
+        (ACTIVE_CONFIG_PATH, "validert_active_config"),
+        (overview_files["canonical"], "validert_canonical_points"),
+        (overview_files["mapping"], "validert_points_overview_mapping"),
+        (overview_files["overlay"], "validert_ui_overlay"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "age_service_life_validation_file", AGE_SERVICE_LIFE_VALIDATION_PATH), "tg2_tg3_age_service_life_validation"),
+        (_get_dynamic_file("active_points_overview", "element_hierarchy_file", ELEMENT_HIERARCHY_PATH), "validert_element_hierarchy"),
+        (ELEMENT_HIERARCHY_SYNONYMS_PATH, "validert_element_hierarchy_synonyms"),
+        (_get_dynamic_file("active_points_overview", "status_rules_file", PUNKT_STATUS_RULES_PATH), "validert_punkt_for_punkt_status_rules"),
+        (_get_dynamic_file("active_points_overview", "scoring_hooks_file", PUNKT_SCORING_HOOKS_PATH), "validert_punkt_for_punkt_scoring_hooks"),
+        (_get_dynamic_file("supporting_modules", "room_instances_schema_file", ROOM_INSTANCES_SCHEMA_PATH), "validert_room_instances_schema"),
+        (_get_dynamic_file("supporting_modules", "room_instance_extraction_rules_file", ROOM_INSTANCE_EXTRACTION_RULES_PATH), "validert_room_instance_extraction_rules"),
+        (_get_dynamic_file("supporting_modules", "room_instance_arkat_coverage_rules_file", ROOM_INSTANCE_ARKAT_COVERAGE_PATH), "validert_room_instance_arkat_coverage_rules"),
+        (_get_dynamic_file("supporting_modules", "room_instance_rollup_format_file", ROOM_INSTANCE_ROLLUP_FORMAT_PATH), "validert_room_instance_rollup_format"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "optional_tg_forbidden_meta_rule_file", META_RULE_OPTIONAL_TG_FORBIDDEN_PATH), "validert_optional_tg_forbidden_meta_rule"),
+        (_get_dynamic_file("existing_runtime_modules_unchanged", "non_mandatory_assessed_meta_rule_file", META_RULE_NON_MANDATORY_ASSESSED_PATH), "validert_non_mandatory_assessed_meta_rule"),
+        (MANDATORY_EXPLANATION_ONLY_PATH, "validert_mandatory_explanation_only_rules"),
+        (MIGRATION_MAP_V33_TO_V34_PATH, "validert_migration_map"),
+        (_get_dynamic_file("active_points_overview", "forskrift_matrix_file", FORSKRIFT_MATRIX_PATH), "validert_forskrift_matrix"),
+        (INCOMPLETE_ANALYSIS_POLICY_PATH, "validert_incomplete_analysis_policy"),
+    ]
+
+
+def get_runtime_manifest(analysis_mode: str) -> Dict[str, object]:
+    manifest = get_manifest()
+    pipeline_version = str(manifest.get("version") or get_prompt_context_sha()) if isinstance(manifest, dict) else get_prompt_context_sha()
+    loaded = []
+    seen = set()
+    for path, file_id in _runtime_governance_paths():
+        key = str(path)
+        if key in seen or not path.exists():
+            continue
+        seen.add(key)
+        loaded.append(_runtime_file_entry(path, file_id))
+    return {
+        "pipeline_version": pipeline_version,
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "analysis_mode": analysis_mode or "full",
+        "loaded": loaded,
+    }
 
 def _get_dynamic_file(category: str, key: str, fallback_path: Path) -> Path:
     cfg = get_active_config()
@@ -295,6 +442,10 @@ def get_arkat_error_deduction_mapping() -> Dict:
     return _load_json_file(ARKAT_ERROR_DEDUCTION_MAPPING_PATH)
 
 
+def get_arkat_error_deduction_mapping_text() -> str:
+    return _read_text(ARKAT_ERROR_DEDUCTION_MAPPING_PATH)
+
+
 def get_report_format_detection() -> Dict:
     return _load_json_file(REPORT_FORMAT_DETECTION_PATH)
 
@@ -352,7 +503,13 @@ def get_building_part_whitelist_v22() -> Dict:
 def get_canonical_points_v30() -> Dict:
     """Load canonical points v3.0: fixed list for punkt-for-punkt oversikt."""
     files = _get_active_points_overview_files()
-    return _load_json_file(files["canonical"])
+    canonical_path = files["canonical"]
+    if canonical_path.exists():
+        raw = canonical_path.read_bytes()
+        # Fail loudly when runtime points file is empty (INV-10 extension).
+        if not raw.strip():
+            raise ValueError(f"Canonical points file is empty at runtime: {canonical_path}")
+    return _load_json_file(canonical_path)
 
 
 def get_points_overview_mapping_config() -> Dict:
@@ -501,8 +658,6 @@ def build_prompt_context() -> str:
             "===== META RULE: OPTIONAL TG FORBIDDEN =====\n" + get_optional_tg_forbidden_meta_rule_text(),
             "===== META RULE: NON-MANDATORY ASSESSED =====\n" + get_non_mandatory_assessed_meta_rule_text(),
             "===== META RULE: MANDATORY EXPLANATION ONLY =====\n" + get_mandatory_explanation_only_rules_text(),
-            "===== LOVLIGHET PATCH EL TG =====\n" + get_lovlighet_patch_el_tg_text(),
-            "===== LOVLIGHET PATCH HMS TG =====\n" + get_lovlighet_patch_hms_tg_text(),
             "===== MIGRATION MAP =====\n" + json.dumps(get_migration_map(), ensure_ascii=False, sort_keys=True),
             "===== FORSKRIFT MATRIX =====\n" + get_forskrift_matrix_text(),
         ]
