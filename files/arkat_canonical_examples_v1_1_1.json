@@ -1,10 +1,18 @@
 {
   "meta": {
     "name": "arkat_canonical_examples",
-    "version": "1.1.1",
-    "description": "Canonical few-shot examples for RAG retrieval during ARKAT semantic evaluation. Each entry contains a real or realistic report excerpt, its error classification, and a corrected version. The RAG system should retrieve the most relevant examples based on error_type and field tags before the evaluation LLM call. v1.1.1 changes: rewrote CE-008, CE-011, CE-012 so WRONG-texts are pure technical-process-without-endpoint and CORRECT-texts demonstrate valid bygningsteknisk følge (synchronized with KONSEKVENS-TERSKEL in system_prompt_validert v1.10 and dommer_b v12). Updated pre_screening_signals.konsekvens to remove triggers on words that are valid følge (råtner, svikter, uten kjøper, ingen kjøperkonsekvens) — now only flags genuine uten-endepunkt-patterns. Added valid_consequence_signals_do_not_flag as positive markers. Hotfix: CE-019 why_correct updated to reference v1.10/v12 instead of v1.9/v11. Third hotfix: language-cleanup — translated why_wrong/why_correct in CE-001, CE-002, CE-004, CE-005, CE-006, CE-013, CE-014 from English to Norwegian for consistency with rest of file. Removed 'uten kjøperkonsekvens' rester in V1.10 (rekkverk-section and tilbakemelding-section). Second hotfix: CE-010 rewritten — WRONG-text no longer contains tvetydig 'redusert tetthet' setting; why_wrong reformulated to Norwegian without requiring explicit kjøperperspektiv-oversettelse; CORRECT-text updated to clear bygningsteknisk følge formulation matching KONSEKVENS-TERSKEL.",
+    "version": "1.2.1",
+    "description": "Canonical few-shot examples for RAG retrieval during ARKAT semantic evaluation. Each entry contains a real or realistic report excerpt, its error classification, and a corrected version. The RAG system should retrieve the most relevant examples based on error_type and field tags before the evaluation LLM call. v1.1.1 changes: rewrote CE-008, CE-011, CE-012 so WRONG-texts are pure technical-process-without-endpoint and CORRECT-texts demonstrate valid bygningsteknisk følge (synchronized with KONSEKVENS-TERSKEL in system_prompt_validert v1.10 and dommer_b v12). Updated pre_screening_signals.konsekvens to remove triggers on words that are valid følge (råtner, svikter, uten kjøper, ingen kjøperkonsekvens) — now only flags genuine uten-endepunkt-patterns. Added valid_consequence_signals_do_not_flag as positive markers. Hotfix: CE-019 why_correct updated to reference v1.10/v12 instead of v1.9/v11. Third hotfix: language-cleanup — translated why_wrong/why_correct in CE-001, CE-002, CE-004, CE-005, CE-006, CE-013, CE-014 from English to Norwegian for consistency with rest of file. Removed 'uten kjøperkonsekvens' rester in V1.10 (rekkverk-section and tilbakemelding-section). Second hotfix: CE-010 rewritten — WRONG-text no longer contains tvetydig 'redusert tetthet' setting; why_wrong reformulated to Norwegian without requiring explicit kjøperperspektiv-oversettelse; CORRECT-text updated to clear bygningsteknisk følge formulation matching KONSEKVENS-TERSKEL. v1.2.0 aligns examples with product-owner rulings: observation can be valid aarsak when it functions as TG rationale, and limitation can be valid risiko when a hidden technical risk category is explicitly named. v1.2.1 adds the four ordered BMTF ruling cases verbatim and restores append-only changelog continuity.",
     "retrieval_key": "error_type + field — retrieve 2-3 examples per field being evaluated",
-    "language": "Norwegian — all examples are in Norwegian as they appear in real reports"
+    "language": "Norwegian — all examples are in Norwegian as they appear in real reports",
+    "changelog": [
+      "v1.1.1: rewrote CE-008/011/012 and consequence retrieval signals; added valid_consequence_signals_do_not_flag.",
+      "v1.1.1 hotfix: CE-019 why_correct reference update (v1.10/v12).",
+      "v1.1.1 hotfix: CE-010 rewrite to remove ambiguous reduced-tetthet wording and align KONSEKVENS-TERSKEL phrasing.",
+      "v1.1.1 hotfix: language cleanup for why_wrong/why_correct fields in CE-001/002/004/005/006/013/014.",
+      "v1.2.0: product-owner rulings alignment (observation-as-aarsak rationale function, limitation-as-risk hidden-risk boundary).",
+      "v1.2.1: add ordered BMTF ruling cases (7.2 aarsak valid, 20.2 aarsak valid, 7.2 risiko valid, 7.4 risiko invalid with compliant contrast)."
+    ]
   },
   "examples": [
     {
@@ -473,6 +481,105 @@
         "skader på andre bygningsdeler",
         "bygningsteknisk følge",
         "konsekvens"
+      ]
+    },
+    {
+      "id": "CE-021",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Bad — sluk/membran",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Årsak",
+        "text": "Det ble registrert at sluket ikke var tilgjengelig.",
+        "why_wrong": "Ren observasjon uten begrunnelsesfunksjon for hvorfor avvik/TG er satt."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Vanntett sjikt og tilslutning til sluk/gjennomføringer: Sluket er plassert under dusjkabinettet og var derfor ikke tilgjengelig for inspeksjon. Tilslutning mellom membran og sluk, samt eventuelle membranmansjetter ved gjennomføringer, har ikke vært mulig å kontrollere. Vurderingen er derfor basert på synlige forhold og tilgjengelige opplysninger. Vann- og avløpsledninger inkl. sluk: Synlige vannledninger på badet er utført med kobberrør. Avløpet fra vakuumtoalettet er utført med fleksibelt pumperør. Synlige deler av vann- og avløpsinstallasjonene fremstår uten registrerte lekkasjer eller skader på befaringsdagen. Sluket er plassert under dusjkabinett og var ikke tilgjengelig for inspeksjon. Sluktype, tilstand og tilkobling mot membran har derfor ikke vært mulig å kontrollere. Vanntett sjikt og tilslutning til sluk/gjennomføringer: Sluket er skjult under dusjkabinettet, og membranen er skjult bak overflater",
+        "why_correct": "Produkt-owner ruling: observasjon/begrensning er gyldig årsak når den fungerer som begrunnelse for TG/avvik."
+      },
+      "retrieval_tags": [
+        "7.2",
+        "sluk",
+        "ikke tilgjengelig",
+        "begrunnelse",
+        "aarsak"
+      ]
+    },
+    {
+      "id": "CE-022",
+      "error_type": "OBSERVATION_AS_AARSAK",
+      "field": "aarsak",
+      "structural_error": "SE-1",
+      "building_component": "Taktekking",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Årsak",
+        "text": "Taket er kontrollert fra bakkenivå.",
+        "why_wrong": "Metodeopplysning alene uten avviksbegrunnelse."
+      },
+      "correct": {
+        "label": "Årsak",
+        "text": "Taktekking er kontrollert fra bakkenivå med de begrensninger dette medfører. Det er registrert en løs og forskjøvet skiferhelle på takflaten mot nord/øst. Eier opplyser at taktekking mot sør/vest ble tatt ned og remontert i 2010. Selv om deler av tekkingen er omlagt, må undertaket og øvrige konstruksjoner forventes å være av vesentlig høyere alder. På grunn av alder må redusert gjenværende levetid og økt risiko for svikt i undertakets vannavvisende funksjon påregnes. Naturlige bevegelser i takkonstruksjonen, værpåvirkning eller svekket innfesting over tid",
+        "why_correct": "Observasjon + begrensning brukes som faktisk rationale for TG/avvik, derfor gyldig årsak."
+      },
+      "retrieval_tags": [
+        "20.2",
+        "skiferhelle",
+        "taktekking",
+        "alder",
+        "aarsak"
+      ]
+    },
+    {
+      "id": "CE-023",
+      "error_type": "LIMITATION_USED_AS_RISK_SUBSTITUTE",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Bad — membran/sluk",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Utførelse kan ikke dokumenteres.",
+        "why_wrong": "Dokumentasjonsbegrensning uten navngitt teknisk risikokategori."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Vanntett sjikt og tilslutning til sluk/gjennomføringer: Skjulte utførelsesfeil eller svekkelser i membran eller sluktilslutning kan ikke avdekkes ved visuell inspeksjon",
+        "why_correct": "Gyldig risiko fordi begrensningen navngir den skjulte tekniske risikokategorien."
+      },
+      "retrieval_tags": [
+        "7.2",
+        "risiko",
+        "skjulte utførelsesfeil",
+        "membran",
+        "sluktilslutning"
+      ]
+    },
+    {
+      "id": "CE-024",
+      "error_type": "LIMITATION_USED_AS_RISK_SUBSTITUTE",
+      "field": "risiko",
+      "structural_error": "SE-2",
+      "building_component": "Bad — dokumentasjon",
+      "tg_grade": "TG2",
+      "wrong": {
+        "label": "Risiko",
+        "text": "Utførelse og materialvalg kan ikke dokumenteres",
+        "why_wrong": "Ren dokumentasjonsbegrensning uten navngitt bygningsteknisk risiko."
+      },
+      "correct": {
+        "label": "Risiko",
+        "text": "Dersom utførelse og materialvalg avviker fra våtromsnorm, kan skjulte svakheter i tettesjikt og sluktilslutning gi økt sannsynlighet for fuktskader i tilstøtende konstruksjoner over tid.",
+        "why_correct": "Compliant contrast: navngir konkret skjult teknisk risiko og mulig skadeutvikling."
+      },
+      "retrieval_tags": [
+        "7.4",
+        "risiko",
+        "dokumentasjon",
+        "limitation_used_as_risk_substitute"
       ]
     }
   ],

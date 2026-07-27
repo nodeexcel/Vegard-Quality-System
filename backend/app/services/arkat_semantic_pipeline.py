@@ -1,4 +1,5 @@
 from functools import lru_cache
+import hashlib
 import json
 import logging
 import re
@@ -256,7 +257,8 @@ _PDF_METADATA_FRAGMENT_RE = re.compile(
     r"\b\d{1,3}\s+av\s+\d{1,3}\b"
     r")\s*"
 )
-_TRAILING_FOOTER_DATE_RE = re.compile(r"(?m)\s+\b\d{1,2}\.\d{1,2}\.\d{4}\b\s*$")
+_TRAILING_FOOTER_DATE_RE = re.compile(r"(?m)^\s*\d{1,2}\.\d{1,2}\.\d{4}\s*$")
+_SUSPICIOUS_GLYPH_RE = re.compile(r"[\u3400-\u9FFF\uF900-\uFAFF\uE000-\uF8FF]")
 _PDF_LAYOUT_LINE_RE = re.compile(
     r"(?ix)^\s*(?:\|+|\d{1,3}|"
     r"Ingeni[øo]r\s+H[åa]vard\s+Hansen\s+AS|"
@@ -273,6 +275,8 @@ def _repair_common_pdf_word_artifacts(text: str) -> str:
     if not out:
         return ""
     out = re.sub(r"\(cid:\d+\)", "", out)
+    # Remove private-use/CJK glyph garbage before deterministic token repairs.
+    out = _SUSPICIOUS_GLYPH_RE.sub("", out)
     replacements = (
         (r"\blstand\b", "tilstand"),
         (r"\bLstand\b", "Tilstand"),
@@ -280,12 +284,52 @@ def _repair_common_pdf_word_artifacts(text: str) -> str:
         (r"\bLstrekkelig\b", "Tilstrekkelig"),
         (r"\bhø5\b", "høy"),
         (r"\bHø5\b", "Høy"),
-        (r"\bsk[’']øter\b", "skjøter"),
-        (r"\bSk[’']øter\b", "Skjøter"),
-        (r"\bsk[’']ulte\b", "skjulte"),
-        (r"\bSk[’']ulte\b", "Skjulte"),
-        (r"\bkonstruks[’']on(?:en|er|s)?\b", lambda m: "konstruksjon" + m.group(0).split("'")[-1][2:] if "'" in m.group(0) else "konstruksjon" + m.group(0).split("’")[-1][2:]),
-        (r"\binnemil[’']ø(?:et)?\b", lambda m: "innemiljøet" if m.group(0).lower().endswith("øet") else "innemiljø"),
+        # Letter-preserving OCR repair for apostrophe-style glyph damage.
+        (r"\bsk[’'`´]øter\b", "skjøter"),
+        (r"\bSk[’'`´]øter\b", "Skjøter"),
+        (r"\bsk[’'`´]ulte\b", "skjulte"),
+        (r"\bSk[’'`´]ulte\b", "Skjulte"),
+        (r"\bventilas[’'`´]on\b", "ventilasjon"),
+        (r"\bVentilas[’'`´]on\b", "Ventilasjon"),
+        (r"\bventilas[’'`´]ons\b", "ventilasjons"),
+        (r"\bVentilas[’'`´]ons\b", "Ventilasjons"),
+        (r"\bkonstruks[’'`´]on\b", "konstruksjon"),
+        (r"\bKonstruks[’'`´]on\b", "Konstruksjon"),
+        (r"\bkonstruks[’'`´]onen\b", "konstruksjonen"),
+        (r"\bKonstruks[’'`´]onen\b", "Konstruksjonen"),
+        (r"\bkonstruks[’'`´]oner\b", "konstruksjoner"),
+        (r"\bKonstruks[’'`´]oner\b", "Konstruksjoner"),
+        (r"\binnemil[’'`´]ø\b", "innemiljø"),
+        (r"\bInnemil[’'`´]ø\b", "Innemiljø"),
+        (r"\binnemil[’'`´]øet\b", "innemiljøet"),
+        (r"\bInnemil[’'`´]øet\b", "Innemiljøet"),
+        (r"\bg[’'`´]enværende\b", "gjenværende"),
+        (r"\bG[’'`´]enværende\b", "Gjenværende"),
+        # Deterministic fixes for post-glyph-drop OCR forms observed in Bolavi.
+        (r"\bfunkson\b", "funksjon"),
+        (r"\bFunkson\b", "Funksjon"),
+        (r"\bfunksonen\b", "funksjonen"),
+        (r"\bFunksonen\b", "Funksjonen"),
+        (r"\bslitase\b", "slitasje"),
+        (r"\bSlitase\b", "Slitasje"),
+        (r"\bisolasonsevne\b", "isolasjonsevne"),
+        (r"\bIsolasonsevne\b", "Isolasjonsevne"),
+        (r"\bventilasonsløsning\b", "ventilasjonsløsning"),
+        (r"\bVentilasonsløsning\b", "Ventilasjonsløsning"),
+        (r"\bskøtene\b", "skjøtene"),
+        (r"\bSkøtene\b", "Skjøtene"),
+        (r"\bgenvrende\b", "gjenværende"),
+        (r"\bGenvrende\b", "Gjenværende"),
+        (r"\bkonstrukson\b", "konstruksjon"),
+        (r"\bKonstrukson\b", "Konstruksjon"),
+        (r"\bkonstruksonen\b", "konstruksjonen"),
+        (r"\bKonstruksonen\b", "Konstruksjonen"),
+        (r"\bventilason\b", "ventilasjon"),
+        (r"\bVentilason\b", "Ventilasjon"),
+        (r"\bventilasonsløsning\b", "ventilasjonsløsning"),
+        (r"\bVentilasonsløsning\b", "Ventilasjonsløsning"),
+        (r"\bskøtene\b", "skjøtene"),
+        (r"\bSkøtene\b", "Skjøtene"),
     )
     for pattern, replacement in replacements:
         out = re.sub(pattern, replacement, out)
@@ -308,6 +352,19 @@ def _sanitize_pdf_layout_text_for_arkat(text: str) -> str:
         if cleaned:
             lines.append(cleaned)
     return re.sub(r"[ \t]{2,}", " ", "\n".join(lines)).strip()
+
+
+def _strip_page_footer_lines(text: str) -> str:
+    raw = str(text or "")
+    if not raw:
+        return ""
+    cleaned_lines: List[str] = []
+    for line in raw.splitlines():
+        stripped = str(line or "").strip()
+        if re.match(r"(?i)^Side\s+\d+\s+av\s+\d+\s*$", stripped):
+            continue
+        cleaned_lines.append(str(line or ""))
+    return "\n".join(cleaned_lines).strip()
 
 
 def _cut_known_cross_section_bleed(text: str, point_id: str = "") -> str:
@@ -1248,15 +1305,89 @@ def _structured_extract_arkat_fields(raw_point_text: str, extract_arkat_section_
     return merged
 
 
+@lru_cache(maxsize=1)
+def _governed_section_boundary_headings() -> Tuple[str, ...]:
+    semantic_rules = _get_client_arkat_bundle().get("semantic_rules") or {}
+    configured = semantic_rules.get("section_boundary_headings") if isinstance(semantic_rules, dict) else []
+    if not isinstance(configured, list):
+        return tuple()
+    out: List[str] = []
+    seen = set()
+    for item in configured:
+        heading = str(item or "").strip()
+        if not heading:
+            continue
+        key = heading.upper()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(heading)
+    return tuple(out)
+
+
+def _point_spillover_heading_re() -> re.Pattern:
+    governed = _governed_section_boundary_headings()
+    governed_clause = ""
+    if governed:
+        governed_clause = "|" + "|".join(re.escape(item) for item in governed)
+    return re.compile(
+        r"(?im)^\s*(?:"
+        r"Nøkkelfakta|"
+        r"Hvordan\s+kontrollen\s+er\s+utf[oø]rt|"
+        r"Konklusjon\s+bygningsdel|"
+        r"Oppsummering\s+av\s+bygningsdel|"
+        r"Oppsummering\s+avvik|"
+        r"Seksjonsnotat(?:\s*[–-].*)?|"
+        r"DEL\s+\d+\b|"
+        r"\[SIDE\s+\d+\]|"
+        r"VÆR\s+OPPMERKSOM\s+PÅ|"
+        r"TILLEGGSOPPLYSNINGER|"
+        r"\d{1,2}(?:\.\d{1,2}){1,3}\b|"
+        r"TG\s*(?:IU|0|1|2|3)\s+\d{1,2}(?:\.\d{1,2}){1,3}\b"
+        + governed_clause +
+        r")\s*:?"
+    )
+
+
 _EXPLICIT_ARKAT_SUBHEADING_RE = re.compile(
-    r"(?im)^\s*(?:(?P<number>\d{1,2})\.\s*)?"
+    r"(?m)^\s*(?:(?P<number>\d{1,2})\.\s*)?"
     r"(?P<label>"
-    r"Avvik\s*/\s*(?:Årsak|Arsak)|"
-    r"Risiko\s*/\s*Konsekvens|"
-    r"Anbefalte?\s+tiltak|"
-    r"Vurdering(?:\s+av\s+avvik)?"
-    r")\s*:?\s*(?P<tail>[^\n]*)$"
+    r"Avvik\s*/\s*(?:Årsak|Arsak|ÅRSAK|ARSAK)\b|"
+    r"(?:Årsak|Arsak|Aarsak|ÅRSAK|ARSAK|AARSAK)\b|"
+    r"(?:Risiko|RISIKO)(?:\s*/\s*(?:Konsekvens|KONSEKVENS))?\b|"
+    r"(?:Konsekvens|KONSEKVENS)\b|"
+    r"(?:Anbefalte?\s+tiltak|ANBEFALT(?:E)?\s+TILTAK)\b|"
+    r"(?:Vurdering(?:\s+av\s+avvik)?|VURDERING(?:\s+AV\s+AVVIK)?)\b"
+    r")[ \t]*:?[ \t]*(?P<tail>[^\n]*)$"
 )
+_INLINE_EXPLICIT_ARKAT_SUBHEADING_RE = re.compile(
+    r"(?m)(?P<prefix>^|[\n\r\|;:]|[.!?]\s+|\b\d{1,2}\.\s+)\s*"
+    r"(?P<label>"
+    r"Avvik\s*/\s*(?:Årsak|Arsak|ÅRSAK|ARSAK)\b|"
+    r"(?:Årsak|Arsak|Aarsak|ÅRSAK|ARSAK|AARSAK)\b|"
+    r"(?:Risiko|RISIKO)(?:\s*/\s*(?:Konsekvens|KONSEKVENS))?\b|"
+    r"(?:Konsekvens|KONSEKVENS)\b|"
+    r"(?:Anbefalte?\s+tiltak|ANBEFALT(?:E)?\s+TILTAK)\b|"
+    r"(?:Vurdering(?:\s+av\s+avvik)?|VURDERING(?:\s+AV\s+AVVIK)?)\b"
+    r")(?P<label_sep>[ \t]*:?)"
+)
+
+
+def _is_structural_inline_heading_match(text: str, match: re.Match) -> bool:
+    try:
+        label_start = int(match.start("label"))
+    except (IndexError, ValueError):
+        return False
+    idx = label_start - 1
+    while idx >= 0 and text[idx].isspace() and text[idx] not in ("\n", "\r"):
+        idx -= 1
+    if idx >= 0 and (text[idx].isalnum() or text[idx] in {"_", "/"}):
+        return False
+    label = str(match.group("label") or "").strip()
+    if not label:
+        return False
+    first_alpha = next((ch for ch in label if ch.isalpha()), "")
+    return bool(first_alpha and first_alpha.upper() == first_alpha)
 
 
 def _clean_explicit_arkat_block(value: str) -> str:
@@ -1271,12 +1402,18 @@ def _clean_explicit_arkat_block(value: str) -> str:
 
 def _field_for_explicit_arkat_label(label: str) -> str:
     low = re.sub(r"\s+", " ", str(label or "").strip().lower())
-    if "avvik" in low and ("årsak" in low or "arsak" in low):
+    if "avvik" in low and ("årsak" in low or "arsak" in low or "aarsak" in low):
         return "aarsak"
     if "risiko" in low and "konsekvens" in low:
         return "risiko"
+    if low.startswith("risiko"):
+        return "risiko"
+    if low.startswith("konsekvens"):
+        return "konsekvens"
     if "tiltak" in low:
         return "anbefalt_tiltak"
+    if low.startswith("årsak") or low.startswith("arsak") or low.startswith("aarsak"):
+        return "aarsak"
     if low.startswith("vurdering"):
         return "aarsak"
     return ""
@@ -1287,31 +1424,65 @@ def _extract_explicit_arkat_subsection_binding_evidence(raw_point_text: str, nor
     if not text.strip():
         return {}
     matches = list(_EXPLICIT_ARKAT_SUBHEADING_RE.finditer(text))
+    inline_mode = False
+    if (not matches or len(matches) <= 1) and "\n" not in text:
+        matches = [
+            match
+            for match in _INLINE_EXPLICIT_ARKAT_SUBHEADING_RE.finditer(text)
+            if _is_structural_inline_heading_match(text, match)
+        ]
+        inline_mode = True
     if not matches:
         return {}
     evidence: Dict[str, List[Dict[str, object]]] = {"aarsak": [], "risiko": [], "konsekvens": [], "anbefalt_tiltak": []}
+    spillover_heading_re = _point_spillover_heading_re()
     for idx, match in enumerate(matches):
         label = str(match.group("label") or "").strip()
         field = _field_for_explicit_arkat_label(label)
         if not field:
             continue
-        body_start = match.end()
+        body_start = match.end("label_sep") if inline_mode else match.end()
         body_end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
-        tail = str(match.group("tail") or "").strip()
-        body = text[body_start:body_end].strip()
-        value = _clean_explicit_arkat_block(f"{tail}\n{body}".strip())
-        if _is_semantically_missing_text(normalize_text, value):
+        # Stop explicit subsection extraction at known section/container headings so
+        # fields do not absorb following "Oppsummering av bygningsdel" style blocks.
+        for heading_match in spillover_heading_re.finditer(text, body_start):
+            if heading_match.start() < body_end:
+                body_end = heading_match.start()
+                break
+        tail = "" if inline_mode else str(match.group("tail") or "")
+        raw_value_start = body_start
+        if tail.strip():
+            raw_value_start = int(match.start("tail"))
+            while raw_value_start < int(match.end("tail")) and text[raw_value_start].isspace():
+                raw_value_start += 1
+        else:
+            while raw_value_start < body_end and text[raw_value_start].isspace():
+                raw_value_start += 1
+        raw_value_end = body_end
+        while raw_value_end > raw_value_start and text[raw_value_end - 1].isspace():
+            raw_value_end -= 1
+        raw_value = text[raw_value_start:raw_value_end]
+        cleaned_value = _clean_explicit_arkat_block(raw_value)
+        if _is_semantically_missing_text(normalize_text, cleaned_value):
             continue
+        anchored_offset = text.find(
+            raw_value,
+            max(0, raw_value_start - 2),
+            min(len(text), raw_value_end + 2),
+        )
+        if anchored_offset >= 0:
+            raw_value_start = anchored_offset
         row = {
             "field": field,
             "subsection_heading": label,
-            "offset": int(match.start()),
-            "length_chars": len(value),
-            "text": value,
-            "preview": value[:220],
+            "offset": int(raw_value_start),
+            "length_chars": len(raw_value),
+            "text": raw_value,
+            "preview": cleaned_value[:220],
         }
         evidence.setdefault(field, []).append(row)
-        if field == "risiko":
+        label_low = label.lower()
+        if field == "risiko" and "risiko" in label_low and "konsekvens" in label_low:
             consequence_row = dict(row)
             consequence_row["field"] = "konsekvens"
             consequence_row["subsection_heading"] = label
@@ -1628,7 +1799,7 @@ def _strip_embedded_summary_tables_for_arkat_fields(text: str, point_id: str = "
     When the real point body continues after the embedded table, preserve that
     continuation only when the table tail re-anchors on the target point.
     """
-    raw = _sanitize_pdf_layout_text_for_arkat(str(text or "").strip())
+    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     if not raw:
         return raw
     raw = re.sub(r"(?i)\bEIERSKIFTERAPPORT\s*(?:TM|™)?\b", " ", raw)
@@ -2801,8 +2972,21 @@ def finalize_client_arkat_semantic_pipeline_output(analysis_output: Dict[str, ob
     points = pipeline.get("points") if isinstance(pipeline, dict) else None
     if not isinstance(points, list):
         return
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        report_format = str(point.get("report_format") or pipeline.get("report_format") or "")
+        if report_format == "structured_arkat":
+            continue
+        raw_point_text = str(point.get("raw_point_text") or "")
+        if not raw_point_text:
+            continue
+        sanitized = _sanitize_pdf_layout_text_for_arkat(raw_point_text)
+        sanitized = _cut_known_cross_section_bleed(sanitized, str(point.get("point_id") or ""))
+        point["raw_point_text"] = sanitized
     _collapse_within_point_duplicate_fields(points, normalize_text)
     _reapply_explicit_arkat_bindings_to_results(points, normalize_text)
+    _realign_binding_offsets_to_emitted_raw(points)
     _enforce_missing_field_result_consistency(points, normalize_text)
     _drop_arkat_semantic_findings_from_analysis_output(analysis_output)
     _ensure_arkat_semantic_findings_from_pipeline(analysis_output)
@@ -2896,6 +3080,40 @@ def _reapply_explicit_arkat_bindings_to_results(results: List[Dict[str, object]]
         if binding_evidence:
             point["extracted_fields"] = rebound_fields
             point["arkat_field_binding_evidence"] = binding_evidence
+
+
+def _realign_binding_offsets_to_emitted_raw(results: List[Dict[str, object]]) -> None:
+    for point in results or []:
+        if not isinstance(point, dict):
+            continue
+        raw_point_text = str(point.get("raw_point_text") or "")
+        if not raw_point_text:
+            continue
+        evidence = point.get("arkat_field_binding_evidence")
+        if not isinstance(evidence, dict):
+            continue
+        for rows in evidence.values():
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                quoted = str(row.get("text") or "")
+                if not quoted:
+                    continue
+                try:
+                    current_offset = int(row.get("offset"))
+                except (TypeError, ValueError):
+                    current_offset = -1
+                if current_offset >= 0 and raw_point_text[current_offset:current_offset + len(quoted)] == quoted:
+                    continue
+                search_start = max(0, current_offset - 24) if current_offset >= 0 else 0
+                aligned = raw_point_text.find(quoted, search_start)
+                if aligned < 0:
+                    aligned = raw_point_text.find(quoted)
+                if aligned >= 0:
+                    row["offset"] = aligned
+                    row["length_chars"] = len(quoted)
 
 
 def _enforce_missing_field_result_consistency(results: List[Dict[str, object]], normalize_text) -> None:
@@ -3452,9 +3670,14 @@ def _detect_ns_version_for_dommer_b(
         meta["detail"] = str(context_ns_version).strip()
         return context_normalized, meta
     if report_date:
+        semantic_rules = _get_client_arkat_bundle().get("semantic_rules") or {}
+        regime_rules = semantic_rules.get("regime_date_rules") if isinstance(semantic_rules, dict) else {}
+        ns2025_effective_from = str(
+            (regime_rules or {}).get("ns2025_effective_from") if isinstance(regime_rules, dict) else ""
+        ).strip() or "2026-07-01"
         # Transition period through 2026-06 still defaults to NS 3600:2018 unless
         # report text explicitly states the 2025 edition.
-        chosen = "NS3600:2025" if report_date >= "2026-07-01" else "NS3600:2018"
+        chosen = "NS3600:2025" if report_date >= ns2025_effective_from else "NS3600:2018"
         meta["source"] = "report_date_fallback"
         meta["detail"] = str(report_date)
         return chosen, meta
@@ -3642,12 +3865,19 @@ def _konsekvens_wrong_role_error_type(text: str, normalize_text) -> Optional[str
     low = normalize_text(text or "").strip().lower()
     if not low or low.upper() == "MISSING":
         return None
+    has_damage_endpoint = bool(
+        re.search(
+            r"(?ix)\b(?:fuktskader|vannskader|r[aå]teskader|lekkasjer?|redusert\s+levetid|"
+            r"skader?\s+i\s+(?:undertak|takkonstruksjon|konstruksjon))\b",
+            low,
+        )
+    )
     if _ARKAT_INSPECTION_LIMITATION_RE.search(low) or re.search(
         r"(?ix)\b(?:vanskelig|ikke\s+mulig)\s+[aå]\s+konstatere\b|\bkan\s+ikke\s+(?:konstateres|verifiseres|kontrolleres)\b",
         low,
     ):
         return "LIMITATION_AS_KONSEKVENS"
-    if re.search(r"(?ix)\b(?:det\s+er\s+)?behov\s+for\s+vedlikehold(?:\s+av\b|\b)|\bvedlikeholdsbehov\b", low):
+    if re.search(r"(?ix)\b(?:det\s+er\s+)?behov\s+for\s+vedlikehold(?:\s+av\b|\b)|\bvedlikeholdsbehov\b", low) and not has_damage_endpoint:
         return "TILTAK_AS_KONSEKVENS"
     if re.search(r"(?ix)\b(?:tiltak|utbedring|redrenering|dreneringstiltak)\b.{0,80}\bkan\s+ikke\s+utelukkes\b", low):
         return "TILTAK_AS_KONSEKVENS"
@@ -4123,6 +4353,19 @@ def _normalize_arkat_eval_result(
                 and str(error_type or "") == "CONSEQUENCE_AS_RISIKO"
                 and re.search(r"(?ix)\bmedf[oø]rer\s+h[oø]y\s+risiko\s+for\s+at\b", risk_low)
             ):
+                status = "CORRECT"
+                error_type = None
+                explanation = ""
+            elif (
+                status == "WRONG"
+                and str(error_type or "") == "CONSEQUENCE_AS_RISIKO"
+                and (
+                    _ARKAT_CONDITIONAL_RE.search(risk_low)
+                    or _ARKAT_RISK_DEVELOPMENT_RE.search(risk_low)
+                )
+            ):
+                # Mixed Risiko text may include practical consequences, but remains
+                # valid when it clearly states future building-risk development.
                 status = "CORRECT"
                 error_type = None
                 explanation = ""
@@ -4915,9 +5158,11 @@ def _detect_report_format_for_arkat(report_text: str, detected_points: List[Dict
     bundle = _get_client_arkat_bundle()
     cfg = bundle.get("format_detection") or {}
     profiles = cfg.get("step_1_format_detection", {}).get("format_profiles", []) if isinstance(cfg, dict) else []
+    template_overrides = cfg.get("template_overrides", []) if isinstance(cfg, dict) else []
     text = normalize_text(_first_report_pages_text(report_text, split_pages)).lower()
     point_preview = "\n".join(str(point.get("span_text") or "") for point in detected_points[:10] if isinstance(point, dict)).lower()
     search_blob = f"{text}\n{point_preview}"
+    full_blob = str(report_text or "").lower()
     basis: List[str] = []
     strong_hits: Dict[str, int] = {}
     for profile in profiles:
@@ -4933,6 +5178,35 @@ def _detect_report_format_for_arkat(report_text: str, detected_points: List[Dict
                 hits += 1
         if fmt:
             strong_hits[fmt] = hits
+    for override in template_overrides:
+        if not isinstance(override, dict):
+            continue
+        override_format = str(override.get("report_format") or "").strip()
+        override_basis = str(override.get("basis") or "template override").strip() or "template override"
+        marker_ok = all(
+            normalize_text(str(marker or "")).lower().strip('"') in full_blob
+            for marker in (override.get("required_markers") or [])
+        )
+        regex_ok = all(
+            re.search(str(pattern or ""), report_text or "", re.IGNORECASE | re.MULTILINE)
+            for pattern in (override.get("required_regex") or [])
+        )
+        heading_markers = [str(marker or "") for marker in (override.get("required_heading_lines") or []) if str(marker or "").strip()]
+        heading_threshold = int(override.get("min_heading_lines") or 0)
+        heading_hits = sum(
+            1
+            for marker in heading_markers
+            if re.search(rf"(?im)^\s*{re.escape(marker)}\s*:?\s*$", report_text or "")
+        )
+        heading_ok = True if not heading_markers else heading_hits >= max(1, heading_threshold)
+        if override_format and marker_ok and regex_ok and heading_ok:
+            extraction_method = str(override.get("extraction_method") or "field_label_extraction")
+            return {
+                "report_format": override_format,
+                "extraction_method_used": extraction_method,
+                "signals": strong_hits,
+                "classification_basis": [override_basis],
+            }
     is_befar_independent = "befar.io" in search_blob or "rapporten er bygget med befar" in search_blob
     if is_befar_independent:
         chosen = "semi_structured"
@@ -4956,6 +5230,150 @@ def _detect_report_format_for_arkat(report_text: str, detected_points: List[Dict
         "unlabeled_prose": "semantic_block_extraction",
     }.get(chosen, "semantic_block_extraction")
     return {"report_format": chosen, "extraction_method_used": extraction_method, "signals": strong_hits, "classification_basis": basis}
+
+
+def _extract_eierskifterapport_tg_points(report_text: str, normalize_text) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    lines = str(report_text or "").splitlines()
+    if not lines:
+        return [], []
+    current_del = ""
+    inside_table = False
+    heading_rows: List[Dict[str, object]] = []
+    current_page = 1
+    heading_re = re.compile(
+        r"(?i)^(?:(?P<local>\d+)\.\s*)?(?P<title>.{2,180}?)\s+TG\s*(?P<tg>IU|0|1|2|3)\s*[–-]\s*.+$"
+    )
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        upper = stripped.upper()
+        if upper.startswith("[TABELLDATA]"):
+            inside_table = True
+            continue
+        if upper.startswith("[SIDE "):
+            page_match = re.match(r"(?i)^\[SIDE\s+(\d+)\]", stripped)
+            if page_match:
+                try:
+                    current_page = int(page_match.group(1) or current_page)
+                except (TypeError, ValueError):
+                    current_page = current_page
+            inside_table = False
+        footer_page_match = re.match(r"(?i)^Side\s+(\d+)\s+av\s+\d+\s*$", stripped)
+        if footer_page_match:
+            try:
+                current_page = int(footer_page_match.group(1) or current_page)
+            except (TypeError, ValueError):
+                current_page = current_page
+        del_match = re.match(r"(?i)^DEL\s+(\d+)\b", stripped)
+        if del_match:
+            current_del = str(del_match.group(1) or "").strip()
+            continue
+        if inside_table or not current_del:
+            continue
+        try:
+            del_num = int(current_del)
+        except ValueError:
+            continue
+        # Skip intro/summary containers; DEL 36 is known summary-only.
+        if del_num < 7 or del_num >= 36:
+            continue
+        match = heading_re.match(stripped)
+        if not match:
+            continue
+        local = str(match.group("local") or "").strip()
+        title = str(match.group("title") or "").strip(" -–—:\t")
+        tg_raw = str(match.group("tg") or "").strip().upper()
+        tg_grade = "TGIU" if tg_raw == "IU" else f"TG{tg_raw}"
+        if tg_grade not in {"TG2", "TG3", "TGIU"}:
+            continue
+        heading_rows.append(
+            {
+                "line_idx": idx,
+                "del": str(del_num),
+                "local": local,
+                "title": title,
+                "tg": tg_grade,
+                "heading_line": stripped,
+                "page": current_page,
+            }
+        )
+    if not heading_rows:
+        return [], []
+    by_del_locals: Dict[str, set] = {}
+    points: List[Dict[str, object]] = []
+    source_primary: List[Dict[str, object]] = []
+    for pos, row in enumerate(heading_rows):
+        line_idx = int(row["line_idx"])
+        next_line_idx = int(heading_rows[pos + 1]["line_idx"]) if pos + 1 < len(heading_rows) else len(lines)
+        for boundary_idx in range(line_idx + 1, next_line_idx):
+            candidate = str(lines[boundary_idx] or "").strip()
+            if not candidate:
+                continue
+            if re.match(r"(?i)^DEL\s+\d+\b", candidate):
+                next_line_idx = boundary_idx
+                break
+            if re.match(r"(?i)^\[SIDE\s+\d+\]", candidate):
+                next_line_idx = boundary_idx
+                break
+            section_match = re.match(r"(?i)^(?P<section>\d{1,2})\.\s+[^\n]{2,200}$", candidate)
+            if section_match:
+                section_id = str(section_match.group("section") or "").strip()
+                if section_id and section_id != str(row.get("del") or "").strip():
+                    next_line_idx = boundary_idx
+                    break
+        block = "\n".join(lines[line_idx:next_line_idx]).strip()
+        block = _strip_page_footer_lines(block)
+        if not block:
+            continue
+        del_id = str(row["del"] or "").strip()
+        used_locals = by_del_locals.setdefault(del_id, set())
+        local = str(row.get("local") or "").strip()
+        if local.isdigit():
+            local_num = int(local)
+        else:
+            local_num = 1
+            while local_num in used_locals:
+                local_num += 1
+        used_locals.add(local_num)
+        point_id = f"{del_id}.{local_num}"
+        title = str(row.get("title") or point_id).strip() or point_id
+        point_payload = {
+            "point_id": point_id,
+            "title": title,
+            "tg": row.get("tg"),
+            "effective_span_text": block,
+            "exact_span_text": block,
+            "span_text": block,
+            "page_start": row.get("page"),
+            "page_end": row.get("page"),
+            "source_span_hash": hashlib.sha256(block.encode("utf-8")).hexdigest() if block else None,
+            "source_primary_tg_conclusion": True,
+            "source_template": "eierskifterapport_del_tg_section",
+            "semantic_force_supported": True,
+        }
+        points.append(point_payload)
+        source_primary.append(
+            {
+                "point_id": point_id,
+                "title": title,
+                "tg": row.get("tg"),
+                "page": row.get("page"),
+                "source_span_hash": point_payload.get("source_span_hash"),
+                "source": "eierskifterapport_del_tg_section",
+            }
+        )
+    return points, source_primary
+
+
+def _extract_eierskifterapport_summary_markers(report_text: str) -> List[Dict[str, object]]:
+    text = str(report_text or "")
+    markers: List[Dict[str, object]] = []
+    if re.search(r"(?im)\bTilstandsgrader\s*[–-]\s*sammendrag\b", text):
+        markers.append({"marker": "page1_tg_table", "source": "summary_only"})
+    if re.search(r"(?im)\bDEL\s+36\b", text) and re.search(r"(?im)\bOppsummering\s*/\s*konklusjon\b", text):
+        markers.append({"marker": "del36_summary", "source": "summary_only"})
+    return markers
 
 
 def _build_report_context_for_point(
@@ -5030,12 +5448,114 @@ def run_client_arkat_semantic_pipeline(
         if callable(extract_linked_summary_text_per_point)
         else {}
     )
+    report_pages = split_pages(report_text or "") if callable(split_pages) else []
+    report_page_lookup: List[Tuple[int, str, str]] = []
+    for idx, page in enumerate(report_pages if isinstance(report_pages, list) else []):
+        if not isinstance(page, dict):
+            continue
+        page_no = int(page.get("page") or idx + 1)
+        page_raw = str(page.get("text") or "")
+        report_page_lookup.append((page_no, normalize_text(page_raw), page_raw.lower()))
+
+    def _resolve_point_page_from_lookup(point_title: str, raw_text: str) -> Optional[int]:
+        title_raw = str(point_title or "").split("(")[0].strip().lower()
+        title_norm = normalize_text(str(point_title or "")).split("(")[0].strip()
+        title_norm_short = " ".join([w for w in title_norm.split() if w][:2]).strip()
+        raw_norm = normalize_text(raw_text or "").strip()
+        raw_probe = raw_norm[:220] if raw_norm else ""
+        for page_no, page_norm, _page_raw in report_page_lookup:
+            if raw_probe and raw_probe in page_norm:
+                return page_no
+        for page_no, page_norm, page_raw in report_page_lookup:
+            if title_norm and title_norm in page_norm:
+                return page_no
+            if title_raw and title_raw in page_raw:
+                return page_no
+            if title_norm_short and title_norm_short in page_norm:
+                return page_no
+        return None
     canonical_detected_points = _canonicalize_points_by_id(
         [point for point in detected_points if isinstance(point, dict)],
         normalize_point_id=normalize_point_id,
         effective_point_tg=effective_point_tg,
         normalize_text=normalize_text,
     )
+    eierskifter_points, eierskifter_source_primary = _extract_eierskifterapport_tg_points(report_text, normalize_text)
+    if eierskifter_points:
+        page_chunks = split_pages(report_text or "") if callable(split_pages) else []
+        if isinstance(page_chunks, list) and page_chunks:
+            page_texts = [
+                (
+                    int(chunk.get("page") or idx + 1),
+                    normalize_text(str(chunk.get("text") or "")),
+                    str(chunk.get("text") or "").lower(),
+                )
+                for idx, chunk in enumerate(page_chunks)
+                if isinstance(chunk, dict)
+            ]
+            for point in eierskifter_points:
+                if not isinstance(point, dict) or point.get("page_start"):
+                    continue
+                span_norm = normalize_text(str(point.get("exact_span_text") or point.get("effective_span_text") or "")).strip()
+                probe = span_norm[:240] if span_norm else ""
+                assigned_page = None
+                if probe:
+                    for page_no, page_text, _raw_page_text in page_texts:
+                        if probe in page_text:
+                            assigned_page = page_no
+                            break
+                if assigned_page is None:
+                    title_probe = normalize_text(str(point.get("title") or "")).strip()
+                    title_probe = title_probe.split("(")[0].strip()
+                    title_probe_words = [w for w in title_probe.split() if w]
+                    title_probe_short = " ".join(title_probe_words[:2]).strip()
+                    raw_title_probe = str(point.get("title") or "").split("(")[0].strip().lower()
+                    raw_title_probe_short = " ".join(raw_title_probe.split()[:2]).strip()
+                    for page_no, page_text, raw_page_text in page_texts:
+                        if (title_probe and title_probe in page_text) or (raw_title_probe and raw_title_probe in raw_page_text):
+                            assigned_page = page_no
+                            break
+                    if assigned_page is None and title_probe_short:
+                        for page_no, page_text, raw_page_text in page_texts:
+                            if title_probe_short in page_text or (raw_title_probe_short and raw_title_probe_short in raw_page_text):
+                                assigned_page = page_no
+                                break
+                if assigned_page is not None:
+                    point["page_start"] = assigned_page
+                    point["page_end"] = assigned_page
+                    point["page"] = assigned_page
+    if eierskifter_source_primary:
+        point_page_map = {
+            str(point.get("point_id") or ""): point.get("page_start") or point.get("page")
+            for point in eierskifter_points
+            if isinstance(point, dict)
+        }
+        for source in eierskifter_source_primary:
+            if not isinstance(source, dict):
+                continue
+            pid = str(source.get("point_id") or "")
+            if pid and point_page_map.get(pid):
+                source["page"] = point_page_map.get(pid)
+    if eierskifter_points:
+        existing_point_index: Dict[str, int] = {}
+        for idx, point in enumerate(canonical_detected_points):
+            if not isinstance(point, dict):
+                continue
+            existing_id = _semantic_point_lookup_id(point, normalize_point_id)
+            if existing_id and existing_id not in existing_point_index:
+                existing_point_index[existing_id] = idx
+        for synthetic in eierskifter_points:
+            synthetic_id = _semantic_point_lookup_id(synthetic, normalize_point_id)
+            if not synthetic_id:
+                continue
+            if synthetic_id in existing_point_index:
+                canonical_detected_points[existing_point_index[synthetic_id]] = synthetic
+                continue
+            existing_point_index[synthetic_id] = len(canonical_detected_points)
+            canonical_detected_points.append(synthetic)
+        if isinstance(analysis_output, dict):
+            analysis_output["source_primary_tg_conclusions"] = eierskifter_source_primary
+            analysis_output["summary_duplicate_markers_linked"] = _extract_eierskifterapport_summary_markers(report_text)
     available_point_ids = [
         _semantic_point_lookup_id(point, normalize_point_id)
         for point in canonical_detected_points
@@ -5057,7 +5577,7 @@ def run_client_arkat_semantic_pipeline(
             continue
         # Point-level ARKAT segmentation supports both numeric structured IDs (e.g. 7.1.1)
         # and canonical child IDs (e.g. P07A_*). Skip unsupported IDs to avoid contamination.
-        if not _is_semantic_point_id_supported(point_id):
+        if not _is_semantic_point_id_supported(point_id) and not bool(point.get("semantic_force_supported")):
             continue
         # Strict gate: Dommer B only evaluates TG2/TG3/TGIU points.
         # Do not infer TG from surrounding text for TG0/TG1/empty points.
@@ -5133,6 +5653,7 @@ def run_client_arkat_semantic_pipeline(
         if str(tg_grade or "").strip().upper() not in {"TG2", "TG3", "TGIU"}:
             continue
         is_canonical_child_point = _looks_like_canonical_child_point_id(point_id)
+        is_template_forced_point = bool(point.get("semantic_force_supported"))
         is_source_primary_tg_section = any(
             isinstance(candidate, dict) and bool(candidate.get("source_primary_tg_conclusion"))
             for candidate in candidates
@@ -5177,7 +5698,12 @@ def run_client_arkat_semantic_pipeline(
                     source_point_id=_semantic_point_lookup_id(candidate, normalize_point_id),
                     reason="canonical_point_group_candidate",
                 )
-            if not is_source_primary_tg_section and not is_canonical_child_point and _point_text_needs_report_fallback(candidate_text, point_id, str(candidate.get("title") or ""), normalize_text):
+            if (
+                not is_template_forced_point
+                and not is_source_primary_tg_section
+                and not is_canonical_child_point
+                and _point_text_needs_report_fallback(candidate_text, point_id, str(candidate.get("title") or ""), normalize_text)
+            ):
                 recovered = _recover_point_text_from_report(report_text, point_id, str(candidate.get("title") or ""), normalize_text)
                 recovered = _trim_text_to_point_window(recovered, point_id, normalize_text)
                 recovered = _augment_point_text_with_linked_summary(
@@ -5197,7 +5723,7 @@ def run_client_arkat_semantic_pipeline(
                         source_point_id=point_id,
                         reason="point_text_needs_report_fallback=true",
                     )
-        if not is_source_primary_tg_section and not is_canonical_child_point:
+        if not is_template_forced_point and not is_source_primary_tg_section and not is_canonical_child_point:
             contextual_candidates = _collect_contextual_point_text_candidates(
                 point_id,
                 str(point.get("title") or ""),
@@ -5293,13 +5819,29 @@ def run_client_arkat_semantic_pipeline(
             available_point_ids,
             normalize_text,
         )
-        if recovered and normalize_text(recovered) != normalize_text(raw_point_text):
+        if (
+            not is_template_forced_point
+            and recovered
+            and normalize_text(recovered) != normalize_text(raw_point_text)
+        ):
             recovered_fields = _extract_and_sanitize_fields(recovered)
             current_score = _count_present_arkat_fields(extracted_fields, normalize_text, tg_grade)
             recovered_score = _count_present_arkat_fields(recovered_fields, normalize_text, tg_grade)
-            if recovered_score > current_score or (
-                recovered_score == current_score and len(normalize_text(recovered)) > len(normalize_text(raw_point_text))
-            ):
+            current_needs_fallback = _point_text_needs_report_fallback(
+                raw_point_text,
+                point_id,
+                str(point.get("title") or ""),
+                normalize_text,
+            )
+            should_upgrade_from_recovered = (
+                recovered_score > current_score
+                or (
+                    recovered_score == current_score
+                    and current_needs_fallback
+                    and len(normalize_text(recovered)) > len(normalize_text(raw_point_text))
+                )
+            )
+            if should_upgrade_from_recovered:
                 if recovered_score >= current_score:
                     raw_point_text = recovered
                     if recovered_score > current_score:
@@ -5327,7 +5869,8 @@ def run_client_arkat_semantic_pipeline(
             report_date=report_date,
             normalize_text=normalize_text,
         )
-        raw_point_text = _sanitize_pdf_layout_text_for_arkat(raw_point_text)
+        if str(format_meta.get("report_format") or "") != "structured_arkat":
+            raw_point_text = _sanitize_pdf_layout_text_for_arkat(raw_point_text)
         raw_point_text = _cut_known_cross_section_bleed(raw_point_text, point_id)
         extracted_fields = _collapse_identical_arkat_field_pairs(
             _collapse_identical_arkat_field_triplet(extracted_fields, normalize_text),
@@ -5360,7 +5903,7 @@ def run_client_arkat_semantic_pipeline(
         )
         extracted_fields, explicit_binding_evidence = _apply_explicit_arkat_subsection_bindings(
             extracted_fields,
-            field_extraction_text or raw_point_text,
+            raw_point_text,
             normalize_text,
         )
         if explicit_binding_evidence:
@@ -5384,6 +5927,9 @@ def run_client_arkat_semantic_pipeline(
             _clear_61_cross_bullet_rekkverk_risk(extracted_fields, evaluation, normalize_text)
         if bool(evaluation.get("used_llm")):
             llm_calls_used += 1
+        point_page = point.get("page_start") or point.get("page")
+        if not point_page:
+            point_page = _resolve_point_page_from_lookup(str(point.get("title") or point_id), raw_point_text)
         point_payload = {
             "point_id": point_id,
             "title": str(point.get("title") or point_id),
@@ -5391,6 +5937,8 @@ def run_client_arkat_semantic_pipeline(
             "ns_version": ns_version,
             "report_format": format_meta.get("report_format") or "",
             "extraction_method_used": format_meta.get("extraction_method_used") or "",
+            "page_start": int(point_page) if isinstance(point_page, (int, float, str)) and str(point_page).strip().isdigit() else point_page,
+            "page_end": int(point_page) if isinstance(point_page, (int, float, str)) and str(point_page).strip().isdigit() else point_page,
             "raw_point_text": raw_point_text,
             "extracted_fields": extracted_fields,
             "arkat_field_binding_evidence": arkat_field_binding_evidence,

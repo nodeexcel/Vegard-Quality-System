@@ -492,6 +492,13 @@ def test_cross_format_regression_smoke_set_covers_required_runtime_axes():
     )
     assert (ns_2018, meta_2018["source"]) == ("NS3600:2018", "report_text")
     assert (ns_2025, meta_2025["detail"]) == ("NS3600:2025", "ns3600_2025")
+    date_only_ns, date_only_meta = _detect_ns_version_for_dommer_b(
+        "Tilstandsrapport uten eksplisitt NS-markør i brødteksten.",
+        report_date="2026-07-13",
+        context_ns_version="",
+        normalize_text=normalize_text,
+    )
+    assert (date_only_ns, date_only_meta["source"]) == ("NS3600:2025", "report_date_fallback")
 
     tg3_output = {"meta": {"ns_version": "NS 3600:2025"}, "all_findings": [], "arkat_semantic_pipeline": {"ns_version": "NS3600:2025", "report_format": "semi_structured", "points": [{"point_id": "3", "title": "Terrengforhold", "tg_grade": "TG3", "raw_point_text": "TG 3 Terrengforhold. Det anbefales fall fra grunnmur.", "extracted_fields": {}}]}}
     _ensure_semantic_tg3_cost_backstop("", tg3_output)

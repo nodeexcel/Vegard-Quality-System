@@ -1,8 +1,8 @@
 {
   "meta": {
     "name": "arkat_semantic_rules",
-    "version": "1.2.3",
-    "description": "v1.2.0 introduces TGIU-specific taxonomy and aligns field definitions with pipeline_step. v1.2.1 removes stale deprecated_error_types and clarifies Konsekvens boundary between actual consequence, technical process, and generic risk. v1.2.2 removes the stale '[TG3 only]' qualifier from the anbefalt_tiltak error_type_if_wrong list; MISSING (anbefalt_tiltak) also fires at TG2 under NS3600:2025 per punkt 13.",
+    "version": "1.2.5",
+    "description": "v1.2.0 introduces TGIU-specific taxonomy and aligns field definitions with pipeline_step. v1.2.1 removes stale deprecated_error_types and clarifies Konsekvens boundary between actual consequence, technical process, and generic risk. v1.2.2 removes the stale '[TG3 only]' qualifier from the anbefalt_tiltak error_type_if_wrong list; MISSING (anbefalt_tiltak) also fires at TG2 under NS3600:2025 per punkt 13. v1.2.4 adds product-owner rulings for observation-as-aarsak and limitation-as-risk, and formalizes regime date fallback governance. v1.2.5 moves point-boundary heading vocabulary and report-regime labels/date thresholds into versioned governance.",
     "applies_to": "All TG2, TG3, and TGIU points across all report formats"
   },
   "field_definitions": {
@@ -10,7 +10,7 @@
       "label": "Årsak",
       "correct_content": "Explains HOW or WHY the defect has occurred. Describes the cause of the condition, not what was visually observed and not what might happen next.",
       "forbidden_content": [
-        "A description of what the assessor saw or measured (observation)",
+        "A pure observation that does not function as rationale for TG/avvik",
         "A description of what might happen in the future (risk)",
         "A statement about who is responsible",
         "A narrative or history of the building"
@@ -30,7 +30,7 @@
       "forbidden_content": [
         "What is currently happening to the building (present tense condition)",
         "What this means for the buyer in practical or economic terms",
-        "A description of the inspection limitation used as a substitute for risk",
+        "A pure inspection limitation without named technical risk category",
         "A cause explanation presented as risk"
       ],
       "language_test": "Risiko should be answerable with: 'If this is not addressed, [building component] could [develop/deteriorate/fail] in [this way].'",
@@ -65,6 +65,45 @@
       "tiltak_imperative_form_detection_nb": "Tiltak formulert som pålegg eller prosjekterende instruksjon. Kjennetegn: 'Skal utbedres...', 'Må utføres i henhold til...', 'Det kreves at...'. Ikke trigge på 'skal' alene når ordet står i en formåls-/funksjonsleddsetning innenfor en anbefalingsramme, f.eks. 'Det anbefales å ... for at vann skal kunne ledes ...' eller teknisk funksjonsbeskrivelse som 'overflatevann skal ledes ...'. Korrekt form er anbefaling: 'Det anbefales å...', 'Bør utbedres...', 'Videre undersøkelser anbefales...'",
       "tiltak_vague_without_necessity_detection_nb": "Tiltak er vagt formulert ved TG3 uten å gjøre det klart at utbedring er nødvendig. Kjennetegn: 'Kan vurderes...', 'Eventuelt kan...', 'Kan på sikt...'. Ved TG3 kreves mer forpliktende anbefaling om nødvendig handling.",
       "consequence_as_tiltak_detection_nb": "Tiltak-feltet beskriver kjøperkonsekvens (kostnader, brukspåvirkning) i stedet for konkret handling. Kjennetegn: 'Må påregne kostnader...', 'Kjøper må være oppmerksom...', 'Forholdet vil medføre...'"
+    }
+  },
+  "product_owner_rulings_nb": {
+    "observation_as_aarsak": "Observasjon/begrensning er gyldig aarsak når den fungerer som begrunnelse for TG/avvik. OBSERVATION_AS_AARSAK brukes kun når observasjonen ikke har begrunnelsesfunksjon.",
+    "limitation_as_risk": "Begrensning er gyldig risiko når den navngir skjult teknisk risikokategori. LIMITATION_USED_AS_RISK_SUBSTITUTE brukes kun for ren dokumentasjonsbegrensning uten navngitt teknisk risiko."
+  },
+  "explicit_subsection_headings": {
+    "aarsak": [
+      "VURDERING",
+      "ÅRSAK",
+      "ARSAK",
+      "AARSAK",
+      "AVVIK/ÅRSAK",
+      "AVVIK/ARSAK"
+    ],
+    "risiko": [
+      "RISIKO",
+      "RISIKO/KONSEKVENS"
+    ],
+    "konsekvens": [
+      "KONSEKVENS",
+      "RISIKO/KONSEKVENS",
+      "KONSEKVENS/TILTAK"
+    ],
+    "anbefalt_tiltak": [
+      "ANBEFALT TILTAK",
+      "KONSEKVENS/TILTAK"
+    ]
+  },
+  "regime_date_rules": {
+    "ns2025_effective_from": "2026-07-01",
+    "transition_dec_2025_from": "2025-12-17",
+    "transition_2026_from": "2026-01-01",
+    "full_2026_from": "2026-07-01",
+    "report_regime_labels": {
+      "pre_2025": "PRE_2025",
+      "transition_dec_2025": "TRANSITION_DEC_2025",
+      "transition_2026": "TRANSITION_2026",
+      "full_2026": "FULL_2026"
     }
   },
   "tgiu_field_definitions": {
@@ -110,5 +149,16 @@
     "_note_nb": "Denne filen er ikke lenger eneansvarlig for feil-til-straff-mapping. Mapping av feiltyper til poengtrekk er flyttet til den separate filen arkat_error_to_deduction_mapping_v1_1_0.json. Dommer B returnerer strukturerte feilklassifiseringer; scoring-laget slår opp poengverdier i mapping-tabellen.",
     "source_of_truth": "arkat_error_to_deduction_mapping_v1_1_0.json",
     "integration_contract": "See 'integration_contract' section in the mapping file for input/output schema."
-  }
+  },
+  "section_boundary_headings": [
+    "KOSTNADSKLASSE VED TG3",
+    "Nøkkelfakta",
+    "Hvordan kontrollen er utført",
+    "Konklusjon bygningsdel",
+    "Oppsummering av bygningsdel",
+    "Oppsummering avvik",
+    "Seksjonsnotat",
+    "VÆR OPPMERKSOM PÅ",
+    "TILLEGGSOPPLYSNINGER"
+  ]
 }

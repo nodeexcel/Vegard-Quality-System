@@ -615,7 +615,7 @@ export default function Home() {
           {/* Standards Info */}
           <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6">
             <p className="text-sm text-gray-700 text-center">
-              <span className="font-semibold">Standarder vurdert:</span> Forskrift til avhendingslova, NS 3600:2018, NS 3940:2023, TEK, Prop. 44 L
+              Kvalitetskravene bygger på forskrift til avhendingslova, gjeldende bransjestandarder og en gjennomgang av 350 publiserte dommer i tvister etter bolighandel (2024–2026).
             </p>
           </div>
         </div>

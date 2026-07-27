@@ -50,6 +50,21 @@ def _public_bmtf_payload(payload: Optional[dict], extracted_text: str) -> Option
     if not isinstance(payload, dict):
         return payload
     copied = json.loads(json.dumps(payload, ensure_ascii=False))
+    analysis_output = copied.get("analysis_output") if isinstance(copied.get("analysis_output"), dict) else {}
+    invariants = analysis_output.get("policy_invariants") if isinstance(analysis_output.get("policy_invariants"), list) else []
+    has_failed_invariants = any(
+        isinstance(item, dict) and not bool(item.get("passed"))
+        for item in invariants
+    )
+    safe_stop_active = bool(
+        copied.get("safe_stop_due_to_invariant_failure")
+        or analysis_output.get("safe_stop_due_to_invariant_failure")
+        or has_failed_invariants
+    )
+    if safe_stop_active and "feedback_v11" in copied:
+        copied.pop("feedback_v11", None)
+        copied["safe_stop_due_to_invariant_failure"] = True
+        copied["limited_analysis_warning"] = "Rapporten kunne ikke analyseres ennå."
     return sanitize_bmtf_public_point_taxonomy_payload(copied, extracted_text or "")
 
 

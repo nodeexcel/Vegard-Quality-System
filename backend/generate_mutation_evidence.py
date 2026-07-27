@@ -31,6 +31,7 @@ from app.services.arkat_semantic_pipeline import (  # noqa: E402
     _evaluate_arkat_point,
     _extract_fields_for_point,
 )
+from app.services.validert_files import get_runtime_manifest  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -277,13 +278,23 @@ def build_cross_format_evidence():
         allow_llm=False,
     )
     tgiu_findings = tgiu.get("tgiu_findings", {}).get("findings", [])
+    actual_tgiu_findings = [
+        str(f.get("error_type") or f.get("rule_id") or f.get("finding_id") or "").strip()
+        for f in tgiu_findings
+        if isinstance(f, dict)
+    ]
+    expected_tgiu_findings = [
+        "TGIU_MISSING_REASON",
+        "TGIU_MISSING_FURTHER_INVESTIGATION",
+        "TGIU_MISSING_MOISTURE_FLAG",
+    ]
     records.append({
         "case": "TGIU case",
         "report_id": "synthetic-TGIU-loft",
         "ns_version": "NS3600:2025",
-        "expected_findings": ["tgiu_findings present"],
-        "actual_tgiu_findings": [f.get("rule_id") or f.get("finding_id") for f in tgiu_findings],
-        "passed": bool(tgiu_findings),
+        "expected_tgiu_findings": expected_tgiu_findings,
+        "actual_tgiu_findings": actual_tgiu_findings,
+        "passed": sorted(actual_tgiu_findings) == sorted(expected_tgiu_findings),
     })
 
     # lovlighet/el/no-TG — el_tg_forbidden finding remains when point has TG2 (active finding)
@@ -327,6 +338,7 @@ def main():
 
     evidence = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "governance": get_runtime_manifest("mutation_cross_format_evidence"),
         "summary": {
             "mutation_checks": {
                 "total": len(mutation_evidence),

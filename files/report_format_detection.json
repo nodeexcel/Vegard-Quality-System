@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "report_format_detection",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Defines how the pipeline detects report format and extracts ARKAT field content semantically before evaluation. This step must run before arkat_evaluation_pipeline_step.json. The core principle: ARKAT evaluation always targets semantic content — never field labels alone.",
     "position_in_pipeline": "Step 1 of 2 in pre-evaluation. Runs after text extraction, before ARKAT evaluation call."
   },
@@ -10,6 +10,30 @@
     "statement": "The pipeline must never assume that a field labeled 'Konsekvens' contains konsekvens-content, or that a field labeled 'Risiko' contains risiko-content. Labels are unreliable across report formats and within individual points in the same report. The semantic content determines what the text actually is — not the heading it appears under.",
     "implication": "Format detection determines HOW to extract the text. Semantic evaluation determines WHAT the text actually says. These are two separate steps."
   },
+
+  "template_overrides": [
+    {
+      "id": "bmtf_eierskifterapport_del_tg",
+      "report_format": "structured_arkat",
+      "extraction_method": "field_label_extraction",
+      "basis": "template override: eierskifterapport DEL/TG markers",
+      "required_markers": [
+        "eierskifterapport"
+      ],
+      "required_regex": [
+        "\\bDEL\\s+\\d+\\b",
+        "^\\s*(?:\\d+\\.\\s*)?.{2,180}\\bTG\\s*(?:IU|0|1|2|3)\\b\\s*[–-]"
+      ],
+      "required_heading_lines": [
+        "VURDERING",
+        "ÅRSAK",
+        "RISIKO",
+        "KONSEKVENS",
+        "ANBEFALT TILTAK"
+      ],
+      "min_heading_lines": 3
+    }
+  ],
 
   "step_1_format_detection": {
     "description": "Identify which report format is used. Must run once per report, not once per point.",

@@ -1,0 +1,949 @@
+{
+  "baseline": {
+    "filename": "dommer_b_bolavi-egen-rapport_fresh (9).json",
+    "sha256": "cfc962c8b2ff2d695a52120fb63757f53ec6140ec5c7628e6af0aadc7d30e8a5"
+  },
+  "delivered": {
+    "filename": "dommer_b_bolavi-egen-rapport_fresh.json",
+    "sha256": "2e880ee490c1c91a797c38d645e99b273a937298411aa5a9828ed3224f612f11"
+  },
+  "layers": [
+    "raw_point_text",
+    "extracted_fields",
+    "arkat_field_binding_evidence",
+    "evaluation"
+  ],
+  "per_point": {
+    "1": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "fa8076862ec480aaea391b10bfe6efc06ea6326166bb7901e37601843dc12572",
+        "delivered_hash": "fa8076862ec480aaea391b10bfe6efc06ea6326166bb7901e37601843dc12572"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "73c954145481b818428c6dcb1297dc3e5ffbc2d76e7743438d42ed184aeb2076",
+        "delivered_hash": "73c954145481b818428c6dcb1297dc3e5ffbc2d76e7743438d42ed184aeb2076"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "1c41203dc58ef9991ea6fe253c3fba085fbc760fc1baafe9362f88ed8237dd9a",
+        "delivered_hash": "1c41203dc58ef9991ea6fe253c3fba085fbc760fc1baafe9362f88ed8237dd9a"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "dc69079532676ff3f3c6b5c10e3569593623d80677c244d89060f889fdfbd345",
+        "delivered_hash": "dc69079532676ff3f3c6b5c10e3569593623d80677c244d89060f889fdfbd345"
+      }
+    },
+    "3": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "23df114cd2933d1aaef909b259d3594c32c3f578c29b8d2bd287293169d18a2e",
+        "delivered_hash": "23df114cd2933d1aaef909b259d3594c32c3f578c29b8d2bd287293169d18a2e"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "76f598b3b0daebc285498feccf778ef611a40716691db6b1b6cf684102013bff",
+        "delivered_hash": "76f598b3b0daebc285498feccf778ef611a40716691db6b1b6cf684102013bff"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "df984799d5d877b7a0c9c88d629829ae539dc0833e792218d6e8ec53e6bc564c",
+        "delivered_hash": "df984799d5d877b7a0c9c88d629829ae539dc0833e792218d6e8ec53e6bc564c"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "4a4a44f7514d149f29bda84b17973b2a20598ad0dae376f278070c4c99d44dc4",
+        "delivered_hash": "4a4a44f7514d149f29bda84b17973b2a20598ad0dae376f278070c4c99d44dc4"
+      }
+    },
+    "4": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "af503fd24e923f737c5bee67e3759f12555bac04e4296763b1b0b4e4c0bb840c",
+        "delivered_hash": "af503fd24e923f737c5bee67e3759f12555bac04e4296763b1b0b4e4c0bb840c"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "29e5731ce40a140b5629f1f2f30376b246cbdb60f1757a3b5747ad8b5473b23a",
+        "delivered_hash": "29e5731ce40a140b5629f1f2f30376b246cbdb60f1757a3b5747ad8b5473b23a"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "0224d68cbe5a5fee0c0f30ba250aadd33a97c7f3abf9ab94dd58c3fb3d880029",
+        "delivered_hash": "0224d68cbe5a5fee0c0f30ba250aadd33a97c7f3abf9ab94dd58c3fb3d880029"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "59b35aa3c240ebac77f85e7a61535a09ccb5e0e58583921f9cc83810816e03bc",
+        "delivered_hash": "59b35aa3c240ebac77f85e7a61535a09ccb5e0e58583921f9cc83810816e03bc"
+      }
+    },
+    "5": {
+      "raw_point_text": {
+        "equal": false,
+        "baseline_hash": "a26472e1897df5eb835c75cd850810133412a4bab2898e8db750967db3d931cb",
+        "delivered_hash": "590f41e255d4b5e0a20212500c2c6c4739d221db19fec8f7f3c6bda9fd074ed8"
+      },
+      "extracted_fields": {
+        "equal": false,
+        "baseline_hash": "a3253aa5d5f39ecafa884ca173cc88e6aa7d6ecb21cccab9e7c723c1a88c5a9c",
+        "delivered_hash": "9f276f3f113aa2e203190229960f8660e5be90aaa0b0741dea7319fa475e022c"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": false,
+        "baseline_hash": "dec0198d58b7e5158933de743f0e143209850fa186acfff157545b1bc4ba779e",
+        "delivered_hash": "19c7ff862a3428b82a50b65296d64c1ef579a954143094b1d1c28a2eedff9c2b"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "9a6a810a5eb5214a115c3743a1e031fc33164d6dd26f7f238adccfcbcda159f5",
+        "delivered_hash": "9a6a810a5eb5214a115c3743a1e031fc33164d6dd26f7f238adccfcbcda159f5"
+      }
+    },
+    "6": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "fee3de7e7737abbd633a6e92c66559de75586c6cb33e738a6593f2cc1c161ea7",
+        "delivered_hash": "fee3de7e7737abbd633a6e92c66559de75586c6cb33e738a6593f2cc1c161ea7"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "a82efb467184e5b27653a98de9655fff5698471596ea0e00d046052edaacc8e4",
+        "delivered_hash": "a82efb467184e5b27653a98de9655fff5698471596ea0e00d046052edaacc8e4"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "76933bea59cb41e61575839348906d43f900399750500801ed9e7fb6cb88b9de",
+        "delivered_hash": "76933bea59cb41e61575839348906d43f900399750500801ed9e7fb6cb88b9de"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "f7b05965f556da147eea2491eb752a70619e7f138cd2bd778cae2be0bbbb0411",
+        "delivered_hash": "f7b05965f556da147eea2491eb752a70619e7f138cd2bd778cae2be0bbbb0411"
+      }
+    },
+    "7": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "1bdc6ceb440e8513adf72e82f9cedc89b0774e0759c3f613cee5d227dc3b882a",
+        "delivered_hash": "1bdc6ceb440e8513adf72e82f9cedc89b0774e0759c3f613cee5d227dc3b882a"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "2316e3e870ac7b3aad4f2d2e015e4f843ccd3c78af2bab5599679554bd4d4ef7",
+        "delivered_hash": "2316e3e870ac7b3aad4f2d2e015e4f843ccd3c78af2bab5599679554bd4d4ef7"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "f07eb418f1ac5d7b09e9c97f157e7ce6a36dc32d3a96f02ed1a1bb0bcac58c80",
+        "delivered_hash": "f07eb418f1ac5d7b09e9c97f157e7ce6a36dc32d3a96f02ed1a1bb0bcac58c80"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "840a7a5223fea3eb7091b9a80ef3491e305c7274205138f8244c743da075819b",
+        "delivered_hash": "840a7a5223fea3eb7091b9a80ef3491e305c7274205138f8244c743da075819b"
+      }
+    },
+    "10.1": {
+      "raw_point_text": {
+        "equal": false,
+        "baseline_hash": "a6a54d42b4bbc3157caf8cdf022ae8d5230efcf7fd753ed2e0d7fd17290bb815",
+        "delivered_hash": "a1f4f393ce8a5d6cc2756b3aaaa81bea3034ee2d830d46d72a68e5899778ccd0"
+      },
+      "extracted_fields": {
+        "equal": false,
+        "baseline_hash": "f3253fcb6f7b622095e100feb05c0fd49758c0d42403be3fbf767e358c94b50c",
+        "delivered_hash": "c6842f8cbeef49179354680f7aa236a8b4a942662f7d71b49770e184ca91fba1"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": false,
+        "baseline_hash": "d149382ac1d3fa5516b0d51f3e703990f826aa4b430d175fc8b340e059669d3c",
+        "delivered_hash": "3df4a8b9ce8fa79f0f4892fa2f409303cfe072e9eafc8444fd3310fc27453f50"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "ad59b05e2745a430127df7b262ca3ac5959d339eb0e062c63ff2a98d717f3776",
+        "delivered_hash": "ad59b05e2745a430127df7b262ca3ac5959d339eb0e062c63ff2a98d717f3776"
+      }
+    },
+    "10.2": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "51b81b85e60fa934e30bcff325b5d65d4b0b04397b7864ece7aaf289d8d8b668",
+        "delivered_hash": "51b81b85e60fa934e30bcff325b5d65d4b0b04397b7864ece7aaf289d8d8b668"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "d6527be46f0f37e9505f26bf0b4ae058f2c12ad4f6ce9178a26595844b2b5a4b",
+        "delivered_hash": "d6527be46f0f37e9505f26bf0b4ae058f2c12ad4f6ce9178a26595844b2b5a4b"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "1fefcf0b81713a3f2bbd6409760e0ec30cad46d9689f88f9067d058caf2fadba",
+        "delivered_hash": "1fefcf0b81713a3f2bbd6409760e0ec30cad46d9689f88f9067d058caf2fadba"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "70bd342217ffe69002faa3b463e9f35e80969d5ef398d60228c0a477fb747d5e",
+        "delivered_hash": "70bd342217ffe69002faa3b463e9f35e80969d5ef398d60228c0a477fb747d5e"
+      }
+    },
+    "10.3": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "5043553dd529205426f4c29f9234de4300e08837c1d6dfde74c92165c9cf668a",
+        "delivered_hash": "5043553dd529205426f4c29f9234de4300e08837c1d6dfde74c92165c9cf668a"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "ff1811b9f2aa519b96d4e9da2289da71502c32e028970a9777a3ad53379996eb",
+        "delivered_hash": "ff1811b9f2aa519b96d4e9da2289da71502c32e028970a9777a3ad53379996eb"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "dee6d5b23de89b9a3b683ac81285a24e0ede5ebba22a914b04016cf03c96c6a6",
+        "delivered_hash": "dee6d5b23de89b9a3b683ac81285a24e0ede5ebba22a914b04016cf03c96c6a6"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "d6903c9c19429f92d6b1527e9df8d4b3d7a4bcb28849fb4303ecd61ca73adb19",
+        "delivered_hash": "d6903c9c19429f92d6b1527e9df8d4b3d7a4bcb28849fb4303ecd61ca73adb19"
+      }
+    },
+    "11": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "08adc47b711192a18d404bf52f7cc00f6cc526bea1f176206dd26ad7ca0213f2",
+        "delivered_hash": "08adc47b711192a18d404bf52f7cc00f6cc526bea1f176206dd26ad7ca0213f2"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "c2035d87d3e4a40b09b660ac97bd7237d38fc8e7ccd0d02708e0802288fe22fc",
+        "delivered_hash": "c2035d87d3e4a40b09b660ac97bd7237d38fc8e7ccd0d02708e0802288fe22fc"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "1cce46ce3e8465b0f4a81a1708eaf290fda557420c08316ec26e09d0993e0970",
+        "delivered_hash": "1cce46ce3e8465b0f4a81a1708eaf290fda557420c08316ec26e09d0993e0970"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "2808a966036c2630c7fc7d18d44e2962d9bd218f78e5b4d480af9e1039bac4bb",
+        "delivered_hash": "2808a966036c2630c7fc7d18d44e2962d9bd218f78e5b4d480af9e1039bac4bb"
+      }
+    },
+    "15.1": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "f52ebbda13561f42e5bb6563110151875e81c5258505e1fd630a6c165b197d40",
+        "delivered_hash": "f52ebbda13561f42e5bb6563110151875e81c5258505e1fd630a6c165b197d40"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "fa15faa8d2369f4f72fcb035eb184923cdbc251e7c02dc817d200408644f4f03",
+        "delivered_hash": "fa15faa8d2369f4f72fcb035eb184923cdbc251e7c02dc817d200408644f4f03"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "d7b2930e0ce78058808bb3eb71c5cdf296bdf160f9a3c062757aa39efa04dc14",
+        "delivered_hash": "d7b2930e0ce78058808bb3eb71c5cdf296bdf160f9a3c062757aa39efa04dc14"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "1e2d8ee6890a2d5b3ea3b81c3385a47b5437317eaca65d4ddf37adbd3a81b243",
+        "delivered_hash": "1e2d8ee6890a2d5b3ea3b81c3385a47b5437317eaca65d4ddf37adbd3a81b243"
+      }
+    },
+    "15.4": {
+      "raw_point_text": {
+        "equal": true,
+        "baseline_hash": "ae2a23a8b1bc7b2b8982c8fef7c0fb6a7435749811c12978bc0fc002d43de110",
+        "delivered_hash": "ae2a23a8b1bc7b2b8982c8fef7c0fb6a7435749811c12978bc0fc002d43de110"
+      },
+      "extracted_fields": {
+        "equal": true,
+        "baseline_hash": "cfc85287b9d9eb48449aa3780f2ea954b759bc98a0d129f355f88a4949eadd0b",
+        "delivered_hash": "cfc85287b9d9eb48449aa3780f2ea954b759bc98a0d129f355f88a4949eadd0b"
+      },
+      "arkat_field_binding_evidence": {
+        "equal": true,
+        "baseline_hash": "acac2d212cc867cf2b9a56239c65441c662585fd8971d56b3bc0bfc861aca79f",
+        "delivered_hash": "acac2d212cc867cf2b9a56239c65441c662585fd8971d56b3bc0bfc861aca79f"
+      },
+      "evaluation": {
+        "equal": true,
+        "baseline_hash": "d637b23f31adc9d5f0b147a6362af4239a04ba897eb8a1be28681d98fb79f182",
+        "delivered_hash": "d637b23f31adc9d5f0b147a6362af4239a04ba897eb8a1be28681d98fb79f182"
+      }
+    }
+  },
+  "mismatches": [
+    {
+      "point_id": "5",
+      "json_path": "dommer_b_full.points['5'].raw_point_text",
+      "before": "TG 2 5. VINDUER OG YTTERDØRER Nøkkelfakta Type vinduer: Toppsving/Topphengslet; Toppsving/Fastkarm; Toppsving Type balkong/ytterdør: Ytterdør Type glass: 2-lags glass Årstall: Hvordan kontrollen er utført Kontrollen omfatter synlige forhold knyttet til alder, overflatebehandling, tetting, funkson, glass, beslag og eventuelle tegn til slitase, fukt- eller råteskader. Det vurderes også forhold som kan påvirke vinduenes levetid, energieffektivitet og motstand mot vrpåvirkning. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for vinduer og ytterdører. Det er avdekket flere avvik, det er registrert slitase og elde på både vinduer og dører, samt at eldre vinduer og dører er modne for utskiftning, noe som kan medføre høyere energikostnader og behov for hyppigere vedlikehold. 1. Avvik/Årsak: Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Risiko/Konsekvens Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Anbefalte tiltak Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. 2. Avvik/Årsak: Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger. Risiko/Konsekvens Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke. Anbefalte tiltak Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid",
+      "after": "TG 2 5. VINDUER OG YTTERDØRER Nøkkelfakta Type vinduer: Toppsving/Topphengslet; Toppsving/Fastkarm; Toppsving Type balkong/ytterdør: Ytterdør Type glass: 2-lags glass Årstall: Hvordan kontrollen er utført Kontrollen omfatter synlige forhold knyttet til alder, overflatebehandling, tetting, funksjon, glass, beslag og eventuelle tegn til slitasje, fukt- eller råteskader. Det vurderes også forhold som kan påvirke vinduenes levetid, energieffektivitet og motstand mot vrpåvirkning. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for vinduer og ytterdører. Det er avdekket flere avvik, det er registrert slitasje og elde på både vinduer og dører, samt at eldre vinduer og dører er modne for utskiftning, noe som kan medføre høyere energikostnader og behov for hyppigere vedlikehold. 1. Avvik/Årsak: Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Risiko/Konsekvens Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Anbefalte tiltak Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. 2. Avvik/Årsak: Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger. Risiko/Konsekvens Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke. Anbefalte tiltak Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid"
+    },
+    {
+      "point_id": "5",
+      "json_path": "dommer_b_full.points['5'].extracted_fields",
+      "before": {
+        "aarsak": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+        "risiko": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+        "konsekvens": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+        "anbefalt_tiltak": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid"
+      },
+      "after": {
+        "aarsak": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+        "risiko": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+        "konsekvens": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+        "anbefalt_tiltak": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid"
+      }
+    },
+    {
+      "point_id": "5",
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence",
+      "before": {
+        "aarsak": [
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 825,
+            "length_chars": 252,
+            "text": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner",
+            "preview": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning"
+          },
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 1447,
+            "length_chars": 277,
+            "text": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+            "preview": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere pro"
+          }
+        ],
+        "risiko": [
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1096,
+            "length_chars": 167,
+            "text": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold",
+            "preview": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold"
+          },
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1743,
+            "length_chars": 193,
+            "text": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+            "preview": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke"
+          }
+        ],
+        "konsekvens": [
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1096,
+            "length_chars": 167,
+            "text": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold",
+            "preview": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold"
+          },
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1743,
+            "length_chars": 193,
+            "text": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+            "preview": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke"
+          }
+        ],
+        "anbefalt_tiltak": [
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1281,
+            "length_chars": 149,
+            "text": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning",
+            "preview": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning"
+          },
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1954,
+            "length_chars": 82,
+            "text": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid",
+            "preview": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid"
+          }
+        ]
+      },
+      "after": {
+        "aarsak": [
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 828,
+            "length_chars": 252,
+            "text": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner",
+            "preview": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning"
+          },
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 1450,
+            "length_chars": 277,
+            "text": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+            "preview": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere pro"
+          }
+        ],
+        "risiko": [
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1099,
+            "length_chars": 167,
+            "text": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold",
+            "preview": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold"
+          },
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1747,
+            "length_chars": 193,
+            "text": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+            "preview": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke"
+          }
+        ],
+        "konsekvens": [
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1099,
+            "length_chars": 167,
+            "text": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold",
+            "preview": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold"
+          },
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1747,
+            "length_chars": 193,
+            "text": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+            "preview": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke"
+          }
+        ],
+        "anbefalt_tiltak": [
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1284,
+            "length_chars": 149,
+            "text": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning",
+            "preview": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning"
+          },
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1959,
+            "length_chars": 82,
+            "text": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid",
+            "preview": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid"
+          }
+        ]
+      }
+    },
+    {
+      "point_id": "10.1",
+      "json_path": "dommer_b_full.points['10.1'].raw_point_text",
+      "before": "TG 2 10.1 VEGGER OG HIMLINGER Nøkkelfakta Vegger: Våtromsbelegg Himling: Takess Ventilason: Elektrisk avtrekksvifte vegg), Spalte ved dør Oppvarming: Elektrisk gulvvarme Årstall: Hvordan kontrollen er utført Ved kontroll av vegger, himling og ventilason på våtrom vurderes blant annet overflater, synlige skader, tegn til fuktpåvirkning, ventilasonsløsning og luftutskifting. Det kontrolleres også for forhold som kan gi økt risiko for kondens, mugg- og fuktskader. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for badets vegger og himlinger. Det er observert slitte skjøter i våtromstapet, eldre våtromstapet, samt hull etter innfestinger, noe som indikerer behov for oppgradering. Dør i våtsone kan også medføre fuktproblematikk, og det anbefales videre vurdering av fuktforholdene. 1. Avvik/Årsak: Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Risiko/Konsekvens Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Anbefalte tiltak Utbedring av skøtene eller utskifting av våtromstapetet anbefales. 2. Avvik/Årsak: Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet. Risiko/Konsekvens Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen. Anbefalte tiltak Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+      "after": "TG 2 10.1 VEGGER OG HIMLINGER Nøkkelfakta Vegger: Våtromsbelegg Himling: Takess Ventilasjon: Elektrisk avtrekksvifte vegg), Spalte ved dør Oppvarming: Elektrisk gulvvarme Årstall: Hvordan kontrollen er utført Ved kontroll av vegger, himling og ventilasjon på våtrom vurderes blant annet overflater, synlige skader, tegn til fuktpåvirkning, ventilasjonsløsning og luftutskifting. Det kontrolleres også for forhold som kan gi økt risiko for kondens, mugg- og fuktskader. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for badets vegger og himlinger. Det er observert slitte skjøter i våtromstapet, eldre våtromstapet, samt hull etter innfestinger, noe som indikerer behov for oppgradering. Dør i våtsone kan også medføre fuktproblematikk, og det anbefales videre vurdering av fuktforholdene. 1. Avvik/Årsak: Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Risiko/Konsekvens Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Anbefalte tiltak Utbedring av skjøtene eller utskifting av våtromstapetet anbefales. 2. Avvik/Årsak: Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet. Risiko/Konsekvens Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen. Anbefalte tiltak Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate"
+    },
+    {
+      "point_id": "10.1",
+      "json_path": "dommer_b_full.points['10.1'].extracted_fields",
+      "before": {
+        "aarsak": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+        "risiko": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+        "konsekvens": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+        "anbefalt_tiltak": "Utbedring av skøtene eller utskifting av våtromstapetet anbefales. Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate"
+      },
+      "after": {
+        "aarsak": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+        "risiko": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+        "konsekvens": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+        "anbefalt_tiltak": "Utbedring av skjøtene eller utskifting av våtromstapetet anbefales. Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate"
+      }
+    },
+    {
+      "point_id": "10.1",
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence",
+      "before": {
+        "aarsak": [
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 834,
+            "length_chars": 207,
+            "text": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid",
+            "preview": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid"
+          },
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 1289,
+            "length_chars": 216,
+            "text": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+            "preview": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet"
+          }
+        ],
+        "risiko": [
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1060,
+            "length_chars": 128,
+            "text": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+            "preview": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt"
+          },
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1524,
+            "length_chars": 199,
+            "text": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+            "preview": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen"
+          }
+        ],
+        "konsekvens": [
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1060,
+            "length_chars": 128,
+            "text": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+            "preview": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt"
+          },
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1524,
+            "length_chars": 199,
+            "text": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+            "preview": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen"
+          }
+        ],
+        "anbefalt_tiltak": [
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1206,
+            "length_chars": 66,
+            "text": "Utbedring av skøtene eller utskifting av våtromstapetet anbefales",
+            "preview": "Utbedring av skøtene eller utskifting av våtromstapetet anbefales"
+          },
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1741,
+            "length_chars": 109,
+            "text": "Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+            "preview": "Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate"
+          }
+        ]
+      },
+      "after": {
+        "aarsak": [
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 837,
+            "length_chars": 207,
+            "text": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid",
+            "preview": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid"
+          },
+          {
+            "field": "aarsak",
+            "subsection_heading": "Avvik/Årsak",
+            "offset": 1294,
+            "length_chars": 216,
+            "text": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+            "preview": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet"
+          }
+        ],
+        "risiko": [
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1063,
+            "length_chars": 128,
+            "text": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+            "preview": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt"
+          },
+          {
+            "field": "risiko",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1532,
+            "length_chars": 199,
+            "text": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+            "preview": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen"
+          }
+        ],
+        "konsekvens": [
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1063,
+            "length_chars": 128,
+            "text": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+            "preview": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt"
+          },
+          {
+            "field": "konsekvens",
+            "subsection_heading": "Risiko/Konsekvens",
+            "offset": 1532,
+            "length_chars": 199,
+            "text": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+            "preview": "Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen"
+          }
+        ],
+        "anbefalt_tiltak": [
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1210,
+            "length_chars": 66,
+            "text": "Utbedring av skjøtene eller utskifting av våtromstapetet anbefales",
+            "preview": "Utbedring av skjøtene eller utskifting av våtromstapetet anbefales"
+          },
+          {
+            "field": "anbefalt_tiltak",
+            "subsection_heading": "Anbefalte tiltak",
+            "offset": 1749,
+            "length_chars": 109,
+            "text": "Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+            "preview": "Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate"
+          }
+        ]
+      }
+    }
+  ],
+  "whitelist": [
+    {
+      "json_path": "dommer_b_full.points['5'].raw_point_text",
+      "before": "TG 2 5. VINDUER OG YTTERDØRER Nøkkelfakta Type vinduer: Toppsving/Topphengslet; Toppsving/Fastkarm; Toppsving Type balkong/ytterdør: Ytterdør Type glass: 2-lags glass Årstall: Hvordan kontrollen er utført Kontrollen omfatter synlige forhold knyttet til alder, overflatebehandling, tetting, funkson, glass, beslag og eventuelle tegn til slitase, fukt- eller råteskader. Det vurderes også forhold som kan påvirke vinduenes levetid, energieffektivitet og motstand mot vrpåvirkning. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for vinduer og ytterdører. Det er avdekket flere avvik, det er registrert slitase og elde på både vinduer og dører, samt at eldre vinduer og dører er modne for utskiftning, noe som kan medføre høyere energikostnader og behov for hyppigere vedlikehold. 1. Avvik/Årsak: Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Risiko/Konsekvens Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Anbefalte tiltak Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. 2. Avvik/Årsak: Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger. Risiko/Konsekvens Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke. Anbefalte tiltak Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid",
+      "after": "TG 2 5. VINDUER OG YTTERDØRER Nøkkelfakta Type vinduer: Toppsving/Topphengslet; Toppsving/Fastkarm; Toppsving Type balkong/ytterdør: Ytterdør Type glass: 2-lags glass Årstall: Hvordan kontrollen er utført Kontrollen omfatter synlige forhold knyttet til alder, overflatebehandling, tetting, funksjon, glass, beslag og eventuelle tegn til slitasje, fukt- eller råteskader. Det vurderes også forhold som kan påvirke vinduenes levetid, energieffektivitet og motstand mot vrpåvirkning. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for vinduer og ytterdører. Det er avdekket flere avvik, det er registrert slitasje og elde på både vinduer og dører, samt at eldre vinduer og dører er modne for utskiftning, noe som kan medføre høyere energikostnader og behov for hyppigere vedlikehold. 1. Avvik/Årsak: Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Risiko/Konsekvens Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Anbefalte tiltak Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. 2. Avvik/Årsak: Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger. Risiko/Konsekvens Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke. Anbefalte tiltak Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].extracted_fields.aarsak",
+      "before": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+      "after": "Manglende spalte og oppbrett på beslag Utvendig omramming er utført uten tilstrekkelig spalte mellom vannbrett og belistning, og beslagene har ingen oppkant. Dette kan gi økt risiko for vanninntrengning og fuktbelastning mot tilstøtende konstruksjoner. Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].extracted_fields.anbefalt_tiltak",
+      "before": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid",
+      "after": "Det anbefales å etablere tilstrekkelig avstand mellom omramming og vannbrett, samt installere beslag med korrekt oppkant for å sikre bedre avrenning. Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].extracted_fields.konsekvens",
+      "before": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "after": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].extracted_fields.risiko",
+      "before": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "after": "Dersom avviket ikke utbedres, kan det føre til økt fuktbelastning og redusert levetid for både vindu og tilstøtende konstruksjon, samt behov for hyppigere vedlikehold. Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.aarsak[0].offset",
+      "before": 825,
+      "after": 828,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.aarsak[1].offset",
+      "before": 1447,
+      "after": 1450,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.aarsak[1].preview",
+      "before": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere pro",
+      "after": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere pro",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.aarsak[1].text",
+      "before": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+      "after": "Vinduer og dører har begrenset gjenværende levetid Vinduer og dører er fra har over halvparten av forventet bruks- og levetid forbigått. Alder og tilstand indikerer at funksjonen vil vre svekket, noe som kan inkludere problemer med låse- og luksemekanisme samt utette pakninger",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.anbefalt_tiltak[0].offset",
+      "before": 1281,
+      "after": 1284,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.anbefalt_tiltak[1].offset",
+      "before": 1954,
+      "after": 1959,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.anbefalt_tiltak[1].preview",
+      "before": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid",
+      "after": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.anbefalt_tiltak[1].text",
+      "before": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funkson og levetid",
+      "after": "Utskifting av vinduene anbefales for å sikre tilfredsstillende funksjon og levetid",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.konsekvens[0].offset",
+      "before": 1096,
+      "after": 1099,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.konsekvens[1].offset",
+      "before": 1743,
+      "after": 1747,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.konsekvens[1].preview",
+      "before": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "after": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.konsekvens[1].text",
+      "before": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "after": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.risiko[0].offset",
+      "before": 1096,
+      "after": 1099,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.risiko[1].offset",
+      "before": 1743,
+      "after": 1747,
+      "point_id": "5",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.risiko[1].preview",
+      "before": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "after": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['5'].arkat_field_binding_evidence.risiko[1].text",
+      "before": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "after": "Dersom vinduene ikke utbedres, kan det føre til økt energiforbruk og mulige vannskader som følge av redusert isolasjonsevne. Risikoen for fuktproblemer i tilstøtende konstruksjoner vil også øke",
+      "point_id": "5",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].raw_point_text",
+      "before": "TG 2 10.1 VEGGER OG HIMLINGER Nøkkelfakta Vegger: Våtromsbelegg Himling: Takess Ventilason: Elektrisk avtrekksvifte vegg), Spalte ved dør Oppvarming: Elektrisk gulvvarme Årstall: Hvordan kontrollen er utført Ved kontroll av vegger, himling og ventilason på våtrom vurderes blant annet overflater, synlige skader, tegn til fuktpåvirkning, ventilasonsløsning og luftutskifting. Det kontrolleres også for forhold som kan gi økt risiko for kondens, mugg- og fuktskader. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for badets vegger og himlinger. Det er observert slitte skjøter i våtromstapet, eldre våtromstapet, samt hull etter innfestinger, noe som indikerer behov for oppgradering. Dør i våtsone kan også medføre fuktproblematikk, og det anbefales videre vurdering av fuktforholdene. 1. Avvik/Årsak: Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Risiko/Konsekvens Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Anbefalte tiltak Utbedring av skøtene eller utskifting av våtromstapetet anbefales. 2. Avvik/Årsak: Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet. Risiko/Konsekvens Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen. Anbefalte tiltak Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+      "after": "TG 2 10.1 VEGGER OG HIMLINGER Nøkkelfakta Vegger: Våtromsbelegg Himling: Takess Ventilasjon: Elektrisk avtrekksvifte vegg), Spalte ved dør Oppvarming: Elektrisk gulvvarme Årstall: Hvordan kontrollen er utført Ved kontroll av vegger, himling og ventilasjon på våtrom vurderes blant annet overflater, synlige skader, tegn til fuktpåvirkning, ventilasjonsløsning og luftutskifting. Det kontrolleres også for forhold som kan gi økt risiko for kondens, mugg- og fuktskader. Konklusjon bygningsdel: TG 2 O((s-$$e*in avvik Tilstandsgrad T2 er registrert for badets vegger og himlinger. Det er observert slitte skjøter i våtromstapet, eldre våtromstapet, samt hull etter innfestinger, noe som indikerer behov for oppgradering. Dør i våtsone kan også medføre fuktproblematikk, og det anbefales videre vurdering av fuktforholdene. 1. Avvik/Årsak: Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Risiko/Konsekvens Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Anbefalte tiltak Utbedring av skjøtene eller utskifting av våtromstapetet anbefales. 2. Avvik/Årsak: Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet. Risiko/Konsekvens Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen. Anbefalte tiltak Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].extracted_fields.aarsak",
+      "before": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+      "after": "Slitte skjøter i våtromstapet Det er registrert åpne eller slitte skjøter i våtromstapetet på badet fra . Slike forhold kan føre til fuktinntrengning bak overflaten, noe som kan forverre tilstanden over tid. Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].extracted_fields.anbefalt_tiltak",
+      "before": "Utbedring av skøtene eller utskifting av våtromstapetet anbefales. Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+      "after": "Utbedring av skjøtene eller utskifting av våtromstapetet anbefales. Det anbefales å oppgradere eller skifte ut våtromstapetet for å sikre en mer holdbar og fuktsikker overflate",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].extracted_fields.konsekvens",
+      "before": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+      "after": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].extracted_fields.risiko",
+      "before": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+      "after": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt. Dersom tapetet ikke utbedres, kan fukt trenge inn bak overflaten og føre til skjulte fuktskader i konstruksjonen. Dette kan medføre økte rehabiliteringskostnader og redusert levetid på bygningsdelen",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.aarsak[0].offset",
+      "before": 834,
+      "after": 837,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.aarsak[1].offset",
+      "before": 1289,
+      "after": 1294,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.aarsak[1].preview",
+      "before": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+      "after": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.aarsak[1].text",
+      "before": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset genvrende levetid. Overflaten kan vre mer utsatt for slitase og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+      "after": "Eldre våtromstapet på bad Våtromstapetet er av eldre opprinnelse og vurderes å ha begrenset gjenværende levetid. Overflaten kan vre mer utsatt for slitasje og redusert tetthet, noe som kan påvirke rommets fuktsikkerhet",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.anbefalt_tiltak[0].offset",
+      "before": 1206,
+      "after": 1210,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.anbefalt_tiltak[0].preview",
+      "before": "Utbedring av skøtene eller utskifting av våtromstapetet anbefales",
+      "after": "Utbedring av skjøtene eller utskifting av våtromstapetet anbefales",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.anbefalt_tiltak[0].text",
+      "before": "Utbedring av skøtene eller utskifting av våtromstapetet anbefales",
+      "after": "Utbedring av skjøtene eller utskifting av våtromstapetet anbefales",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.anbefalt_tiltak[1].offset",
+      "before": 1741,
+      "after": 1749,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.konsekvens[0].offset",
+      "before": 1060,
+      "after": 1063,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.konsekvens[0].preview",
+      "before": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "after": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.konsekvens[0].text",
+      "before": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "after": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.konsekvens[1].offset",
+      "before": 1524,
+      "after": 1532,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.risiko[0].offset",
+      "before": 1060,
+      "after": 1063,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.risiko[0].preview",
+      "before": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "after": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.risiko[0].text",
+      "before": "Dersom skøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "after": "Dersom skjøtene ikke utbedres, kan det oppstå skjulte fuktskader som kan påvirke bygningens konstruksjon og innemiljøet negativt",
+      "point_id": "10.1",
+      "reason": "letter_preserving_repair"
+    },
+    {
+      "json_path": "dommer_b_full.points['10.1'].arkat_field_binding_evidence.risiko[1].offset",
+      "before": 1524,
+      "after": 1532,
+      "point_id": "10.1",
+      "reason": "binding_offset_recomputed_against_emitted_raw"
+    }
+  ],
+  "unauthorized_differences": [],
+  "binding_recoverability": {
+    "baseline": {
+      "method": "actual = raw_point_text[offset:offset + len(entry['text'])]; valid = (actual == entry['text'])",
+      "position_unit": "Unicode characters",
+      "total": 88,
+      "valid": 88,
+      "invalid": 0,
+      "invalid_entries": []
+    },
+    "delivered": {
+      "method": "actual = raw_point_text[offset:offset + len(entry['text'])]; valid = (actual == entry['text'])",
+      "position_unit": "Unicode characters",
+      "total": 88,
+      "valid": 88,
+      "invalid": 0,
+      "invalid_entries": []
+    }
+  },
+  "overall_equal": false,
+  "overall_accepted": true
+}

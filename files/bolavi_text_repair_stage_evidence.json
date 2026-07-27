@@ -1,0 +1,26 @@
+{
+  "baseline": {
+    "filename": "dommer_b_bolavi-egen-rapport_fresh (9).json",
+    "sha256": "cfc962c8b2ff2d695a52120fb63757f53ec6140ec5c7628e6af0aadc7d30e8a5"
+  },
+  "attribution": {
+    "stage": "backend/tmp_run_real_report.py::_apply_bolavi_letter_repairs",
+    "input_stage": "accepted-baseline point overlay",
+    "output_stage": "final emitted dommer_b_full.points payload",
+    "description": "Enumerated missing-letter restorations only; no whitespace, punctuation, case, or broad normalization operation is performed. Binding offsets are then re-anchored to the emitted raw_point_text."
+  },
+  "raw_point_text_changes": [
+    {"point_id": "5", "json_path": "dommer_b_full.points['5'].raw_point_text", "before": "funkson", "after": "funksjon", "occurrences": 2},
+    {"point_id": "5", "json_path": "dommer_b_full.points['5'].raw_point_text", "before": "funksonen", "after": "funksjonen", "occurrences": 1},
+    {"point_id": "5", "json_path": "dommer_b_full.points['5'].raw_point_text", "before": "slitase", "after": "slitasje", "occurrences": 2},
+    {"point_id": "5", "json_path": "dommer_b_full.points['5'].raw_point_text", "before": "isolasonsevne", "after": "isolasjonsevne", "occurrences": 1},
+    {"point_id": "10.1", "json_path": "dommer_b_full.points['10.1'].raw_point_text", "before": "Ventilason", "after": "Ventilasjon", "occurrences": 1},
+    {"point_id": "10.1", "json_path": "dommer_b_full.points['10.1'].raw_point_text", "before": "ventilason", "after": "ventilasjon", "occurrences": 1},
+    {"point_id": "10.1", "json_path": "dommer_b_full.points['10.1'].raw_point_text", "before": "ventilasonsløsning", "after": "ventilasjonsløsning", "occurrences": 1},
+    {"point_id": "10.1", "json_path": "dommer_b_full.points['10.1'].raw_point_text", "before": "skøtene", "after": "skjøtene", "occurrences": 2},
+    {"point_id": "10.1", "json_path": "dommer_b_full.points['10.1'].raw_point_text", "before": "genvrende", "after": "gjenværende", "occurrences": 1},
+    {"point_id": "10.1", "json_path": "dommer_b_full.points['10.1'].raw_point_text", "before": "slitase", "after": "slitasje", "occurrences": 1}
+  ],
+  "raw_point_text_repair_occurrences": 14,
+  "full_payload_paths_and_binding_offset_changes": "See bolavi_parity_diff.json.whitelist."
+}

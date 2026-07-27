@@ -346,9 +346,20 @@ export default function ResultsPage() {
   const analysisData = useMemo(() => {
     if (!report) return null
     const analysis = report.ai_analysis as (AnalysisV14 & AnalysisV16) | null
+    const scoringResult = report.scoring_result as any
     console.log('Analysis loaded:', !!analysis)
     const feedbackV11 = report.scoring_result?.feedback_v11 || null
     const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
+    const safeStopActive = Boolean(
+      (scoringResult?.safe_stop_due_to_invariant_failure) ||
+      ((analysis as any)?.safe_stop_due_to_invariant_failure) ||
+      ((analysis as any)?.meta?.safe_stop_due_to_invariant_failure)
+    )
+    const safeStopMessage =
+      ((analysis as any)?.meta?.limited_analysis_warning as string | undefined) ||
+      ((analysis as any)?.limited_analysis_warning as string | undefined) ||
+      (scoringResult?.limited_analysis_warning as string | undefined) ||
+      'Rapporten kunne ikke analyseres ennå.'
     const hasV16 = Boolean(
       analysis &&
       (typeof (analysis as AnalysisV16).trygghetsscore === 'number' ||
@@ -369,7 +380,7 @@ export default function ResultsPage() {
             : null)
       : feedbackV11?.score?.total ?? report.overall_score
     console.log('Score total:', scoreTotal)
-    return { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal }
+    return { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal, safeStopActive, safeStopMessage }
   }, [report])
 
   // Show loading while checking auth
@@ -493,7 +504,14 @@ export default function ResultsPage() {
 
   if (!analysisData) return null
 
-  const { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal } = analysisData
+  const { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal, safeStopActive, safeStopMessage } = analysisData
+  if (safeStopActive) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <p className="text-lg font-medium text-gray-900">{safeStopMessage}</p>
+      </div>
+    )
+  }
   const improvementPriorityOrder: Record<string, number> = {
     critical: 0,
     high: 1,

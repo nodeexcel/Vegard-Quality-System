@@ -2,6 +2,10 @@ import pdfplumber
 from typing import Optional, Dict, List, Tuple
 import logging
 import re
+try:
+    from PyPDF2 import PdfReader
+except Exception:  # pragma: no cover - optional fallback only
+    PdfReader = None
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ _PDF_FOOTER_LINE_RE = re.compile(
     r"\d{1,3}"
     r")\s*$"
 )
-_TRAILING_FOOTER_DATE_RE = re.compile(r"(?m)\s+\b\d{1,2}\.\d{1,2}\.\d{4}\b\s*$")
+_TRAILING_FOOTER_DATE_RE = re.compile(r"(?m)^\s*\d{1,2}\.\d{1,2}\.\d{4}\s*$")
 
 
 def _normalize_pdf_text_artifacts(text: str) -> str:
@@ -295,6 +299,24 @@ Full dokumentanalyse: {'JA' if page_count == total_pages else 'NEI'}
                 raise ValueError(f"Failed to extract text from PDF: {error_msg}")
     
     @staticmethod
+    def _metadata_creation_date_iso(pdf_file) -> str:
+        if PdfReader is None:
+            return ""
+        try:
+            reader = PdfReader(pdf_file if isinstance(pdf_file, str) else pdf_file)
+            metadata = reader.metadata or {}
+            creation = metadata.get("/CreationDate") or metadata.get("/ModDate") or ""
+            raw = creation.get_object() if hasattr(creation, "get_object") else creation
+            token = str(raw or "").strip()
+            # Expected PDF date shape: D:YYYYMMDDHHmmSSZ
+            match = re.search(r"D:(\d{4})(\d{2})(\d{2})", token)
+            if not match:
+                return ""
+            return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+        except Exception:
+            return ""
+
+    @staticmethod
     def get_pdf_metadata(pdf_file) -> Dict[str, any]:
         """
         Get metadata about the PDF (page count, etc.)
@@ -323,11 +345,13 @@ Full dokumentanalyse: {'JA' if page_count == total_pages else 'NEI'}
                     if hasattr(page, 'images') and page.images:
                         image_count += len(page.images)
                 
+                creation_date_iso = PDFExtractor._metadata_creation_date_iso(pdf_file)
                 return {
                     "total_pages": total_pages,
                     "pages_with_text": pages_with_text,
                     "images_detected": image_count,
-                    "full_document_available": pages_with_text == total_pages
+                    "full_document_available": pages_with_text == total_pages,
+                    "creation_date": creation_date_iso,
                 }
         except (ValueError, Exception) as e:
             logger.error(f"Error getting PDF metadata: {str(e)}")
@@ -339,5 +363,6 @@ Full dokumentanalyse: {'JA' if page_count == total_pages else 'NEI'}
                 "total_pages": 0,
                 "pages_with_text": 0,
                 "images_detected": 0,
-                "full_document_available": False
+                "full_document_available": False,
+                "creation_date": "",
             }

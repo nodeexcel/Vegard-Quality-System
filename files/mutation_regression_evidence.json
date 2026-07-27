@@ -1,5 +1,217 @@
 {
-  "generated_at": "2026-07-14T06:35:47Z",
+  "generated_at": "2026-07-24T10:25:07Z",
+  "governance": {
+    "pipeline_version": "3.11-v41-12parent-A",
+    "timestamp": "2026-07-24T10:25:07Z",
+    "analysis_mode": "mutation_cross_format_evidence",
+    "loaded": [
+      {
+        "file_id": "system_prompt_validert",
+        "version": "1.10",
+        "hash": "sha256:bc1a9eb034afd01bee7ff7407e88ca9a0312a2a31536ae7c475d39e316280c6b"
+      },
+      {
+        "file_id": "rag_legal_framework_validert",
+        "version": "1.4",
+        "hash": "sha256:dbf80c9d1decf20e642d1647631739fa30b53d191cfd8d745e8e560d5932fd95"
+      },
+      {
+        "file_id": "rag_validert_rules",
+        "version": "1.4",
+        "hash": "sha256:f931f20873110bc14b4b3cfad1fe346c922b617710ca039a5484f7fa081b71d4"
+      },
+      {
+        "file_id": "rag_language_rules",
+        "version": "1.7",
+        "hash": "sha256:d06abfd7ba02f2465bcbbbcb3a1979fa859aa5682cb1ffe1c84f08cbe5da9d14"
+      },
+      {
+        "file_id": "rag_scoring_model_validert",
+        "version": "1.6.15",
+        "hash": "sha256:7b8de4def001821685f02663cbfbd6a64453631b8136350f833a0e56660aa31e"
+      },
+      {
+        "file_id": "output_schema_validert",
+        "version": "1.5",
+        "hash": "sha256:73bfae011958f2d1715792d9197fbd2fa2888891c4751ae919b1584460cdb891"
+      },
+      {
+        "file_id": "scoring_policy_validert_output_overlay",
+        "version": "1.6.0",
+        "hash": "sha256:502ccfd73230a645f9ed0ff84195a3840cebfb575aa3442c307a12c004143f99"
+      },
+      {
+        "file_id": "validert_detected_points_schema",
+        "version": "1.0",
+        "hash": "sha256:d3eb544b95a658e571b5042b28b56438607d8c0ee6d1f3af871860573e594a52"
+      },
+      {
+        "file_id": "validert_feedback_schema",
+        "version": "1.1",
+        "hash": "sha256:b58ca4a1eb0bc8e577666a0be887d4cd6d22414c4bd4c2f41c58d3a0b2f8ced0"
+      },
+      {
+        "file_id": "validert_category_config",
+        "version": "v2.0",
+        "hash": "sha256:6f6c44a701169ea8c6160a94b063c861c5e74c5f0ea6dee62d5e62a66daa5637"
+      },
+      {
+        "file_id": "validert_legal_compliance_rules",
+        "version": "2.4.0",
+        "hash": "sha256:5f3f54c7c125b8cc014bf427d269328216183937ae4b927339640326acec4b84"
+      },
+      {
+        "file_id": "validert_arkat_templates_lovlighet",
+        "version": "1.1",
+        "hash": "sha256:a29e89ac4ea809235a61b74c93c836bd39b51808eef085a3d13f41493fbceb73"
+      },
+      {
+        "file_id": "validert_lovlighet_to_arkat_map",
+        "version": "v1.1",
+        "hash": "sha256:31536673ffe91f6d98bf41fd156dc2590381a3ef2954576c6f5f8104ece6d886"
+      },
+      {
+        "file_id": "validert_no_prosjektering_guardrails",
+        "version": "v1.2",
+        "hash": "sha256:1cef3d4e1e6563ed035980578896f3497a43201769b138eb2bab55b652ac2691"
+      },
+      {
+        "file_id": "MANIFEST",
+        "version": "3.11-v41-12parent-A",
+        "hash": "sha256:807449fac3205ced3cc52e18dd3779f297bcfc1c588d2828d86eb2250781519b"
+      },
+      {
+        "file_id": "validert_orchestrator_pipeline",
+        "version": "3.1",
+        "hash": "sha256:189a12eaa98502c2214be63b1ad913be74c44a7121e7ca8f798b60c3b73ce0cc"
+      },
+      {
+        "file_id": "arkat_semantic_rules",
+        "version": "1.2.5",
+        "hash": "sha256:2a26676793ae8e0e11579ea88ba0561bd1c3163079cd237f88539c3c6b81d387"
+      },
+      {
+        "file_id": "arkat_evaluation_pipeline_step",
+        "version": "1.1.0",
+        "hash": "sha256:e649bf0fc9a31b757ed2118d248259c63c1f95eb8e3f773dd3efd276da773566"
+      },
+      {
+        "file_id": "dommer_b_system_prompt",
+        "version": "13",
+        "hash": "sha256:ee796bc5b962198a20618e0f03872b932b7535d17c1febab17df322aa90703c0"
+      },
+      {
+        "file_id": "arkat_error_to_deduction_mapping",
+        "version": "1.1.2",
+        "hash": "sha256:712cdb5056fbf295e723ddcaeff71fcd8bb8cdc072b4f22a0a745b4c3e71b4a4"
+      },
+      {
+        "file_id": "report_format_detection",
+        "version": "1.1.0",
+        "hash": "sha256:01180c347be311226bde83f3f8650fa61ccaca1ee056fd6740c070e6d385214a"
+      },
+      {
+        "file_id": "arkat_canonical_examples",
+        "version": "1.2.1",
+        "hash": "sha256:3a84ad6737be7e7077deced8afde7fea1123a1032e62f73fbf8a23d9edbc9229"
+      },
+      {
+        "file_id": "validert_active_config",
+        "version": "1.2",
+        "hash": "sha256:8368aa734ea2a0c4ad1619566f537631ccaf3606e8c75592f7f7c5ba06f5c8c5"
+      },
+      {
+        "file_id": "validert_canonical_points",
+        "version": "3.0",
+        "hash": "sha256:cdb540f61467fdb1d4137c232580e52f0f05e2b413182d143ee55c2e64c5e130"
+      },
+      {
+        "file_id": "validert_points_overview_mapping",
+        "version": "1.9",
+        "hash": "sha256:4820a04cee2d6ae4a68324791239b859a80fa4028b00b9fc8dc9bcabc0b7825a"
+      },
+      {
+        "file_id": "validert_ui_overlay",
+        "version": "1.6",
+        "hash": "sha256:1151e9e956b0b4d280f67c25379cc81fb34444b1e6d1844273bcfa7857f9b57f"
+      },
+      {
+        "file_id": "tg2_tg3_age_service_life_validation",
+        "version": "2.3.0",
+        "hash": "sha256:a913acf957f4117432a5d012d8ce73b350b3adf8e7da6097d1a96440463789a2"
+      },
+      {
+        "file_id": "validert_element_hierarchy",
+        "version": "1.7",
+        "hash": "sha256:9437fb1669cb42e3ec42244c6beb2868c87df921904a9f15405d1c2ccc18481a"
+      },
+      {
+        "file_id": "validert_element_hierarchy_synonyms",
+        "version": "v1.1",
+        "hash": "sha256:35c198c5ad1b60edd444da797cd5cd8bbf99f9bdbc46eb667967ab10cd301eaf"
+      },
+      {
+        "file_id": "validert_punkt_for_punkt_status_rules",
+        "version": "1.6",
+        "hash": "sha256:d59608f9626d46196df922d46500f5a713efcd670734b44c617cc07183103dc5"
+      },
+      {
+        "file_id": "validert_punkt_for_punkt_scoring_hooks",
+        "version": "1.8",
+        "hash": "sha256:26a8ba90317a877f958b3cd370b46f589d79696532f8a034d9e54c2d18898f34"
+      },
+      {
+        "file_id": "validert_room_instances_schema",
+        "version": "1.2",
+        "hash": "sha256:5942c88907dce31e705dc88b6b1ded49680143965c802d804abb494def5f1063"
+      },
+      {
+        "file_id": "validert_room_instance_extraction_rules",
+        "version": "v1.0",
+        "hash": "sha256:784e2b106e14862c422b1a36df32976516b160dde9b9c15fe0758c7e956e3fe9"
+      },
+      {
+        "file_id": "validert_room_instance_arkat_coverage_rules",
+        "version": "v1.1",
+        "hash": "sha256:1b2281e02953e1125018c9a8b28894168a95fadf529b28261fb3ba578a501729"
+      },
+      {
+        "file_id": "validert_room_instance_rollup_format",
+        "version": "1.3",
+        "hash": "sha256:ad2e0e17ca798b7a373dc4cea6d66ca06268ea16ffa0627951f5d4997984e01e"
+      },
+      {
+        "file_id": "validert_optional_tg_forbidden_meta_rule",
+        "version": "v1.0",
+        "hash": "sha256:ee75271083c1f29b1c34fc5cfdd883af5b1a00924e454d7c3aab1f7d3289ab83"
+      },
+      {
+        "file_id": "validert_non_mandatory_assessed_meta_rule",
+        "version": "v1.1",
+        "hash": "sha256:259ddb289311fc21fed1edbc98e6db7f47bdd273ce5a1a36d5b263b5e6d29f22"
+      },
+      {
+        "file_id": "validert_mandatory_explanation_only_rules",
+        "version": "1.0",
+        "hash": "sha256:caa881d17b3f4ec38bb4ac14b21a76f9740deaa6e3134b8de5123738d48bc728"
+      },
+      {
+        "file_id": "validert_migration_map",
+        "version": "1.0.0",
+        "hash": "sha256:25d975c4eb216366bb1d199f24107168805e624ed0e6c03f55c68677127f7b56"
+      },
+      {
+        "file_id": "validert_forskrift_matrix",
+        "version": "1.3",
+        "hash": "sha256:01f1d3307d6a7870424b18ae14c863ebaa736c0f0c4004430f8248e91d83cf35"
+      },
+      {
+        "file_id": "validert_incomplete_analysis_policy",
+        "version": "1.5.0",
+        "hash": "sha256:fc2ab7833b26c2d23b567a7c5c11a5c019fc266e0d45543a6f3a1cd5d757e1a0"
+      }
+    ]
+  },
   "summary": {
     "mutation_checks": {
       "total": 4,
@@ -185,13 +397,15 @@
       "case": "TGIU case",
       "report_id": "synthetic-TGIU-loft",
       "ns_version": "NS3600:2025",
-      "expected_findings": [
-        "tgiu_findings present"
+      "expected_tgiu_findings": [
+        "TGIU_MISSING_REASON",
+        "TGIU_MISSING_FURTHER_INVESTIGATION",
+        "TGIU_MISSING_MOISTURE_FLAG"
       ],
       "actual_tgiu_findings": [
-        null,
-        null,
-        null
+        "TGIU_MISSING_REASON",
+        "TGIU_MISSING_FURTHER_INVESTIGATION",
+        "TGIU_MISSING_MOISTURE_FLAG"
       ],
       "passed": true
     },
