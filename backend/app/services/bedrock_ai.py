@@ -2,6 +2,7 @@
 AWS Bedrock AI Service - Alternative to OpenAI for embeddings and LLM
 """
 import boto3
+from contextvars import ContextVar
 import json
 import logging
 import re
@@ -15,6 +16,44 @@ logger = logging.getLogger(__name__)
 
 _CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 _BEDROCK_THROTTLED_UNTIL_TS = 0.0
+_BEDROCK_AUDIT_CAPTURE: ContextVar[Optional[Dict]] = ContextVar(
+    "bedrock_audit_capture",
+    default=None,
+)
+
+
+def begin_bedrock_audit_capture(run_id: str, document_hash: str) -> None:
+    """Begin request-local evidence capture without changing inference behavior."""
+    _BEDROCK_AUDIT_CAPTURE.set({
+        "run_id": str(run_id or ""),
+        "document_hash": str(document_hash or ""),
+        "calls": [],
+    })
+
+
+def finish_bedrock_audit_capture() -> Optional[Dict]:
+    capture = _BEDROCK_AUDIT_CAPTURE.get()
+    _BEDROCK_AUDIT_CAPTURE.set(None)
+    return capture
+
+
+def _record_bedrock_audit_call(model_id: str, request_body: str, response_body: Dict) -> None:
+    capture = _BEDROCK_AUDIT_CAPTURE.get()
+    if not isinstance(capture, dict):
+        return
+    calls = capture.get("calls")
+    if not isinstance(calls, list):
+        return
+    try:
+        parsed_request = json.loads(request_body)
+    except Exception:
+        parsed_request = request_body
+    calls.append({
+        "sequence": len(calls) + 1,
+        "model_id": model_id,
+        "request_body": parsed_request,
+        "raw_response": response_body,
+    })
 
 class BedrockAI:
     """AWS Bedrock client for embeddings and LLM inference"""
@@ -107,7 +146,9 @@ class BedrockAI:
                     contentType='application/json',
                     accept='application/json'
                 )
-                return json.loads(response['body'].read())
+                response_body = json.loads(response['body'].read())
+                _record_bedrock_audit_call(model_id, body, response_body)
+                return response_body
                 
             except ClientError as e:
                 error_code = e.response.get('Error', {}).get('Code', '')

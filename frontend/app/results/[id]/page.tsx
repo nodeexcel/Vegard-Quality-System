@@ -109,7 +109,7 @@ interface FeedbackPointOverview {
   canonical_id?: string
   title: string
   tg: string
-  status: 'ok' | 'improve' | 'deduction' | 'blocking' | 'FOUND' | 'NOT_FOUND_IN_REPORT'
+  status: 'ok' | 'improve' | 'deduction' | 'blocking' | 'FOUND' | 'NOT_FOUND_IN_REPORT' | 'incomplete_analysis'
   summary: string
   deduction_total?: number
   deduction_band?: 'none' | 'low' | 'medium' | 'high'
@@ -372,14 +372,7 @@ export default function ResultsPage() {
         (hasV16 && ((analysis as AnalysisV16).trygghetsscore != null || (analysis as AnalysisV16).top_issues?.length)))
     )
     const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
-    const scoreTotal = hasV14
-      ? (typeof analysis?.score_total === 'number'
-          ? analysis.score_total
-          : hasV16 && typeof (analysis as AnalysisV16).trygghetsscore === 'number'
-            ? (analysis as AnalysisV16).trygghetsscore
-            : null)
-      : feedbackV11?.score?.total ?? report.overall_score
-    console.log('Score total:', scoreTotal)
+    const scoreTotal: number | null = null
     return { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal, safeStopActive, safeStopMessage }
   }, [report])
 
@@ -1054,6 +1047,9 @@ export default function ResultsPage() {
           return ac.localeCompare(bc)
         })
       : []
+  const customerPointsOverview = sortedPointsOverview.filter(
+    (point) => point.status !== 'incomplete_analysis'
+  )
   /** Try to extract point reference from message (e.g. "Punkt 4.2", "i punkt 5.1", "punkt 4.2") */
   const parsePointIdFromMessage = (message: string): string | undefined => {
     if (!message || typeof message !== 'string') return undefined
@@ -1351,15 +1347,7 @@ export default function ResultsPage() {
             </div>
           </div>
 
-          {hasV16 && (analysis as AnalysisV16).gate?.blocked_96 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
-              <p className="text-amber-900 font-medium">
-                {(analysis as AnalysisV16).gate?.message ?? 'Rapporten kan ikke oppnå over 95 % før gate-avvik er rettet.'}
-              </p>
-            </div>
-          )}
-
-          {hasFeedbackV11 && feedbackV11 && (
+          {hasFeedbackV11 && feedbackV11 && customerPointsOverview.length > 0 && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
               <div className="flex items-start justify-between mb-6">
                 <div>
@@ -1368,7 +1356,7 @@ export default function ResultsPage() {
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                {sortedPointsOverview.map((point, idx) => {
+                {customerPointsOverview.map((point, idx) => {
                   const canonical = (point as { canonical_id?: string }).canonical_id
                   const parentBucket = toParentBucket(canonical || point.point_id)
                   const fallbackDeduction = parentBucket ? (deductionPointsByParentBucket.get(parentBucket) || 0) : 0
@@ -1416,13 +1404,39 @@ export default function ResultsPage() {
                         </div>
                       </div>
                       <p className="text-sm text-gray-700">{effectiveSummary}</p>
-                      {effectiveBand && (
-                        <p className="text-xs text-red-600 mt-2">{effectiveBand}</p>
-                      )}
                     </div>
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {hasFeedbackV11 && feedbackV11 && (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Tilbakemeldinger</h2>
+              {feedbackV11.findings.length === 0 ? (
+                <p className="text-gray-700">Ingen forbedringspunkter ble funnet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {feedbackV11.findings.map((finding, index) => (
+                    <article key={`${finding.finding_id}-${index}`} className="rounded-xl border border-gray-200 p-5">
+                      <p className="font-semibold text-gray-900">{finding.message}</p>
+                      {finding.what_to_change && (
+                        <div className="mt-3">
+                          <p className="text-sm font-semibold text-gray-800">Hva bør forbedres</p>
+                          <p className="mt-1 text-sm text-gray-700">{finding.what_to_change}</p>
+                        </div>
+                      )}
+                      {finding.evidence?.snippet && (
+                        <div className="mt-3 rounded-lg bg-gray-50 p-3">
+                          <p className="text-xs font-semibold text-gray-600">Dokumentasjon fra rapporten</p>
+                          <p className="mt-1 text-sm text-gray-700">{finding.evidence.snippet}</p>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -2148,11 +2162,6 @@ export default function ResultsPage() {
                             </span>
                           )}
                         </div>
-                        {component.score !== null && (
-                          <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getScoreGradient(component.score)} flex items-center justify-center text-white font-bold text-lg shadow-md`}>
-                            {component.score.toFixed(0)}
-                          </div>
-                        )}
                       </div>
                       {component.description && (
                         <p className="text-sm text-gray-700 mt-2">{component.description}</p>

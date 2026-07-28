@@ -1,0 +1,223 @@
+{
+  "schema_version": "1.0.0",
+  "status": "proposed_for_client_approval",
+  "parity_statement": "semantic parity with declared binding-metadata deviations",
+  "baseline_artifact": "dommer_b_tilstandsrapport_fritidsbolig_e3_3600-2025_fresh.json",
+  "baseline_sha256": "19f1f216e7a131f33bd4b39098d3172d291a878ac013bef7bf0b672136cf6b46",
+  "reproduction_artifact": "/home/ubuntu/client-evidence/validert-fallback-reproduction-20260727T093934Z/run-1/dommer_b_full.json",
+  "reproduction_sha256": "bbe98640946eb81395076ad96597b41dd8d5cb64a91345712d674ababe310d66",
+  "difference_count": 20,
+  "affected_points": [
+    "7.2",
+    "7.3"
+  ],
+  "semantic_effect": "none; raw point text, bound text, model inputs, verdicts and final findings are unchanged",
+  "concrete_cause": {
+    "commit": "a6f02a5288988e478b3bd68912810752ff12e34b",
+    "file": "backend/app/services/arkat_semantic_pipeline.py",
+    "function": "_extract_explicit_arkat_subsection_binding_evidence",
+    "change": "Inline structural-heading parsing now anchors body_start at label_sep, trims leading/trailing whitespace and re-anchors raw_value within the exact raw point text. This shifts stored offsets by 1-6 characters and lengths by 1-2 characters without changing the bound text or semantic evaluation."
+  },
+  "deviations": [
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.aarsak[0].length_chars",
+      "point_id": "7.2",
+      "field": "aarsak",
+      "property": "length_chars",
+      "signed_baseline_value": 785,
+      "reproduction_value": 787,
+      "delta": 2,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.aarsak[0].offset",
+      "point_id": "7.2",
+      "field": "aarsak",
+      "property": "offset",
+      "signed_baseline_value": 67,
+      "reproduction_value": 68,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.aarsak[1].length_chars",
+      "point_id": "7.2",
+      "field": "aarsak",
+      "property": "length_chars",
+      "signed_baseline_value": 132,
+      "reproduction_value": 133,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.aarsak[1].offset",
+      "point_id": "7.2",
+      "field": "aarsak",
+      "property": "offset",
+      "signed_baseline_value": 860,
+      "reproduction_value": 863,
+      "delta": 3,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.anbefalt_tiltak[0].length_chars",
+      "point_id": "7.2",
+      "field": "anbefalt_tiltak",
+      "property": "length_chars",
+      "signed_baseline_value": 259,
+      "reproduction_value": 260,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.anbefalt_tiltak[0].offset",
+      "point_id": "7.2",
+      "field": "anbefalt_tiltak",
+      "property": "offset",
+      "signed_baseline_value": 1360,
+      "reproduction_value": 1366,
+      "delta": 6,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.konsekvens[0].length_chars",
+      "point_id": "7.2",
+      "field": "konsekvens",
+      "property": "length_chars",
+      "signed_baseline_value": 160,
+      "reproduction_value": 161,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.konsekvens[0].offset",
+      "point_id": "7.2",
+      "field": "konsekvens",
+      "property": "offset",
+      "signed_baseline_value": 1182,
+      "reproduction_value": 1187,
+      "delta": 5,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.risiko[0].length_chars",
+      "point_id": "7.2",
+      "field": "risiko",
+      "property": "length_chars",
+      "signed_baseline_value": 168,
+      "reproduction_value": 169,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[1].arkat_field_binding_evidence.risiko[0].offset",
+      "point_id": "7.2",
+      "field": "risiko",
+      "property": "offset",
+      "signed_baseline_value": 1001,
+      "reproduction_value": 1005,
+      "delta": 4,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.aarsak[0].length_chars",
+      "point_id": "7.3",
+      "field": "aarsak",
+      "property": "length_chars",
+      "signed_baseline_value": 322,
+      "reproduction_value": 324,
+      "delta": 2,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.aarsak[0].offset",
+      "point_id": "7.3",
+      "field": "aarsak",
+      "property": "offset",
+      "signed_baseline_value": 69,
+      "reproduction_value": 70,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.aarsak[1].length_chars",
+      "point_id": "7.3",
+      "field": "aarsak",
+      "property": "length_chars",
+      "signed_baseline_value": 71,
+      "reproduction_value": 72,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.aarsak[1].offset",
+      "point_id": "7.3",
+      "field": "aarsak",
+      "property": "offset",
+      "signed_baseline_value": 399,
+      "reproduction_value": 402,
+      "delta": 3,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.anbefalt_tiltak[0].length_chars",
+      "point_id": "7.3",
+      "field": "anbefalt_tiltak",
+      "property": "length_chars",
+      "signed_baseline_value": 170,
+      "reproduction_value": 171,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.anbefalt_tiltak[0].offset",
+      "point_id": "7.3",
+      "field": "anbefalt_tiltak",
+      "property": "offset",
+      "signed_baseline_value": 750,
+      "reproduction_value": 756,
+      "delta": 6,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.konsekvens[0].length_chars",
+      "point_id": "7.3",
+      "field": "konsekvens",
+      "property": "length_chars",
+      "signed_baseline_value": 136,
+      "reproduction_value": 137,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.konsekvens[0].offset",
+      "point_id": "7.3",
+      "field": "konsekvens",
+      "property": "offset",
+      "signed_baseline_value": 596,
+      "reproduction_value": 601,
+      "delta": 5,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.risiko[0].length_chars",
+      "point_id": "7.3",
+      "field": "risiko",
+      "property": "length_chars",
+      "signed_baseline_value": 104,
+      "reproduction_value": 105,
+      "delta": 1,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    },
+    {
+      "json_path": "$.points[2].arkat_field_binding_evidence.risiko[0].offset",
+      "point_id": "7.3",
+      "field": "risiko",
+      "property": "offset",
+      "signed_baseline_value": 479,
+      "reproduction_value": 483,
+      "delta": 4,
+      "classification": "approved_deviation_requested_non_semantic_binding_metadata"
+    }
+  ]
+}

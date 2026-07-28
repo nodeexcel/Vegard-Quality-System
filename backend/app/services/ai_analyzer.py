@@ -20,6 +20,7 @@ from app.services.arkat_semantic_pipeline import (
     run_client_arkat_semantic_pipeline as _run_client_arkat_semantic_pipeline_service,
 )
 from app.services.system_prompt import SYSTEM_PROMPT
+from app.services.bedrock_ai import begin_bedrock_audit_capture, finish_bedrock_audit_capture
 from app.services.validert_files import (
     get_arkat_semantic_rules,
     build_prompt_context,
@@ -13670,6 +13671,7 @@ def _sanitize_bmtf_feedback_v11_p_codes(payload: Dict[str, object], report_text:
 
 _INTERNAL_CANONICAL_P_CODE_RE = re.compile(r"\bP\d{2}[A-Z]_[A-Z0-9_]+\b")
 _INTERNAL_CANONICAL_SLUG_RE = re.compile(r"\b(?:fremtind|bmtf)-[a-z0-9]+(?:-[a-z0-9]+)+\b", re.IGNORECASE)
+_INTERNAL_SYNTHETIC_POINT_ID_RE = re.compile(r"\b900\d{2,}\b")
 
 
 def _clean_pdf_cid_artifacts(value: str) -> str:
@@ -14511,7 +14513,12 @@ def _validate_incomplete_policy_invariants(
             ]
     except Exception:
         policy_invariant_ids = []
-    internal_id_leaks = bool(_INTERNAL_CANONICAL_P_CODE_RE.search(feedback_text_blob) or _INTERNAL_CANONICAL_SLUG_RE.search(feedback_text_blob))
+    leaked_internal_ids = sorted(set(
+        _INTERNAL_CANONICAL_P_CODE_RE.findall(feedback_text_blob)
+        + _INTERNAL_CANONICAL_SLUG_RE.findall(feedback_text_blob)
+        + _INTERNAL_SYNTHETIC_POINT_ID_RE.findall(feedback_text_blob)
+    ))
+    internal_id_leaks = bool(leaked_internal_ids)
     overview = feedback_payload.get("points_overview") if isinstance(feedback_payload.get("points_overview"), list) else []
     overview_missing_ids = [
         str(entry.get("title") or entry.get("display_index") or "")
@@ -15178,7 +15185,14 @@ def _validate_incomplete_policy_invariants(
         ("INV-03_gate_score_coherence", not bool(gate.get("active")) and not bool(gate.get("blocked_96")) and not active_gate_findings, {"active_gate_findings": active_gate_findings[:20]}),
         ("INV-04_no_ungoverned_rules", not ungoverned and all(item.get("defining_file_id") for item in governed_rule_evidence.values()), {"ungoverned_rule_ids": sorted(set(ungoverned))[:20], "governed_rule_evidence": [governed_rule_evidence[key] for key in sorted(governed_rule_evidence.keys())]}),
         ("INV-05_taxonomy_field_binding", not invalid_field_bindings, {"invalid_bindings": invalid_field_bindings[:20], "invalid_count": len(invalid_field_bindings)}),
-        ("INV-06_no_internal_id_leakage", not internal_id_leaks and not missing_internal_point_ids, {"missing_internal_point_ids": missing_internal_point_ids[:20]}),
+        (
+            "INV-06_no_internal_id_leakage",
+            not internal_id_leaks and not missing_internal_point_ids,
+            {
+                "leaked_customer_internal_ids": leaked_internal_ids[:20],
+                "missing_internal_point_ids": missing_internal_point_ids[:20],
+            },
+        ),
         ("INV-07_no_duplicate_physical_points", not duplicate_sections, {"duplicates": duplicate_sections[:20], "duplicate_count": len(duplicate_sections), "point_resolution_evidence": point_resolution_evidence[:80]}),
         ("INV-08_preliminary_consistency", not definite_deductions and all(isinstance(item, dict) and item.get("preliminary") is True and item.get("verification_status") == "unverified_incomplete_analysis" for item in feedback_findings), {"definite_deductions": definite_deductions[:20]}),
         ("INV-09_score_band_consistency", analysis_output.get("score_total") is None and not invalid_bands, {"invalid_bands": invalid_bands}),
@@ -16762,6 +16776,9 @@ def write_run_exports(
     ]
     if isinstance(feedback_payload, dict):
         export_items.append(("feedback_v1.1.json", feedback_payload))
+    bedrock_audit = finish_bedrock_audit_capture()
+    if isinstance(bedrock_audit, dict):
+        export_items.append(("raw_bedrock_calls.json", bedrock_audit))
     for filename, payload in export_items:
         (run_dir / filename).write_text(
             json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True),
@@ -16832,8 +16849,176 @@ def build_analysis_result_from_output(analysis_output: Dict[str, object]) -> Ana
     )
 
 
+def _finalize_verified_fallback_customer_payload(
+    analysis_output: Dict[str, object],
+    feedback_v11: Dict[str, object],
+    detected_points_payload: Dict[str, object],
+) -> None:
+    """Replace internal incomplete rows with signed semantic points and re-run invariants.
+
+    This is customer-output containment only. It does not add, remove, or alter a
+    Dommer B finding or any semantic field evaluation.
+    """
+    pipeline = analysis_output.get("arkat_semantic_pipeline")
+    semantic_points = pipeline.get("points") if isinstance(pipeline, dict) else []
+    findings = feedback_v11.get("findings") if isinstance(feedback_v11.get("findings"), list) else []
+    finding_ids_by_point: Dict[str, List[str]] = {}
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        point_id = _normalize_point_id(str(finding.get("point_id") or finding.get("point_key") or ""))
+        finding_id = str(finding.get("finding_id") or finding.get("source_finding_id") or "").strip()
+        if point_id and finding_id:
+            finding_ids_by_point.setdefault(point_id, []).append(finding_id)
+
+    customer_overview = []
+    for display_index, point in enumerate(semantic_points if isinstance(semantic_points, list) else [], start=1):
+        if not isinstance(point, dict):
+            continue
+        point_id = _normalize_point_id(str(point.get("point_id") or ""))
+        if not point_id or point_id.startswith("900"):
+            continue
+        finding_ids = finding_ids_by_point.get(point_id, [])
+        customer_overview.append({
+            "display_index": display_index,
+            "point_id": point_id,
+            "point_key": point_id,
+            "title": str(point.get("title") or point_id),
+            "tg": str(point.get("tg_grade") or "UNKNOWN"),
+            "status": "FOUND",
+            "summary": "Avvik funnet" if finding_ids else "OK",
+            "deduction_total": None,
+            "potential_deduction_total": 0,
+            "deduction_valid": False,
+            "deduction_band": "Ikke vurdert",
+            "finding_ids": finding_ids,
+            "where": {"page": point.get("page_start")},
+            "children": [],
+        })
+    feedback_v11["points_overview"] = customer_overview
+
+    feedback_v11.pop("safe_stop_due_to_invariant_failure", None)
+    analysis_output["safe_stop_due_to_invariant_failure"] = False
+    analysis_output.pop("limited_analysis_warning", None)
+    meta = analysis_output.get("meta")
+    if isinstance(meta, dict):
+        meta["safe_stop_due_to_invariant_failure"] = False
+        meta.pop("limited_analysis_warning", None)
+
+    invariants = _validate_incomplete_policy_invariants(
+        analysis_output,
+        feedback_v11,
+        detected_points_payload,
+    )
+    analysis_output["policy_invariants"] = invariants
+    failed = [row for row in invariants if isinstance(row, dict) and not bool(row.get("passed"))]
+    safe_stop = bool(failed)
+    analysis_output["safe_stop_due_to_invariant_failure"] = safe_stop
+    if isinstance(meta, dict):
+        meta["safe_stop_due_to_invariant_failure"] = safe_stop
+    if safe_stop:
+        analysis_output["limited_analysis_warning"] = _SAFE_STOP_CUSTOMER_MESSAGE
+        feedback_v11["safe_stop_due_to_invariant_failure"] = True
+        feedback_v11["limited_analysis_warning"] = _SAFE_STOP_CUSTOMER_MESSAGE
+
+
 class AIAnalyzer:
     """Analyze building condition reports using the current Validert baseline"""
+
+    @staticmethod
+    def analyze_report_dommer_b_fallback(
+        text: str,
+        pdf_metadata: Optional[Dict] = None,
+        document_title: Optional[str] = None,
+        document_id: Optional[str] = None,
+        document_hash: Optional[str] = None,
+    ):
+        """Run the signed local Dommer B post-processing route without scoring."""
+        report_text = text or ""
+        if not document_hash:
+            document_hash = hashlib.sha256(report_text.encode("utf-8")).hexdigest()
+        evidence_run_id = str(uuid.uuid4())
+        begin_bedrock_audit_capture(evidence_run_id, document_hash)
+
+        fallback_reason = "full_analyzer_not_run_local_fallback"
+        analysis_output: Dict[str, object] = {
+            "analysis_mode": "local_postprocess_dommer_b_fallback",
+            "analysis_complete": False,
+            "score_valid": False,
+            "ui_status": "incomplete_analysis",
+            "incomplete_reason": fallback_reason,
+            "incomplete_full_analyzer_reasons": [fallback_reason],
+            "meta": {
+                "document_title": document_title or "",
+                "document_id": document_id or "",
+                "analysis_mode": "local_postprocess_dommer_b_fallback",
+                "analysis_complete": False,
+                "score_valid": False,
+                "incomplete_reason": fallback_reason,
+                "incomplete_full_analyzer_reasons": [fallback_reason],
+            },
+            "all_findings": [],
+            "top_issues": [],
+            "top_score_drivers": [],
+            "score_drivers": [],
+            "feedback_findings": [],
+        }
+
+        analysis_output = postprocess_analysis_output(analysis_output, report_text)
+        detected_points_payload = get_validated_detected_points_payload(
+            report_text,
+            document_hash=document_hash,
+            document_title=document_title,
+            document_id=document_id,
+            pdf_metadata=pdf_metadata,
+        )
+        _mark_incomplete_fallback_output(analysis_output)
+        runtime_manifest = get_runtime_manifest("local_postprocess_dommer_b_fallback")
+        analysis_output["runtime_manifest"] = runtime_manifest
+        meta = analysis_output.get("meta")
+        if isinstance(meta, dict):
+            meta["runtime_manifest"] = runtime_manifest
+
+        feedback_v11 = build_feedback_v11(
+            analysis_output=analysis_output,
+            detected_points_payload=detected_points_payload,
+            report_id=document_id,
+            document_hash=document_hash,
+            report_text=report_text,
+        )
+        _finalize_verified_fallback_customer_payload(
+            analysis_output,
+            feedback_v11,
+            detected_points_payload,
+        )
+        run_meta = {
+            "run_id": evidence_run_id,
+            "analysis_timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "document_hash": document_hash,
+            "source_filename": document_title or "",
+            "analysis_mode": "local_postprocess_dommer_b_fallback",
+            "model_name": "eu.anthropic.claude-sonnet-4-20250514-v1:0" if settings.USE_AWS_BEDROCK else settings.OPENAI_MODEL,
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "seed": None if settings.USE_AWS_BEDROCK else settings.OPENAI_SEED,
+            "runtime_manifest": runtime_manifest,
+        }
+        scoring_result_payload: Dict[str, object] = {
+            "run_meta": run_meta,
+            "analysis_output": analysis_output,
+            "feedback_v11": feedback_v11,
+        }
+        if bool(analysis_output.get("safe_stop_due_to_invariant_failure")):
+            scoring_result_payload.pop("feedback_v11", None)
+            scoring_result_payload["safe_stop_due_to_invariant_failure"] = True
+            scoring_result_payload["limited_analysis_warning"] = _SAFE_STOP_CUSTOMER_MESSAGE
+
+        analysis_output = sanitize_bmtf_public_point_taxonomy_payload(analysis_output, report_text)
+        detected_points_payload = sanitize_bmtf_public_point_taxonomy_payload(detected_points_payload, report_text)
+        scoring_result_payload["analysis_output"] = analysis_output
+        scoring_result_payload = sanitize_bmtf_public_point_taxonomy_payload(scoring_result_payload, report_text)
+        result = build_analysis_result_from_output(analysis_output)
+        return result, analysis_output, detected_points_payload, scoring_result_payload
 
     @staticmethod
     def analyze_report(

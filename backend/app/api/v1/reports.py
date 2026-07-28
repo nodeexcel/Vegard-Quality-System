@@ -29,7 +29,11 @@ from app.services.ai_analyzer import (
     write_run_exports,
 )
 from app.services.analysis_cache import get_cached_analysis, upsert_analysis_cache
-from app.services.validert_files import get_scoring_model_info, get_prompt_context_sha
+from app.services.validert_files import (
+    get_prompt_context_sha,
+    get_scoring_model_info,
+    get_verified_customer_templates,
+)
 from app.auth import get_current_user
 from app.config import settings
 
@@ -44,6 +48,51 @@ if settings.USE_SQS_PROCESSING:
     from app.services.sqs_processor import SQSProcessor
 
 logger = logging.getLogger(__name__)
+
+_UNVERIFIED_SAFE_STOP_MESSAGE = "Rapporten kunne ikke analyseres ennå."
+
+
+def _verified_dommer_b_template(filename: str, extracted_text: str) -> Optional[str]:
+    """Select a signed customer route exclusively from governed configuration."""
+    filename_lower = str(filename or "").lower()
+    text = str(extracted_text or "")
+    text_lower = text.lower()
+    governed = get_verified_customer_templates()
+    templates = governed.get("verified_templates") if isinstance(governed, dict) else []
+    for template in templates if isinstance(templates, list) else []:
+        if not isinstance(template, dict) or template.get("onboarding_status") != "signed":
+            continue
+        if template.get("customer_route") != "local_postprocess_dommer_b_fallback":
+            continue
+        if template.get("numeric_scoring_allowed") is not False:
+            continue
+        match = template.get("match") if isinstance(template.get("match"), dict) else {}
+        filename_markers = [str(value).lower() for value in match.get("any_filename_markers", []) if str(value)]
+        text_markers = [str(value).lower() for value in match.get("any_text_markers", []) if str(value)]
+        any_marker_required = bool(filename_markers or text_markers)
+        any_marker_ok = any(marker in filename_lower for marker in filename_markers) or any(
+            marker in text_lower for marker in text_markers
+        )
+        all_text_ok = all(
+            str(marker).lower() in text_lower
+            for marker in match.get("all_text_markers", [])
+            if str(marker)
+        )
+        regex_ok = all(
+            re.search(str(pattern), text, re.IGNORECASE | re.MULTILINE)
+            for pattern in match.get("required_regex", [])
+            if str(pattern)
+        )
+        headings = [str(value) for value in match.get("heading_markers", []) if str(value)]
+        minimum_headings = int(match.get("minimum_heading_markers") or 0)
+        heading_hits = sum(
+            1 for heading in headings
+            if re.search(rf"(?im)^\s*{re.escape(heading)}\s*:?\s*$", text)
+        )
+        headings_ok = not headings or heading_hits >= minimum_headings
+        if (not any_marker_required or any_marker_ok) and all_text_ok and regex_ok and headings_ok:
+            return str(template.get("template_id") or "") or None
+    return None
 
 
 def _public_bmtf_payload(payload: Optional[dict], extracted_text: str) -> Optional[dict]:
@@ -411,6 +460,26 @@ async def upload_report(
             )
 
         document_hash = hashlib.sha256(extracted_text.encode("utf-8")).hexdigest()
+        verified_dommer_b_template = _verified_dommer_b_template(file.filename, extracted_text)
+        if verified_dommer_b_template:
+            logger.info(
+                "Verified template routed to signed Dommer B fallback: template=%s filename=%s",
+                verified_dommer_b_template,
+                file.filename,
+            )
+        else:
+            logger.info(
+                "Verified-template gate safe-stop before analyzer: filename=%s document_hash=%s",
+                file.filename,
+                document_hash,
+            )
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "safe_stop",
+                    "message": _UNVERIFIED_SAFE_STOP_MESSAGE,
+                },
+            )
         
         # Check if this is a re-check (same filename already exists for this user)
         existing_report = db.query(Report).filter(
@@ -456,12 +525,14 @@ async def upload_report(
         db.flush()  # Get the ID
 
         scoring_model_info = get_scoring_model_info()
-        cache_entry = get_cached_analysis(
-            db,
-            document_hash=document_hash,
-            scoring_model_sha=scoring_model_info.get("sha256"),
-            pipeline_git_sha=_get_pipeline_cache_sha(),
-        )
+        cache_entry = None
+        if not verified_dommer_b_template:
+            cache_entry = get_cached_analysis(
+                db,
+                document_hash=document_hash,
+                scoring_model_sha=scoring_model_info.get("sha256"),
+                pipeline_git_sha=_get_pipeline_cache_sha(),
+            )
         if cache_entry:
             updated_at = cache_entry.updated_at or cache_entry.created_at
             cache_age_s = None
@@ -638,7 +709,7 @@ async def upload_report(
                 logger.warning(f"S3 upload failed: {str(s3_error)}, continuing without S3")
         
         # If SQS processing is enabled, send to queue and return immediately
-        if settings.USE_SQS_PROCESSING and report.s3_key:
+        if settings.USE_SQS_PROCESSING and report.s3_key and not verified_dommer_b_template:
             try:
                 logger.info(f"Sending report {report.id} to SQS for async processing")
                 # Lazy initialize SQS processor
@@ -683,15 +754,24 @@ async def upload_report(
         logger.info(f"Analyzing report {report.id} with AI")
         ai_analyzer = AIAnalyzer()
         try:
-            analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
-                text=extracted_text,
-                report_system=report_system,
-                building_year=building_year,
-                pdf_metadata=pdf_metadata,
-                document_title=file.filename,
-                document_id=str(report.id),
-                document_hash=document_hash,
-            )
+            if verified_dommer_b_template:
+                analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report_dommer_b_fallback(
+                    text=extracted_text,
+                    pdf_metadata=pdf_metadata,
+                    document_title=file.filename,
+                    document_id=str(report.id),
+                    document_hash=document_hash,
+                )
+            else:
+                analysis_result, full_analysis, detected_points_payload, scoring_result_payload = ai_analyzer.analyze_report(
+                    text=extracted_text,
+                    report_system=report_system,
+                    building_year=building_year,
+                    pdf_metadata=pdf_metadata,
+                    document_title=file.filename,
+                    document_id=str(report.id),
+                    document_hash=document_hash,
+                )
         except IncompleteAnalysisError as e:
             logger.warning(
                 "Analysis incomplete for report %s: %s reasons=%s",
@@ -736,25 +816,26 @@ async def upload_report(
             )
         
         # Store analysis results
-        report.overall_score = analysis_result.overall_score
-        report.quality_score = analysis_result.quality_score
-        report.completeness_score = analysis_result.completeness_score
-        report.compliance_score = analysis_result.compliance_score
+        report.overall_score = None if verified_dommer_b_template else analysis_result.overall_score
+        report.quality_score = None if verified_dommer_b_template else analysis_result.quality_score
+        report.completeness_score = None if verified_dommer_b_template else analysis_result.completeness_score
+        report.compliance_score = None if verified_dommer_b_template else analysis_result.compliance_score
         report.status = "completed"
         # Store full analysis JSON for detailed view
         report.ai_analysis = full_analysis
         report.detected_points = detected_points_payload
         report.scoring_result = scoring_result_payload
 
-        upsert_analysis_cache(
-            db,
-            document_hash=document_hash,
-            scoring_model_sha=scoring_model_info.get("sha256"),
-            pipeline_git_sha=_get_pipeline_cache_sha(),
-            detected_points=_public_bmtf_payload(detected_points_payload, extracted_text),
-            scoring_result=_public_bmtf_payload(scoring_result_payload, extracted_text),
-            ai_analysis=full_analysis,
-        )
+        if not verified_dommer_b_template:
+            upsert_analysis_cache(
+                db,
+                document_hash=document_hash,
+                scoring_model_sha=scoring_model_info.get("sha256"),
+                pipeline_git_sha=_get_pipeline_cache_sha(),
+                detected_points=_public_bmtf_payload(detected_points_payload, extracted_text),
+                scoring_result=_public_bmtf_payload(scoring_result_payload, extracted_text),
+                ai_analysis=full_analysis,
+            )
         write_run_exports(document_hash, full_analysis, detected_points_payload, scoring_result_payload)
         
         # Check for automatic refund (96%+ trygghetsscore)
@@ -770,7 +851,7 @@ async def upload_report(
             trygghetsscore = analysis_result.overall_score
         
         # Auto-refund if score is 96% or higher
-        if trygghetsscore and trygghetsscore >= 96.0:
+        if not verified_dommer_b_template and trygghetsscore and trygghetsscore >= 96.0:
             # Refund the credits that were just used
             refund_amount = credits_required
             current_user.credits += refund_amount

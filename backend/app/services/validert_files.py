@@ -6,6 +6,7 @@ import json
 import re
 
 FILES_DIR = Path(__file__).resolve().parents[3] / "files"
+REPOSITORY_ROOT = FILES_DIR.parent
 MANIFEST_PATH = FILES_DIR / "MANIFEST.json"
 
 SYSTEM_PROMPT_PATH = FILES_DIR / "system_prompt_validert_v1_10.txt"
@@ -52,6 +53,7 @@ ARKAT_ERROR_DEDUCTION_MAPPING_PATH = FILES_DIR / "arkat_error_to_deduction_mappi
 REPORT_FORMAT_DETECTION_PATH = FILES_DIR / "report_format_detection.json"
 ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples_v1_1_1.json"
 INCOMPLETE_ANALYSIS_POLICY_PATH = FILES_DIR / "validert_incomplete_analysis_policy_v1_5.json"
+VERIFIED_CUSTOMER_TEMPLATES_PATH = FILES_DIR / "verified_customer_templates_v1_0.json"
 
 # Routing: if element.tg_policy == "FORBIDDEN" -> apply optional_tg_forbidden_meta_rule_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
@@ -126,6 +128,10 @@ def get_active_config() -> Dict:
     return {}
 
 
+def get_verified_customer_templates() -> Dict:
+    return _load_json_file(VERIFIED_CUSTOMER_TEMPLATES_PATH)
+
+
 def get_active_pipeline_file_path() -> Path:
     cfg = get_active_config()
     configured = cfg.get("active_pipeline_file") if isinstance(cfg, dict) else None
@@ -148,6 +154,44 @@ def get_manifest_text() -> str:
     if manifest:
         return json.dumps(manifest, ensure_ascii=False, sort_keys=True)
     return _read_text(MANIFEST_PATH)
+
+
+def get_runtime_code_pin_results() -> List[Dict[str, object]]:
+    manifest = get_manifest()
+    declared = manifest.get("runtime_code_files") if isinstance(manifest, dict) else []
+    results: List[Dict[str, object]] = []
+    for entry in declared if isinstance(declared, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        relative = str(entry.get("path") or "").strip()
+        expected = str(entry.get("sha256") or "").strip().lower()
+        path = REPOSITORY_ROOT / relative
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        results.append({
+            "path": relative,
+            "declared_sha256": expected,
+            "actual_sha256": actual,
+            "exists": path.is_file(),
+            "hash_matches": bool(expected and actual and expected == actual),
+        })
+    return results
+
+
+def assert_runtime_code_pins() -> None:
+    results = get_runtime_code_pin_results()
+    expected_paths = {
+        "backend/app/api/v1/reports.py",
+        "backend/app/services/ai_analyzer.py",
+        "backend/app/services/arkat_semantic_pipeline.py",
+        "backend/app/services/bedrock_ai.py",
+    }
+    actual_paths = {str(row.get("path") or "") for row in results}
+    failures = [row for row in results if not bool(row.get("hash_matches"))]
+    if actual_paths != expected_paths or failures:
+        raise RuntimeError(
+            "Runtime code pin validation failed: "
+            + json.dumps({"expected_paths": sorted(expected_paths), "results": results}, sort_keys=True)
+        )
 
 
 def _bump_manifest_registry_version(version_str: str) -> str:
@@ -292,6 +336,7 @@ def get_runtime_manifest(analysis_mode: str) -> Dict[str, object]:
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "analysis_mode": analysis_mode or "full",
         "loaded": loaded,
+        "runtime_code_files": get_runtime_code_pin_results(),
     }
 
 def _get_dynamic_file(category: str, key: str, fallback_path: Path) -> Path:

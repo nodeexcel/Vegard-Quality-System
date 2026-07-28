@@ -305,6 +305,12 @@ export default function Home() {
       )
       const reportId = Number(response?.data?.id)
       const status = String(response?.data?.status || '')
+      if (status === 'safe_stop') {
+        setUploading(false)
+        setInfoMessage('')
+        setError(String(response?.data?.message || 'Rapporten kunne ikke analyseres ennå.'))
+        return
+      }
       if (!Number.isFinite(reportId) || reportId <= 0) {
         setUploading(false)
         setError('Opplastingen ble registrert, men mangler rapport-ID. Sjekk Historikk.')

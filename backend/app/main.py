@@ -5,6 +5,7 @@ import logging
 from app.config import settings
 from app.api.v1 import router as api_router
 from app.database import engine, Base
+from app.services.validert_files import assert_runtime_code_pins
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +35,11 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+async def validate_governed_runtime_code() -> None:
+    assert_runtime_code_pins()
 
 @app.get("/")
 async def root():

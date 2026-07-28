@@ -1,0 +1,8 @@
+# Corrections to the investigation record — 2026-07-28
+
+1. The raw Dommer B verdict for BMTF point 7.2 classified `aarsak` as `LIMITATION_AS_AARSAK`. Existing normalization rejected that type because it is outside `_DOMMER_B_ALLOWED_ERROR_TYPES`; with no valid heuristic replacement it normalized the field to `CORRECT` (`arkat_semantic_pipeline.py:4314-4321`). The signed customer result therefore contains no 7.2 finding.
+2. The original reproduction was **16/17 invariants**, not 17/17. INV-06 failed. Two facts contributed: internal synthetic point IDs `90001`–`90009` were present in the customer overview, and the checker also treated the harness report ID `bmtf-fallback-reproduction-...` as an internal slug. The checker details previously exposed only `missing_internal_point_ids`, which was empty. The checker now reports actual leaked values and the customer overview is built from real signed semantic point IDs.
+3. Production run 1854 was a cache hit. Its authoritative cache source was production run **1852**, not 1854. Run 1852 has been preserved separately with source PDF, database payload, runtime metadata, logs available to the host, package SHA-256, and a documented limitation for raw historical model bytes that were never retained.
+4. The old reproduction harness reused a fixed run ID in both repetitions. Current runs use a UUID for evidence and the actual numeric report ID for endpoint records. Future proof packages must not claim independent run identity when an ID is reused.
+
+These corrections change the record, not Bolavi/BMTF extraction, mapping, semantic, judge, or feedback rules.

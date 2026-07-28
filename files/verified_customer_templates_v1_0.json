@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "configuration_id": "verified_customer_templates",
+  "effective_date": "2026-07-28",
+  "default_action": "safe_stop",
+  "safe_stop": {
+    "status": "safe_stopped_unverified",
+    "customer_message": "Rapporten kunne ikke analyseres ennå.",
+    "forbidden_response_fields": [
+      "ai_analysis",
+      "scoring_result",
+      "detected_points",
+      "extracted_text",
+      "findings",
+      "components",
+      "internal_ids",
+      "raw_verdicts",
+      "deductions"
+    ]
+  },
+  "verified_templates": [
+    {
+      "template_id": "bolavi",
+      "display_name": "Bolavi",
+      "onboarding_status": "signed",
+      "onboarding_baseline_artifact": "dommer_b_bolavi-egen-rapport_fresh.json",
+      "onboarding_baseline_sha256": "2e880ee490c1c91a797c38d645e99b273a937298411aa5a9828ed3224f612f11",
+      "customer_route": "local_postprocess_dommer_b_fallback",
+      "numeric_scoring_allowed": false,
+      "match": {
+        "any_filename_markers": ["bolavi"],
+        "any_text_markers": ["@bolavi.no"]
+      }
+    },
+    {
+      "template_id": "bmtf_eierskifterapport",
+      "display_name": "BMTF Eierskifterapport",
+      "onboarding_status": "signed",
+      "onboarding_baseline_artifact": "dommer_b_tilstandsrapport_fritidsbolig_e3_3600-2025_fresh.json",
+      "onboarding_baseline_sha256": "19f1f216e7a131f33bd4b39098d3172d291a878ac013bef7bf0b672136cf6b46",
+      "source_pdf_sha256": "775ff7ca565ecd7785b7df7811b1698c8de2fdb0d996421da2a24dc448f1fb7d",
+      "customer_route": "local_postprocess_dommer_b_fallback",
+      "numeric_scoring_allowed": false,
+      "match": {
+        "all_text_markers": ["eierskifterapport"],
+        "required_regex": [
+          "\\bDEL\\s+\\d+\\b",
+          "(?im)^\\s*(?:\\d+\\.\\s*)?.{2,180}\\bTG\\s*(?:IU|0|1|2|3)\\b\\s*[–-]"
+        ],
+        "heading_markers": ["VURDERING", "ÅRSAK", "RISIKO", "KONSEKVENS", "ANBEFALT TILTAK"],
+        "minimum_heading_markers": 3
+      }
+    }
+  ],
+  "change_control": {
+    "authority": "onboarding_sign_off",
+    "requires_version_bump": true,
+    "requires_locked_baseline_parity_before_deploy": true,
+    "does_not_authorize_numeric_scoring": true
+  }
+}

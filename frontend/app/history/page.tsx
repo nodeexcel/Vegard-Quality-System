@@ -196,33 +196,7 @@ export default function HistoryPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                      {/* Scores */}
-                      <div className="flex gap-3">
-                        <div className="text-center">
-                          <div className={`text-2xl font-bold ${getScoreColor(report.overall_score)}`}>
-                            {report.overall_score !== null ? Math.round(report.overall_score) : '-'}
-                          </div>
-                          <div className="text-xs text-gray-500">Total</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`text-sm font-semibold ${getScoreColor(report.quality_score)}`}>
-                            {report.quality_score !== null ? Math.round(report.quality_score) : '-'}
-                          </div>
-                          <div className="text-xs text-gray-500">Kvalitet</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`text-sm font-semibold ${getScoreColor(report.completeness_score)}`}>
-                            {report.completeness_score !== null ? Math.round(report.completeness_score) : '-'}
-                          </div>
-                          <div className="text-xs text-gray-500">Fullstendighet</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`text-sm font-semibold ${getScoreColor(report.compliance_score)}`}>
-                            {report.compliance_score !== null ? Math.round(report.compliance_score) : '-'}
-                          </div>
-                          <div className="text-xs text-gray-500">Samsvar</div>
-                        </div>
-                      </div>
+                      <span className="text-sm font-medium text-blue-700">Kontroll uten score</span>
 
                       {/* View button */}
                       <button
