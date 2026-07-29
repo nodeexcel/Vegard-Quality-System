@@ -28,8 +28,21 @@
       "customer_route": "local_postprocess_dommer_b_fallback",
       "numeric_scoring_allowed": false,
       "match": {
-        "any_filename_markers": ["bolavi"],
-        "any_text_markers": ["@bolavi.no"]
+        "all_text_markers": [
+          "formål med rapporten",
+          "rammeverk og standarder",
+          "godkjent rapport",
+          "rapportens gyldighet",
+          "uavhengighet",
+          "forklaring av tilstandsgrader",
+          "oppsummering",
+          "bygningssakkyndig"
+        ],
+        "required_regex": [
+          "Rapporten er bygget med\\s*befar\\.io",
+          "OM TILSTANDSRAPPORT\\s+\\d+\\s+av\\s+\\d+",
+          "(?im)^\\s*\\d{1,2}\\.\\s+[^\\n]{2,100}\\nTG\\s*[0-3]\\b"
+        ]
       }
     },
     {

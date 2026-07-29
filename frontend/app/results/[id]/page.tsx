@@ -290,6 +290,7 @@ interface Report {
   findings: Finding[]
   ai_analysis: AnalysisV14 | any | null
   scoring_result?: { feedback_v11?: FeedbackV11 } | null
+  public_feedback?: FeedbackV11 | null
   extracted_text: string | null
 }
 
@@ -348,7 +349,7 @@ export default function ResultsPage() {
     const analysis = report.ai_analysis as (AnalysisV14 & AnalysisV16) | null
     const scoringResult = report.scoring_result as any
     console.log('Analysis loaded:', !!analysis)
-    const feedbackV11 = report.scoring_result?.feedback_v11 || null
+    const feedbackV11 = report.public_feedback || report.scoring_result?.feedback_v11 || null
     const hasFeedbackV11 = Boolean(feedbackV11 && feedbackV11.points_overview)
     const safeStopActive = Boolean(
       (scoringResult?.safe_stop_due_to_invariant_failure) ||
@@ -2253,6 +2254,7 @@ export default function ResultsPage() {
           )}
 
           {/* Verification & Debug Section */}
+          {(report.ai_analysis || report.extracted_text) && (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
             <button
               onClick={() => setShowVerification(!showVerification)}
@@ -2334,6 +2336,7 @@ export default function ResultsPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>

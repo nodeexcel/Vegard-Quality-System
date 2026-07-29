@@ -46,6 +46,7 @@ class ReportResponse(BaseModel):
     ai_analysis: Optional[dict] = None
     detected_points: Optional[dict] = None
     scoring_result: Optional[dict] = None
+    public_feedback: Optional[dict] = None
     extracted_text: Optional[str] = None  # For verification purposes
     status: Optional[str] = None
     message: Optional[str] = None

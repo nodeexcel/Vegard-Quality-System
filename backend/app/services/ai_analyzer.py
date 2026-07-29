@@ -16740,14 +16740,15 @@ def write_run_exports(
     scoring_result_payload: Dict[str, object],
 ) -> None:
     exports_dir = Path(__file__).resolve().parents[2] / "exports"
-    run_id = str(uuid.uuid4())
-    run_dir = exports_dir / run_id
+    export_id = str(uuid.uuid4())
+    run_dir = exports_dir / export_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     run_meta = scoring_result_payload.get("run_meta", {}) if isinstance(scoring_result_payload, dict) else {}
     scoring_meta = run_meta.get("scoring_model", {}) if isinstance(run_meta, dict) else {}
     run_metadata = {
-        "run_id": run_id,
+        "export_id": export_id,
+        "analysis_run_id": run_meta.get("run_id", ""),
         "document_hash": document_hash,
         "analysis_timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "model_name": run_meta.get("model_name", ""),

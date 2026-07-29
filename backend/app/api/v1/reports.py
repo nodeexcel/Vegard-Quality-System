@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -50,6 +51,121 @@ if settings.USE_SQS_PROCESSING:
 logger = logging.getLogger(__name__)
 
 _UNVERIFIED_SAFE_STOP_MESSAGE = "Rapporten kunne ikke analyseres ennå."
+_PUBLIC_INTERNAL_ID_PATTERNS = (
+    ("canonical_p_code", re.compile(r"\bP\d{2}[A-Z]_[A-Z0-9_]+\b")),
+    ("synthetic_900_series", re.compile(r"(?<!\d)900\d{2,}(?!\d)")),
+    ("internal_template_slug", re.compile(r"\b(?:fremtind|bmtf)-[a-z0-9]+(?:-[a-z0-9]+)+\b", re.IGNORECASE)),
+)
+_PUBLIC_FORBIDDEN_SCORING_KEYS = {
+    "ai_analysis", "scoring_result", "detected_points", "extracted_text",
+    "score", "score_total", "score_valid", "score_by_category", "score_impact",
+    "deduction", "deduction_points", "potential_deduction", "deduction_band",
+    "category_deductions", "gate", "gate_effect",
+}
+
+
+def _is_signed_fallback_analysis(payload: object) -> bool:
+    return isinstance(payload, dict) and payload.get("analysis_mode") == "local_postprocess_dommer_b_fallback"
+
+
+def _build_verified_public_feedback(scoring_result: object) -> dict:
+    """Create a no-score customer projection without mutating canonical feedback_v11."""
+    source = scoring_result if isinstance(scoring_result, dict) else {}
+    feedback = source.get("feedback_v11") if isinstance(source.get("feedback_v11"), dict) else {}
+    overview = []
+    for item in feedback.get("points_overview", []) if isinstance(feedback.get("points_overview"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        overview.append({
+            "display_index": item.get("display_index"),
+            "point_id": item.get("point_id"),
+            "title": item.get("title"),
+            "tg": item.get("tg"),
+            "status": item.get("status"),
+            "summary": item.get("summary"),
+            "page": (item.get("where") or {}).get("page") if isinstance(item.get("where"), dict) else None,
+        })
+    findings = []
+    for item in feedback.get("findings", []) if isinstance(feedback.get("findings"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        evidence = item.get("evidence") if isinstance(item.get("evidence"), dict) else {}
+        example = item.get("example_fix") if isinstance(item.get("example_fix"), dict) else {}
+        findings.append({
+            "point_id": item.get("point_id"),
+            "message": item.get("message"),
+            "what_to_change": item.get("what_to_change"),
+            "good_example": example.get("good_example"),
+            "evidence": {"page": evidence.get("page"), "snippet": evidence.get("snippet")},
+        })
+    return {"version": "feedback_v11_public_v1", "points_overview": overview, "findings": findings}
+
+
+def _scan_final_public_payload(payload: object) -> dict:
+    internal_ids = []
+    forbidden_keys = []
+    visited = 0
+
+    def walk(value: object, path: str) -> None:
+        nonlocal visited
+        visited += 1
+        if isinstance(value, dict):
+            for key, child in value.items():
+                child_path = f"{path}.{key}" if path else str(key)
+                if str(key).lower() in _PUBLIC_FORBIDDEN_SCORING_KEYS:
+                    forbidden_keys.append({"path": child_path, "key": str(key)})
+                walk(child, child_path)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                walk(child, f"{path}[{index}]")
+        else:
+            rendered = str(value) if value is not None else ""
+            for pattern_name, pattern in _PUBLIC_INTERNAL_ID_PATTERNS:
+                for match in pattern.finditer(rendered):
+                    internal_ids.append({"path": path, "pattern": pattern_name, "value": match.group(0)})
+
+    walk(payload, "$")
+    return {
+        "invariant_id": "INV-06_FINAL_PUBLIC_RESPONSE",
+        "passed": not internal_ids and not forbidden_keys,
+        "nodes_scanned": visited,
+        "internal_id_matches": internal_ids,
+        "forbidden_scoring_or_diagnostic_keys": forbidden_keys,
+    }
+
+
+def _verified_public_report_payload(report, components: list) -> tuple[dict, dict]:
+    payload = {
+        "id": report.id,
+        "filename": report.filename,
+        "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
+        "status": report.status,
+        "components": [
+            {
+                "component_type": component.component_type,
+                "name": component.name,
+                "condition": component.condition,
+                "description": component.description,
+            }
+            for component in components
+        ],
+        "public_feedback": _build_verified_public_feedback(report.scoring_result),
+    }
+    scan = _scan_final_public_payload(payload)
+    return payload, scan
+
+
+def _final_verified_public_response(report, components: list) -> JSONResponse:
+    payload, scan = _verified_public_report_payload(report, components)
+    logger.info(
+        "final_public_payload_invariant report_id=%s result=%s",
+        report.id,
+        json.dumps(scan, ensure_ascii=True, sort_keys=True),
+    )
+    if not scan["passed"]:
+        logger.error("Fail-closed verified public response report_id=%s", report.id)
+        return JSONResponse(status_code=200, content={"status": "safe_stop", "message": _UNVERIFIED_SAFE_STOP_MESSAGE})
+    return JSONResponse(status_code=200, content=jsonable_encoder(payload))
 
 
 def _verified_dommer_b_template(filename: str, extracted_text: str) -> Optional[str]:
@@ -920,6 +1036,9 @@ async def upload_report(
             suggestion=f.suggestion,
             standard_reference=f.standard_reference
         ) for f in report.findings]
+
+        if verified_dommer_b_template:
+            return _final_verified_public_response(report, report.components)
         
         return ReportResponse(
             id=report.id,
@@ -974,6 +1093,9 @@ async def get_report(
     
     report.components = db.query(Component).filter(Component.report_id == report.id).all()
     report.findings = db.query(Finding).filter(Finding.report_id == report.id).all()
+
+    if _is_signed_fallback_analysis(report.ai_analysis):
+        return _final_verified_public_response(report, report.components)
     
     # Convert SQLAlchemy models to dicts for Pydantic validation
     from app.schemas import ComponentBase, FindingBase
@@ -1080,50 +1202,40 @@ async def list_reports(
     """
     reports = db.query(Report).filter(Report.user_id == current_user.id).offset(skip).limit(limit).all()
     
-    from app.schemas import ComponentBase, FindingBase
-    
     result = []
     for report in reports:
         report.components = db.query(Component).filter(Component.report_id == report.id).all()
-        report.findings = db.query(Finding).filter(Finding.report_id == report.id).all()
-        
-        components_data = [ComponentBase(
-            component_type=c.component_type,
-            name=c.name,
-            condition=c.condition,
-            description=c.description,
-            score=c.score
-        ) for c in report.components]
-        
-        findings_data = [FindingBase(
-            finding_type=f.finding_type,
-            severity=f.severity,
-            title=f.title,
-            description=f.description,
-            suggestion=f.suggestion,
-            standard_reference=f.standard_reference
-        ) for f in report.findings]
-        
-        result.append(ReportResponse(
-            id=report.id,
-            filename=report.filename,
-            report_system=report.report_system,
-            building_year=report.building_year,
-            uploaded_at=report.uploaded_at,
-            overall_score=report.overall_score,
-            quality_score=report.quality_score,
-            completeness_score=report.completeness_score,
-            compliance_score=report.compliance_score,
-            components=components_data,
-            findings=findings_data,
-            ai_analysis=report.ai_analysis,
-            detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
-            scoring_result=_public_bmtf_payload(report.scoring_result, report.extracted_text or ""),
-            status=report.status,
-            message=None,
-        ))
-    
-    return result
+        if _is_signed_fallback_analysis(report.ai_analysis):
+            public_payload, scan = _verified_public_report_payload(report, report.components)
+            logger.info(
+                "final_public_payload_invariant report_id=%s endpoint=list result=%s",
+                report.id,
+                json.dumps(scan, ensure_ascii=True, sort_keys=True),
+            )
+            if scan["passed"]:
+                result.append(public_payload)
+            else:
+                result.append({
+                    "id": report.id,
+                    "filename": report.filename,
+                    "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
+                    "status": "safe_stop",
+                    "message": _UNVERIFIED_SAFE_STOP_MESSAGE,
+                    "components": [],
+                    "findings": [],
+                })
+            continue
+        result.append({
+            "id": report.id,
+            "filename": report.filename,
+            "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
+            "status": "safe_stop",
+            "message": _UNVERIFIED_SAFE_STOP_MESSAGE,
+            "components": [],
+            "findings": [],
+        })
+
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 @router.post("/{report_id}/update-analysis")
 async def update_report_analysis(

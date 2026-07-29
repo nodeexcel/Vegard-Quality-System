@@ -16,7 +16,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///tmp.db")
 os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
-from app.services.ai_analyzer import (  # noqa: E402
+from app.services.ai_analyzer import (
     _detect_report_date_from_document_identity,
     _drop_age_only_false_positives,
     _drop_false_electrical_tg_forbidden_findings,
@@ -48,7 +48,7 @@ from app.services.ai_analyzer import (  # noqa: E402
     _sync_category_breakdown_with_score_by_category,
     build_feedback_v11,
 )
-from app.services.arkat_semantic_pipeline import (  # noqa: E402
+from app.services.arkat_semantic_pipeline import (
     _detect_ns_version_for_dommer_b,
     _evaluate_arkat_point,
     _extract_fields_for_point,
@@ -65,6 +65,9 @@ TEST_SET_PATH = ROOT / "files" / "dommer_b_test_set_v1_3.md"
 HORTEN_REPORT_PATH = ROOT / "files" / "dommer_b_real_report_1806_full.json"
 FR_REPORT_PATH = ROOT / "files" / "dommer_b_real_report_1807_full.json"
 BG_REPORT_PATH = ROOT / "files" / "dommer_b_real_report_1808_full.json"
+_RETIRED_MISSING_REAL_REPORT_FIXTURES = pytest.mark.skip(
+    reason="Retired 2026-07-29: locked fixtures 1807/1808 are unavailable; 1806 historical candidate does not match the test's declared baseline. See regression_fixture_retirement_decision_20260729.md."
+)
 
 
 def _load_json(path: Path) -> dict:
@@ -717,6 +720,7 @@ def test_markdown_deterministic_regression_cases(case_id: int):
     assert actual_tgiu == expected_tgiu
 
 
+@_RETIRED_MISSING_REAL_REPORT_FIXTURES
 def test_fr_1807_report_regression_score_legal_and_extraction():
     report = _load_json(FR_REPORT_PATH)
     output = report["analysis_output"]
@@ -746,6 +750,7 @@ def test_fr_1807_report_regression_score_legal_and_extraction():
     assert "Områder hvor det har kondensert" in p10i["aarsak"]
 
 
+@_RETIRED_MISSING_REAL_REPORT_FIXTURES
 def test_bg_1808_report_regression_score_and_merknader_bullets():
     report = _load_json(BG_REPORT_PATH)
     output = report["analysis_output"]
@@ -791,6 +796,7 @@ def _technical_development_point_ids(report_path: Path) -> list[str]:
     return sorted(point_id for point_id in flagged if point_id)
 
 
+@_RETIRED_MISSING_REAL_REPORT_FIXTURES
 def test_technical_development_flags_in_current_real_reports():
     assert _technical_development_point_ids(HORTEN_REPORT_PATH) == ["7.2.3"]
     assert _technical_development_point_ids(FR_REPORT_PATH) == []
