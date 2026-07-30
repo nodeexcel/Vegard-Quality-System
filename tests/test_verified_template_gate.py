@@ -151,4 +151,64 @@ def test_final_public_scan_fails_on_nested_internal_ids_and_scoring_keys():
     scan = reports._scan_final_public_payload(payload)
     assert scan["passed"] is False
     assert scan["internal_id_matches"][0]["value"] == "90001"
-    assert scan["forbidden_scoring_or_diagnostic_keys"][0]["key"] == "gate_effect"
+    assert {item["key"] for item in scan["forbidden_scoring_or_diagnostic_keys"]} == {
+        "native_label", "gate_effect",
+    }
+
+
+def test_final_public_scan_rejects_generic_internal_identifier_keys():
+    payload = {
+        "public_feedback": {
+            "items": [{"custom_rule_id": "NEW_RULE_FAMILY_1"}],
+            "template_ids": ["future-template"],
+            "internal_trace": {"opaque": "value"},
+        }
+    }
+    scan = reports._scan_final_public_payload(payload)
+    assert scan["passed"] is False
+    assert {item["key"] for item in scan["forbidden_scoring_or_diagnostic_keys"]} == {
+        "custom_rule_id", "template_ids", "internal_trace",
+    }
+
+
+class _FakeQuery:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def offset(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def first(self):
+        return self.rows[0] if self.rows else None
+
+    def all(self):
+        return self.rows
+
+
+class _FakeReportDB:
+    def __init__(self, report):
+        self.report = report
+
+    def query(self, model):
+        if model is reports.Report:
+            return _FakeQuery([self.report])
+        return _FakeQuery([])
+
+
+def test_historical_unverified_get_and_list_are_two_field_safe_stops():
+    historical = SimpleNamespace(id=50, user_id=123, ai_analysis={"analysis_mode": "full"})
+    db = _FakeReportDB(historical)
+    user = SimpleNamespace(id=123)
+
+    get_response = asyncio.run(reports.get_report(50, db=db, current_user=user))
+    list_response = asyncio.run(reports.list_reports(db=db, current_user=user))
+    expected = {"status": "safe_stop", "message": "Rapporten kunne ikke analyseres ennå."}
+
+    assert __import__("json").loads(get_response.body) == expected
+    assert __import__("json").loads(list_response.body) == [expected]

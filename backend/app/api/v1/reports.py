@@ -61,11 +61,25 @@ _PUBLIC_FORBIDDEN_SCORING_KEYS = {
     "score", "score_total", "score_valid", "score_by_category", "score_impact",
     "deduction", "deduction_points", "potential_deduction", "deduction_band",
     "category_deductions", "gate", "gate_effect",
+    "rule_id", "rule_ids", "finding_id", "finding_ids", "template_id", "template_ids",
+    "internal_id", "internal_ids", "internal_point_id", "canonical_point_id",
+    "native_label", "numeric_id", "point_key", "validated_point_ids", "segmentation_trace",
 }
 
 
 def _is_signed_fallback_analysis(payload: object) -> bool:
     return isinstance(payload, dict) and payload.get("analysis_mode") == "local_postprocess_dommer_b_fallback"
+
+
+def _safe_stop_public_response() -> JSONResponse:
+    return JSONResponse(status_code=200, content={"status": "safe_stop", "message": _UNVERIFIED_SAFE_STOP_MESSAGE})
+
+
+def _is_forbidden_public_key(key: object) -> bool:
+    normalized = str(key).strip().lower()
+    if normalized in _PUBLIC_FORBIDDEN_SCORING_KEYS or normalized.startswith("internal_"):
+        return True
+    return bool(re.search(r"(?:^|_)(?:rule|finding|template)(?:_[a-z0-9]+)*_ids?$", normalized))
 
 
 def _build_verified_public_feedback(scoring_result: object) -> dict:
@@ -112,7 +126,7 @@ def _scan_final_public_payload(payload: object) -> dict:
         if isinstance(value, dict):
             for key, child in value.items():
                 child_path = f"{path}.{key}" if path else str(key)
-                if str(key).lower() in _PUBLIC_FORBIDDEN_SCORING_KEYS:
+                if _is_forbidden_public_key(key):
                     forbidden_keys.append({"path": child_path, "key": str(key)})
                 walk(child, child_path)
         elif isinstance(value, list):
@@ -164,7 +178,7 @@ def _final_verified_public_response(report, components: list) -> JSONResponse:
     )
     if not scan["passed"]:
         logger.error("Fail-closed verified public response report_id=%s", report.id)
-        return JSONResponse(status_code=200, content={"status": "safe_stop", "message": _UNVERIFIED_SAFE_STOP_MESSAGE})
+        return _safe_stop_public_response()
     return JSONResponse(status_code=200, content=jsonable_encoder(payload))
 
 
@@ -1096,99 +1110,9 @@ async def get_report(
 
     if _is_signed_fallback_analysis(report.ai_analysis):
         return _final_verified_public_response(report, report.components)
-    
-    # Convert SQLAlchemy models to dicts for Pydantic validation
-    from app.schemas import ComponentBase, FindingBase
-    components_data = [ComponentBase(
-        component_type=c.component_type,
-        name=c.name,
-        condition=c.condition,
-        description=c.description,
-        score=c.score
-    ) for c in report.components]
-    
-    findings_data = [FindingBase(
-        finding_type=f.finding_type,
-        severity=f.severity,
-        title=f.title,
-        description=f.description,
-        suggestion=f.suggestion,
-        standard_reference=f.standard_reference
-    ) for f in report.findings]
 
-    ai_analysis_payload = dict(report.ai_analysis) if isinstance(report.ai_analysis, dict) else report.ai_analysis
-    if isinstance(ai_analysis_payload, dict):
-        try:
-            # Fast path: prefer persisted analysis payload and only ensure evidence fields.
-            ensure_analysis_evidence(ai_analysis_payload, report.extracted_text or "")
-        except Exception as e:
-            logger.warning("ensure_analysis_evidence on get_report failed for report_id=%s: %s", report.id, str(e))
-
-    scoring_result_out = dict(report.scoring_result) if isinstance(report.scoring_result, dict) else {}
-    has_feedback_v11 = isinstance(scoring_result_out.get("feedback_v11"), dict)
-    if isinstance(ai_analysis_payload, dict) and not has_feedback_v11:
-        try:
-            detected_points_payload = report.detected_points if isinstance(report.detected_points, dict) else None
-            if not isinstance(detected_points_payload, dict):
-                detected_points_payload = get_validated_detected_points_payload(
-                    report.extracted_text or "",
-                    document_hash=report.document_hash or "",
-                    document_title=report.filename,
-                    document_id=str(report.id),
-                )
-            points = detected_points_payload.get("points", []) if isinstance(detected_points_payload, dict) else []
-            e3_hints = [
-                p for p in points
-                if isinstance(p, dict) and str(p.get("e3_parent_hint") or "").upper() in {"P11", "P12"}
-            ]
-            logger.info(
-                "get_report rebuild report_id=%s validated_points=%s e3_parent_hints=%s",
-                report.id,
-                len(points),
-                len(e3_hints),
-            )
-            scoring_result_out["feedback_v11"] = build_feedback_v11(
-                ai_analysis_payload,
-                detected_points_payload,
-                report_id=str(report.id),
-                document_hash=report.document_hash or "",
-            )
-            _force_e3_parents_found_in_feedback(
-                scoring_result_out.get("feedback_v11") if isinstance(scoring_result_out, dict) else None,
-                report.extracted_text or "",
-            )
-        except Exception as e:
-            logger.warning("feedback_v11 rebuild failed for report_id=%s: %s", report.id, str(e))
-
-    if isinstance(ai_analysis_payload, dict):
-        try:
-            _inject_vinterhage_scope_note(
-                ai_analysis_payload,
-                scoring_result_out.get("feedback_v11") if isinstance(scoring_result_out, dict) else None,
-                report.extracted_text or "",
-            )
-        except Exception as e:
-            logger.warning("vinterhage scope note injection failed for report_id=%s: %s", report.id, str(e))
-    
-    return ReportResponse(
-        id=report.id,
-        filename=report.filename,
-        report_system=report.report_system,
-        building_year=report.building_year,
-        uploaded_at=report.uploaded_at,
-        overall_score=report.overall_score,
-        quality_score=report.quality_score,
-        completeness_score=report.completeness_score,
-        compliance_score=report.compliance_score,
-        components=components_data,
-        findings=findings_data,
-        ai_analysis=ai_analysis_payload,
-        detected_points=_public_bmtf_payload(report.detected_points, report.extracted_text or ""),
-        scoring_result=_public_bmtf_payload(scoring_result_out, report.extracted_text or ""),
-        extracted_text=report.extracted_text,
-        status=report.status,
-        message=None,
-    )
+    logger.info("Historical unverified report safe-stop on direct GET: report_id=%s", report.id)
+    return _safe_stop_public_response()
 
 @router.get("/", response_model=list[ReportResponse])
 async def list_reports(
@@ -1215,25 +1139,9 @@ async def list_reports(
             if scan["passed"]:
                 result.append(public_payload)
             else:
-                result.append({
-                    "id": report.id,
-                    "filename": report.filename,
-                    "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
-                    "status": "safe_stop",
-                    "message": _UNVERIFIED_SAFE_STOP_MESSAGE,
-                    "components": [],
-                    "findings": [],
-                })
+                result.append({"status": "safe_stop", "message": _UNVERIFIED_SAFE_STOP_MESSAGE})
             continue
-        result.append({
-            "id": report.id,
-            "filename": report.filename,
-            "uploaded_at": report.uploaded_at.isoformat() if report.uploaded_at else None,
-            "status": "safe_stop",
-            "message": _UNVERIFIED_SAFE_STOP_MESSAGE,
-            "components": [],
-            "findings": [],
-        })
+        result.append({"status": "safe_stop", "message": _UNVERIFIED_SAFE_STOP_MESSAGE})
 
     return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
