@@ -62,6 +62,21 @@ def test_bolavi_gate_rejects_filename_email_and_structural_near_misses():
     assert reports._verified_dommer_b_template("bolavi-near-miss.pdf", near_miss) is None
 
 
+def test_persisted_signed_boundary_requires_current_structural_match():
+    signed = SimpleNamespace(
+        ai_analysis={"analysis_mode": "local_postprocess_dommer_b_fallback"},
+        filename="bolavi-egen-rapport.pdf",
+        extracted_text=_bolavi_text(),
+    )
+    renamed_unverified = SimpleNamespace(
+        ai_analysis={"analysis_mode": "local_postprocess_dommer_b_fallback"},
+        filename="renamed-bolavi.pdf",
+        extracted_text="Unrelated historical report",
+    )
+    assert reports._is_currently_governed_signed_report(signed) is True
+    assert reports._is_currently_governed_signed_report(renamed_unverified) is False
+
+
 def test_unverified_upload_safe_stops_before_analyzer(monkeypatch):
     monkeypatch.setattr(reports.PDFExtractor, "get_pdf_metadata", lambda *_: {"total_pages": 1})
     monkeypatch.setattr(

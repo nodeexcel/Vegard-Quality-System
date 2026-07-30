@@ -71,6 +71,15 @@ def _is_signed_fallback_analysis(payload: object) -> bool:
     return isinstance(payload, dict) and payload.get("analysis_mode") == "local_postprocess_dommer_b_fallback"
 
 
+def _is_currently_governed_signed_report(report: object) -> bool:
+    if not _is_signed_fallback_analysis(getattr(report, "ai_analysis", None)):
+        return False
+    return bool(_verified_dommer_b_template(
+        str(getattr(report, "filename", "") or ""),
+        str(getattr(report, "extracted_text", "") or ""),
+    ))
+
+
 def _safe_stop_public_response() -> JSONResponse:
     return JSONResponse(status_code=200, content={"status": "safe_stop", "message": _UNVERIFIED_SAFE_STOP_MESSAGE})
 
@@ -1108,7 +1117,7 @@ async def get_report(
     report.components = db.query(Component).filter(Component.report_id == report.id).all()
     report.findings = db.query(Finding).filter(Finding.report_id == report.id).all()
 
-    if _is_signed_fallback_analysis(report.ai_analysis):
+    if _is_currently_governed_signed_report(report):
         return _final_verified_public_response(report, report.components)
 
     logger.info("Historical unverified report safe-stop on direct GET: report_id=%s", report.id)
@@ -1129,7 +1138,7 @@ async def list_reports(
     result = []
     for report in reports:
         report.components = db.query(Component).filter(Component.report_id == report.id).all()
-        if _is_signed_fallback_analysis(report.ai_analysis):
+        if _is_currently_governed_signed_report(report):
             public_payload, scan = _verified_public_report_payload(report, report.components)
             logger.info(
                 "final_public_payload_invariant report_id=%s endpoint=list result=%s",
