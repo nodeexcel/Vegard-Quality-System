@@ -15328,7 +15328,6 @@ def build_feedback_v11(
     if isinstance(payload, dict) and _incomplete_fallback_reason(analysis_output):
         _apply_incomplete_feedback_policy(payload, analysis_output, detected_points_payload)
     payload = _sanitize_feedback_v11_legacy_consequence_unclear(payload, analysis_output)
-    payload = _sanitize_bmtf_feedback_v11_p_codes(payload, report_text)
     if isinstance(payload, dict) and _incomplete_fallback_reason(analysis_output):
         _apply_incomplete_feedback_policy(payload, analysis_output, detected_points_payload)
     return payload
@@ -17014,10 +17013,6 @@ class AIAnalyzer:
             scoring_result_payload["safe_stop_due_to_invariant_failure"] = True
             scoring_result_payload["limited_analysis_warning"] = _SAFE_STOP_CUSTOMER_MESSAGE
 
-        analysis_output = sanitize_bmtf_public_point_taxonomy_payload(analysis_output, report_text)
-        detected_points_payload = sanitize_bmtf_public_point_taxonomy_payload(detected_points_payload, report_text)
-        scoring_result_payload["analysis_output"] = analysis_output
-        scoring_result_payload = sanitize_bmtf_public_point_taxonomy_payload(scoring_result_payload, report_text)
         result = build_analysis_result_from_output(analysis_output)
         return result, analysis_output, detected_points_payload, scoring_result_payload
 
@@ -17411,21 +17406,8 @@ Produser KUN gyldig JSON i henhold til OUTPUT SCHEMA. Ingen tekst utenfor JSON.
                 scoring_result_payload.pop("feedback_v11", None)
                 scoring_result_payload["safe_stop_due_to_invariant_failure"] = True
                 scoring_result_payload["limited_analysis_warning"] = _SAFE_STOP_CUSTOMER_MESSAGE
-            analysis_output = sanitize_bmtf_public_point_taxonomy_payload(
-                analysis_output,
-                normalized_text,
-            )
-            scoring_result_payload["analysis_output"] = analysis_output
-            scoring_result_payload = sanitize_bmtf_public_point_taxonomy_payload(
-                scoring_result_payload,
-                normalized_text,
-            )
             _drop_buyer_only_consequence_public_claims(analysis_output)
             _drop_buyer_only_consequence_public_claims(scoring_result_payload)
-            detected_points_payload = sanitize_bmtf_public_point_taxonomy_payload(
-                detected_points_payload,
-                normalized_text,
-            )
 
             result = build_analysis_result_from_output(analysis_output)
             overall_score = result.overall_score

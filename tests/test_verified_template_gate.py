@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import inspect
 import io
 import os
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
 from app.api.v1 import reports
+from app.services import ai_analyzer
 
 
 def _bmtf_text() -> str:
@@ -156,6 +158,52 @@ def test_verified_public_projection_is_no_score_and_does_not_mutate_canonical_fe
     serialized = __import__("json").dumps(payload)
     for forbidden_text in ("90001", "deduction", "score", "gate", "finding_id", "rule_id"):
         assert forbidden_text not in serialized
+
+
+def test_public_taxonomy_cleaning_requires_governed_route_and_never_mutates_canonical():
+    canonical = {
+        "message": "Kontroller P10B_FLOORS og fremtind-floors.",
+        "nested": ["Intern referanse 90001"],
+    }
+    before = copy.deepcopy(canonical)
+    projected = reports._sanitize_governed_public_projection(canonical, "bolavi")
+
+    assert canonical == before
+    assert projected == {
+        "message": "Kontroller punktet og punktet.",
+        "nested": ["Intern referanse punktet"],
+    }
+    assert reports._scan_final_public_payload(projected)["passed"] is True
+
+    try:
+        reports._sanitize_governed_public_projection(canonical, "fremtind")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Unknown/unverified template identity did not fail closed")
+
+
+def test_canonical_and_internal_payloads_preserve_p_code_identity():
+    internal = {
+        "points": [{"canonical_point_id": "P10B_FLOORS"}],
+        "points_before_whitelist": [{"point_key": "P0001"}],
+    }
+    copied = reports._public_bmtf_payload(
+        internal,
+        "Standarden omtaler vurdering av avvik.",
+    )
+    assert copied == internal
+    assert copied is not internal
+
+
+def test_taxonomy_sanitizer_is_not_called_by_canonical_analysis_builders():
+    build_feedback_source = inspect.getsource(ai_analyzer.build_feedback_v11)
+    fallback_source = inspect.getsource(ai_analyzer.AIAnalyzer.analyze_report_dommer_b_fallback)
+    full_source = inspect.getsource(ai_analyzer.AIAnalyzer.analyze_report)
+
+    assert "_sanitize_bmtf_feedback_v11_p_codes" not in build_feedback_source
+    assert "sanitize_bmtf_public_point_taxonomy_payload" not in fallback_source
+    assert "sanitize_bmtf_public_point_taxonomy_payload" not in full_source
 
 
 def test_final_public_scan_fails_on_nested_internal_ids_and_scoring_keys():

@@ -26,7 +26,6 @@ from app.services.ai_analyzer import (
     IncompleteAnalysisError,
     normalize_scoring_output,
     postprocess_analysis_output,
-    sanitize_bmtf_public_point_taxonomy_payload,
     write_run_exports,
 )
 from app.services.analysis_cache import get_cached_analysis, upsert_analysis_cache
@@ -54,7 +53,7 @@ _UNVERIFIED_SAFE_STOP_MESSAGE = "Rapporten kunne ikke analyseres ennå."
 _PUBLIC_INTERNAL_ID_PATTERNS = (
     ("canonical_p_code", re.compile(r"\bP\d{2}[A-Z]_[A-Z0-9_]+\b")),
     ("synthetic_900_series", re.compile(r"(?<!\d)900\d{2,}(?!\d)")),
-    ("internal_template_slug", re.compile(r"\b(?:fremtind|bmtf)-[a-z0-9]+(?:-[a-z0-9]+)+\b", re.IGNORECASE)),
+    ("internal_template_slug", re.compile(r"\b(?:fremtind|bmtf)(?:-[a-z0-9]+)+\b", re.IGNORECASE)),
 )
 _PUBLIC_FORBIDDEN_SCORING_KEYS = {
     "ai_analysis", "scoring_result", "detected_points", "extracted_text",
@@ -78,6 +77,16 @@ def _is_currently_governed_signed_report(report: object) -> bool:
         str(getattr(report, "filename", "") or ""),
         str(getattr(report, "extracted_text", "") or ""),
     ))
+
+
+def _governed_signed_template_for_report(report: object) -> Optional[str]:
+    """Return the governed signed template ID for an existing fallback result."""
+    if not _is_signed_fallback_analysis(getattr(report, "ai_analysis", None)):
+        return None
+    return _verified_dommer_b_template(
+        str(getattr(report, "filename", "") or ""),
+        str(getattr(report, "extracted_text", "") or ""),
+    )
 
 
 def _safe_stop_public_response() -> JSONResponse:
@@ -124,6 +133,53 @@ def _build_verified_public_feedback(scoring_result: object) -> dict:
     return {"version": "feedback_v11_public_v1", "points_overview": overview, "findings": findings}
 
 
+def _governed_public_template_ids() -> set[str]:
+    governed = get_verified_customer_templates()
+    templates = governed.get("verified_templates") if isinstance(governed, dict) else []
+    return {
+        str(item.get("template_id") or "")
+        for item in templates if isinstance(templates, list) and isinstance(item, dict)
+        and item.get("onboarding_status") == "signed"
+        and item.get("customer_route") == "local_postprocess_dommer_b_fallback"
+        and item.get("numeric_scoring_allowed") is False
+        and str(item.get("template_id") or "")
+    }
+
+
+def _sanitize_governed_public_projection(payload: dict, template_id: str) -> dict:
+    """Clean customer text only after a governed signed route selected the template.
+
+    Canonical/internal objects are never passed to this function. Unknown template
+    identities fail closed instead of falling back to content-phrase inference.
+    """
+    if template_id not in _governed_public_template_ids():
+        raise ValueError("Public projection requires a governed signed template identity")
+    copied = json.loads(json.dumps(payload, ensure_ascii=False))
+
+    def clean_text(value: str) -> str:
+        cleaned = value
+        for _, pattern in _PUBLIC_INTERNAL_ID_PATTERNS:
+            cleaned = pattern.sub("punktet", cleaned)
+        return cleaned
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for key, child in list(value.items()):
+                if isinstance(child, str):
+                    value[key] = clean_text(child)
+                elif isinstance(child, (dict, list)):
+                    walk(child)
+        elif isinstance(value, list):
+            for index, child in enumerate(list(value)):
+                if isinstance(child, str):
+                    value[index] = clean_text(child)
+                elif isinstance(child, (dict, list)):
+                    walk(child)
+
+    walk(copied)
+    return copied
+
+
 def _scan_final_public_payload(payload: object) -> dict:
     internal_ids = []
     forbidden_keys = []
@@ -157,7 +213,7 @@ def _scan_final_public_payload(payload: object) -> dict:
     }
 
 
-def _verified_public_report_payload(report, components: list) -> tuple[dict, dict]:
+def _verified_public_report_payload(report, components: list, template_id: str) -> tuple[dict, dict]:
     payload = {
         "id": report.id,
         "filename": report.filename,
@@ -174,12 +230,17 @@ def _verified_public_report_payload(report, components: list) -> tuple[dict, dic
         ],
         "public_feedback": _build_verified_public_feedback(report.scoring_result),
     }
+    payload = _sanitize_governed_public_projection(payload, template_id)
     scan = _scan_final_public_payload(payload)
     return payload, scan
 
 
-def _final_verified_public_response(report, components: list) -> JSONResponse:
-    payload, scan = _verified_public_report_payload(report, components)
+def _final_verified_public_response(report, components: list, template_id: str) -> JSONResponse:
+    try:
+        payload, scan = _verified_public_report_payload(report, components, template_id)
+    except ValueError:
+        logger.exception("Fail-closed public projection with invalid template identity report_id=%s", report.id)
+        return _safe_stop_public_response()
     logger.info(
         "final_public_payload_invariant report_id=%s result=%s",
         report.id,
@@ -253,7 +314,10 @@ def _public_bmtf_payload(payload: Optional[dict], extracted_text: str) -> Option
         copied.pop("feedback_v11", None)
         copied["safe_stop_due_to_invariant_failure"] = True
         copied["limited_analysis_warning"] = "Rapporten kunne ikke analyseres ennå."
-    return sanitize_bmtf_public_point_taxonomy_payload(copied, extracted_text or "")
+    # This helper is used for canonical/cache/admin envelopes. Preserve governed
+    # internal identity here; customer sanitization belongs exclusively to
+    # _sanitize_governed_public_projection after signed-template routing.
+    return copied
 
 
 router = APIRouter()
@@ -1061,7 +1125,11 @@ async def upload_report(
         ) for f in report.findings]
 
         if verified_dommer_b_template:
-            return _final_verified_public_response(report, report.components)
+            return _final_verified_public_response(
+                report,
+                report.components,
+                verified_dommer_b_template,
+            )
         
         return ReportResponse(
             id=report.id,
@@ -1117,8 +1185,9 @@ async def get_report(
     report.components = db.query(Component).filter(Component.report_id == report.id).all()
     report.findings = db.query(Finding).filter(Finding.report_id == report.id).all()
 
-    if _is_currently_governed_signed_report(report):
-        return _final_verified_public_response(report, report.components)
+    signed_template_id = _governed_signed_template_for_report(report)
+    if signed_template_id:
+        return _final_verified_public_response(report, report.components, signed_template_id)
 
     logger.info("Historical unverified report safe-stop on direct GET: report_id=%s", report.id)
     return _safe_stop_public_response()
@@ -1138,8 +1207,13 @@ async def list_reports(
     result = []
     for report in reports:
         report.components = db.query(Component).filter(Component.report_id == report.id).all()
-        if _is_currently_governed_signed_report(report):
-            public_payload, scan = _verified_public_report_payload(report, report.components)
+        signed_template_id = _governed_signed_template_for_report(report)
+        if signed_template_id:
+            public_payload, scan = _verified_public_report_payload(
+                report,
+                report.components,
+                signed_template_id,
+            )
             logger.info(
                 "final_public_payload_invariant report_id=%s endpoint=list result=%s",
                 report.id,
