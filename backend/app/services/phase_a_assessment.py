@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Iterable, Protocol
+from typing import Any, Iterable, Protocol
 
 from app.services.phase_a_contracts import (
     Abstention,
@@ -47,6 +47,64 @@ class AssessmentModel(Protocol):
         category: RuleCategory,
         rules: list[RuleRetrievalRecord],
     ) -> AssessmentCandidate: ...
+
+
+class BedrockSemanticAssessmentModel:
+    """JSON-only semantic assessor; invoked only after regime resolution."""
+
+    SYSTEM_PROMPT = """You assess one bound point from a Norwegian condition report.
+Use only the complete point body, its explicit source evidence, and the retrieved governed rules.
+Assess meaning, not the presence or absence of headings. For TG2/TG3, Årsak, Risiko,
+Konsekvens and recommended/necessary measures may be expressed in prose without an
+'ANBEFALT TILTAK' label. Do not use text from another point to satisfy this point.
+For TG3 cost, only a cost class/interval or other schematic estimate explicitly bound
+to this point (or an explicitly linked same-point summary supplied as evidence) counts.
+If evidence or applicability is uncertain, abstain. Return JSON only."""
+
+    def __init__(self, bedrock_client: Any | None = None, max_tokens: int = 3000):
+        self._client = bedrock_client
+        self.max_tokens = max_tokens
+
+    def _bedrock(self):
+        if self._client is None:
+            from app.config import settings
+            from app.services.bedrock_ai import BedrockAI
+
+            self._client = BedrockAI(region=settings.AWS_REGION)
+        return self._client
+
+    def assess(
+        self,
+        segment: ValidatedSegment,
+        category: RuleCategory,
+        rules: list[RuleRetrievalRecord],
+    ) -> AssessmentCandidate:
+        if segment.kind.value == "report_point" and not segment.bound_body_spans:
+            raise ValueError("complete bound report-point body is required")
+        source_spans = segment.bound_body_spans or segment.evidence_spans
+        if not source_spans and segment.evidence is not None:
+            source_spans = [segment.evidence]
+        prompt = {
+            "segment": {
+                "segment_id": segment.segment_id,
+                "kind": segment.kind.value,
+                "title": segment.title,
+                "point_label": segment.point_label,
+                "tg_grade": segment.tg_grade,
+                "professional_subject": segment.professional_subject,
+                "complete_bound_body": [span.model_dump(mode="json") for span in source_spans],
+            },
+            "rule_category": category.value,
+            "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+            "required_output_schema": AssessmentCandidate.model_json_schema(),
+        }
+        payload = self._bedrock().generate_json_with_claude(
+            system_prompt=self.SYSTEM_PROMPT,
+            user_prompt=json.dumps(prompt, ensure_ascii=False, sort_keys=True),
+            max_tokens=self.max_tokens,
+            retry_json_prompt=True,
+        )
+        return AssessmentCandidate.model_validate(payload)
 
 
 def _governed_finding_types(records: Iterable[RuleRetrievalRecord]) -> set[str]:

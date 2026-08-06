@@ -16,7 +16,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///tmp.db")
 os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
-from app.services.phase_a_assessment import PhaseA4ShadowService
+from app.services.phase_a_assessment import BedrockSemanticAssessmentModel, PhaseA4ShadowService
 from app.services.phase_a_applicability import DeterministicApplicabilityPlanner
 from app.services.phase_a_contracts import (
     AssessmentCandidate,
@@ -269,3 +269,52 @@ def test_stable_finding_identity_and_complete_without_findings_rules(tmp_path):
     assert satisfied.analysis_state.value == "complete_without_findings"
     abstained = PhaseA4ShadowService(retriever, AbstainingModel()).analyze(understanding, [RuleCategory.LEGALITY])
     assert abstained.analysis_state.value == "limited"
+
+
+def test_semantic_model_receives_complete_body_and_does_not_require_headings(tmp_path):
+    captured = {}
+
+    class FakeBedrock:
+        def generate_json_with_claude(self, **kwargs):
+            captured.update(kwargs)
+            prompt = json.loads(kwargs["user_prompt"])
+            segment = prompt["segment"]
+            rules = prompt["retrieved_rules"]
+            return {
+                "segment_id": segment["segment_id"],
+                "retrieval_ids": [item["retrieval_id"] for item in rules],
+                "rule_category": prompt["rule_category"],
+                "decision": "satisfied",
+                "explanation": "A recommended measure is present in substance.",
+                "evidence_ids": [segment["complete_bound_body"][0]["evidence_id"]],
+                "proposed_finding_type": None,
+            }
+
+    report = "[SIDE 1]\nBad TG2\nFallet bør korrigeres ved rehabilitering.\n"
+
+    class PointExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {
+                "facts": [],
+                "segments": [{
+                    "kind": "report_point", "title": "Bad", "professional_subject": "våtrom",
+                    "point_label": "7.1", "tg_grade": "TG2", "confidence": 0.99,
+                    "evidence": {"exact_quote": "Bad TG2", "page": 1},
+                }],
+                "abstentions": [],
+            }, {"model_name": "fake"}
+
+    segment = DocumentUnderstandingService(PointExtractor()).analyze(report, "point.pdf").segments[0]
+    rule = _retriever(_catalog(tmp_path), ResolvedResolver()).retrieve(
+        _understanding().segments[0], RuleCategory.LEGALITY, [], document_hash="a" * 64
+    ).records[0]
+    rule = rule.model_copy(update={
+        "segment_id": segment.segment_id,
+        "rule_category": RuleCategory.ANBEFALT_TILTAK,
+    })
+    candidate = BedrockSemanticAssessmentModel(FakeBedrock()).assess(
+        segment, RuleCategory.ANBEFALT_TILTAK, [rule]
+    )
+    assert candidate.decision == AssessmentDecision.SATISFIED
+    assert "Fallet bør korrigeres" in captured["user_prompt"]
+    assert "Assess meaning" in captured["system_prompt"]
