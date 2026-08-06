@@ -136,6 +136,7 @@ Rekkverket er lavt.
     assert len(primary) == 1
     assert primary[0].point_type == "hms_no_tg"
     assert primary[0].tg_grade is None
+    assert "Helse, miljø og sikkerhet" in primary[0].section_context
     assert [item.title for item in navigation] == ["Taktekking"]
 
 

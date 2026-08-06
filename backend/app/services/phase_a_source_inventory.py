@@ -392,7 +392,9 @@ class PhysicalSourceInventoryBuilder:
                 char_end=evidence.char_end,
                 point_label=marker.point_label,
                 title=marker.title,
-                section_context=_section_context(report_text, marker.start),
+                section_context=_section_context(
+                    report_text, min(len(report_text), marker.start + len(marker.title) + 1)
+                ),
                 tg_grade=marker.tg_grade,
                 point_type=marker.point_type,
                 structural_marker=marker.marker,
