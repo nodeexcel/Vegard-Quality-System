@@ -137,6 +137,70 @@ Rekkverket er lavt.
     assert [item.title for item in navigation] == ["Taktekking"]
 
 
+def test_cross_reference_is_not_used_as_primary_title():
+    report = """[SIDE 1]
+Taktekking
+Punktet må sees i sammenheng med Takkonstruksjon/Loft
+Beskrivelse
+Eldre takstein.
+Vurdering av avvik:
+Avvik.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    primary = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    assert [item.title for item in primary] == ["Taktekking"]
+
+
+def test_summary_continuation_stays_linked_and_never_becomes_primary():
+    report = """[SIDE 1]
+1. Taktekking TG2
+Full primary body.
+Oppsummering av avvik
+1. Taktekking
+Summary starts.
+[SIDE 2]
+Summary continuation.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    primary = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    summaries = [item for item in inventory.points if item.role == InventoryRole.SUMMARY]
+    assert len(primary) == 1
+    assert len(summaries) == 1
+    assert summaries[0].linked_primary_id == primary[0].inventory_id
+    assert "[SIDE 2]" in summaries[0].body.exact_quote
+    assert "Summary continuation" in summaries[0].body.exact_quote
+
+
+def test_equal_ai_reconciliation_conflict_is_traceable_and_not_first_matched():
+    report = """[SIDE 1]
+Taktekking
+Beskrivelse
+Eldre takstein.
+Vurdering av avvik:
+Avvik.
+"""
+
+    class ConflictingExtractor:
+        def extract_candidates(self, **_kwargs):
+            candidates = []
+            for title in ("Kandidat alfa", "Kandidat bravo"):
+                candidates.append({
+                    "kind": "report_point", "title": title,
+                    "professional_subject": title, "tg_grade": "TG2",
+                    "confidence": 0.9,
+                    "evidence": {"exact_quote": "Vurdering av avvik:", "page": 1},
+                })
+            return {"facts": [], "segments": candidates, "abstentions": []}, {"model": "fake"}
+
+    result = DocumentUnderstandingService(ConflictingExtractor()).analyze(report, "conflict.pdf")
+    point = next(item for item in result.segments if item.kind.value == "report_point")
+    reconciliation = next(item for item in result.coverage_reconciliation if item.inventory_role == InventoryRole.PRIMARY)
+    assert point.title == "Taktekking"
+    assert "ai_reconciliation_conflict_traceable_no_first_match" in point.validation_notes
+    assert reconciliation.status == "source_materialized"
+    assert "Conflicting AI candidates" in reconciliation.reason
+
+
 def test_bolavi_summary_is_linked_and_not_a_second_primary_point():
     text = PDFExtractor.extract_text(str(ROOT / "files/bolavi-egen-mangler_kostnadtg3.pdf"))
     inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
