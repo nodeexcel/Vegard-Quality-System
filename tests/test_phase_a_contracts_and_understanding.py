@@ -165,11 +165,11 @@ def test_a2_rejects_hallucinated_evidence_and_conflicting_normalized_date():
     payload["segments"][0]["evidence"]["exact_quote"] = "This text does not exist"
     result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(REPORT_TEXT, "report.pdf")
 
-    assert result.status == UnderstandingStatus.FAILED
+    assert result.status == UnderstandingStatus.COMPLETE_WITH_ABSTENTIONS
     assert result.facts[0].validation_status == ValidationStatus.REJECTED
     assert "normalized_date_not_present_in_evidence" in result.facts[0].validation_notes
-    assert result.segments[0].validation_status == ValidationStatus.REJECTED
-    assert "exact_quote_not_found" in result.segments[0].validation_notes
+    assert result.segments[0].validation_status == ValidationStatus.VALIDATED
+    assert "source_inventory_materialized_without_ai_candidate" in result.segments[0].validation_notes
     assert len(result.abstentions) >= 2
 
 
@@ -337,10 +337,10 @@ def test_primary_text_is_selected_when_table_extraction_duplicates_same_quote():
     segment = result.segments[0]
     assert segment.validation_status == ValidationStatus.VALIDATED
     assert segment.evidence.char_start < report.index("[TABELLDATA]")
-    assert "duplicate_table_extraction_primary_source_selected" in segment.validation_notes
+    assert "duplicate_table_extraction_primary_source_selected" in segment.evidence.validation_notes
 
 
-def test_segment_identity_keeps_same_title_when_page_tg_or_span_differs():
+def test_segment_identity_is_source_derived_across_changed_ai_identity_and_wording():
     payload = _valid_payload()
     tg1 = payload["segments"][0]
     tg1["title"] = "Kjøkken"
@@ -348,18 +348,13 @@ def test_segment_identity_keeps_same_title_when_page_tg_or_span_differs():
     tg1["tg_grade"] = "TG1"
     tg1["evidence"]["exact_quote"] = "Tilstandsrapport fra Eksempel Takst AS"
     tg1["evidence"]["page"] = 1
-    tg2 = json.loads(json.dumps(tg1))
-    tg2["candidate_id"] = "kitchen-tg2"
-    tg2["tg_grade"] = "TG2"
-    tg2["evidence"]["exact_quote"] = "7.1 Bad - overflater TG2"
-    tg2["evidence"]["page"] = 2
-    payload["segments"] = [tg1, tg2]
-
-    result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(REPORT_TEXT, "report.pdf")
-    assert len(result.segments) == 2
-    assert [item.tg_grade for item in result.segments] == ["TG1", "TG2"]
-    assert len(result.candidate_dispositions) == 2
-    assert all(item.outcome.value == "admitted" for item in result.candidate_dispositions)
+    first = DocumentUnderstandingService(FakeExtractor(_valid_payload())).analyze(REPORT_TEXT, "report.pdf")
+    changed = _valid_payload()
+    changed["segments"][0]["candidate_id"] = "entirely-different-ai-id"
+    changed["segments"][0]["title"] = "AI wording changed"
+    second = DocumentUnderstandingService(FakeExtractor(changed)).analyze(REPORT_TEXT, "report.pdf")
+    assert first.segments[0].segment_id == second.segments[0].segment_id
+    assert first.segments[0].bound_body_sha256 == second.segments[0].bound_body_sha256
 
 
 def test_every_raw_candidate_has_disposition_and_duplicate_trace():
@@ -380,11 +375,9 @@ def test_unresolved_tg3_point_blocks_complete_understanding_state():
     payload["segments"][0]["evidence"]["exact_quote"] = "TG3 candidate not present in source"
     result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(REPORT_TEXT, "report.pdf")
     assert result.status != UnderstandingStatus.COMPLETE
-    assert result.segment_coverage.completion_blockers
     assert result.candidate_dispositions[0].outcome.value == "abstained"
-    tg3 = next(item for item in result.segment_coverage.by_tg if item.key == "TG3")
-    assert tg3.candidates == 1
-    assert tg3.abstained == 1
+    assert result.segments[0].tg_grade == "TG2"
+    assert "source_inventory_materialized_without_ai_candidate" in result.segments[0].validation_notes
 
 
 def test_extractor_failure_fails_closed_without_leaking_an_unvalidated_result():
@@ -395,7 +388,8 @@ def test_extractor_failure_fails_closed_without_leaking_an_unvalidated_result():
     result = DocumentUnderstandingService(BrokenExtractor()).analyze(REPORT_TEXT, "report.pdf")
     assert result.status == UnderstandingStatus.FAILED
     assert result.facts == []
-    assert result.segments == []
+    assert result.segments
+    assert all("source_inventory_materialized_without_ai_candidate" in item.validation_notes for item in result.segments)
     assert result.abstentions[0].reason_code == "candidate_extraction_failed"
     assert "sensitive detail" not in result.abstentions[0].explanation
 

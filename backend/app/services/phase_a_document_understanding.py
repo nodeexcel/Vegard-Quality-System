@@ -21,10 +21,13 @@ from app.services.phase_a_contracts import (
     CandidateDisposition,
     CandidateEvidence,
     CandidateOutcome,
+    CoverageReconciliation,
     CoverageBucket,
     DocumentFactCandidate,
     DocumentUnderstandingResult,
     FactType,
+    InventoryRole,
+    ReportQualityObservation,
     SegmentCandidate,
     SegmentCoverage,
     SegmentKind,
@@ -35,6 +38,7 @@ from app.services.phase_a_contracts import (
     ValidatedSegment,
     ValidationStatus,
 )
+from app.services.phase_a_source_inventory import PhysicalSourceInventoryBuilder
 
 
 PAGE_MARKER_RE = re.compile(r"(?m)^\[SIDE\s+(\d+)\]\s*$")
@@ -181,6 +185,7 @@ class DeterministicEvidenceValidator:
         provider_identity_verifier: Optional[Callable[[DocumentFactCandidate, str], bool]] = None,
     ):
         self.report_text = str(report_text or "")
+        self.document_hash = hashlib.sha256(self.report_text.encode("utf-8")).hexdigest()
         self.pages = list(pages)
         self.minimum_confidence = float(minimum_confidence)
         self.provider_identity_verifier = provider_identity_verifier
@@ -478,6 +483,11 @@ class DeterministicEvidenceValidator:
         segment_id = _stable_id("segment", key, candidate.kind.value, candidate.title)
         evidence_spans, notes = self.locate_spans(candidate.evidence, segment_id, allow_multi_span=True)
         evidence = evidence_spans[0] if evidence_spans else None
+        if evidence is not None:
+            segment_id = _stable_id(
+                "segment", self.document_hash, evidence.page, evidence.char_start,
+                evidence.char_end, candidate.point_label or "",
+            )
         status = ValidationStatus.VALIDATED
         if evidence is None:
             status = (
@@ -575,6 +585,7 @@ class DocumentUnderstandingService:
         maximum_batch_chars: int = 45000,
         minimum_confidence: float = 0.65,
         provider_identity_verifier: Optional[Callable[[DocumentFactCandidate, str], bool]] = None,
+        verified_cover_tg_counts: Optional[Dict[str, int]] = None,
     ):
         if maximum_batch_chars < 1000:
             raise ValueError("maximum_batch_chars must be at least 1000")
@@ -583,6 +594,10 @@ class DocumentUnderstandingService:
         self.maximum_batch_chars = maximum_batch_chars
         self.minimum_confidence = minimum_confidence
         self.provider_identity_verifier = provider_identity_verifier
+        self.verified_cover_tg_counts = {
+            str(key).upper(): int(value)
+            for key, value in (verified_cover_tg_counts or {}).items()
+        }
 
     def _batches(self, pages: Sequence[PageSpan]) -> List[List[PageSpan]]:
         batches: List[List[PageSpan]] = []
@@ -715,9 +730,12 @@ class DocumentUnderstandingService:
 
         facts = self._dedupe_facts(facts)
         segments, dispositions, segment_abstentions = self._reconcile_segments(segment_records)
-        segments = self._bind_complete_point_bodies(report_text, segments)
         abstentions.extend(segment_abstentions)
-        coverage = self._build_coverage(dispositions)
+        source_inventory = PhysicalSourceInventoryBuilder().build(report_text, document_hash)
+        segments, coverage_reconciliation = self._reconcile_source_inventory(
+            document_hash, source_inventory, segments
+        )
+        coverage = self._build_source_coverage(segments, dispositions)
         summary_blockers = self._declared_tg_summary_blockers(report_text, segments)
         body_blockers = [
             f"complete_point_body_missing:{segment.segment_id}"
@@ -730,6 +748,9 @@ class DocumentUnderstandingService:
             coverage = coverage.model_copy(update={
                 "completion_blockers": [*coverage.completion_blockers, *summary_blockers, *body_blockers]
             })
+        report_quality_observations = self._report_quality_observations(
+            document_hash, report_text, segments, self.verified_cover_tg_counts
+        )
         trace_records = self._trace(document_hash, facts, segments, dispositions)
         valid_segments = [item for item in segments if item.validation_status == ValidationStatus.VALIDATED]
         if not candidates or not valid_segments:
@@ -762,9 +783,118 @@ class DocumentUnderstandingService:
             candidate_batches=candidates,
             candidate_dispositions=dispositions,
             segment_coverage=coverage,
+            source_inventory=source_inventory,
+            coverage_reconciliation=coverage_reconciliation,
+            report_quality_observations=report_quality_observations,
             model_metadata=model_metadata,
             trace_records=trace_records,
         )
+
+    @staticmethod
+    def _reconcile_source_inventory(
+        document_hash: str,
+        inventory,
+        ai_segments: Sequence[ValidatedSegment],
+    ) -> Tuple[List[ValidatedSegment], List[CoverageReconciliation]]:
+        output: List[ValidatedSegment] = []
+        reconciliation: List[CoverageReconciliation] = []
+        for point in (item for item in inventory.points if item.role == InventoryRole.PRIMARY):
+            overlaps = [
+                segment for segment in ai_segments
+                if segment.validation_status == ValidationStatus.VALIDATED
+                and segment.evidence is not None
+                and point.char_start <= segment.evidence.char_start < point.char_end
+            ]
+            matched = overlaps[0] if overlaps else None
+            segment_id = _stable_id(
+                "segment", document_hash, point.page, point.char_start,
+                point.char_end, point.point_label or point.structural_marker,
+            )
+            output.append(ValidatedSegment(
+                segment_id=segment_id,
+                kind=SegmentKind.REPORT_POINT,
+                title=matched.title if matched else point.title,
+                professional_subject=matched.professional_subject if matched else point.title,
+                point_label=point.point_label or (matched.point_label if matched else None),
+                tg_grade=point.tg_grade or (matched.tg_grade if matched else None),
+                confidence=matched.confidence if matched else 1.0,
+                candidate_evidence=(
+                    matched.candidate_evidence if matched else CandidateEvidence(
+                        exact_quote=point.structural_marker,
+                        page=point.page,
+                        claimed_char_start=point.char_start,
+                        claimed_char_end=point.char_start + len(point.structural_marker),
+                    )
+                ),
+                evidence=matched.evidence if matched else point.body,
+                evidence_spans=matched.evidence_spans if matched else [point.body],
+                bound_body_spans=[point.body],
+                bound_body_sha256=point.body.quote_sha256,
+                validation_status=ValidationStatus.VALIDATED,
+                validation_notes=[
+                    "source_inventory_authoritative_boundary",
+                    "ai_candidate_matched" if matched else "source_inventory_materialized_without_ai_candidate",
+                ],
+            ))
+            reconciliation.append(CoverageReconciliation(
+                inventory_id=point.inventory_id,
+                inventory_role=point.role,
+                matched_segment_id=segment_id,
+                status="matched" if matched else "source_materialized",
+                reason=(
+                    "AI candidate reconciled to independently derived physical point."
+                    if matched else
+                    "Physical point absent from AI candidates; materialized from source inventory."
+                ),
+            ))
+        for point in (item for item in inventory.points if item.role == InventoryRole.SUMMARY):
+            reconciliation.append(CoverageReconciliation(
+                inventory_id=point.inventory_id,
+                inventory_role=point.role,
+                matched_segment_id=point.linked_primary_id,
+                status="linked_summary" if point.linked_primary_id else "missing",
+                reason=(
+                    "Summary linked to primary point and excluded from independent assessment."
+                    if point.linked_primary_id else
+                    "Summary excluded from independent assessment but could not be linked uniquely."
+                ),
+            ))
+        output.extend(segment for segment in ai_segments if segment.kind != SegmentKind.REPORT_POINT)
+        return output, reconciliation
+
+    @staticmethod
+    def _report_quality_observations(
+        document_hash: str,
+        report_text: str,
+        segments: Sequence[ValidatedSegment],
+        verified_cover_tg_counts: Dict[str, int],
+    ) -> List[ReportQualityObservation]:
+        normalized = _normalized_text(report_text).casefold()
+        if "tilstandsgrader" not in normalized or "sammendrag" not in normalized:
+            return []
+        detailed: Dict[str, int] = {}
+        for segment in segments:
+            if segment.kind == SegmentKind.REPORT_POINT and segment.tg_grade:
+                detailed[segment.tg_grade] = detailed.get(segment.tg_grade, 0) + 1
+        discrepancies = {
+            tg: {"cover": count, "detailed": detailed.get(tg, 0)}
+            for tg, count in verified_cover_tg_counts.items()
+            if detailed.get(tg, 0) != count
+        }
+        message = (
+            f"Verified cover-summary discrepancies: {discrepancies}. "
+            if discrepancies else ""
+        ) + (
+            "Detailed physical point enumeration is authoritative. Cover-summary discrepancies "
+            f"are report-quality observations, not A2 coverage failures. Detailed counts: {detailed}."
+        )
+        return [ReportQualityObservation(
+            observation_id=_stable_id("quality", document_hash, "cover_vs_detail"),
+            observation_type="cover_summary_vs_detailed_points",
+            message=message,
+            evidence_ids=[],
+            blocks_analysis_completion=False,
+        )]
 
     @staticmethod
     def _bind_complete_point_bodies(
@@ -843,13 +973,6 @@ class DocumentUnderstandingService:
             for tg, count in sorted(declared.items())
             if actual.get(tg, 0) != count
         ]
-        normalized_report = _normalized_text(report_text).casefold()
-        if (
-            not declared
-            and "tilstandsgrader" in normalized_report
-            and "sammendrag" in normalized_report
-        ):
-            blockers.append("declared_tg_summary_counts_not_extractable")
         return blockers
 
     @staticmethod
@@ -995,6 +1118,45 @@ class DocumentUnderstandingService:
             by_kind=by_kind,
             by_tg=by_tg,
             completion_blockers=blockers,
+        )
+
+    @classmethod
+    def _build_source_coverage(
+        cls,
+        segments: Sequence[ValidatedSegment],
+        dispositions: Sequence[CandidateDisposition],
+    ) -> SegmentCoverage:
+        valid = [item for item in segments if item.validation_status == ValidationStatus.VALIDATED]
+        invalid = [item for item in segments if item.validation_status != ValidationStatus.VALIDATED]
+
+        def bucket(key: str, items: Sequence[ValidatedSegment]) -> CoverageBucket:
+            return CoverageBucket(
+                key=key,
+                candidates=len(items),
+                unique_candidates=len(items),
+                admitted=sum(item.validation_status == ValidationStatus.VALIDATED for item in items),
+                abstained=sum(item.validation_status != ValidationStatus.VALIDATED for item in items),
+                duplicates=0,
+            )
+
+        kinds = [SegmentKind.SECTION.value, SegmentKind.REPORT_POINT.value, SegmentKind.SUMMARY.value]
+        kinds.extend(sorted({item.kind.value for item in segments} - set(kinds)))
+        by_kind = [bucket(key, [item for item in segments if item.kind.value == key]) for key in kinds]
+        tg_keys = ["TG0", "TG1", "TG2", "TG3", "TGIU", "NO_TG"]
+        by_tg = [
+            bucket(key, [item for item in segments if (item.tg_grade or "NO_TG") == key])
+            for key in tg_keys
+        ]
+        return SegmentCoverage(
+            raw_candidate_count=len(dispositions),
+            unique_candidate_count=len(segments),
+            admitted_count=len(valid),
+            abstained_count=len(invalid),
+            duplicate_count=sum(item.outcome == CandidateOutcome.DUPLICATE for item in dispositions),
+            dispositions_count=len(dispositions),
+            by_kind=by_kind,
+            by_tg=by_tg,
+            completion_blockers=[],
         )
 
     @staticmethod

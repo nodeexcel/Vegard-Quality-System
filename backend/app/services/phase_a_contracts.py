@@ -99,6 +99,12 @@ class RuleApplicability(str, Enum):
     REGIME_RESOLVED = "regime_resolved"
 
 
+class InventoryRole(str, Enum):
+    PRIMARY = "primary"
+    SUMMARY = "summary"
+    NAVIGATION = "navigation"
+
+
 class CandidateEvidence(StrictContract):
     exact_quote: str = Field(min_length=1, max_length=100000)
     page: Optional[int] = Field(default=None, ge=1)
@@ -116,6 +122,45 @@ class SourceEvidence(StrictContract):
     match_method: str = Field(default="exact", pattern=r"^(exact|whitespace_normalized|multi_span_normalized)$")
     validation_status: ValidationStatus
     validation_notes: List[str] = Field(default_factory=list)
+
+
+class PhysicalReportPoint(StrictContract):
+    inventory_id: str = Field(min_length=8, max_length=80)
+    role: InventoryRole
+    page: int = Field(ge=1)
+    char_start: int = Field(ge=0)
+    char_end: int = Field(ge=1)
+    point_label: Optional[str] = Field(default=None, max_length=120)
+    title: str = Field(min_length=1, max_length=500)
+    tg_grade: Optional[str] = Field(default=None, max_length=40)
+    structural_marker: str = Field(min_length=1, max_length=500)
+    detection_method: str = Field(min_length=1, max_length=200)
+    body: SourceEvidence
+    linked_primary_id: Optional[str] = Field(default=None, max_length=80)
+
+
+class SourceInventoryResult(StrictContract):
+    inventory_version: str = "phase_a_source_inventory_v1"
+    document_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    detector: str = Field(min_length=1, max_length=200)
+    structural_marker_counts: Dict[str, int] = Field(default_factory=dict)
+    points: List[PhysicalReportPoint] = Field(default_factory=list)
+
+
+class CoverageReconciliation(StrictContract):
+    inventory_id: str = Field(min_length=8, max_length=80)
+    inventory_role: InventoryRole
+    matched_segment_id: Optional[str] = Field(default=None, max_length=80)
+    status: str = Field(pattern=r"^(matched|source_materialized|linked_summary|missing)$")
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class ReportQualityObservation(StrictContract):
+    observation_id: str = Field(min_length=8, max_length=80)
+    observation_type: str = Field(min_length=1, max_length=160)
+    message: str = Field(min_length=1, max_length=2000)
+    evidence_ids: List[str] = Field(default_factory=list)
+    blocks_analysis_completion: bool = False
 
 
 class DocumentFactCandidate(StrictContract):
@@ -237,6 +282,9 @@ class DocumentUnderstandingResult(StrictContract):
     candidate_batches: List[CandidateBatch] = Field(default_factory=list)
     candidate_dispositions: List[CandidateDisposition] = Field(default_factory=list)
     segment_coverage: SegmentCoverage
+    source_inventory: Optional[SourceInventoryResult] = None
+    coverage_reconciliation: List[CoverageReconciliation] = Field(default_factory=list)
+    report_quality_observations: List[ReportQualityObservation] = Field(default_factory=list)
     model_metadata: List[Dict[str, Any]] = Field(default_factory=list)
     trace_records: List["TraceRecord"] = Field(default_factory=list)
 
@@ -333,6 +381,7 @@ class PhaseA4Result(StrictContract):
     assessments: List[StructuredAssessment] = Field(default_factory=list)
     validation_decisions: List[FindingValidationDecision] = Field(default_factory=list)
     finding_lineage: List[FindingLineageRecord] = Field(default_factory=list)
+    formal_acceptance_blockers: List[str] = Field(default_factory=list)
     abstentions: List[Abstention] = Field(default_factory=list)
     trace_records: List["TraceRecord"] = Field(default_factory=list)
     shadow_only: bool = True

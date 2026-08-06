@@ -41,6 +41,13 @@ def main() -> int:
     parser.add_argument("pdf", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--candidate-replay", type=Path)
+    parser.add_argument(
+        "--verified-cover-tg-count",
+        action="append",
+        default=[],
+        metavar="TG=N",
+        help="Traceable externally verified cover count, e.g. TG1=11",
+    )
     args = parser.parse_args()
 
     if not args.pdf.is_file():
@@ -55,7 +62,14 @@ def main() -> int:
         if args.candidate_replay
         else BedrockDocumentCandidateExtractor()
     )
-    service = DocumentUnderstandingService(extractor)
+    cover_counts = {}
+    for item in args.verified_cover_tg_count:
+        try:
+            tg, count = item.split("=", 1)
+            cover_counts[tg.strip().upper()] = int(count)
+        except (ValueError, TypeError):
+            parser.error(f"Invalid --verified-cover-tg-count: {item}")
+    service = DocumentUnderstandingService(extractor, verified_cover_tg_counts=cover_counts)
     pipeline = PhaseAPipeline(service, PhaseAFeaturePolicy(enabled=True, shadow_only=True))
     result = pipeline.understand_document(
         report_text,

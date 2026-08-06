@@ -190,6 +190,10 @@ class DeterministicAssessmentValidator:
 
 
 class PhaseA4ShadowService:
+    FORMAL_ACCEPTANCE_BLOCKERS = (
+        "v46_tgiu_expected_behavior_requires_governed_resolution",
+        "v46_tg2_anbefalt_tiltak_expected_behavior_requires_governed_resolution",
+    )
     def __init__(
         self,
         retriever: ManifestVerifiedRuleRetriever,
@@ -241,7 +245,41 @@ class PhaseA4ShadowService:
                     continue
                 if not retrieval.records:
                     continue
-                candidate = self.model.assess(segment, category, retrieval.records)
+                unresolved_rules = [
+                    record.rule_id for record in retrieval.records
+                    if record.regime_status != RegimeResolutionStatus.RESOLVED
+                ]
+                if unresolved_rules:
+                    abstentions.append(Abstention(
+                        abstention_id=_identifier(
+                            "abs", segment.segment_id, category.value, "unresolved_required_rules"
+                        ),
+                        stage="per_rule_regime_gate",
+                        subject=f"{segment.segment_id}:{category.value}",
+                        reason_code="required_rule_regime_unresolved",
+                        explanation=(
+                            "Assessment was not invoked because one or more required retrieved rules "
+                            "remain unresolved."
+                        ),
+                    ))
+                    continue
+                try:
+                    candidate = self.model.assess(segment, category, retrieval.records)
+                except Exception as exc:
+                    abstentions.append(Abstention(
+                        abstention_id=_identifier(
+                            "abs", segment.segment_id, category.value,
+                            "assessment_model_failure", type(exc).__name__,
+                        ),
+                        stage="structured_assessment",
+                        subject=f"{segment.segment_id}:{category.value}",
+                        reason_code="assessment_model_or_schema_failure",
+                        explanation=(
+                            f"This assessment failed closed ({type(exc).__name__}); "
+                            "independent assessments may continue."
+                        ),
+                    ))
+                    continue
                 assessment_id = _identifier(
                     "assess",
                     understanding.document_hash,
@@ -336,6 +374,7 @@ class PhaseA4ShadowService:
             assessments=assessments,
             validation_decisions=decisions,
             finding_lineage=lineage,
+            formal_acceptance_blockers=list(self.FORMAL_ACCEPTANCE_BLOCKERS),
             abstentions=abstentions,
             trace_records=traces,
             shadow_only=True,

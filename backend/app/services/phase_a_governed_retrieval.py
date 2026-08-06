@@ -33,6 +33,9 @@ class GovernedAssetError(RuntimeError):
     """The governed source cannot be proven against the active manifest."""
 
 
+APPROVED_V46_MANIFEST_SHA256 = "310f2377501024ecc32646a6adad3175414f6dbdfa0b3ecd156bd4d47bc2d8a1"
+
+
 class RegimeResolver(Protocol):
     def resolve(self, rule_category: RuleCategory, facts: Iterable[ValidatedDocumentFact]): ...
 
@@ -86,10 +89,21 @@ class _Chunk:
 
 
 class ManifestGovernedCatalog:
-    def __init__(self, assets_root: Path, manifest_path: Path):
+    def __init__(
+        self,
+        assets_root: Path,
+        manifest_path: Path,
+        approved_manifest_sha256: str = APPROVED_V46_MANIFEST_SHA256,
+    ):
         self.assets_root = assets_root.resolve()
         self.manifest_path = manifest_path.resolve()
-        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        manifest_raw = self.manifest_path.read_bytes()
+        self.manifest_sha256 = _sha256(manifest_raw)
+        if self.manifest_sha256 != approved_manifest_sha256:
+            raise GovernedAssetError(
+                "active manifest is not the independently pinned approved v46 manifest"
+            )
+        manifest = json.loads(manifest_raw)
         entries = manifest.get("files")
         if not isinstance(entries, list):
             raise GovernedAssetError("active manifest has no files list")

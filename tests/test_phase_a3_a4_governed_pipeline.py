@@ -137,7 +137,11 @@ def _catalog(tmp_path: Path, *, corrupt=False):
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     if corrupt:
         (tmp_path / "rules.json").write_text("{}", encoding="utf-8")
-    return ManifestGovernedCatalog(tmp_path, manifest_path)
+    return ManifestGovernedCatalog(
+        tmp_path,
+        manifest_path,
+        approved_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    )
 
 
 def _understanding():
