@@ -1,0 +1,53 @@
+{
+  "version": "v46-a1-baseline-2026-08-03",
+  "active_manifest": {
+    "path": "files/MANIFEST.json",
+    "sha256": "310f2377501024ecc32646a6adad3175414f6dbdfa0b3ecd156bd4d47bc2d8a1"
+  },
+  "runtime_code_files": [
+    {
+      "path": "backend/app/api/v1/reports.py",
+      "sha256": "6755c9e17aea3e5a875966adb08e828933614db381991fc42741d960200f48af"
+    },
+    {
+      "path": "backend/app/services/ai_analyzer.py",
+      "sha256": "95e0c2ae668bfce2c4c6f91f796d4370ab2138519310e3d690d7fb6d8234fc7b"
+    },
+    {
+      "path": "backend/app/services/arkat_semantic_pipeline.py",
+      "sha256": "ddf54e7a13244181e7c94ed82cb65995900da46c9d735465d747f4aee4dcdd0e"
+    },
+    {
+      "path": "backend/app/services/bedrock_ai.py",
+      "sha256": "f3c50a372a58a6948100f019136d8a60b17bee14762476bfc77343d29949b9dc"
+    }
+  ],
+  "signed_reference_artifacts": [
+    {
+      "template": "bolavi",
+      "path": "files/dommer_b_bolavi-egen-rapport_fresh.json",
+      "sha256": "2e880ee490c1c91a797c38d645e99b273a937298411aa5a9828ed3224f612f11",
+      "expected": {
+        "analysis_mode": "local_postprocess_dommer_b_fallback",
+        "point_count": 12,
+        "finding_count": 1,
+        "finding_point_ids": ["3"],
+        "invariant_count": 17,
+        "all_invariants_pass": true
+      }
+    },
+    {
+      "template": "bmtf_eierskifterapport",
+      "path": "files/dommer_b_tilstandsrapport_fritidsbolig_e3_3600-2025_fresh.json",
+      "sha256": "19f1f216e7a131f33bd4b39098d3172d291a878ac013bef7bf0b672136cf6b46",
+      "expected": {
+        "analysis_mode": "local_postprocess_dommer_b_fallback",
+        "point_count": 15,
+        "finding_count": 1,
+        "finding_point_ids": ["7.4"],
+        "invariant_count": 17,
+        "all_invariants_pass": true
+      }
+    }
+  ]
+}
