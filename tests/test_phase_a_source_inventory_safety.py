@@ -76,6 +76,67 @@ Tiltak: Vinduene bør vedlikeholdes.
     assert "Tekkingen bør skiftes" in points[0].body.exact_quote
 
 
+def test_point_body_continues_across_one_and_multiple_pages_until_next_primary():
+    report = """[SIDE 1]
+Taktekking
+Beskrivelse
+Start.
+Vurdering av avvik:
+Observasjon.
+[SIDE 2]
+Årsak: Alder.
+Risiko: Fukt.
+[SIDE 3]
+Konsekvens: Skade.
+Tiltak: Bør skiftes.
+Vinduer
+Beskrivelse
+Eldre vinduer.
+Vurdering av avvik:
+Avvik.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    points = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    assert [item.title for item in points] == ["Taktekking", "Vinduer"]
+    assert "[SIDE 2]" in points[0].body.exact_quote
+    assert "[SIDE 3]" in points[0].body.exact_quote
+    assert "Tiltak: Bør skiftes" in points[0].body.exact_quote
+    assert "Vinduer" not in points[0].body.exact_quote
+
+
+@pytest.mark.parametrize("wording", [
+    "TG IU", "TGIU", "Ikke undersøkt", "Ikke inspisert",
+    "Ikke tilgjengelig for undersøkelse", "Ikke mulig å undersøke",
+])
+def test_general_tgiu_detection_uses_unseen_titles_and_wording(wording):
+    report = f"[SIDE 1]\nSkjult pumpesjakt\nBeskrivelse\n{wording}.\n"
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    points = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    assert len(points) == 1
+    assert points[0].title == "Skjult pumpesjakt"
+    assert points[0].tg_grade == "TGIU"
+    assert points[0].point_type == "tgiu"
+
+
+def test_hms_vurdering_is_no_tg_and_navigation_is_not_primary():
+    report = """[SIDE 1]
+INNHOLD
+Taktekking ........ 8
+Helse, miljø og sikkerhet
+Beskrivelse
+Radon og rekkverk.
+Vurdering av avvik:
+Rekkverket er lavt.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    primary = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    navigation = [item for item in inventory.points if item.role == InventoryRole.NAVIGATION]
+    assert len(primary) == 1
+    assert primary[0].point_type == "hms_no_tg"
+    assert primary[0].tg_grade is None
+    assert [item.title for item in navigation] == ["Taktekking"]
+
+
 def test_bolavi_summary_is_linked_and_not_a_second_primary_point():
     text = PDFExtractor.extract_text(str(ROOT / "files/bolavi-egen-mangler_kostnadtg3.pdf"))
     inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))

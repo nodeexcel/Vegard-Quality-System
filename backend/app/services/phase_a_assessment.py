@@ -174,8 +174,6 @@ class DeterministicAssessmentValidator:
                 segment.segment_id,
                 assessment.rule_category.value,
                 assessment.proposed_finding_type or "",
-                *sorted(assessment.evidence_ids),
-                *sorted(assessment.retrieval_ids),
             )
             if admission == FindingAdmission.ACCEPTED
             else None

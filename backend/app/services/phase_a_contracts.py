@@ -133,6 +133,7 @@ class PhysicalReportPoint(StrictContract):
     point_label: Optional[str] = Field(default=None, max_length=120)
     title: str = Field(min_length=1, max_length=500)
     tg_grade: Optional[str] = Field(default=None, max_length=40)
+    point_type: str = Field(default="graded", pattern=r"^(graded|tgiu|electrical_no_tg|hms_no_tg|legality_no_tg|methodology_only|unknown)$")
     structural_marker: str = Field(min_length=1, max_length=500)
     detection_method: str = Field(min_length=1, max_length=200)
     body: SourceEvidence
@@ -202,6 +203,7 @@ class ValidatedSegment(StrictContract):
     professional_subject: str
     point_label: Optional[str] = None
     tg_grade: Optional[str] = None
+    point_type: str = Field(default="unknown", pattern=r"^(graded|tgiu|electrical_no_tg|hms_no_tg|legality_no_tg|methodology_only|unknown)$")
     confidence: float = Field(ge=0.0, le=1.0)
     candidate_evidence: CandidateEvidence
     evidence: Optional[SourceEvidence] = None

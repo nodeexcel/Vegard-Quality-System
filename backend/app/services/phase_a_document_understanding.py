@@ -805,7 +805,33 @@ class DocumentUnderstandingService:
                 and segment.evidence is not None
                 and point.char_start <= segment.evidence.char_start < point.char_end
             ]
-            matched = overlaps[0] if overlaps else None
+            def norm(value: str | None) -> str:
+                return re.sub(r"\W+", "", (value or "").casefold())
+
+            def score(segment: ValidatedSegment) -> tuple[int, int]:
+                value = 0
+                if segment.evidence:
+                    value += max(0, 1000 - abs(segment.evidence.char_start - point.char_start)) // 50
+                if norm(segment.title) == norm(point.title):
+                    value += 40
+                elif norm(segment.title) in norm(point.title) or norm(point.title) in norm(segment.title):
+                    value += 15
+                if segment.point_label and point.point_label and segment.point_label == point.point_label:
+                    value += 30
+                if segment.tg_grade and point.tg_grade and segment.tg_grade == point.tg_grade:
+                    value += 20
+                elif segment.tg_grade and point.tg_grade and segment.tg_grade != point.tg_grade:
+                    value -= 50
+                body = point.body.exact_quote.casefold()
+                title_tokens = re.findall(r"\w+", segment.title.casefold())
+                value += min(20, sum(2 for token in title_tokens if len(token) > 2 and token in body))
+                return value, -(segment.evidence.char_start if segment.evidence else 0)
+
+            ranked = sorted(overlaps, key=score, reverse=True)
+            matched = ranked[0] if ranked and score(ranked[0])[0] >= 10 else None
+            conflict = len(ranked) > 1 and score(ranked[0])[0] == score(ranked[1])[0]
+            if conflict:
+                matched = None
             segment_id = _stable_id(
                 "segment", document_hash, point.page, point.char_start,
                 point.char_end, point.point_label or point.structural_marker,
@@ -813,10 +839,11 @@ class DocumentUnderstandingService:
             output.append(ValidatedSegment(
                 segment_id=segment_id,
                 kind=SegmentKind.REPORT_POINT,
-                title=matched.title if matched else point.title,
+                title=point.title,
                 professional_subject=matched.professional_subject if matched else point.title,
                 point_label=point.point_label or (matched.point_label if matched else None),
                 tg_grade=point.tg_grade or (matched.tg_grade if matched else None),
+                point_type=point.point_type,
                 confidence=matched.confidence if matched else 1.0,
                 candidate_evidence=(
                     matched.candidate_evidence if matched else CandidateEvidence(
@@ -834,6 +861,7 @@ class DocumentUnderstandingService:
                 validation_notes=[
                     "source_inventory_authoritative_boundary",
                     "ai_candidate_matched" if matched else "source_inventory_materialized_without_ai_candidate",
+                    *(["ai_reconciliation_conflict_traceable_no_first_match"] if conflict else []),
                 ],
             ))
             reconciliation.append(CoverageReconciliation(
@@ -843,8 +871,11 @@ class DocumentUnderstandingService:
                 status="matched" if matched else "source_materialized",
                 reason=(
                     "AI candidate reconciled to independently derived physical point."
-                    if matched else
-                    "Physical point absent from AI candidates; materialized from source inventory."
+                    if matched else (
+                        "Conflicting AI candidates were not silently attached; source inventory retained."
+                        if conflict else
+                        "Physical point absent from AI candidates; materialized from source inventory."
+                    )
                 ),
             ))
         for point in (item for item in inventory.points if item.role == InventoryRole.SUMMARY):
@@ -858,6 +889,14 @@ class DocumentUnderstandingService:
                     if point.linked_primary_id else
                     "Summary excluded from independent assessment but could not be linked uniquely."
                 ),
+            ))
+        for point in (item for item in inventory.points if item.role == InventoryRole.NAVIGATION):
+            reconciliation.append(CoverageReconciliation(
+                inventory_id=point.inventory_id,
+                inventory_role=point.role,
+                matched_segment_id=None,
+                status="missing",
+                reason="Navigation content was classified and excluded from report-point assessment.",
             ))
         output.extend(segment for segment in ai_segments if segment.kind != SegmentKind.REPORT_POINT)
         return output, reconciliation

@@ -48,6 +48,7 @@ class _Marker:
     tg_grade: str | None
     marker: str
     method: str
+    point_type: str = "graded"
 
 
 def _pages(report_text: str) -> list[_Page]:
@@ -84,12 +85,37 @@ def _previous_heading_start(text: str, position: int) -> tuple[int, str]:
             description_index = index
             break
     if description_index is not None and description_index > 0:
-        heading = lines[description_index - 1]
-        return heading.start(), heading.group(1).strip()
+        for heading_index in range(description_index - 1, -1, -1):
+            heading = lines[heading_index]
+            value = heading.group(1).strip()
+            if value.casefold().startswith(("punktet må sees", "se også", "jf.")):
+                continue
+            return heading.start(), value
     if lines:
         heading = lines[-1]
         return heading.start(), heading.group(1).strip()
     return _line_start(text, position), "Uidentifisert rapportpunkt"
+
+
+_TGIU_RE = re.compile(
+    r"(?i)\b(?:TG\s*IU|TGIU|ikke\s+(?:undersøkt|inspisert)|ikke\s+tilgjengelig\s+for\s+undersøkelse|ikke\s+mulig\s+å\s+undersøke|hulltaking\s+(?:er\s+)?ikke\s+utført|hulltaking\s+ikke\s+mulig)\b"
+)
+
+
+def _context_type(text: str, start: int, end: int, explicit_tg: str | None, title: str = "") -> tuple[str | None, str]:
+    """Classify from the physical section, never from one repeated phrase alone."""
+    context = (title + " " + text[max(0, start - 120):min(len(text), start + 220)]).casefold()
+    if explicit_tg == "TGIU":
+        return "TGIU", "tgiu"
+    if re.search(r"\b(elektrisk(?:e)?\s+anlegg|el-anlegg|el anlegg)\b", title.casefold()):
+        return None, "electrical_no_tg"
+    if re.search(r"\b(helse, miljø og sikkerhet|hms|radon|rekkverk)\b", context):
+        return None, "hms_no_tg"
+    if re.search(r"\b(lovlighet|ferdigattest|brukstillatelse|bruksendring)\b", context):
+        return None, "legality_no_tg"
+    if re.search(r"\b(metodikk|forutsetninger|avgrensning|oppdragets rammer)\b", context):
+        return None, "methodology_only"
+    return explicit_tg, "graded" if explicit_tg else "unknown"
 
 
 class PhysicalSourceInventoryBuilder:
@@ -106,9 +132,10 @@ class PhysicalSourceInventoryBuilder:
             # IVIT/standard Norwegian layout: point heading + Beskrivelse + Vurdering av avvik.
             for match in re.finditer(r"(?im)^Vurdering av avvik\s*:\s*$", primary):
                 local_start, title = _previous_heading_start(primary, match.start())
+                tg_grade, point_type = _context_type(primary, local_start, match.end(), "TG2", title)
                 markers.append(_Marker(
                     InventoryRole.PRIMARY, page.number, base + local_start, None,
-                    title, "TG2", match.group(0).strip(), "physical_vurdering_av_avvik",
+                    title, tg_grade, match.group(0).strip(), "physical_vurdering_av_avvik", point_type,
                 ))
 
             # BMTF detailed point heading.
@@ -158,21 +185,29 @@ class PhysicalSourceInventoryBuilder:
                     "physical_bolavi_tg_heading",
                 ))
 
-            # Explicit uninvestigated physical sections, including empty sections.
-            for title in ("Septiktank", "Oljetank", "Tilliggende konstruksjoner våtrom"):
-                for match in re.finditer(rf"(?im)^{re.escape(title)}\s*$", primary):
-                    tail = primary[match.start():match.start() + 650].casefold()
-                    summary_context = primary[max(0, match.start() - 300):match.start()].casefold()
-                    explicit_uninvestigated = "ikke inspisert" in tail
-                    empty_tilliggende = (
-                        title == "Tilliggende konstruksjoner våtrom"
-                        and ("[tabelldata]" in tail[:250] or len(tail.strip().splitlines()) <= 1)
-                    )
-                    if explicit_uninvestigated or empty_tilliggende or "konstruksjoner som ikke er undersøkt" in summary_context:
-                        markers.append(_Marker(
-                            InventoryRole.PRIMARY, page.number, base + match.start(), None,
-                            title, "TGIU", match.group(0).strip(), "physical_uninvestigated_section",
-                        ))
+            # General structural TGIU detection: locate the containing heading for
+            # unseen titles and wording, instead of naming fixtures.
+            for match in _TGIU_RE.finditer(primary):
+                local_start, title = _previous_heading_start(primary, match.start())
+                local_block = primary[local_start:match.end()]
+                following = primary[match.end():match.end() + 350].casefold()
+                if match.start() - local_start > 500 or not re.search(r"(?im)^Beskrivelse\s*$", local_block):
+                    continue
+                if "hulltaking" in match.group(0).casefold() and re.search(r"\b(?:måling er utført|ingen fukt målt)\b", following):
+                    continue
+                if (
+                    title.isupper()
+                    or title.casefold() in {"tilstandsrapport", "beskrivelse"}
+                    or len(title) > 120
+                    or title.rstrip().endswith((".", ":", ";"))
+                ):
+                    continue
+                if any(item.start == base + local_start for item in markers):
+                    continue
+                markers.append(_Marker(
+                    InventoryRole.PRIMARY, page.number, base + local_start, None,
+                    title, "TGIU", match.group(0).strip(), "physical_uninvestigated_semantic", "tgiu",
+                ))
 
             low = primary.casefold()
             if "oppsummering av avvik" in low or "oppsummering / konklusjon" in low:
@@ -193,6 +228,42 @@ class PhysicalSourceInventoryBuilder:
                     "physical_bolavi_summary_entry",
                 ))
 
+            # Table-of-contents/navigation entries are retained for traceability
+            # but are never eligible for assessment.
+            for match in re.finditer(r"(?im)^([^\n]{3,160}?)\s*(?:\.{2,}|\s{3,})\s*(\d{1,3})\s*$", primary):
+                title = match.group(1).strip()
+                if title.casefold() in {"side", "innhold", "tilstandsrapport"}:
+                    continue
+                markers.append(_Marker(
+                    InventoryRole.NAVIGATION, page.number, base + match.start(), None,
+                    title, None, match.group(0).strip(), "physical_navigation_entry", "unknown",
+                ))
+
+        # Detect a point title at the end of one page whose description and
+        # uninvestigated wording continue on the next page.
+        for page_index, page in enumerate(pages[:-1]):
+            primary, base = _primary_text(page)
+            next_primary, _ = _primary_text(pages[page_index + 1])
+            meaningful = [item.strip() for item in primary.splitlines() if item.strip()]
+            if not meaningful:
+                continue
+            title = meaningful[-1]
+            next_description = re.search(r"(?im)^Beskrivelse\s*$", next_primary)
+            next_tgiu = _TGIU_RE.search(next_primary[:900])
+            if (
+                not next_description or not next_tgiu or next_description.start() > next_tgiu.start()
+                or len(title) > 120 or title.startswith(("•", "["))
+                or title.rstrip().endswith((".", ":", ";"))
+            ):
+                continue
+            title_pos = primary.rfind(title)
+            if any(item.start == base + title_pos for item in markers):
+                continue
+            markers.append(_Marker(
+                InventoryRole.PRIMARY, page.number, base + title_pos, None,
+                title, "TGIU", title, "physical_cross_page_uninvestigated_section", "tgiu",
+            ))
+
         # Remove exact extraction duplicates while preserving distinct physical offsets.
         unique: dict[tuple, _Marker] = {}
         for marker in markers:
@@ -202,10 +273,10 @@ class PhysicalSourceInventoryBuilder:
 
         points: list[PhysicalReportPoint] = []
         for index, marker in enumerate(markers):
-            page = next(item for item in pages if item.number == marker.page)
-            later_on_page = [item.start for item in markers if item.page == marker.page and item.start > marker.start]
-            primary_end = _primary_text(page)[1] + len(_primary_text(page)[0])
-            end = min(later_on_page) if later_on_page else primary_end
+            # Bound globally, across page delimiters. A page boundary is not a
+            # semantic boundary. Stop only at the next structural marker.
+            later = [item.start for item in markers if item.start > marker.start]
+            end = min(later) if later else len(report_text)
             exact = report_text[marker.start:end].rstrip()
             if not exact:
                 continue
@@ -233,6 +304,7 @@ class PhysicalSourceInventoryBuilder:
                 point_label=marker.point_label,
                 title=marker.title,
                 tg_grade=marker.tg_grade,
+                point_type=marker.point_type,
                 structural_marker=marker.marker,
                 detection_method=marker.method,
                 body=evidence,

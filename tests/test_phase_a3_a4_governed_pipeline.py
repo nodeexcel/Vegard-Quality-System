@@ -82,14 +82,16 @@ class NeverCalledModel:
 
 
 class DeficiencyModel:
-    def __init__(self, finding_type="L-FA-01", bad_evidence=False):
+    def __init__(self, finding_type="L-FA-01", bad_evidence=False, use_alternate_evidence=False):
         self.finding_type = finding_type
         self.bad_evidence = bad_evidence
+        self.use_alternate_evidence = use_alternate_evidence
         self.calls = 0
 
     def assess(self, segment, category, rules):
         self.calls += 1
-        evidence_ids = ["unknown-evidence"] if self.bad_evidence else [segment.evidence.evidence_id]
+        selected = segment.evidence_spans[-1] if self.use_alternate_evidence else segment.evidence
+        evidence_ids = ["unknown-evidence"] if self.bad_evidence else [selected.evidence_id]
         return AssessmentCandidate(
             segment_id=segment.segment_id,
             retrieval_ids=[record.retrieval_id for record in rules],
@@ -268,6 +270,15 @@ def test_stable_finding_identity_and_complete_without_findings_rules(tmp_path):
     first = PhaseA4ShadowService(retriever, DeficiencyModel()).analyze(understanding, [RuleCategory.LEGALITY])
     second = PhaseA4ShadowService(retriever, DeficiencyModel()).analyze(understanding, [RuleCategory.LEGALITY])
     assert first.validation_decisions[0].accepted_finding_id == second.validation_decisions[0].accepted_finding_id
+    segment = understanding.segments[0]
+    alternate_span = segment.evidence.model_copy(update={"evidence_id": "source_alternate_valid_span"})
+    alternate_understanding = understanding.model_copy(update={
+        "segments": [segment.model_copy(update={"evidence_spans": [segment.evidence, alternate_span]})]
+    })
+    alternate_evidence = PhaseA4ShadowService(
+        retriever, DeficiencyModel(use_alternate_evidence=True)
+    ).analyze(alternate_understanding, [RuleCategory.LEGALITY])
+    assert first.validation_decisions[0].accepted_finding_id == alternate_evidence.validation_decisions[0].accepted_finding_id
 
     satisfied = PhaseA4ShadowService(retriever, SatisfiedModel()).analyze(understanding, [RuleCategory.LEGALITY])
     assert satisfied.analysis_state.value == "complete_without_findings"
