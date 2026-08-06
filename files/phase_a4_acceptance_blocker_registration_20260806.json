@@ -1,0 +1,27 @@
+{
+  "version": "phase_a4_acceptance_blockers_v1",
+  "status": "registered_pending_governed_resolution",
+  "production_logic_changed": false,
+  "formal_acceptance_blocked": true,
+  "issues": [
+    {
+      "id": "v46_tgiu_expected_behavior_requires_governed_resolution",
+      "test": "tests/test_dommer_b_regression.py::test_tgiu_normalization_forces_arkat_fields_not_applicable",
+      "current_v46_behavior": "Deterministic normalization adds further-investigation and moisture-flag TGIU findings in addition to the model finding.",
+      "locked_test_expectation": "Only TGIU_MISSING_REASON remains.",
+      "required_decision": "The frozen A4 acceptance specification must define the authorized TGIU finding set and precedence before formal acceptance.",
+      "owner": "product_owner",
+      "resolution_status": "pending"
+    },
+    {
+      "id": "v46_tg2_anbefalt_tiltak_expected_behavior_requires_governed_resolution",
+      "test": "tests/test_dommer_b_regression.py::test_markdown_deterministic_regression_cases[5]",
+      "current_v46_behavior": "The current semantic normalizer recognizes a substantive recommended measure in prose.",
+      "locked_test_expectation": "MISSING (anbefalt_tiltak).",
+      "required_decision": "The frozen A4 acceptance specification must govern semantic measure recognition for this case before formal acceptance.",
+      "owner": "product_owner",
+      "resolution_status": "pending"
+    }
+  ],
+  "enforcement": "Both IDs are emitted in PhaseA4Result.formal_acceptance_blockers. They cannot be silently treated as accepted behavior."
+}
