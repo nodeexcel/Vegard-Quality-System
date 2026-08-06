@@ -822,12 +822,53 @@ class DocumentUnderstandingService:
                     value += 20
                 elif segment.tg_grade and point.tg_grade and segment.tg_grade != point.tg_grade:
                     value -= 50
-                body = point.body.exact_quote.casefold()
+                body = "\n".join(span.exact_quote for span in (point.body_spans or [point.body])).casefold()
                 title_tokens = re.findall(r"\w+", segment.title.casefold())
                 value += min(20, sum(2 for token in title_tokens if len(token) > 2 and token in body))
+                section_tokens = {
+                    token for token in re.findall(r"\w+", point.section_context.casefold()) if len(token) > 4
+                }
+                subject_tokens = {
+                    token for token in re.findall(r"\w+", segment.professional_subject.casefold()) if len(token) > 4
+                }
+                value += 10 * bool(section_tokens & subject_tokens)
                 return value, -(segment.evidence.char_start if segment.evidence else 0)
 
-            ranked = sorted(overlaps, key=score, reverse=True)
+            def identity_compatible(segment: ValidatedSegment) -> bool:
+                physical_title = norm(point.title)
+                candidate_title = norm(segment.title)
+                title_compatible = bool(
+                    physical_title and candidate_title and (
+                        physical_title == candidate_title
+                        or physical_title in candidate_title
+                        or candidate_title in physical_title
+                    )
+                )
+                label_compatible = bool(
+                    point.point_label and segment.point_label
+                    and point.point_label == segment.point_label
+                )
+                physical_tokens = {
+                    token for token in re.findall(r"\w+", point.title.casefold()) if len(token) > 3
+                }
+                candidate_tokens = {
+                    token for token in re.findall(r"\w+", segment.title.casefold()) if len(token) > 3
+                }
+                token_compatible = bool(
+                    physical_tokens and candidate_tokens
+                    and len(physical_tokens & candidate_tokens) / min(
+                        len(physical_tokens), len(candidate_tokens)
+                    ) >= 0.6
+                )
+                tg_compatible = not (
+                    point.tg_grade and segment.tg_grade
+                    and point.tg_grade != segment.tg_grade
+                )
+                return tg_compatible and (title_compatible or label_compatible or token_compatible)
+
+            compatible = [segment for segment in overlaps if identity_compatible(segment)]
+            incompatible = [segment for segment in overlaps if segment not in compatible]
+            ranked = sorted(compatible, key=score, reverse=True)
             matched = ranked[0] if ranked and score(ranked[0])[0] >= 10 else None
             conflict = len(ranked) > 1 and score(ranked[0])[0] == score(ranked[1])[0]
             if conflict:
@@ -840,6 +881,7 @@ class DocumentUnderstandingService:
                 segment_id=segment_id,
                 kind=SegmentKind.REPORT_POINT,
                 title=point.title,
+                section_context=point.section_context,
                 professional_subject=matched.professional_subject if matched else point.title,
                 point_label=point.point_label or (matched.point_label if matched else None),
                 tg_grade=point.tg_grade or (matched.tg_grade if matched else None),
@@ -855,13 +897,23 @@ class DocumentUnderstandingService:
                 ),
                 evidence=matched.evidence if matched else point.body,
                 evidence_spans=matched.evidence_spans if matched else [point.body],
-                bound_body_spans=[point.body],
-                bound_body_sha256=point.body.quote_sha256,
+                bound_body_spans=point.body_spans or [point.body],
+                bound_body_sha256=(
+                    (point.body_spans or [point.body])[0].quote_sha256
+                    if len(point.body_spans or [point.body]) == 1
+                    else hashlib.sha256(
+                        json.dumps(
+                            [span.model_dump(mode="json") for span in (point.body_spans or [point.body])],
+                            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest()
+                ),
                 validation_status=ValidationStatus.VALIDATED,
                 validation_notes=[
                     "source_inventory_authoritative_boundary",
                     "ai_candidate_matched" if matched else "source_inventory_materialized_without_ai_candidate",
                     *(["ai_reconciliation_conflict_traceable_no_first_match"] if conflict else []),
+                    *(["ai_candidate_identity_conflict_rejected"] if incompatible else []),
                 ],
             ))
             reconciliation.append(CoverageReconciliation(
@@ -874,6 +926,8 @@ class DocumentUnderstandingService:
                     if matched else (
                         "Conflicting AI candidates were not silently attached; source inventory retained."
                         if conflict else
+                        "Overlapping AI candidate identity conflicted with physical title/label/TG; source inventory retained."
+                        if incompatible else
                         "Physical point absent from AI candidates; materialized from source inventory."
                     )
                 ),

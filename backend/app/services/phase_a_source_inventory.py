@@ -97,8 +97,32 @@ def _previous_heading_start(text: str, position: int) -> tuple[int, str]:
     return _line_start(text, position), "Uidentifisert rapportpunkt"
 
 
+def _section_context(text: str, position: int) -> str:
+    """Return nearby structural section/room headings, excluding page headers."""
+    window = text[max(0, position - 3500):position]
+    accepted: list[str] = []
+    section_words = {
+        "utvendig", "innvendig", "våtrom", "kjøkken", "tomteforhold",
+        "tekniske installasjoner", "helse, miljø og sikkerhet", "hms",
+        "lovlighet", "metodikk", "forutsetninger",
+    }
+    for raw in window.splitlines():
+        value = raw.strip()
+        folded = value.casefold()
+        if not value or len(value) > 120:
+            continue
+        if folded in section_words or ">" in value:
+            if value not in accepted:
+                accepted.append(value)
+    return " > ".join(accepted[-3:])
+
+
 _TGIU_RE = re.compile(
-    r"(?i)\b(?:TG\s*IU|TGIU|ikke\s+(?:undersøkt|inspisert)|ikke\s+tilgjengelig\s+for\s+undersøkelse|ikke\s+mulig\s+å\s+undersøke|hulltaking\s+(?:er\s+)?ikke\s+utført|hulltaking\s+ikke\s+mulig)\b"
+    r"(?i)\b(?:TG\s*IU|TGIU|ikke\s+(?:undersøkt|inspisert|befart|kontrollert)|"
+    r"(?:ikke|var\s+ikke)\s+tilgjengelig\s+for\s+(?:undersøkelse|inspeksjon)|"
+    r"(?:ikke|var\s+ikke)\s+mulig\s+å\s+(?:undersøke|inspisere|kontrollere)|"
+    r"kunne\s+ikke\s+(?:undersøkes|inspiseres|kontrolleres)|utilgjengelig\s+for\s+(?:undersøkelse|inspeksjon)|"
+    r"hulltaking\s+(?:er\s+)?ikke\s+utført|hulltaking\s+(?:var\s+)?ikke\s+mulig)\b"
 )
 
 
@@ -210,13 +234,39 @@ class PhysicalSourceInventoryBuilder:
                 ))
 
             low = primary.casefold()
-            if "oppsummering av avvik" in low or "oppsummering / konklusjon" in low:
+            summary_start = min(
+                (position for position in (
+                    low.find("oppsummering av avvik"), low.find("oppsummering / konklusjon")
+                ) if position >= 0),
+                default=-1,
+            )
+            if summary_start >= 0:
                 detector_parts.append("summary_sections")
+                # Common clickable overview rows. Keep the complete structural
+                # path in the title; matching uses its leaf plus occurrence order.
+                for match in re.finditer(r"(?im)^([^\n]{2,240}?)\s+Gå\s+til\s+side\s*$", primary):
+                    if match.start() <= summary_start:
+                        continue
+                    path = match.group(1).strip()
+                    if path.casefold() in {"arealer", "forutsetninger og vedlegg", "lovlighet"}:
+                        continue
+                    leaf = path.split(">")[-1].strip()
+                    if not leaf:
+                        continue
+                    markers.append(_Marker(
+                        InventoryRole.SUMMARY, page.number, base + match.start(), None,
+                        path, None, match.group(0).strip(), "physical_summary_navigation_row",
+                    ))
                 for match in re.finditer(r"(?im)^(\d+(?:\.\d+)*)\.?\s+([^\n]{2,180})$", primary):
-                    if match.start() > low.find("oppsummering"):
+                    if match.start() > summary_start and not re.search(r"\bGå\s+til\s+side\b", match.group(0), re.I):
+                        # Numbered summary formats only; reject addresses and other
+                        # incidental number/name lines on overview pages.
+                        title = match.group(2).strip()
+                        if title.isupper() or re.search(r"(?i)\b(?:veien|gata|gate|postboks)\b", title):
+                            continue
                         markers.append(_Marker(
                             InventoryRole.SUMMARY, page.number, base + match.start(), match.group(1),
-                            match.group(2).strip(), None, match.group(0).strip(), "physical_summary_entry",
+                            title, None, match.group(0).strip(), "physical_summary_entry",
                         ))
             for match in re.finditer(
                 r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*TG\s*([23])\s*$\s*^(\d+(?:\.\d+)*)\s+([^\n]{2,180})$",
@@ -275,26 +325,65 @@ class PhysicalSourceInventoryBuilder:
         for index, marker in enumerate(markers):
             # Bound globally, across page delimiters. A page boundary is not a
             # semantic boundary. Stop only at the next structural marker.
-            later = [item.start for item in markers if item.start > marker.start]
-            end = min(later) if later else len(report_text)
-            exact = report_text[marker.start:end].rstrip()
-            if not exact:
+            # Navigation is trace material, not a report-point boundary. Primary
+            # bodies can cross pages and stop only at another primary or at an
+            # explicit summary section. Summary rows stop at the next summary or
+            # primary row. This prevents TOC rows from truncating source bodies.
+            later = [
+                item.start for item in markers
+                if item.start > marker.start
+                and item.role != InventoryRole.NAVIGATION
+                and (
+                    marker.role != InventoryRole.PRIMARY
+                    or item.role in {InventoryRole.PRIMARY, InventoryRole.SUMMARY}
+                )
+            ]
+            if later:
+                boundary_end = min(later)
+            elif marker.role == InventoryRole.PRIMARY:
+                containing_page = next(page for page in pages if page.start <= marker.start < page.end)
+                primary_text, primary_base = _primary_text(containing_page)
+                boundary_end = primary_base + len(primary_text)
+            else:
+                boundary_end = len(report_text)
+
+            # A body crossing pages is represented as reversible original source
+            # spans. Exclude [TABELLDATA], image metadata and page separators
+            # rather than silently joining non-contiguous source text.
+            body_spans: list[SourceEvidence] = []
+            for page in pages:
+                primary_text, primary_base = _primary_text(page)
+                span_start = max(marker.start, primary_base)
+                span_end = min(boundary_end, primary_base + len(primary_text))
+                if span_start >= span_end:
+                    continue
+                raw = report_text[span_start:span_end]
+                left_trim = len(raw) - len(raw.lstrip())
+                exact = raw.strip()
+                if not exact:
+                    continue
+                exact_start = span_start + left_trim
+                exact_end = exact_start + len(exact)
+                body_spans.append(SourceEvidence(
+                    evidence_id=_id("source", document_hash, page.number, exact_start, exact_end),
+                    exact_quote=exact,
+                    page=page.number,
+                    char_start=exact_start,
+                    char_end=exact_end,
+                    quote_sha256=hashlib.sha256(exact.encode()).hexdigest(),
+                    match_method="exact",
+                    validation_status=ValidationStatus.VALIDATED,
+                    validation_notes=["physical_source_inventory_reversible_page_span"],
+                ))
+            if not body_spans:
                 continue
+            exact = "\n".join(span.exact_quote for span in body_spans)
+            end = body_spans[-1].char_end
             inventory_id = _id(
                 "physical", document_hash, marker.page, marker.start, end,
                 marker.point_label or marker.marker,
             )
-            evidence = SourceEvidence(
-                evidence_id=_id("source", document_hash, marker.page, marker.start, end),
-                exact_quote=exact,
-                page=marker.page,
-                char_start=marker.start,
-                char_end=marker.start + len(exact),
-                quote_sha256=hashlib.sha256(exact.encode()).hexdigest(),
-                match_method="exact",
-                validation_status=ValidationStatus.VALIDATED,
-                validation_notes=["physical_source_inventory_boundary"],
-            )
+            evidence = body_spans[0]
             points.append(PhysicalReportPoint(
                 inventory_id=inventory_id,
                 role=marker.role,
@@ -303,22 +392,27 @@ class PhysicalSourceInventoryBuilder:
                 char_end=evidence.char_end,
                 point_label=marker.point_label,
                 title=marker.title,
+                section_context=_section_context(report_text, marker.start),
                 tg_grade=marker.tg_grade,
                 point_type=marker.point_type,
                 structural_marker=marker.marker,
                 detection_method=marker.method,
                 body=evidence,
+                body_spans=body_spans,
                 linked_primary_id=None,
             ))
 
         # Link summaries to the best primary identity; summaries never become primary.
         primaries = [item for item in points if item.role == InventoryRole.PRIMARY]
         linked: list[PhysicalReportPoint] = []
+        summary_occurrence: dict[str, int] = {}
+        assigned_primary_ids: set[str] = set()
         for point in points:
             if point.role != InventoryRole.SUMMARY:
                 linked.append(point)
                 continue
-            leaf_title = re.split(r"[–—]", point.title)[-1].strip()
+            leaf_title = point.title.split(">")[-1].strip()
+            leaf_title = re.split(r"[–—]", leaf_title)[-1].strip()
             normalized_title = re.sub(r"\W+", "", leaf_title.casefold())
             title_candidates = [
                 primary for primary in primaries
@@ -330,8 +424,27 @@ class PhysicalSourceInventoryBuilder:
                 primary for primary in primaries
                 if point.point_label and primary.point_label == point.point_label
             ]
+            occurrence = summary_occurrence.get(normalized_title, 0)
+            summary_occurrence[normalized_title] = occurrence + 1
+            context_tokens = {
+                token for token in re.findall(r"\w+", point.title.rsplit(">", 1)[0].casefold())
+                if len(token) > 4
+            }
+            contextual = [
+                candidate for candidate in candidates
+                if candidate.inventory_id not in assigned_primary_ids
+                and (
+                    not context_tokens
+                    or any(token in candidate.section_context.casefold() for token in context_tokens)
+                )
+            ]
+            remaining = [candidate for candidate in candidates if candidate.inventory_id not in assigned_primary_ids]
+            pool = contextual or remaining
+            selected = pool[0] if pool else (candidates[occurrence] if occurrence < len(candidates) else None)
+            if selected:
+                assigned_primary_ids.add(selected.inventory_id)
             linked.append(point.model_copy(update={
-                "linked_primary_id": candidates[0].inventory_id if len(candidates) == 1 else None
+                "linked_primary_id": selected.inventory_id if selected else None
             }))
 
         detector = "+".join(sorted(set(detector_parts + [item.detection_method for item in linked]))) or "no_structure_detected"

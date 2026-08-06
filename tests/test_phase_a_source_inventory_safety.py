@@ -98,15 +98,17 @@ Avvik.
     inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
     points = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
     assert [item.title for item in points] == ["Taktekking", "Vinduer"]
-    assert "[SIDE 2]" in points[0].body.exact_quote
-    assert "[SIDE 3]" in points[0].body.exact_quote
-    assert "Tiltak: Bør skiftes" in points[0].body.exact_quote
-    assert "Vinduer" not in points[0].body.exact_quote
+    complete_body = "\n".join(span.exact_quote for span in points[0].body_spans)
+    assert len(points[0].body_spans) == 3
+    assert "Tiltak: Bør skiftes" in complete_body
+    assert "Vinduer" not in complete_body
+    assert "[SIDE" not in complete_body
 
 
 @pytest.mark.parametrize("wording", [
     "TG IU", "TGIU", "Ikke undersøkt", "Ikke inspisert",
     "Ikke tilgjengelig for undersøkelse", "Ikke mulig å undersøke",
+    "Kunne ikke kontrolleres", "Utilgjengelig for inspeksjon",
 ])
 def test_general_tgiu_detection_uses_unseen_titles_and_wording(wording):
     report = f"[SIDE 1]\nSkjult pumpesjakt\nBeskrivelse\n{wording}.\n"
@@ -135,6 +137,43 @@ Rekkverket er lavt.
     assert primary[0].point_type == "hms_no_tg"
     assert primary[0].tg_grade is None
     assert [item.title for item in navigation] == ["Taktekking"]
+
+
+@pytest.mark.parametrize(("title", "body", "expected_type"), [
+    ("Elektrisk anlegg", "Kontroll uten tilstandsgrad.", "electrical_no_tg"),
+    ("Lovlighet", "Ferdigattest er ikke fremlagt.", "legality_no_tg"),
+    ("Oppdragets rammer", "Metodikk og avgrensning.", "methodology_only"),
+])
+def test_no_tg_context_categories_are_not_coerced_to_tg2(title, body, expected_type):
+    report = f"[SIDE 1]\n{title}\nBeskrivelse\n{body}\nVurdering av avvik:\nAvvik.\n"
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    point = next(item for item in inventory.points if item.role == InventoryRole.PRIMARY)
+    assert point.title == title
+    assert point.tg_grade is None
+    assert point.point_type == expected_type
+
+
+def test_navigation_marker_inside_point_does_not_truncate_cross_page_body():
+    report = """[SIDE 1]
+Taktekking
+Beskrivelse
+Start.
+Vurdering av avvik:
+Observasjon.
+Se også ........ 9
+[SIDE 2]
+Årsak: Alder.
+Tiltak: Bør skiftes.
+Vinduer
+Beskrivelse
+Vurdering av avvik:
+Avvik.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    points = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    complete_body = "\n".join(span.exact_quote for span in points[0].body_spans)
+    assert "Tiltak: Bør skiftes" in complete_body
+    assert "Vinduer" not in complete_body
 
 
 def test_cross_reference_is_not_used_as_primary_title():
@@ -167,8 +206,9 @@ Summary continuation.
     assert len(primary) == 1
     assert len(summaries) == 1
     assert summaries[0].linked_primary_id == primary[0].inventory_id
-    assert "[SIDE 2]" in summaries[0].body.exact_quote
-    assert "Summary continuation" in summaries[0].body.exact_quote
+    complete_summary = "\n".join(span.exact_quote for span in summaries[0].body_spans)
+    assert len(summaries[0].body_spans) == 2
+    assert "Summary continuation" in complete_summary
 
 
 def test_equal_ai_reconciliation_conflict_is_traceable_and_not_first_matched():
@@ -196,9 +236,9 @@ Avvik.
     point = next(item for item in result.segments if item.kind.value == "report_point")
     reconciliation = next(item for item in result.coverage_reconciliation if item.inventory_role == InventoryRole.PRIMARY)
     assert point.title == "Taktekking"
-    assert "ai_reconciliation_conflict_traceable_no_first_match" in point.validation_notes
+    assert "ai_candidate_identity_conflict_rejected" in point.validation_notes
     assert reconciliation.status == "source_materialized"
-    assert "Conflicting AI candidates" in reconciliation.reason
+    assert "identity conflicted" in reconciliation.reason
 
 
 def test_bolavi_summary_is_linked_and_not_a_second_primary_point():
@@ -215,6 +255,47 @@ def test_bolavi_summary_is_linked_and_not_a_second_primary_point():
     assert len(terrain_primary) == 1
     assert len(terrain_summary) == 1
     assert terrain_summary[0].linked_primary_id == terrain_primary[0].inventory_id
+
+
+def test_real_report_summaries_are_all_linked_and_never_primary_assessments():
+    for filename in (
+        "ivit-svak_arkat.pdf",
+        "bolavi-egen-mangler_kostnadtg3.pdf",
+        "Tilstandsrapport_Fritidsbolig-God_rapport.pdf",
+    ):
+        text = PDFExtractor.extract_text(str(ROOT / "files" / filename))
+        inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+        summaries = [item for item in inventory.points if item.role == InventoryRole.SUMMARY]
+        assert all(item.linked_primary_id for item in summaries), filename
+        primary_ids = {
+            item.inventory_id for item in inventory.points if item.role == InventoryRole.PRIMARY
+        }
+        assert all(item.linked_primary_id in primary_ids for item in summaries), filename
+        primary_by_id = {
+            item.inventory_id: item for item in inventory.points if item.role == InventoryRole.PRIMARY
+        }
+        assert len({item.linked_primary_id for item in summaries}) == len(summaries), filename
+        for summary in summaries:
+            leaf = summary.title.split(">")[-1].strip().casefold()
+            linked_title = primary_by_id[summary.linked_primary_id].title.casefold()
+            assert leaf in linked_title or linked_title in leaf, (filename, summary.title, linked_title)
+
+
+def test_real_report_body_spans_are_reversible_and_exclude_extraction_artifacts():
+    for filename in (
+        "ivit-svak_arkat.pdf",
+        "bolavi-egen-mangler_kostnadtg3.pdf",
+        "Tilstandsrapport_Fritidsbolig-God_rapport.pdf",
+    ):
+        text = PDFExtractor.extract_text(str(ROOT / "files" / filename))
+        inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+        for point in inventory.points:
+            assert point.body_spans, (filename, point.title)
+            for span in point.body_spans:
+                assert text[span.char_start:span.char_end] == span.exact_quote
+                assert hashlib.sha256(span.exact_quote.encode()).hexdigest() == span.quote_sha256
+                assert "[TABELLDATA]" not in span.exact_quote
+                assert "[SIDE " not in span.exact_quote
 
 
 def test_runtime_rejects_an_unapproved_manifest_even_when_asset_hashes_match(tmp_path):
