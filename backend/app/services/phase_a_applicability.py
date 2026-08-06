@@ -6,7 +6,13 @@ import hashlib
 import unicodedata
 from typing import Iterable
 
-from app.services.phase_a_contracts import ApplicabilityPlanItem, RuleCategory, SegmentKind, ValidatedSegment
+from app.services.phase_a_contracts import (
+    ApplicabilityPlanItem,
+    RuleCategory,
+    SegmentKind,
+    ValidatedSegment,
+    ValidationStatus,
+)
 
 
 def _id(segment_id: str, category: RuleCategory) -> str:
@@ -32,6 +38,8 @@ class DeterministicApplicabilityPlanner:
     def plan(self, segments: Iterable[ValidatedSegment]) -> list[ApplicabilityPlanItem]:
         output: list[ApplicabilityPlanItem] = []
         for segment in segments:
+            if segment.validation_status != ValidationStatus.VALIDATED:
+                continue
             tg = (segment.tg_grade or "").upper()
             context = _normal(" ".join((segment.kind.value, segment.title, segment.professional_subject)))
             categories: list[tuple[RuleCategory, list[str]]] = []
