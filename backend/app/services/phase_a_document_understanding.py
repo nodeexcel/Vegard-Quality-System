@@ -754,7 +754,8 @@ class DocumentUnderstandingService:
                 if not point.body_spans or point.char_end != point.body_spans[-1].char_end:
                     structural_blockers.append(f"physical_body_span_incomplete:{point.inventory_id}")
             elif point.role == InventoryRole.SUMMARY and not point.linked_primary_id:
-                structural_blockers.append(f"summary_primary_link_unresolved:{point.inventory_id}")
+                reason = "ambiguous" if point.link_status == "ambiguous" else "unresolved"
+                structural_blockers.append(f"summary_primary_link_{reason}:{point.inventory_id}")
         structural_blockers.extend(
             f"overlapping_assessment_identity_uncertain:{segment.segment_id}"
             for segment in segments
@@ -965,7 +966,7 @@ class DocumentUnderstandingService:
                 reason=(
                     "Summary linked to primary point and excluded from independent assessment."
                     if point.linked_primary_id else
-                    "Summary excluded from independent assessment but could not be linked uniquely."
+                    f"Summary excluded from assessment; {point.link_reason}"
                 ),
             ))
         for point in (item for item in inventory.points if item.role == InventoryRole.NAVIGATION):

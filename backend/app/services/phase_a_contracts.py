@@ -143,6 +143,12 @@ class PhysicalReportPoint(StrictContract):
     boundary_status: str = Field(default="validated", pattern=r"^(validated|uncertain)$")
     boundary_reason: str = Field(default="", max_length=1000)
     linked_primary_id: Optional[str] = Field(default=None, max_length=80)
+    link_status: str = Field(
+        default="not_applicable",
+        pattern=r"^(not_applicable|linked|ambiguous|unresolved)$",
+    )
+    link_reason: str = Field(default="", max_length=1000)
+    link_candidate_ids: List[str] = Field(default_factory=list)
 
 
 class SourceInventoryResult(StrictContract):

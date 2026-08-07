@@ -122,6 +122,34 @@ def _section_context(text: str, position: int) -> str:
     return " > ".join(accepted[-3:])
 
 
+def _title_hierarchy(value: str) -> list[str]:
+    return [part.strip() for part in re.split(r"\s+[–—-]\s+", value) if part.strip()]
+
+
+def _main_section_context(text: str, position: int) -> str:
+    """Return the latest numbered DEL/section hierarchy before a physical point."""
+    prefix = text[:position]
+    result = ""
+    for match in re.finditer(r"(?im)^DEL\s+(\d{1,3})\s*$", prefix):
+        number = match.group(1)
+        following = prefix[match.end():min(len(prefix), match.end() + 900)]
+        heading = re.search(rf"(?im)^{re.escape(number)}\.\s+([^\n]{{2,240}})$", following)
+        result = f"{number}. {heading.group(1).strip()}" if heading else f"DEL {number}"
+    return result
+
+
+def _physical_section_context(text: str, marker: _Marker) -> str:
+    hierarchy = _title_hierarchy(marker.title)
+    if marker.role == InventoryRole.SUMMARY:
+        return " > ".join(hierarchy[:-1])
+    main = _main_section_context(text, marker.start)
+    parent = " > ".join(hierarchy[:-1])
+    components = [item for item in (main, parent) if item]
+    if components:
+        return " > ".join(dict.fromkeys(components))
+    return _section_context(text, min(len(text), marker.start + len(marker.title) + 1))
+
+
 _TGIU_RE = re.compile(
     r"(?i)\b(?:TG\s*IU|TGIU|ikke\s+(?:undersøkt|inspisert|befart|kontrollert)|"
     r"(?:ikke|var\s+ikke)\s+tilgjengelig\s+for\s+(?:undersøkelse|inspeksjon)|"
@@ -473,9 +501,7 @@ class PhysicalSourceInventoryBuilder:
                 char_end=end,
                 point_label=marker.point_label,
                 title=marker.title,
-                section_context=_section_context(
-                    report_text, min(len(report_text), marker.start + len(marker.title) + 1)
-                ),
+                section_context=_physical_section_context(report_text, marker),
                 tg_grade=marker.tg_grade,
                 point_type=marker.point_type,
                 structural_marker=marker.marker,
@@ -492,7 +518,8 @@ class PhysicalSourceInventoryBuilder:
                 linked_primary_id=None,
             ))
 
-        # Link summaries to the best primary identity; summaries never become primary.
+        # Link summaries to a primary only when the complete hierarchy is safe.
+        # Local-title similarity alone is intentionally insufficient.
         primaries = [item for item in points if item.role == InventoryRole.PRIMARY]
         linked: list[PhysicalReportPoint] = []
         assigned_primary_ids: set[str] = set()
@@ -504,38 +531,92 @@ class PhysicalSourceInventoryBuilder:
                 return re.sub(r"\W+", "", value.casefold())
 
             def tokens(value: str) -> set[str]:
-                return {token for token in re.findall(r"\w+", value.casefold()) if len(token) > 2}
+                ignored = {
+                    "ved", "til", "for", "med", "eller", "som", "punkt", "vesentlige",
+                    "avvik", "svake", "store", "anlegg", "konstruksjoner",
+                }
+                aliases = {
+                    "bad": "våtrom", "våtrommet": "våtrom", "kjelleren": "kjeller",
+                    "underetasje": "kjeller", "sokkel": "kjeller",
+                }
+                return {
+                    aliases.get(token, token)
+                    for token in re.findall(r"\w+", value.casefold())
+                    if len(token) > 2 and token not in ignored
+                }
+
+            def content_tokens(value: str) -> set[str]:
+                ignored = {
+                    "det", "den", "som", "ikke", "til", "ved", "for", "med", "eller",
+                    "kan", "har", "etter", "dette", "disse", "avvik", "risiko", "konsekvens",
+                    "tiltak", "vurdering", "anbefalt", "vesentlige", "tg2", "tg3",
+                }
+                return {
+                    token for token in re.findall(r"\w+", value.casefold())
+                    if len(token) > 3 and token not in ignored
+                }
 
             summary_norm = normalized(point.title)
             summary_tokens = tokens(point.title)
             summary_context = tokens(point.section_context)
+            summary_body = "\n".join(span.exact_quote for span in point.body_spans)
+            summary_content = content_tokens(summary_body)
 
-            def link_score(primary: PhysicalReportPoint) -> int:
+            def link_score(primary: PhysicalReportPoint) -> tuple[int, dict[str, int]] | None:
                 primary_norm = normalized(primary.title)
                 primary_tokens = tokens(primary.title)
+                primary_context = tokens(primary.section_context)
+                hierarchy_overlap = summary_context & (primary_context | primary_tokens)
+                # A substantive parent hierarchy is a hard constraint. This is
+                # what prevents Bad/Våtrom from linking to Rom under terreng.
+                if summary_context and not hierarchy_overlap:
+                    return None
                 score = 0
+                details: dict[str, int] = {}
+                details["hierarchy"] = 70 * len(hierarchy_overlap)
+                score += details["hierarchy"]
                 if primary_norm and (primary_norm in summary_norm or summary_norm in primary_norm):
-                    score += 80
+                    details["normalized_title"] = 80
                 elif primary_norm and summary_norm:
-                    score += int(40 * SequenceMatcher(None, primary_norm, summary_norm).ratio())
-                score += 12 * len(summary_tokens & primary_tokens)
-                score += 10 * len(summary_context & tokens(primary.section_context))
+                    details["normalized_title"] = int(40 * SequenceMatcher(None, primary_norm, summary_norm).ratio())
+                else:
+                    details["normalized_title"] = 0
+                score += details["normalized_title"]
+                details["title_tokens"] = 12 * len(summary_tokens & primary_tokens)
+                score += details["title_tokens"]
                 if point.tg_grade and primary.tg_grade:
-                    score += 20 if point.tg_grade == primary.tg_grade else -30
+                    details["tg_type"] = 20 if point.tg_grade == primary.tg_grade else -50
+                    score += details["tg_type"]
+                primary_body = "\n".join(span.exact_quote for span in primary.body_spans)
+                content_overlap = summary_content & content_tokens(primary_body)
+                details["content"] = min(60, 4 * len(content_overlap))
+                score += details["content"]
                 if (
                     point.detection_method == "physical_bolavi_summary_child"
                     and point.point_label and primary.point_label == point.point_label
                 ):
-                    score += 35
+                    details["point_label"] = 35
+                    score += details["point_label"]
                 elif (
                     point.detection_method == "physical_bolavi_summary_child"
                     and point.point_label and primary.point_label
                     and point.point_label.split(".", 1)[0] == primary.point_label.split(".", 1)[0]
                 ):
-                    score += 15
-                return score
+                    details["point_label"] = 15
+                    score += details["point_label"]
+                # Physical position is a validity constraint: a summary may
+                # refer only to an already materialized primary point.
+                if primary.char_start >= point.char_start:
+                    return None
+                return score, details
 
-            scored = sorted(((link_score(primary), primary) for primary in primaries), key=lambda item: item[0], reverse=True)
+            scored = []
+            for primary in primaries:
+                result = link_score(primary)
+                if result is not None:
+                    score, details = result
+                    scored.append((score, primary, details))
+            scored.sort(key=lambda item: item[0], reverse=True)
             unused = [item for item in scored if item[1].inventory_id not in assigned_primary_ids]
             pool = (
                 unused
@@ -543,14 +624,31 @@ class PhysicalSourceInventoryBuilder:
                 else scored
             )
             selected = None
+            link_status = "unresolved"
+            link_reason = "No hierarchy-compatible primary point met the deterministic threshold."
+            candidate_ids: list[str] = []
             if pool and pool[0][0] >= 25:
-                tied = [item for item in pool if item[0] == pool[0][0]]
-                if len(tied) == 1:
+                # Near-equal plausible candidates are ambiguous; never silently
+                # choose one based on list order or local title alone.
+                plausible = [item for item in pool if item[0] >= pool[0][0] - 5]
+                candidate_ids = [item[1].inventory_id for item in plausible]
+                if len(plausible) == 1:
                     selected = pool[0][1]
+                    link_status = "linked"
+                    link_reason = (
+                        "Unique hierarchy-compatible primary selected using main section, subsection, "
+                        "normalized title, physical position, TG/type and content compatibility."
+                    )
+                else:
+                    link_status = "ambiguous"
+                    link_reason = "Multiple hierarchy-compatible primary points remained plausible."
             if selected:
                 assigned_primary_ids.add(selected.inventory_id)
             linked.append(point.model_copy(update={
-                "linked_primary_id": selected.inventory_id if selected else None
+                "linked_primary_id": selected.inventory_id if selected else None,
+                "link_status": link_status,
+                "link_reason": link_reason,
+                "link_candidate_ids": candidate_ids,
             }))
 
         detector = "+".join(sorted(set(detector_parts + [item.detection_method for item in linked]))) or "no_structure_detected"

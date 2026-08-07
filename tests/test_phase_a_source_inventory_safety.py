@@ -365,6 +365,106 @@ def test_real_report_summaries_are_all_linked_and_never_primary_assessments():
                     assert other.structural_marker not in body, (filename, summary.title, other.title)
 
 
+def test_bmtf_all_summary_links_use_the_correct_substantive_hierarchy():
+    text = PDFExtractor.extract_text(str(ROOT / "files/Tilstandsrapport_Fritidsbolig-God_rapport.pdf"))
+    inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+    primary_by_id = {
+        item.inventory_id: item for item in inventory.points if item.role == InventoryRole.PRIMARY
+    }
+    summaries = [item for item in inventory.points if item.role == InventoryRole.SUMMARY]
+    expected = {
+        "Byggegrunn, fundamenter, grunnmur, drenering og fuktsikring – Terrengforhold": ("Terrengforhold", "23."),
+        "Vinduer og ytterdører – Vinduer": ("Vinduer", "19."),
+        "Yttertak – Tak- og loftkonstruksjon": ("Tak- og loftkonstruksjon", "20."),
+        "Yttertak – Taktekking": ("Taktekking", "20."),
+        "Vinduer og ytterdører – Ytterdør": ("Ytterdør", "19."),
+        "Varme‑ og sanitærtekniske anlegg (VVS) – Avløpsrør": ("Avløpsrør", "17."),
+        "Bad – Overflater – gulv – Overflater – gulv": ("Bad – Overflater – gulv", "7."),
+        "Yttervegg – Yttervegg - Kledning": ("Yttervegg - Kledning", "18."),
+        "Kjøkken – Vann- og avløpsinstallasjoner": ("Kjøkken", "8."),
+        "Varme‑ og sanitærtekniske anlegg (VVS) – Varmtvannsbereder": ("Varmtvannsbereder", "17."),
+        "Bad – Vanntett sjikt og tilslutning til sluk/gjennomføringer – Vanntett sjikt og tilslutning til": ("Bad – Membran / tettesjikt / sluk", "7."),
+        "Rom under terreng (kjeller / underetasje / sokkel) – Ventilasjon": ("Ventilasjon", "11."),
+        "Rom under terreng (kjeller / underetasje / sokkel) – Fuktmåling i konstruksjoner": ("Fuktmåling i konstruksjoner", "11."),
+        "Bad – Ventilasjon – Ventilasjon": ("Bad – Installasjoner og ventilasjon", "7."),
+        "Bad – Dokumentasjon for våtrom – Dokumentasjon for våtrom": ("Bad – Dokumentasjon for våtrom", "7."),
+    }
+    assert len(summaries) == len(expected) == 15
+    for summary in summaries:
+        assert summary.link_status == "linked", summary.title
+        primary = primary_by_id[summary.linked_primary_id]
+        expected_title, expected_main = expected[summary.title]
+        assert primary.title == expected_title, summary.title
+        assert primary.section_context.startswith(expected_main), summary.title
+
+
+def test_identical_ventilation_titles_link_with_main_section_hierarchy():
+    report = """[SIDE 1]
+DEL 7
+7. Våtrom
+Bad – Installasjoner og ventilasjon TG2 – Vesentlige avvik
+VURDERING
+Det mangler tilluft ved dør til badet.
+[SIDE 2]
+DEL 11
+11. Rom under terreng (kjeller / underetasje / sokkel)
+3. Ventilasjon TG2 – Vesentlige avvik
+VURDERING
+Kjelleren mangler veggventiler.
+[SIDE 3]
+28. Oppsummering / konklusjon
+TG2 – Vesentlige avvik
+1. Bad – Ventilasjon – Ventilasjon
+Avvik: Det mangler tilluft ved dør til badet.
+2. Rom under terreng (kjeller / underetasje / sokkel) – Ventilasjon
+Avvik: Kjelleren mangler veggventiler.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    primary_by_id = {
+        item.inventory_id: item for item in inventory.points if item.role == InventoryRole.PRIMARY
+    }
+    summaries = [item for item in inventory.points if item.role == InventoryRole.SUMMARY]
+    assert len(summaries) == 2
+    bathroom = next(item for item in summaries if item.title.startswith("Bad"))
+    basement = next(item for item in summaries if item.title.startswith("Rom under terreng"))
+    assert primary_by_id[bathroom.linked_primary_id].section_context.startswith("7.")
+    assert primary_by_id[bathroom.linked_primary_id].title == "Bad – Installasjoner og ventilasjon"
+    assert primary_by_id[basement.linked_primary_id].section_context.startswith("11.")
+    assert primary_by_id[basement.linked_primary_id].title == "Ventilasjon"
+
+
+def test_ambiguous_hierarchical_summary_link_blocks_completion():
+    report = """[SIDE 1]
+DEL 7
+7. Våtrom
+Bad – Ventilasjon TG2 – Vesentlige avvik
+VURDERING
+Det mangler tilluft.
+Bad – Ventilasjon TG2 – Vesentlige avvik
+VURDERING
+Det mangler tilluft.
+[SIDE 2]
+28. Oppsummering / konklusjon
+TG2 – Vesentlige avvik
+1. Bad – Ventilasjon – Ventilasjon
+Avvik: Det mangler tilluft.
+"""
+
+    class EmptyExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {"facts": [], "segments": [], "abstentions": []}, {"model": "fake"}
+
+    result = DocumentUnderstandingService(EmptyExtractor()).analyze(report, "ambiguous-summary.pdf")
+    summary = next(item for item in result.source_inventory.points if item.role == InventoryRole.SUMMARY)
+    assert summary.link_status == "ambiguous"
+    assert summary.linked_primary_id is None
+    assert len(summary.link_candidate_ids) == 2
+    assert any(
+        blocker.startswith("summary_primary_link_ambiguous:")
+        for blocker in result.segment_coverage.completion_blockers
+    )
+
+
 def test_real_report_body_spans_are_reversible_and_exclude_extraction_artifacts():
     for filename in (
         "ivit-svak_arkat.pdf",
