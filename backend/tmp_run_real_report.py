@@ -23,15 +23,15 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///tmp.db")
 os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
-from app.services.ai_analyzer import (  # noqa: E402
+from app.services.ai_analyzer import (  
     postprocess_analysis_output,
     build_feedback_v11,
     _mark_incomplete_fallback_output,
     _validate_incomplete_policy_invariants,
     get_validated_detected_points_payload,
 )
-from app.services.pdf_extractor import PDFExtractor  # noqa: E402
-from app.services.validert_files import get_runtime_manifest  # noqa: E402
+from app.services.pdf_extractor import PDFExtractor  
+from app.services.validert_files import get_runtime_manifest  
 
 
 _BOLAVI_LETTER_REPAIRS = (

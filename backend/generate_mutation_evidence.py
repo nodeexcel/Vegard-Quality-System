@@ -21,17 +21,17 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///tmp.db")
 os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
-from app.services.ai_analyzer import (  # noqa: E402
+from app.services.ai_analyzer import (  
     _ensure_semantic_tg3_cost_backstop,
     _drop_false_electrical_tg_forbidden_findings,
     _normalize_tg3_cost_text as normalize_text,
 )
-from app.services.arkat_semantic_pipeline import (  # noqa: E402
+from app.services.arkat_semantic_pipeline import (  
     _detect_ns_version_for_dommer_b,
     _evaluate_arkat_point,
     _extract_fields_for_point,
 )
-from app.services.validert_files import get_runtime_manifest  # noqa: E402
+from app.services.validert_files import get_runtime_manifest  
 
 
 # ---------------------------------------------------------------------------
