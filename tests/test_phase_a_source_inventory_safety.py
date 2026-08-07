@@ -27,6 +27,7 @@ from app.services.phase_a_contracts import (
     RuleCategory,
 )
 from app.services.phase_a_document_understanding import DocumentUnderstandingService
+from app.services.phase_a_applicability import DeterministicApplicabilityPlanner
 from app.services.phase_a_governed_retrieval import (
     GovernedAssetError,
     ManifestGovernedCatalog,
@@ -105,6 +106,66 @@ Avvik.
     assert "[SIDE" not in complete_body
 
 
+def test_final_point_continues_across_pages_without_a_later_primary():
+    report = """[SIDE 1]
+Krypkjeller TGIU – Ikke undersøkt
+Observasjon.
+[SIDE 2]
+Årsak: Ingen adkomst.
+Risiko: Skjulte skader kan ikke utelukkes.
+Konsekvens: Skade kan utvikle seg.
+Tiltak: Adkomst bør etableres.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    point = next(item for item in inventory.points if item.role == InventoryRole.PRIMARY)
+    complete_body = "\n".join(span.exact_quote for span in point.body_spans)
+    assert len(point.body_spans) == 2
+    assert "Årsak: Ingen adkomst" in complete_body
+    assert "Risiko: Skjulte skader" in complete_body
+    assert "Konsekvens: Skade" in complete_body
+    assert "Tiltak: Adkomst" in complete_body
+    assert point.char_end == point.body_spans[-1].char_end
+    assert point.point_type == "tgiu"
+
+
+def test_excessive_unbounded_final_span_is_marked_uncertain():
+    report = "[SIDE 1]\n1. Taktekking TG2\nStart.\n" + "".join(
+        f"[SIDE {page}]\nUavgrenset innhold side {page}.\n" for page in range(2, 6)
+    )
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    point = next(item for item in inventory.points if item.role == InventoryRole.PRIMARY)
+    assert len(point.body_spans) == 5
+    assert point.boundary_status == "uncertain"
+    assert point.boundary_reason == "unresolved_document_end_after_excessive_page_span"
+
+
+def test_ai_candidate_on_continuation_span_reconciles_to_physical_point():
+    report = """[SIDE 1]
+1. Taktekking TG2
+Observasjon.
+[SIDE 2]
+Risiko: Lekkasjer kan oppstå.
+"""
+
+    class ContinuationExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {
+                "facts": [],
+                "segments": [{
+                    "kind": "report_point", "title": "Taktekking",
+                    "professional_subject": "tak", "point_label": "1",
+                    "tg_grade": "TG2", "confidence": 0.99,
+                    "evidence": {"exact_quote": "Risiko: Lekkasjer kan oppstå.", "page": 2},
+                }],
+                "abstentions": [],
+            }, {"model": "fake"}
+
+    result = DocumentUnderstandingService(ContinuationExtractor()).analyze(report, "continuation.pdf")
+    point = next(item for item in result.segments if item.kind.value == "report_point")
+    assert "ai_candidate_matched" in point.validation_notes
+    assert point.bound_body_spans[-1].page == 2
+
+
 @pytest.mark.parametrize("wording", [
     "TG IU", "TGIU", "Ikke undersøkt", "Ikke inspisert",
     "Ikke tilgjengelig for undersøkelse", "Ikke mulig å undersøke",
@@ -118,6 +179,22 @@ def test_general_tgiu_detection_uses_unseen_titles_and_wording(wording):
     assert points[0].title == "Skjult pumpesjakt"
     assert points[0].tg_grade == "TGIU"
     assert points[0].point_type == "tgiu"
+
+
+def test_explicit_numbered_tgiu_heading_normalizes_type_and_planner_route():
+    report = "[SIDE 1]\n1. Krypkjeller TGIU – Ikke undersøkt\nIngen adkomst.\n"
+
+    class TgiuExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {"facts": [], "segments": [], "abstentions": []}, {"model": "fake"}
+
+    result = DocumentUnderstandingService(TgiuExtractor()).analyze(report, "tgiu.pdf")
+    point = next(item for item in result.segments if item.kind.value == "report_point")
+    assert point.tg_grade == "TGIU"
+    assert point.point_type == "tgiu"
+    plan = DeterministicApplicabilityPlanner().plan(result.segments)
+    assert [item.rule_category.value for item in plan] == ["methodology"]
+    assert "validated_point_type_tgiu" in plan[0].reason_codes
 
 
 def test_hms_vurdering_is_no_tg_and_navigation_is_not_primary():
@@ -259,14 +336,18 @@ def test_bolavi_summary_is_linked_and_not_a_second_primary_point():
 
 
 def test_real_report_summaries_are_all_linked_and_never_primary_assessments():
-    for filename in (
-        "ivit-svak_arkat.pdf",
-        "bolavi-egen-mangler_kostnadtg3.pdf",
-        "Tilstandsrapport_Fritidsbolig-God_rapport.pdf",
-    ):
+    expected_roles = {
+        "ivit-svak_arkat.pdf": {"summary": 0, "navigation": 29},
+        "bolavi-egen-mangler_kostnadtg3.pdf": {"summary": 15, "navigation": 0},
+        "Tilstandsrapport_Fritidsbolig-God_rapport.pdf": {"summary": 15, "navigation": 0},
+    }
+    for filename, expected in expected_roles.items():
         text = PDFExtractor.extract_text(str(ROOT / "files" / filename))
         inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
         summaries = [item for item in inventory.points if item.role == InventoryRole.SUMMARY]
+        navigation = [item for item in inventory.points if item.role == InventoryRole.NAVIGATION]
+        assert len(summaries) == expected["summary"], filename
+        assert len(navigation) == expected["navigation"], filename
         assert all(item.linked_primary_id for item in summaries), filename
         primary_ids = {
             item.inventory_id for item in inventory.points if item.role == InventoryRole.PRIMARY
@@ -275,11 +356,13 @@ def test_real_report_summaries_are_all_linked_and_never_primary_assessments():
         primary_by_id = {
             item.inventory_id: item for item in inventory.points if item.role == InventoryRole.PRIMARY
         }
-        assert len({item.linked_primary_id for item in summaries}) == len(summaries), filename
         for summary in summaries:
-            leaf = summary.title.split(">")[-1].strip().casefold()
-            linked_title = primary_by_id[summary.linked_primary_id].title.casefold()
-            assert leaf in linked_title or linked_title in leaf, (filename, summary.title, linked_title)
+            assert primary_by_id[summary.linked_primary_id].role == InventoryRole.PRIMARY
+            body = "\n".join(span.exact_quote for span in summary.body_spans)
+            assert body.startswith(summary.structural_marker)
+            for other in summaries:
+                if other.inventory_id != summary.inventory_id and other.structural_marker != summary.structural_marker:
+                    assert other.structural_marker not in body, (filename, summary.title, other.title)
 
 
 def test_real_report_body_spans_are_reversible_and_exclude_extraction_artifacts():
@@ -297,6 +380,100 @@ def test_real_report_body_spans_are_reversible_and_exclude_extraction_artifacts(
                 assert hashlib.sha256(span.exact_quote.encode()).hexdigest() == span.quote_sha256
                 assert "[TABELLDATA]" not in span.exact_quote
                 assert "[SIDE " not in span.exact_quote
+
+
+def test_named_real_point_bodies_exclude_unrelated_structural_sections():
+    cases = {
+        "ivit-svak_arkat.pdf": {
+            "Varmtvannstank": ("ELEKTRISK ANLEGG", "TOMTEFORHOLD"),
+            "Oljetank": ("FORHOLD SOM ÅPENBART",),
+        },
+        "Tilstandsrapport_Fritidsbolig-God_rapport.pdf": {
+            "Terrengforhold": ("Utebod", "Elektrisk anlegg", "Markedsverdi", "Oppsummering / konklusjon"),
+        },
+        "bolavi-egen-mangler_kostnadtg3.pdf": {
+            "Ventilasjon": ("ELEKTRISK ANLEGG", "OPPSUMMERING AV AVVI"),
+        },
+    }
+    for filename, point_cases in cases.items():
+        text = PDFExtractor.extract_text(str(ROOT / "files" / filename))
+        inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+        for title, forbidden in point_cases.items():
+            matches = [
+                point for point in inventory.points
+                if point.role == InventoryRole.PRIMARY and point.title.casefold() == title.casefold()
+            ]
+            assert matches, (filename, title)
+            for point in matches:
+                body = "\n".join(span.exact_quote for span in point.body_spans)
+                for term in forbidden:
+                    assert term.casefold() not in body.casefold(), (filename, title, term)
+
+
+def test_overlapping_ai_hms_sections_are_support_only_and_not_parallel_plans():
+    report = """[SIDE 1]
+Helse, miljø og sikkerhet
+Beskrivelse
+Radon og lavt rekkverk.
+Vurdering av avvik:
+Rekkverket er lavt.
+"""
+
+    class HmsExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {
+                "facts": [],
+                "segments": [
+                    {
+                        "kind": "section", "title": "FORHOLD SOM ÅPENBART KAN MEDFØRE FARE FOR HELSE, MILJØ OG SIKKERHET",
+                        "professional_subject": "HMS", "confidence": 0.99,
+                        "evidence": {"exact_quote": "Radon og lavt rekkverk.", "page": 1},
+                    },
+                    {
+                        "kind": "section", "title": "Helse, miljø og sikkerhet",
+                        "professional_subject": "HMS", "confidence": 0.99,
+                        "evidence": {"exact_quote": "Rekkverket er lavt.", "page": 1},
+                    },
+                ],
+                "abstentions": [],
+            }, {"model": "fake"}
+
+    result = DocumentUnderstandingService(HmsExtractor()).analyze(report, "hms.pdf")
+    physical = next(item for item in result.segments if item.kind.value == "report_point")
+    support = [item for item in result.segments if item.kind.value == "section"]
+    assert len(support) == 2
+    assert all(item.supporting_primary_segment_id == physical.segment_id for item in support)
+    plan = DeterministicApplicabilityPlanner().plan(result.segments)
+    assert {item.segment_id for item in plan} == {physical.segment_id}
+
+
+def test_unresolved_summary_link_becomes_traceable_completion_blocker():
+    report = """[SIDE 1]
+1. Taktekking TG2
+Avvik.
+Oppsummering av avvik
+99. Ukjent separat punkt
+Ukjent sammendrag.
+"""
+
+    class PointExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {
+                "facts": [],
+                "segments": [{
+                    "kind": "report_point", "title": "Taktekking",
+                    "professional_subject": "tak", "point_label": "1",
+                    "tg_grade": "TG2", "confidence": 0.99,
+                    "evidence": {"exact_quote": "1. Taktekking TG2", "page": 1},
+                }],
+                "abstentions": [],
+            }, {"model": "fake"}
+
+    result = DocumentUnderstandingService(PointExtractor()).analyze(report, "uncertain.pdf")
+    assert any(
+        blocker.startswith("summary_primary_link_unresolved:")
+        for blocker in result.segment_coverage.completion_blockers
+    )
 
 
 def test_runtime_rejects_an_unapproved_manifest_even_when_asset_hashes_match(tmp_path):

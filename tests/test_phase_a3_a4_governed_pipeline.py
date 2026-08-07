@@ -126,6 +126,7 @@ def _catalog(tmp_path: Path, *, corrupt=False):
     content = {
         "rules": [{
             "id": "L-FA-01",
+            "error_type": "L-FA-01, MISSING_FERDIGATTEST",
             "topic": "ferdigattest",
             "title": "Manglende ferdigattest",
             "requirements": {"must_include_consequence": True},
@@ -206,6 +207,18 @@ def test_a4_admits_only_evidence_bound_governed_finding(tmp_path):
     assert result.finding_lineage[0].public_projection_status == "pending"
 
 
+def test_governed_finding_aliases_share_one_canonical_stable_identity(tmp_path):
+    service = lambda finding_type: PhaseA4ShadowService(
+        _retriever(_catalog(tmp_path), ResolvedResolver()),
+        DeficiencyModel(finding_type=finding_type),
+    ).analyze(_understanding(), [RuleCategory.LEGALITY])
+    canonical = service("L-FA-01").validation_decisions[0]
+    alias = service("MISSING_FERDIGATTEST").validation_decisions[0]
+    assert canonical.admission == alias.admission == FindingAdmission.ACCEPTED
+    assert canonical.canonical_finding_identity == alias.canonical_finding_identity == "L-FA-01"
+    assert canonical.accepted_finding_id == alias.accepted_finding_id
+
+
 @pytest.mark.parametrize(
     "model,reason",
     [
@@ -284,6 +297,17 @@ def test_stable_finding_identity_and_complete_without_findings_rules(tmp_path):
     assert satisfied.analysis_state.value == "complete_without_findings"
     abstained = PhaseA4ShadowService(retriever, AbstainingModel()).analyze(understanding, [RuleCategory.LEGALITY])
     assert abstained.analysis_state.value == "limited"
+
+    blocked_understanding = understanding.model_copy(update={
+        "segment_coverage": understanding.segment_coverage.model_copy(update={
+            "completion_blockers": ["physical_boundary_uncertain:test-point"]
+        })
+    })
+    structurally_blocked = PhaseA4ShadowService(retriever, SatisfiedModel()).analyze(
+        blocked_understanding, [RuleCategory.LEGALITY]
+    )
+    assert structurally_blocked.analysis_state.value == "limited"
+    assert structurally_blocked.customer_publication_authorized is False
 
 
 def test_semantic_model_receives_complete_body_and_does_not_require_headings(tmp_path):

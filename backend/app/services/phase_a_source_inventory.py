@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Iterable
 
 from app.services.phase_a_contracts import (
@@ -99,7 +100,7 @@ def _previous_heading_start(text: str, position: int) -> tuple[int, str]:
 
 def _section_context(text: str, position: int) -> str:
     """Return nearby structural section/room headings, excluding page headers."""
-    window = text[max(0, position - 3500):position]
+    window = text[:position]
     accepted: list[str] = []
     section_words = {
         "utvendig", "innvendig", "våtrom", "kjøkken", "tomteforhold",
@@ -111,7 +112,11 @@ def _section_context(text: str, position: int) -> str:
         folded = value.casefold()
         if not value or len(value) > 120:
             continue
-        if folded in section_words or ">" in value:
+        if (
+            folded in section_words
+            or ">" in value
+            or re.match(r"^\d+(?:\.\d+)?\.\s+(?:bad|vaskerom|kjøkken|våtrom)\b", folded)
+        ):
             if value not in accepted:
                 accepted.append(value)
     return " > ".join(accepted[-3:])
@@ -169,10 +174,11 @@ class PhysicalSourceInventoryBuilder:
             ):
                 if "oppsummering" in match.group(2).casefold():
                     continue
+                explicit_tg = _tg(match.group(3))
                 markers.append(_Marker(
                     InventoryRole.PRIMARY, page.number, base + match.start(), match.group(1),
-                    match.group(2).strip(), _tg(match.group(3)), match.group(0).strip(),
-                    "physical_numbered_tg_heading",
+                    match.group(2).strip(), explicit_tg, match.group(0).strip(),
+                    "physical_numbered_tg_heading", "tgiu" if explicit_tg == "TGIU" else "graded",
                 ))
 
             # General fallback for a standalone title followed by a TG marker.
@@ -192,10 +198,11 @@ class PhysicalSourceInventoryBuilder:
                     for existing in markers
                 ):
                     continue
+                explicit_tg = _tg(match.group(3))
                 markers.append(_Marker(
                     InventoryRole.PRIMARY, page.number, base + match.start(), match.group(2),
-                    title, _tg(match.group(3)), match.group(0).strip(),
-                    "general_physical_tg_heading",
+                    title, explicit_tg, match.group(0).strip(),
+                    "general_physical_tg_heading", "tgiu" if explicit_tg == "TGIU" else "graded",
                 ))
 
             # Bolavi/befar.io detailed point heading.
@@ -242,8 +249,8 @@ class PhysicalSourceInventoryBuilder:
             )
             if summary_start >= 0:
                 detector_parts.append("summary_sections")
-                # Common clickable overview rows. Keep the complete structural
-                # path in the title; matching uses its leaf plus occurrence order.
+                # Clickable "Gå til side" rows are navigation, not substantive
+                # summaries. They remain traceable but never enter assessment.
                 for match in re.finditer(r"(?im)^([^\n]{2,240}?)\s+Gå\s+til\s+side\s*$", primary):
                     if match.start() <= summary_start:
                         continue
@@ -254,29 +261,9 @@ class PhysicalSourceInventoryBuilder:
                     if not leaf:
                         continue
                     markers.append(_Marker(
-                        InventoryRole.SUMMARY, page.number, base + match.start(), None,
-                        path, None, match.group(0).strip(), "physical_summary_navigation_row",
+                        InventoryRole.NAVIGATION, page.number, base + match.start(), None,
+                        path, None, match.group(0).strip(), "physical_navigation_summary_row", "unknown",
                     ))
-                for match in re.finditer(r"(?im)^(\d+(?:\.\d+)*)\.?\s+([^\n]{2,180})$", primary):
-                    if match.start() > summary_start and not re.search(r"\bGå\s+til\s+side\b", match.group(0), re.I):
-                        # Numbered summary formats only; reject addresses and other
-                        # incidental number/name lines on overview pages.
-                        title = match.group(2).strip()
-                        if title.isupper() or re.search(r"(?i)\b(?:veien|gata|gate|postboks)\b", title):
-                            continue
-                        markers.append(_Marker(
-                            InventoryRole.SUMMARY, page.number, base + match.start(), match.group(1),
-                            title, None, match.group(0).strip(), "physical_summary_entry",
-                        ))
-            for match in re.finditer(
-                r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*TG\s*([23])\s*$\s*^(\d+(?:\.\d+)*)\s+([^\n]{2,180})$",
-                primary,
-            ):
-                markers.append(_Marker(
-                    InventoryRole.SUMMARY, page.number, base + match.start(2), match.group(2),
-                    match.group(3).strip(), f"TG{match.group(1)}", match.group(0).strip(),
-                    "physical_bolavi_summary_entry",
-                ))
 
             # Table-of-contents/navigation entries are retained for traceability
             # but are never eligible for assessment.
@@ -288,6 +275,91 @@ class PhysicalSourceInventoryBuilder:
                     InventoryRole.NAVIGATION, page.number, base + match.start(), None,
                     title, None, match.group(0).strip(), "physical_navigation_entry", "unknown",
                 ))
+
+            # Non-assessable structural headings are still hard boundaries. They
+            # prevent the preceding point from absorbing electrical, HMS,
+            # legality, valuation, methodology or summary sections.
+            boundary_patterns = (
+                r"(?im)^DEL\s+\d+\s*$",
+                r"(?im)^\d+\.\s+[A-ZÆØÅ0-9][A-ZÆØÅ0-9 /&()\-–—]{3,}\s*$",
+                r"(?im)^(?:ELEKTRISK(?:E)?\s+ANLEGG|TOMTEFORHOLD|LOVLIGHET|"
+                r"FORHOLD SOM ÅPENBART[^\n]*|HELSE,\s*MILJØ[^\n]*|HMS|"
+                r"BRANN(?:SIKKERHET|TEKNISKE FORHOLD)?|RADON|SKADEDYR[^\n]*|"
+                r"MARKEDSVERDI[^\n]*|BYGNINGER PÅ EIENDOMMEN|"
+                r"OPPSUMMERING / KONKLUSJON)\s*$",
+                r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*$",
+                r"(?im)^\d+\.\s+Oppsummering / konklusjon\s*$",
+            )
+            for pattern in boundary_patterns:
+                for match in re.finditer(pattern, primary):
+                    absolute_start = base + match.start()
+                    if any(item.role == InventoryRole.BOUNDARY and item.start == absolute_start for item in markers):
+                        continue
+                    markers.append(_Marker(
+                        InventoryRole.BOUNDARY, page.number, absolute_start, None,
+                        match.group(0).strip(), None, match.group(0).strip(),
+                        "physical_non_assessable_section_boundary", "unknown",
+                    ))
+
+        # Parse substantive summary children after all primary markers exist.
+        # Each child receives its own boundary and primary linkage; no aggregate
+        # summary body can be linked to a single point.
+        bolavi_summary_active = False
+        bmtf_summary_active = False
+        current_summary_tg: str | None = None
+        for page in pages:
+            primary, base = _primary_text(page)
+            if re.search(r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*TG2\s*$", primary):
+                bolavi_summary_active = True
+                current_summary_tg = "TG2"
+            if re.search(r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*TG3\s*$", primary):
+                bolavi_summary_active = True
+                current_summary_tg = "TG3"
+            if re.search(r"(?im)^\d+\.\s+Oppsummering / konklusjon\s*$", primary):
+                bmtf_summary_active = True
+            bmtf_grade = re.search(r"(?im)^TG\s*([23])\s*[–-]", primary)
+            if bmtf_summary_active and bmtf_grade:
+                current_summary_tg = f"TG{bmtf_grade.group(1)}"
+
+            if bolavi_summary_active:
+                for match in re.finditer(
+                    r"(?m)^(\d{1,3}(?:\.(?:\d+|\(cid:\d+\)))?)\s+([^\n]{3,180})$",
+                    primary,
+                ):
+                    label, title = match.group(1), match.group(2).strip()
+                    if title.upper() == title or title.casefold().startswith(("av ", "oppsummering")):
+                        continue
+                    markers.append(_Marker(
+                        InventoryRole.SUMMARY, page.number, base + match.start(), label,
+                        title, current_summary_tg, match.group(0).strip(),
+                        "physical_bolavi_summary_child", "unknown",
+                    ))
+
+            if bmtf_summary_active:
+                for match in re.finditer(r"(?m)^(\d{1,3})\.\s+([^\n]{3,240})$", primary):
+                    label, title = match.group(1), match.group(2).strip()
+                    if "oppsummering / konklusjon" in title.casefold() or "–" not in title and "-" not in title:
+                        continue
+                    markers.append(_Marker(
+                        InventoryRole.SUMMARY, page.number, base + match.start(), label,
+                        title, current_summary_tg, match.group(0).strip(),
+                        "physical_bmtf_summary_child", "unknown",
+                    ))
+
+            # Generic numbered summary fallback for previously unseen layouts.
+            generic_summary = re.search(r"(?im)^Oppsummering av avvik\s*$", primary)
+            if generic_summary:
+                for match in re.finditer(r"(?m)^(\d+(?:\.\d+)*)\.?\s+([^\n]{3,180})$", primary):
+                    if match.start() <= generic_summary.start():
+                        continue
+                    title = match.group(2).strip()
+                    if title.isupper() or "gå til side" in title.casefold():
+                        continue
+                    markers.append(_Marker(
+                        InventoryRole.SUMMARY, page.number, base + match.start(), match.group(1),
+                        title, None, match.group(0).strip(),
+                        "physical_generic_summary_child", "unknown",
+                    ))
 
         # Detect a point title at the end of one page whose description and
         # uninvestigated wording continue on the next page.
@@ -323,28 +395,32 @@ class PhysicalSourceInventoryBuilder:
 
         points: list[PhysicalReportPoint] = []
         for index, marker in enumerate(markers):
+            if marker.role == InventoryRole.BOUNDARY:
+                continue
             # Bound globally, across page delimiters. A page boundary is not a
             # semantic boundary. Stop only at the next structural marker.
             # Navigation is trace material, not a report-point boundary. Primary
             # bodies can cross pages and stop only at another primary or at an
             # explicit summary section. Summary rows stop at the next summary or
             # primary row. This prevents TOC rows from truncating source bodies.
-            later = [
-                item.start for item in markers
-                if item.start > marker.start
-                and item.role != InventoryRole.NAVIGATION
-                and (
-                    marker.role != InventoryRole.PRIMARY
-                    or item.role in {InventoryRole.PRIMARY, InventoryRole.SUMMARY}
-                )
+            allowed_boundaries = {
+                InventoryRole.PRIMARY: {InventoryRole.PRIMARY, InventoryRole.SUMMARY, InventoryRole.BOUNDARY},
+                InventoryRole.SUMMARY: {InventoryRole.SUMMARY, InventoryRole.PRIMARY, InventoryRole.BOUNDARY},
+                InventoryRole.NAVIGATION: {
+                    InventoryRole.NAVIGATION, InventoryRole.SUMMARY,
+                    InventoryRole.PRIMARY, InventoryRole.BOUNDARY,
+                },
+            }[marker.role]
+            later_markers = [
+                item for item in markers
+                if item.start > marker.start and item.role in allowed_boundaries
             ]
+            later = [item.start for item in later_markers]
             if later:
                 boundary_end = min(later)
-            elif marker.role == InventoryRole.PRIMARY:
-                containing_page = next(page for page in pages if page.start <= marker.start < page.end)
-                primary_text, primary_base = _primary_text(containing_page)
-                boundary_end = primary_base + len(primary_text)
             else:
+                # The document end is a valid physical boundary. This allows the
+                # final point to continue over any remaining pages.
                 boundary_end = len(report_text)
 
             # A body crossing pages is represented as reversible original source
@@ -379,6 +455,11 @@ class PhysicalSourceInventoryBuilder:
                 continue
             exact = "\n".join(span.exact_quote for span in body_spans)
             end = body_spans[-1].char_end
+            boundary_uncertain = (
+                marker.role == InventoryRole.PRIMARY
+                and not later_markers
+                and len(body_spans) > 3
+            )
             inventory_id = _id(
                 "physical", document_hash, marker.page, marker.start, end,
                 marker.point_label or marker.marker,
@@ -389,7 +470,7 @@ class PhysicalSourceInventoryBuilder:
                 role=marker.role,
                 page=marker.page,
                 char_start=evidence.char_start,
-                char_end=evidence.char_end,
+                char_end=end,
                 point_label=marker.point_label,
                 title=marker.title,
                 section_context=_section_context(
@@ -401,48 +482,71 @@ class PhysicalSourceInventoryBuilder:
                 detection_method=marker.method,
                 body=evidence,
                 body_spans=body_spans,
+                boundary_status="uncertain" if boundary_uncertain else "validated",
+                boundary_reason=(
+                    "unresolved_document_end_after_excessive_page_span"
+                    if boundary_uncertain else
+                    f"terminated_by:{min(later_markers, key=lambda item: item.start).method}"
+                    if later_markers else "terminated_by:document_end"
+                ),
                 linked_primary_id=None,
             ))
 
         # Link summaries to the best primary identity; summaries never become primary.
         primaries = [item for item in points if item.role == InventoryRole.PRIMARY]
         linked: list[PhysicalReportPoint] = []
-        summary_occurrence: dict[str, int] = {}
         assigned_primary_ids: set[str] = set()
         for point in points:
             if point.role != InventoryRole.SUMMARY:
                 linked.append(point)
                 continue
-            leaf_title = point.title.split(">")[-1].strip()
-            leaf_title = re.split(r"[–—]", leaf_title)[-1].strip()
-            normalized_title = re.sub(r"\W+", "", leaf_title.casefold())
-            title_candidates = [
-                primary for primary in primaries
-                if normalized_title == re.sub(r"\W+", "", primary.title.casefold())
-                or normalized_title in re.sub(r"\W+", "", primary.title.casefold())
-                or re.sub(r"\W+", "", primary.title.casefold()) in normalized_title
-            ]
-            candidates = title_candidates or [
-                primary for primary in primaries
-                if point.point_label and primary.point_label == point.point_label
-            ]
-            occurrence = summary_occurrence.get(normalized_title, 0)
-            summary_occurrence[normalized_title] = occurrence + 1
-            context_tokens = {
-                token for token in re.findall(r"\w+", point.title.rsplit(">", 1)[0].casefold())
-                if len(token) > 4
-            }
-            contextual = [
-                candidate for candidate in candidates
-                if candidate.inventory_id not in assigned_primary_ids
-                and (
-                    not context_tokens
-                    or any(token in candidate.section_context.casefold() for token in context_tokens)
-                )
-            ]
-            remaining = [candidate for candidate in candidates if candidate.inventory_id not in assigned_primary_ids]
-            pool = contextual or remaining
-            selected = pool[0] if pool else (candidates[occurrence] if occurrence < len(candidates) else None)
+            def normalized(value: str) -> str:
+                return re.sub(r"\W+", "", value.casefold())
+
+            def tokens(value: str) -> set[str]:
+                return {token for token in re.findall(r"\w+", value.casefold()) if len(token) > 2}
+
+            summary_norm = normalized(point.title)
+            summary_tokens = tokens(point.title)
+            summary_context = tokens(point.section_context)
+
+            def link_score(primary: PhysicalReportPoint) -> int:
+                primary_norm = normalized(primary.title)
+                primary_tokens = tokens(primary.title)
+                score = 0
+                if primary_norm and (primary_norm in summary_norm or summary_norm in primary_norm):
+                    score += 80
+                elif primary_norm and summary_norm:
+                    score += int(40 * SequenceMatcher(None, primary_norm, summary_norm).ratio())
+                score += 12 * len(summary_tokens & primary_tokens)
+                score += 10 * len(summary_context & tokens(primary.section_context))
+                if point.tg_grade and primary.tg_grade:
+                    score += 20 if point.tg_grade == primary.tg_grade else -30
+                if (
+                    point.detection_method == "physical_bolavi_summary_child"
+                    and point.point_label and primary.point_label == point.point_label
+                ):
+                    score += 35
+                elif (
+                    point.detection_method == "physical_bolavi_summary_child"
+                    and point.point_label and primary.point_label
+                    and point.point_label.split(".", 1)[0] == primary.point_label.split(".", 1)[0]
+                ):
+                    score += 15
+                return score
+
+            scored = sorted(((link_score(primary), primary) for primary in primaries), key=lambda item: item[0], reverse=True)
+            unused = [item for item in scored if item[1].inventory_id not in assigned_primary_ids]
+            pool = (
+                unused
+                if unused and scored and unused[0][0] >= scored[0][0]
+                else scored
+            )
+            selected = None
+            if pool and pool[0][0] >= 25:
+                tied = [item for item in pool if item[0] == pool[0][0]]
+                if len(tied) == 1:
+                    selected = pool[0][1]
             if selected:
                 assigned_primary_ids.add(selected.inventory_id)
             linked.append(point.model_copy(update={

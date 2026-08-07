@@ -103,6 +103,7 @@ class InventoryRole(str, Enum):
     PRIMARY = "primary"
     SUMMARY = "summary"
     NAVIGATION = "navigation"
+    BOUNDARY = "boundary"
 
 
 class CandidateEvidence(StrictContract):
@@ -139,6 +140,8 @@ class PhysicalReportPoint(StrictContract):
     detection_method: str = Field(min_length=1, max_length=200)
     body: SourceEvidence
     body_spans: List[SourceEvidence] = Field(default_factory=list)
+    boundary_status: str = Field(default="validated", pattern=r"^(validated|uncertain)$")
+    boundary_reason: str = Field(default="", max_length=1000)
     linked_primary_id: Optional[str] = Field(default=None, max_length=80)
 
 
@@ -215,6 +218,7 @@ class ValidatedSegment(StrictContract):
     bound_body_sha256: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     validation_status: ValidationStatus
     validation_notes: List[str] = Field(default_factory=list)
+    supporting_primary_segment_id: Optional[str] = Field(default=None, max_length=80)
 
 
 class Abstention(StrictContract):
@@ -357,6 +361,7 @@ class FindingValidationDecision(StrictContract):
     admission: FindingAdmission
     reason_codes: List[str] = Field(default_factory=list)
     accepted_finding_id: Optional[str] = Field(default=None, max_length=200)
+    canonical_finding_identity: Optional[str] = Field(default=None, max_length=300)
 
 
 class ApplicabilityPlanItem(StrictContract):

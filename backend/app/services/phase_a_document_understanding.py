@@ -744,9 +744,30 @@ class DocumentUnderstandingService:
             and segment.validation_status == ValidationStatus.VALIDATED
             and not segment.bound_body_spans
         ]
-        if summary_blockers or body_blockers:
+        structural_blockers = []
+        for point in source_inventory.points:
+            if point.role == InventoryRole.PRIMARY:
+                if point.boundary_status != "validated":
+                    structural_blockers.append(f"physical_boundary_uncertain:{point.inventory_id}")
+                if point.point_type == "unknown":
+                    structural_blockers.append(f"physical_point_type_uncertain:{point.inventory_id}")
+                if not point.body_spans or point.char_end != point.body_spans[-1].char_end:
+                    structural_blockers.append(f"physical_body_span_incomplete:{point.inventory_id}")
+            elif point.role == InventoryRole.SUMMARY and not point.linked_primary_id:
+                structural_blockers.append(f"summary_primary_link_unresolved:{point.inventory_id}")
+        structural_blockers.extend(
+            f"overlapping_assessment_identity_uncertain:{segment.segment_id}"
+            for segment in segments
+            if "structural_uncertainty_multiple_physical_overlap" in segment.validation_notes
+        )
+        if summary_blockers or body_blockers or structural_blockers:
             coverage = coverage.model_copy(update={
-                "completion_blockers": [*coverage.completion_blockers, *summary_blockers, *body_blockers]
+                "completion_blockers": [
+                    *coverage.completion_blockers,
+                    *summary_blockers,
+                    *body_blockers,
+                    *structural_blockers,
+                ]
             })
         report_quality_observations = self._report_quality_observations(
             document_hash, report_text, segments, self.verified_cover_tg_counts
@@ -803,7 +824,10 @@ class DocumentUnderstandingService:
                 segment for segment in ai_segments
                 if segment.validation_status == ValidationStatus.VALIDATED
                 and segment.evidence is not None
-                and point.char_start <= segment.evidence.char_start < point.char_end
+                and any(
+                    span.char_start <= segment.evidence.char_start < span.char_end
+                    for span in (point.body_spans or [point.body])
+                )
             ]
             def norm(value: str | None) -> str:
                 return re.sub(r"\W+", "", (value or "").casefold())
@@ -952,7 +976,49 @@ class DocumentUnderstandingService:
                 status="missing",
                 reason="Navigation content was classified and excluded from report-point assessment.",
             ))
-        output.extend(segment for segment in ai_segments if segment.kind != SegmentKind.REPORT_POINT)
+        # AI sections overlapping one physical assessment object are supporting
+        # context, not independent applicability objects. Ambiguous multi-parent
+        # overlap remains traceable and blocks completion downstream.
+        physical_segments = list(output)
+        for segment in (item for item in ai_segments if item.kind != SegmentKind.REPORT_POINT):
+            evidence = segment.evidence
+            parents = []
+            if evidence is not None:
+                for physical in physical_segments:
+                    if any(
+                        span.char_start <= evidence.char_start < span.char_end
+                        for span in physical.bound_body_spans
+                    ):
+                        parents.append(physical)
+            if not parents:
+                candidate_identity = re.sub(r"\W+", "", segment.title.casefold())
+                semantic_parents = []
+                for physical in physical_segments:
+                    physical_identity = re.sub(r"\W+", "", physical.title.casefold())
+                    if (
+                        physical_identity and candidate_identity
+                        and (physical_identity in candidate_identity or candidate_identity in physical_identity)
+                    ):
+                        semantic_parents.append(physical)
+                if len(semantic_parents) == 1:
+                    parents = semantic_parents
+            if len(parents) == 1:
+                output.append(segment.model_copy(update={
+                    "supporting_primary_segment_id": parents[0].segment_id,
+                    "validation_notes": [
+                        *segment.validation_notes,
+                        "supporting_context_only_physical_overlap",
+                    ],
+                }))
+            elif len(parents) > 1:
+                output.append(segment.model_copy(update={
+                    "validation_notes": [
+                        *segment.validation_notes,
+                        "structural_uncertainty_multiple_physical_overlap",
+                    ],
+                }))
+            else:
+                output.append(segment)
         return output, reconciliation
 
     @staticmethod

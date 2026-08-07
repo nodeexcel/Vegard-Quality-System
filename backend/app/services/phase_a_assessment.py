@@ -128,6 +128,22 @@ def _governed_finding_types(records: Iterable[RuleRetrievalRecord]) -> set[str]:
     return values
 
 
+def _canonical_finding_identity(
+    proposed_finding_type: str | None,
+    records: Iterable[RuleRetrievalRecord],
+) -> str | None:
+    """Resolve any governed alias to its owning canonical governed rule ID."""
+    if not proposed_finding_type:
+        return None
+    proposed = " ".join(proposed_finding_type.split()).casefold()
+    matched: set[str] = set()
+    for record in records:
+        aliases = _governed_finding_types([record])
+        if proposed in {" ".join(alias.split()).casefold() for alias in aliases}:
+            matched.add(record.rule_id)
+    return next(iter(matched)) if len(matched) == 1 else None
+
+
 class DeterministicAssessmentValidator:
     def validate(
         self,
@@ -167,13 +183,21 @@ class DeterministicAssessmentValidator:
                 reasons.append("finding_type_not_governed_by_retrieved_rules")
         else:
             reasons.append("no_finding_proposed")
+        canonical_identity = _canonical_finding_identity(assessment.proposed_finding_type, rules)
+        if (
+            assessment.decision == AssessmentDecision.DEFICIENT
+            and assessment.proposed_finding_type
+            and assessment.proposed_finding_type in _governed_finding_types(rules)
+            and canonical_identity is None
+        ):
+            reasons.append("canonical_finding_identity_ambiguous")
         admission = FindingAdmission.ACCEPTED if not reasons else FindingAdmission.REJECTED
         accepted_id = (
             _identifier(
                 "finding",
                 segment.segment_id,
                 assessment.rule_category.value,
-                assessment.proposed_finding_type or "",
+                canonical_identity or "",
             )
             if admission == FindingAdmission.ACCEPTED
             else None
@@ -184,6 +208,7 @@ class DeterministicAssessmentValidator:
             admission=admission,
             reason_codes=reasons,
             accepted_finding_id=accepted_id,
+            canonical_finding_identity=canonical_identity,
         )
 
 

@@ -40,21 +40,43 @@ class DeterministicApplicabilityPlanner:
         for segment in segments:
             if segment.validation_status != ValidationStatus.VALIDATED:
                 continue
+            if segment.supporting_primary_segment_id:
+                # Explicit supporting context is never independently assessed.
+                continue
             tg = (segment.tg_grade or "").upper()
-            context = _normal(" ".join((segment.kind.value, segment.title, segment.professional_subject)))
             categories: list[tuple[RuleCategory, list[str]]] = []
-            if tg in {"TG2", "TG3"}:
-                categories.extend((category, [f"grade_{tg.lower()}", "locked_arkat_structure"]) for category in self.ARKAT)
-            if tg == "TG3":
-                categories.append((RuleCategory.TG3_COST, ["grade_tg3", "point_bound_cost_required"]))
-            if tg == "TGIU":
-                categories.append((RuleCategory.METHODOLOGY, ["grade_tgiu"]))
-            if segment.kind == SegmentKind.METHODOLOGY or any(term in context for term in ("metod", "undersok", "tilgjengelig")):
-                categories.append((RuleCategory.METHODOLOGY, ["methodology_context"]))
-            if segment.kind == SegmentKind.LEGALITY or any(term in context for term in ("lovlighet", "ferdigattest", "bruksendring", "tegning")):
-                categories.append((RuleCategory.LEGALITY, ["legality_context"]))
-            if any(term in context for term in ("elektr", "hms", "sikkerhet")):
-                categories.append((RuleCategory.METHODOLOGY, ["electrical_or_hms_context"]))
+            if segment.kind == SegmentKind.REPORT_POINT:
+                # Validated physical type and section context are authoritative.
+                if segment.point_type == "graded" and tg in {"TG2", "TG3"}:
+                    categories.extend(
+                        (category, [f"grade_{tg.lower()}", "validated_physical_type", "locked_arkat_structure"])
+                        for category in self.ARKAT
+                    )
+                    if tg == "TG3":
+                        categories.append((RuleCategory.TG3_COST, [
+                            "grade_tg3", "validated_physical_type", "point_bound_cost_required",
+                        ]))
+                elif segment.point_type == "tgiu":
+                    categories.append((RuleCategory.METHODOLOGY, ["validated_point_type_tgiu"]))
+                elif segment.point_type in {"electrical_no_tg", "hms_no_tg", "methodology_only"}:
+                    categories.append((RuleCategory.METHODOLOGY, [
+                        f"validated_point_type_{segment.point_type}", "validated_section_context",
+                    ]))
+                elif segment.point_type == "legality_no_tg":
+                    categories.append((RuleCategory.LEGALITY, [
+                        "validated_point_type_legality_no_tg", "validated_section_context",
+                    ]))
+            else:
+                # Standalone AI sections are eligible only when they are not
+                # linked to a physical object above.
+                if segment.kind == SegmentKind.METHODOLOGY:
+                    categories.append((RuleCategory.METHODOLOGY, ["standalone_methodology_section"]))
+                if segment.kind == SegmentKind.LEGALITY:
+                    categories.append((RuleCategory.LEGALITY, ["standalone_legality_section"]))
+                if segment.kind == SegmentKind.SECTION and any(
+                    term in _normal(segment.section_context) for term in ("elektr", "hms", "sikkerhet")
+                ):
+                    categories.append((RuleCategory.METHODOLOGY, ["validated_section_context"]))
             # A structurally identified no-TG legality/methodology section is still
             # assessed, but ordinary TG0/TG1 report points are not sent to ARKAT.
             seen: set[RuleCategory] = set()
