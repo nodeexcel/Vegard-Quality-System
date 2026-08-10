@@ -180,6 +180,10 @@
       "sha256": "a0824121d0fbf43a03fb01a2fa2710ce30e0a9ad0bc25c197b346b821109061b"
     },
     {
+      "path": "candidates/a3_a4_v2/validert_a4_approved_variances_v2_1.json",
+      "sha256": "543c39bc926895ecbbe442cf132f061d35baa9dadd27473bf066f871c01a5d94"
+    },
+    {
       "path": "candidates/a3_a4_v2/APPROVAL_RECORD.txt",
       "sha256": "ce5edb8d10416ee1e5efd55a89284d31bddb2664c7babc734dedcdbf03dde2e8"
     }
@@ -191,7 +195,7 @@
     },
     {
       "path": "backend/app/services/phase_a_source_inventory.py",
-      "sha256": "4fa5556b3719a3e55b657108139cd35c0a91fc9ea5a677a56a5b5e29ab15d481"
+      "sha256": "c223bc13cf2fe999a3898a017cbcc5e1ba7e06429f90c0e9373575fd9dded23b"
     },
     {
       "path": "backend/app/services/phase_a_document_understanding.py",
@@ -211,7 +215,7 @@
     },
     {
       "path": "backend/app/services/phase_a_assessment.py",
-      "sha256": "5df12dbc06e56b6c099ed5525e5d1211e157de30bf536331c7f5c3ebc10d7625"
+      "sha256": "2eac5e5b48738922d5b6e9a9a6ea23d16c76f8d3c5487f370ae928f444e88ba7"
     },
     {
       "path": "backend/app/services/phase_a_scoring.py",
@@ -235,11 +239,11 @@
     },
     {
       "path": "backend/scripts/verify_phase_a_frozen_acceptance.py",
-      "sha256": "5a014db4f9328e7265406188895ad5dd05673fe387077b275ff71f842362cf05"
+      "sha256": "a0f95e0cc30fe4886316d5cd0849c440ae2224f83bf492abb7bd796e01e2dc04"
     },
     {
       "path": "backend/scripts/build_phase_a_candidate_manifest.py",
-      "sha256": "8ad8873b30170fe5b3fa32ef7394c8ef405f5d897b2a242d5cd7b1f8bc8b6b6a"
+      "sha256": "30a827c8b914e94fe697fc4ce8a558ad19a43ccc4ff1040b8b7027a5e39d3226"
     },
     {
       "path": "frontend/app/results/[id]/page.tsx",
@@ -253,11 +257,11 @@
     },
     {
       "path": "tests/test_phase_a_source_inventory_safety.py",
-      "sha256": "889c951567b13c51d331b6440ca9b2b99ed7f0a9204cbe19d0b4f961ec751219"
+      "sha256": "3813666b2356ae888dcebbdfe6e7fd10fa49361a6658dce12fa32183a4d8940e"
     },
     {
       "path": "tests/test_phase_a3_a4_governed_pipeline.py",
-      "sha256": "90a2c7bb2c5c1ff424339705c0c99f5fb5607e2d4290b2531ba3a8c30518be26"
+      "sha256": "ac810d4c93f3b7d23df53065a36cf535b0fdd854ff0977b309004d43c6d40374"
     },
     {
       "path": "tests/test_dommer_b_regression.py",

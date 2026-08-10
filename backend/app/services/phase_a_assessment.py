@@ -46,44 +46,14 @@ def _identifier(prefix: str, *parts: str) -> str:
 def _assessment_segments_with_linked_summaries(
     segments: Iterable[ValidatedSegment],
 ) -> dict[str, ValidatedSegment]:
-    """Add only hierarchy-validated same-point summaries to assessment context.
+    """Keep summaries traceable but outside substantive semantic assessment.
 
-    A summary is supporting evidence, never an independently assessable point.  The
-    source-structure layer has already resolved its physical primary; unresolved or
-    ambiguous summaries have no ``supporting_primary_segment_id`` and therefore can
-    never enter this context.
+    A hierarchy link proves which primary a summary describes; it does not make the
+    summary part of that point's evidentiary body.  This prevents summary prose or
+    boilerplate from satisfying ARKAT fields while retaining linkage for comparison
+    and contradiction diagnostics.
     """
-    values = list(segments)
-    support_by_primary: dict[str, list] = {}
-    for item in values:
-        if item.kind.value != "summary" or not item.supporting_primary_segment_id:
-            continue
-        spans = item.bound_body_spans or item.evidence_spans or (
-            [item.evidence] if item.evidence is not None else []
-        )
-        support_by_primary.setdefault(item.supporting_primary_segment_id, []).extend(spans)
-
-    enriched: dict[str, ValidatedSegment] = {}
-    for item in values:
-        additions = support_by_primary.get(item.segment_id, [])
-        if not additions:
-            enriched[item.segment_id] = item
-            continue
-        original = item.bound_body_spans or item.evidence_spans or (
-            [item.evidence] if item.evidence is not None else []
-        )
-        unique = []
-        seen: set[str] = set()
-        for span in [*original, *additions]:
-            if span.evidence_id in seen:
-                continue
-            seen.add(span.evidence_id)
-            unique.append(span)
-        enriched[item.segment_id] = item.model_copy(update={
-            "bound_body_spans": unique,
-            "validation_notes": [*item.validation_notes, "hierarchy_linked_summary_context_included"],
-        })
-    return enriched
+    return {item.segment_id: item for item in segments}
 
 
 class AssessmentModel(Protocol):
@@ -107,7 +77,7 @@ Search the entire bound point body for each semantic function. Text located unde
 Årsak or Konsekvens heading may satisfy Risiko when it actually describes a possible
 technical development; a missing heading alone is never a missing-field finding.
 For TG3 cost, only a cost class/interval or other schematic estimate explicitly bound
-to this point (or an explicitly linked same-point summary supplied as evidence) counts.
+to this physical point counts.
 For Risiko, a pure inspection or documentation limitation is not sufficient unless it
 names a possible technical defect, damage development, functional failure, or other
 technical risk category. Use LIMITATION_USED_AS_RISK_SUBSTITUTE when a limitation is
@@ -119,8 +89,8 @@ text describes a present technical condition, deterioration, or function loss.
 For an ARKAT field request, return only that field's semantic error types; do not
 propose TG-setting, age-only, scoring, or another assessment category's finding.
 Treat every supplied complete_bound_body span as part of the same hierarchy-validated
-physical point; later spans may be a linked same-point summary and may satisfy or
-clarify the semantic requirement. Never treat generic guidance as point-specific.
+physical point. Summary, navigation, boilerplate and foreign-point prose are excluded
+and cannot satisfy the semantic requirement. Never treat generic guidance as point-specific.
 For TGIU, assess the reason for non-inspection and a concrete further-investigation
 recommendation independently and emit one candidate for each deficient requirement.
 For methodology-only detached structures, evaluate the governed explanatory-structure
@@ -200,7 +170,18 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
             "instruction": (
                 "Return one candidate for every independently satisfied, deficient, or abstained governed requirement "
                 "that applies to this physical point. Do not combine distinct governed error types. Do not emit a "
-                "deficiency unless its exact proposed_finding_type occurs in a retrieved rule."
+                "deficiency unless its exact proposed_finding_type occurs in a retrieved rule. "
+                + (
+                    "This is a TGIU point: assess missing reason and missing concrete further investigation "
+                    "as separate governed candidates. "
+                    if segment.point_type == "tgiu" else ""
+                )
+                + (
+                    "This is a detached or optional assessed structure: do not find a defect merely because TG is "
+                    "absent, but apply the governed methodology rule when concrete deviations are described without "
+                    "the required explanatory cause/risk/consequence/measure structure."
+                    if segment.point_type == "methodology_only" else ""
+                )
             ),
             "required_output_schema": {"type": "object", "required": ["candidates"], "properties": {
                 "candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema(), "maxItems": 12}
@@ -215,7 +196,11 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
         values = payload.get("candidates") if isinstance(payload, dict) else None
         if not isinstance(values, list):
             raise ValueError("assessment response has no candidates array")
-        return [AssessmentCandidate.model_validate(item) for item in values]
+        candidates: list[AssessmentCandidate] = []
+        for item in values:
+            candidate = AssessmentCandidate.model_validate(item)
+            candidates.extend(_split_compound_tgiu_candidate(candidate, rules))
+        return candidates
 
     def prime_worklist(
         self,
@@ -226,6 +211,15 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
         """Batch invocations without changing segment/category admission units."""
         by_segment: dict[str, dict[str, Any]] = {}
         for segment, category, rules in worklist:
+            # TGIU and detached-building methodology need a dedicated semantic
+            # call because multiple independent governed obligations can apply
+            # to one physical object. They use assess_many below, not the broad
+            # point batch.
+            if (
+                category == RuleCategory.METHODOLOGY
+                and segment.point_type in {"tgiu", "methodology_only"}
+            ):
+                continue
             entry = by_segment.setdefault(segment.segment_id, {"segment": segment, "categories": {}})
             entry["categories"][category] = rules
             self._primed[(segment.segment_id, category)] = []
@@ -292,11 +286,18 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
             raw_candidates = payload.get("candidates") if isinstance(payload, dict) else None
             if not isinstance(raw_candidates, list):
                 raise ValueError("batched assessment response has no candidates array")
+            rules_by_key = {
+                (entry["segment"].segment_id, category): rules
+                for entry in batch
+                for category, rules in entry["categories"].items()
+            }
             for item in raw_candidates:
                 candidate = AssessmentCandidate.model_validate(item)
                 key = (candidate.segment_id, candidate.rule_category)
                 if key in allowed:
-                    self._primed[key].append(candidate)
+                    self._primed[key].extend(
+                        _split_compound_tgiu_candidate(candidate, rules_by_key[key])
+                    )
             bedrock = self._bedrock()
             self.invocation_records.append({
                 "batch_index": offset // batch_size,
@@ -330,6 +331,145 @@ def _governed_finding_types(records: Iterable[RuleRetrievalRecord]) -> set[str]:
         values.add(record.rule_id)
         walk(record.content)
     return values
+
+
+def _split_compound_tgiu_candidate(
+    candidate: AssessmentCandidate,
+    records: Iterable[RuleRetrievalRecord],
+) -> list[AssessmentCandidate]:
+    """Convert a model's compound TGIU label into governed atomic candidates."""
+    if (
+        candidate.decision != AssessmentDecision.DEFICIENT
+        or candidate.rule_category != RuleCategory.METHODOLOGY
+        or not candidate.proposed_finding_type
+    ):
+        return [candidate]
+    allowed = {
+        value for value in _governed_finding_types(records)
+        if value.startswith("TGIU_")
+    }
+    tokens = re.findall(r"TGIU_[A-Z0-9_]+", candidate.proposed_finding_type.upper())
+    selected = list(dict.fromkeys(token for token in tokens if token in allowed))
+    if len(selected) < 2:
+        return [candidate]
+    return [
+        candidate.model_copy(update={"proposed_finding_type": finding_type})
+        for finding_type in selected
+    ]
+
+
+def _semantic_risiko_present(segment: ValidatedSegment) -> bool:
+    """Recognize explicit technical risk semantics in the isolated point body."""
+    body = "\n".join(
+        span.exact_quote
+        for span in (segment.bound_body_spans or segment.evidence_spans)
+    ).casefold()
+    body = re.sub(r"\s+", " ", body)
+    body = re.sub(
+        r"hvordan\s+kontrollen\s+er\s+utført.*?konklusjon\s+bygningsdel\s*:?",
+        " ", body,
+    )
+    risk_patterns = (
+        r"\b(?:økt\s+)?risiko(?:en)?\s+(?:for|av)\s+[^.\n;]{2,220}",
+        r"\bfare\s+for\s+[^.\n;]{2,220}",
+        r"\bøkt\s+sannsynlighet\s+for\s+[^.\n;]{2,220}",
+        r"\b(?:kan|vil\s+kunne|kan\s+over\s+tid)\s+[^.\n;]{0,120}"
+        r"(?:føre\s+til|medføre|resultere\s+i|utvikle|belaste|påvirke)\s+[^.\n;]{2,180}",
+    )
+    harm = re.compile(
+        r"\b(?:\w*skad\w*|fukt\w*|råte\w*|vanninntreng\w*|snøras\w*|"
+        r"\w*svikt\w*|nedbryt\w*|lekk\w*|kondens\w*|brann\w*|helse\w*|"
+        r"oppsvell\w*|membran\w*|fuktbelast\w*|"
+        r"funksjonstap\w*|redusert\s+levetid|setningsskad\w*|korrosjon\w*)\b"
+    )
+    return any(
+        harm.search(match.group(0))
+        for pattern in risk_patterns
+        for match in re.finditer(pattern, body)
+    )
+
+
+def _normalize_semantic_candidate(
+    candidate: AssessmentCandidate,
+    segment: ValidatedSegment,
+    records: Iterable[RuleRetrievalRecord],
+) -> AssessmentCandidate:
+    """Apply deterministic evidence guards without inventing a finding."""
+    if (
+        candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.rule_category == RuleCategory.RISIKO
+        and candidate.proposed_finding_type in {"MISSING", "MISSING (risiko)"}
+        and _semantic_risiko_present(segment)
+    ):
+        return candidate.model_copy(update={
+            "decision": AssessmentDecision.SATISFIED,
+            "proposed_finding_type": None,
+            "explanation": (
+                candidate.explanation
+                + " Deterministic evidence validation found explicit technical-risk semantics "
+                  "inside the isolated physical point body; a missing-Risiko finding is not admissible."
+            ),
+        })
+    if (
+        candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.rule_category == RuleCategory.AARSAK
+        and candidate.proposed_finding_type == "OBSERVATION_AS_AARSAK"
+    ):
+        body = "\n".join(
+            span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
+        )
+        cause = re.search(
+            r"(?is)\bÅrsak\s*:\s*(.*?)\s*(?:Konsekvens(?:/tiltak)?|Risiko|Anbefalt\s+tiltak)\s*:?",
+            body,
+        )
+        if cause and re.fullmatch(
+            r"\s*(?:alder|elde)(?:\s+og\s+slitasje)?\s*\.?\s*", cause.group(1), re.I
+        ):
+            return candidate.model_copy(update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    candidate.explanation
+                    + " The isolated Årsak field is an age/elde statement, not an observation repeated as cause; "
+                      "OBSERVATION_AS_AARSAK is therefore not the applicable governed taxonomy."
+                ),
+            })
+    if (
+        candidate.decision == AssessmentDecision.SATISFIED
+        and candidate.rule_category == RuleCategory.KONSEKVENS
+    ):
+        body = "\n".join(
+            span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
+        )
+        field = re.search(
+            r"(?is)\bKonsekvens\s*:\s*(.*?)(?:\n(?:Anbefalt(?:e)?\s+tiltak|Tiltak|"
+            r"[A-ZÆØÅ0-9][^\n]{0,100}\s+TG[0-3])\b|\Z)",
+            body,
+        )
+        consequence = re.sub(r"\s+", " ", field.group(1)).strip() if field else ""
+        governed = _governed_finding_types(records)
+        finding_type = None
+        if (
+            "TILTAK_AS_KONSEKVENS" in governed
+            and re.search(r"\b(?:trenger|må|bør)\s+(?:vedlikehold\w*\s+og\s+)?utbedr\w*", consequence, re.I)
+            and not re.search(r"\b(?:kan|medfører|fører\s+til|resulterer|risiko|fare|redusert\s+levetid)\b", consequence, re.I)
+        ):
+            finding_type = "TILTAK_AS_KONSEKVENS"
+        elif (
+            "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS" in governed
+            and re.fullmatch(r"(?is)\s*økt\s+(?:fukt)?belast\w*\s+(?:på|mot)\s+[^.]+\.?\s*", consequence)
+        ):
+            finding_type = "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"
+        if finding_type:
+            return candidate.model_copy(update={
+                "decision": AssessmentDecision.DEFICIENT,
+                "proposed_finding_type": finding_type,
+                "explanation": (
+                    candidate.explanation
+                    + f" Deterministic semantic validation classifies the isolated Konsekvens text as {finding_type}."
+                ),
+            })
+    return candidate
 
 
 def _canonical_finding_identity(
@@ -452,6 +592,8 @@ class DeterministicAssessmentValidator:
             if admission == FindingAdmission.ACCEPTED and str(canonical_identity or "").startswith("E_METHOD.")
             else f"A_ARKAT_{canonical_point_id}_{canonical_identity.split('.', 2)[1]}_{canonical_identity.split('.', 2)[2]}"
             if admission == FindingAdmission.ACCEPTED and str(canonical_identity or "").startswith("A_ARKAT_SEMANTIC.")
+            else f"{canonical_identity}_{canonical_point_id}"
+            if admission == FindingAdmission.ACCEPTED and str(canonical_identity or "").startswith("TGIU_")
             else _identifier("finding", segment.segment_id, assessment.rule_category.value, canonical_identity or "")
             if admission == FindingAdmission.ACCEPTED
             else None
@@ -631,6 +773,7 @@ class PhaseA4ShadowService:
                     ))
                     continue
                 for candidate_index, candidate in enumerate(candidates):
+                    candidate = _normalize_semantic_candidate(candidate, segment, retrieval.records)
                     candidate_retrieval_ids = list(candidate.retrieval_ids)
                     if not candidate_retrieval_ids:
                         canonical = _canonical_finding_identity(candidate.proposed_finding_type, retrieval.records)

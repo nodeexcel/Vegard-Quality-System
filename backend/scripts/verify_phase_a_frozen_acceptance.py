@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "ivit": {"score": 54, "gate": True, "state": "complete_with_findings", "items": 9},
-    "bolavi": {"score": 92, "gate": True, "state": "complete_with_findings", "items": 1},
+    "ivit": {"score": 54, "gate": True, "state": "complete_with_findings", "items": 10},
+    "bolavi": {"score": 70, "gate": True, "state": "complete_with_findings", "items": 5},
     "bmtf": {"score": 97, "gate": False, "state": "complete_with_findings", "items": 1},
 }
 
@@ -76,6 +76,7 @@ def main() -> int:
     results = [summarize(name, getattr(args, f"{name}_a2"), getattr(args, f"{name}_a4")) for name in EXPECTED]
     payload = {
         "specification_id": "VALIDERT-A4-2026-02",
+        "approved_variance_record": "validert_a4_approved_variances_v2_1.json",
         "all_frozen_summaries_pass": all(item["passes_frozen_summary"] for item in results),
         "reports": results,
     }

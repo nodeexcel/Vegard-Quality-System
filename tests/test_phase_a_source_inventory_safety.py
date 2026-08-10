@@ -355,6 +355,40 @@ def test_bolavi_summary_is_linked_and_not_a_second_primary_point():
     assert terrain_summary[0].linked_primary_id == terrain_primary[0].inventory_id
 
 
+def test_real_ivit_and_bolavi_point_hierarchy_and_bodies_are_isolated():
+    ivit_text = PDFExtractor.extract_text(str(ROOT / "files/ivit-svak_arkat.pdf"))
+    ivit = PhysicalSourceInventoryBuilder().build(ivit_text, _hash(ivit_text))
+    primary = [item for item in ivit.points if item.role == InventoryRole.PRIMARY]
+    by_title = {item.title: item for item in primary if item.title in {
+        "Taktekking", "Nedløp og beslag", "Vinduer",
+    }}
+    assert set(by_title) == {"Taktekking", "Nedløp og beslag", "Vinduer"}
+    for title, point in by_title.items():
+        body = "\n".join(span.exact_quote for span in point.body_spans)
+        assert point.section_context == "UTVENDIG", title
+        assert point.char_end == point.body_spans[-1].char_end
+    assert "risiko for videre nedbrytning" in "\n".join(
+        span.exact_quote for span in by_title["Taktekking"].body_spans
+    )
+    assert "Nedløp og beslag\nBeskrivelse" not in "\n".join(
+        span.exact_quote for span in by_title["Taktekking"].body_spans
+    )
+    bathroom_ventilation = next(
+        item for item in primary
+        if item.title == "Ventilasjon" and item.section_context == "UNDERETASJE > BAD"
+    )
+    bathroom_body = "\n".join(span.exact_quote for span in bathroom_ventilation.body_spans)
+    assert "UNDERETASJE > VASKEROM\nOverflater" not in bathroom_body
+
+    bolavi_text = PDFExtractor.extract_text(str(ROOT / "files/bolavi-egen-mangler_kostnadtg3.pdf"))
+    bolavi = PhysicalSourceInventoryBuilder().build(bolavi_text, _hash(bolavi_text))
+    terrain = next(
+        item for item in bolavi.points
+        if item.role == InventoryRole.PRIMARY and item.point_label == "3" and item.tg_grade == "TG3"
+    )
+    assert terrain.section_context != "Kjøkken"
+
+
 def test_real_report_summaries_are_all_linked_and_never_primary_assessments():
     expected_roles = {
         "ivit-svak_arkat.pdf": {"summary": 0, "navigation": 29},

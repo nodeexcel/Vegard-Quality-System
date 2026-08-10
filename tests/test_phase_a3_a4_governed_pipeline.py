@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,9 @@ from app.services.phase_a_assessment import (
     BedrockSemanticAssessmentModel,
     PhaseA4ShadowService,
     _assessment_segments_with_linked_summaries,
+    _semantic_risiko_present,
+    _split_compound_tgiu_candidate,
+    _normalize_semantic_candidate,
 )
 from app.services.phase_a_applicability import DeterministicApplicabilityPlanner
 from app.services.phase_a_contracts import (
@@ -42,7 +46,7 @@ from app.services.phase_a_governed_retrieval import (
 REPORT = "[SIDE 1]\nLovlighet\nIngen ferdigattest er fremlagt.\n"
 
 
-def test_hierarchy_linked_summary_is_supporting_assessment_evidence_only():
+def test_hierarchy_linked_summary_is_trace_only_not_semantic_evidence():
     def evidence(evidence_id, quote, start):
         return {
             "evidence_id": evidence_id,
@@ -82,9 +86,137 @@ def test_hierarchy_linked_summary_is_supporting_assessment_evidence_only():
     enriched = _assessment_segments_with_linked_summaries([primary, summary])
 
     assert [item.evidence_id for item in enriched[primary.segment_id].bound_body_spans] == [
-        "evidence_primary_0001", "evidence_summary_0001",
+        "evidence_primary_0001",
     ]
     assert enriched[summary.segment_id].supporting_primary_segment_id == primary.segment_id
+
+
+@pytest.mark.parametrize("risk_text", [
+    "Tilstanden innebærer risiko for videre nedbrytning av treverket.",
+    "Mangelen medfører økt risiko for snøras og personskade.",
+    "Beslaget øker risikoen for vanninntrengning og senere fuktskade.",
+    "Forholdet vil kunne føre til råte i den bærende konstruksjonen.",
+    "Det foreligger fare for funksjonssvikt ved fortsatt bruk.",
+    "Dette gir økt sannsynlighet for vannskade over tid.",
+    "Forholdet kan over tid belaste underliggende membran.",
+    "Fuktskaden gir økt risiko for ytterligere oppsvelling.",
+])
+def test_semantic_risiko_recognizes_real_and_unseen_wording(risk_text):
+    quote = "Observasjon: Eldre utførelse. " + risk_text
+    span = {
+        "evidence_id": "evidence_risk_variant_001", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_risk_variant_01", "kind": "report_point", "title": "Taktekking",
+        "section_context": "UTVENDIG", "professional_subject": "Taktekking", "point_label": "20.2",
+        "tg_grade": "TG2", "point_type": "graded", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "Taktekking", "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    assert _semantic_risiko_present(segment)
+
+
+def test_generic_inspection_methodology_does_not_satisfy_point_bound_risiko():
+    quote = (
+        "Hvordan kontrollen er utført Kontrollen vurderer forhold som kan gi økt risiko for "
+        "kondens og fuktskader. Konklusjon bygningsdel: TG2 Avvik som bør utbedres."
+    )
+    span = {
+        "evidence_id": "evidence_risk_boilerplate_01", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_risk_boilerplate_1", "kind": "report_point", "title": "Vegger",
+        "section_context": "10. VASKEROM", "professional_subject": "Våtrom", "point_label": "10.1",
+        "tg_grade": "TG2", "point_type": "graded", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "Vegger", "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    assert not _semantic_risiko_present(segment)
+
+
+def test_age_cause_is_not_mislabeled_as_observation_repeated_as_cause():
+    quote = "Vurdering av avvik: Riss i puss. Årsak: Alder. Konsekvens: Fare for fuktskade."
+    span = {
+        "evidence_id": "evidence_age_cause_0001", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_age_cause_0001", "kind": "report_point", "title": "Veggkonstruksjon",
+        "section_context": "UTVENDIG", "professional_subject": "Vegg", "point_label": "18.2",
+        "tg_grade": "TG2", "point_type": "graded", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "Veggkonstruksjon", "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id, retrieval_ids=["retrieval_age_0001"],
+        rule_category=RuleCategory.AARSAK, decision=AssessmentDecision.DEFICIENT,
+        explanation="The cause repeats an observation.", evidence_ids=[span["evidence_id"]],
+        proposed_finding_type="OBSERVATION_AS_AARSAK",
+    )
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+    assert normalized.decision == AssessmentDecision.SATISFIED
+    assert normalized.proposed_finding_type is None
+
+
+@pytest.mark.parametrize(("consequence", "expected_type"), [
+    ("Har noe setningsskader og trenger utbedringer.", "TILTAK_AS_KONSEKVENS"),
+    ("Økt fuktbelastning på mur.", "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"),
+])
+def test_consequence_semantics_are_not_accepted_as_measure_or_risk_only(consequence, expected_type):
+    quote = f"Vurdering av avvik: Avvik. Årsak: Utførelse. Konsekvens: {consequence}"
+    span = {
+        "evidence_id": "evidence_consequence_01", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_consequence_01", "kind": "report_point", "title": "Grunnmur",
+        "section_context": "TOMTEFORHOLD", "professional_subject": "Grunnmur", "point_label": "1.3",
+        "tg_grade": "TG2", "point_type": "graded", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "Grunnmur", "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id, retrieval_ids=["retrieval_consequence_01"],
+        rule_category=RuleCategory.KONSEKVENS, decision=AssessmentDecision.SATISFIED,
+        explanation="The consequence is sufficient.", evidence_ids=[span["evidence_id"]],
+        proposed_finding_type=None,
+    )
+    records = [SimpleNamespace(rule_id=expected_type, content={"error_type": expected_type})]
+    normalized = _normalize_semantic_candidate(candidate, segment, records)
+    assert normalized.decision == AssessmentDecision.DEFICIENT
+    assert normalized.proposed_finding_type == expected_type
+
+
+def test_compound_tgiu_output_is_split_into_governed_atomic_candidates():
+    candidate = AssessmentCandidate(
+        segment_id="segment_tgiu_atomic_01", retrieval_ids=["retrieval_tgiu_01"],
+        rule_category=RuleCategory.METHODOLOGY, decision=AssessmentDecision.DEFICIENT,
+        explanation="Both independent TGIU requirements are missing.",
+        evidence_ids=["evidence_tgiu_atomic_01"],
+        proposed_finding_type="TGIU_MISSING_REASON and TGIU_MISSING_FURTHER_INVESTIGATION",
+    )
+    rules = [
+        SimpleNamespace(rule_id="TGIU_MISSING_REASON", content={}),
+        SimpleNamespace(rule_id="TGIU_MISSING_FURTHER_INVESTIGATION", content={}),
+    ]
+    split = _split_compound_tgiu_candidate(candidate, rules)
+    assert [item.proposed_finding_type for item in split] == [
+        "TGIU_MISSING_REASON", "TGIU_MISSING_FURTHER_INVESTIGATION",
+    ]
 
 
 class Extractor:

@@ -99,27 +99,30 @@ def _previous_heading_start(text: str, position: int) -> tuple[int, str]:
 
 
 def _section_context(text: str, position: int) -> str:
-    """Return nearby structural section/room headings, excluding page headers."""
-    window = text[:position]
-    accepted: list[str] = []
-    section_words = {
-        "utvendig", "innvendig", "våtrom", "kjøkken", "tomteforhold",
-        "tekniske installasjoner", "helse, miljø og sikkerhet", "hms",
-        "lovlighet", "metodikk", "forutsetninger",
+    """Return the nearest active hierarchy without accumulating prior rooms."""
+    window_start = max(0, position - 5000)
+    candidates: list[tuple[int, str]] = []
+    main_sections = {
+        "UTVENDIG", "INNVENDIG", "VÅTROM", "KJØKKEN", "TOMTEFORHOLD",
+        "TEKNISKE INSTALLASJONER", "HELSE, MILJØ OG SIKKERHET", "HMS",
+        "LOVLIGHET", "METODIKK", "FORUTSETNINGER",
     }
-    for raw in window.splitlines():
-        value = raw.strip()
-        folded = value.casefold()
-        if not value or len(value) > 120:
+    for match in re.finditer(r"(?m)^([^\n]{2,160})$", text[window_start:position]):
+        value = match.group(1).strip()
+        if not value or "gå til side" in value.casefold():
             continue
-        if (
-            folded in section_words
-            or ">" in value
-            or re.match(r"^\d+(?:\.\d+)?\.\s+(?:bad|vaskerom|kjøkken|våtrom)\b", folded)
-        ):
-            if value not in accepted:
-                accepted.append(value)
-    return " > ".join(accepted[-3:])
+        absolute = window_start + match.start()
+        if ">" in value:
+            parts = [part.strip() for part in value.split(">") if part.strip()]
+            if len(parts) >= 2 and all(len(part) <= 80 for part in parts):
+                candidates.append((absolute, " > ".join(parts)))
+        elif value in main_sections or value.casefold() in {
+            "helse, miljø og sikkerhet", "lovlighet", "metodikk", "forutsetninger",
+        }:
+            candidates.append((absolute, value))
+        elif re.match(r"^\d+(?:\.\d+)?\.\s+(?:bad|vaskerom|kjøkken|våtrom)\b", value.casefold()):
+            candidates.append((absolute, value))
+    return max(candidates, default=(0, ""), key=lambda item: item[0])[1]
 
 
 def _title_hierarchy(value: str) -> list[str]:
@@ -362,6 +365,34 @@ class PhysicalSourceInventoryBuilder:
                         match.group(0).strip(), None, match.group(0).strip(),
                         "physical_non_assessable_section_boundary", "unknown",
                     ))
+
+            # Every physical point heading is a stopping boundary, including
+            # TG0/TG1 or other points that are not eligible for A4 assessment.
+            # Otherwise a TG2 body can absorb the following point's description
+            # before the next assessable "Vurdering av avvik" marker.
+            for match in re.finditer(r"(?im)^Beskrivelse\s*$", primary):
+                preceding = list(re.finditer(r"(?m)^([^\n]{2,180})$", primary[:match.start()]))
+                heading = None
+                for candidate in reversed(preceding):
+                    value = candidate.group(1).strip()
+                    if value.casefold().startswith(("punktet må sees", "se også", "jf.")):
+                        continue
+                    heading = candidate
+                    break
+                if heading is None:
+                    continue
+                local_start, title = heading.start(), heading.group(1).strip()
+                if title.casefold() in {
+                    "tilstandsrapport", "bygningssakkyndig", "oppdragsnr.",
+                } or title.rstrip().endswith((".", ":", ";")):
+                    continue
+                absolute_start = base + local_start
+                if any(item.role == InventoryRole.BOUNDARY and item.start == absolute_start for item in markers):
+                    continue
+                markers.append(_Marker(
+                    InventoryRole.BOUNDARY, page.number, absolute_start, None,
+                    title, None, title, "physical_point_heading_boundary", "unknown",
+                ))
 
             # Some PDFs place the visible section title inside their table text
             # layer while the page's ordinary layer contains only explanatory

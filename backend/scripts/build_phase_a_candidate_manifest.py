@@ -20,6 +20,7 @@ CANDIDATE_ASSETS = (
     "candidates/a3_a4_v2/rag_scoring_model_validert_phase_a_v1_0.json",
     "candidates/a3_a4_v2/validert_governed_regime_decision_v2.0_approved.md",
     "candidates/a3_a4_v2/validert_a4_acceptance_specification_v2.0_frozen.md",
+    "candidates/a3_a4_v2/validert_a4_approved_variances_v2_1.json",
     "candidates/a3_a4_v2/APPROVAL_RECORD.txt",
 )
 
