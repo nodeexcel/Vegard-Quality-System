@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "status": "candidate_overlay_shadow_only",
+  "baseline_asset": {
+    "path": "rag_scoring_model_validert_v1.6.15.json",
+    "sha256": "7b8de4def001821685f02663cbfbd6a64453631b8136350f833a0e56660aa31e",
+    "internal_version": "1.6.15"
+  },
+  "rule_catalog": [
+    {
+      "id": "E_METHOD.tg2_missing_anbefalt_tiltak_ns2025",
+      "category": "E",
+      "deduction": 3,
+      "category_cap": 10,
+      "obligation_class": "standard_methodology",
+      "regulatory": false,
+      "gate_effect": {
+        "blocks_96_gate": false,
+        "caps_total_score_to": null
+      }
+    }
+  ],
+  "preserved": {
+    "generic_tg2_mapping_excluded_for_exact_rule": true,
+    "tg3_behavior_unchanged": true
+  }
+}

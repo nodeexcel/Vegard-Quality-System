@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-CONTRACT_VERSION = "phase_a_contracts_v1"
+CONTRACT_VERSION = "phase_a_contracts_v2"
 
 
 class StrictContract(BaseModel):
@@ -92,6 +92,8 @@ class RegimeResolutionStatus(str, Enum):
     PENDING_GOVERNED_DECISION = "pending_governed_decision"
     RESOLVED = "resolved"
     REQUIRES_CLARIFICATION = "requires_clarification"
+    CONFLICT = "conflict"
+    NOT_APPLICABLE = "not_applicable"
 
 
 class RuleApplicability(str, Enum):
@@ -154,7 +156,7 @@ class PhysicalReportPoint(StrictContract):
 class SourceInventoryResult(StrictContract):
     inventory_version: str = "phase_a_source_inventory_v1"
     document_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
-    detector: str = Field(min_length=1, max_length=200)
+    detector: str = Field(min_length=1, max_length=2000)
     structural_marker_counts: Dict[str, int] = Field(default_factory=dict)
     points: List[PhysicalReportPoint] = Field(default_factory=list)
 
@@ -215,7 +217,7 @@ class ValidatedSegment(StrictContract):
     professional_subject: str
     point_label: Optional[str] = None
     tg_grade: Optional[str] = None
-    point_type: str = Field(default="unknown", pattern=r"^(graded|tgiu|electrical_no_tg|hms_no_tg|legality_no_tg|methodology_only|unknown)$")
+    point_type: str = Field(default="unknown", pattern=r"^(graded|tgiu|electrical_no_tg|hms_no_tg|legality_no_tg|methodology_only|summary|unknown)$")
     confidence: float = Field(ge=0.0, le=1.0)
     candidate_evidence: CandidateEvidence
     evidence: Optional[SourceEvidence] = None
@@ -335,6 +337,7 @@ class RuleRetrievalResult(StrictContract):
     rule_category: RuleCategory
     regime_resolution: "RegimeResolution"
     records: List[RuleRetrievalRecord] = Field(default_factory=list)
+    excluded_rule_ids: List[str] = Field(default_factory=list)
     asset_verifications: List[GovernedAssetVerification] = Field(default_factory=list)
     abstentions: List[Abstention] = Field(default_factory=list)
     trace_records: List["TraceRecord"] = Field(default_factory=list)
@@ -368,6 +371,12 @@ class FindingValidationDecision(StrictContract):
     reason_codes: List[str] = Field(default_factory=list)
     accepted_finding_id: Optional[str] = Field(default=None, max_length=200)
     canonical_finding_identity: Optional[str] = Field(default=None, max_length=300)
+    canonical_point_id: Optional[str] = Field(default=None, max_length=200)
+    category: Optional[str] = Field(default=None, pattern=r"^[A-F]$")
+    deduction: int = Field(default=0, ge=0)
+    obligation_class: Optional[str] = Field(default=None, pattern=r"^(regulatory|standard_methodology|validert_product_quality)$")
+    regulatory: bool = False
+    blocks_96_gate: bool = False
 
 
 class ApplicabilityPlanItem(StrictContract):
@@ -388,6 +397,59 @@ class FindingLineageRecord(StrictContract):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class PhaseAScoreCategory(StrictContract):
+    category: str = Field(pattern=r"^[A-F]$")
+    raw_deduction: int = Field(ge=0)
+    capped_deduction: int = Field(ge=0)
+    cap: int = Field(ge=0)
+
+
+class PhaseAScoreResult(StrictContract):
+    score_start: int = 100
+    categories: List[PhaseAScoreCategory] = Field(default_factory=list)
+    total_deduction: int = Field(ge=0)
+    score: int = Field(ge=0, le=100)
+    gate_threshold: int = 96
+    gate_blocked: bool = False
+    score_valid: bool = True
+
+
+class PhaseACustomerItem(StrictContract):
+    customer_item_id: str = Field(min_length=8, max_length=200)
+    accepted_finding_id: str = Field(min_length=8, max_length=200)
+    point_id: str = Field(min_length=1, max_length=200)
+    point_title: str = Field(min_length=1, max_length=500)
+    evidence: List[SourceEvidence] = Field(min_length=1)
+    deficiency: str = Field(min_length=1, max_length=4000)
+    obligation_class: str = Field(pattern=r"^(regulatory|standard_methodology|validert_product_quality)$")
+    why_it_matters: str = Field(min_length=1, max_length=4000)
+    improvement: str = Field(min_length=1, max_length=4000)
+    category: str = Field(pattern=r"^[A-F]$")
+    deduction: int = Field(ge=0)
+    blocks_96_gate: bool = False
+
+
+class PhaseAPublicFinding(StrictContract):
+    point: str = Field(min_length=1, max_length=500)
+    evidence: List[str] = Field(min_length=1)
+    message: str = Field(min_length=1, max_length=4000)
+    obligation_class: str = Field(pattern=r"^(regulatory|standard_methodology|validert_product_quality)$")
+    why_it_matters: str = Field(min_length=1, max_length=4000)
+    recommended_fix_text: str = Field(min_length=1, max_length=4000)
+    category: str = Field(pattern=r"^[A-F]$")
+    deduction: int = Field(ge=0)
+    blocks_96_gate: bool = False
+
+
+class PhaseAPublicPayload(StrictContract):
+    version: str = "phase_a_public_candidate_v1"
+    status: AnalysisState
+    score: Optional[int] = Field(default=None, ge=0, le=100)
+    score_valid: bool
+    gate_blocked: bool
+    findings: List[PhaseAPublicFinding] = Field(default_factory=list)
+
+
 class PhaseA4Result(StrictContract):
     run_id: str = Field(min_length=8, max_length=80)
     document_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -397,9 +459,13 @@ class PhaseA4Result(StrictContract):
     assessments: List[StructuredAssessment] = Field(default_factory=list)
     validation_decisions: List[FindingValidationDecision] = Field(default_factory=list)
     finding_lineage: List[FindingLineageRecord] = Field(default_factory=list)
+    score_result: Optional[PhaseAScoreResult] = None
+    normalized_customer_items: List[PhaseACustomerItem] = Field(default_factory=list)
+    production_compatible_public_payload: Optional[PhaseAPublicPayload] = None
     formal_acceptance_blockers: List[str] = Field(default_factory=list)
     abstentions: List[Abstention] = Field(default_factory=list)
     trace_records: List["TraceRecord"] = Field(default_factory=list)
+    model_invocations: List[Dict[str, Any]] = Field(default_factory=list)
     shadow_only: bool = True
     customer_publication_authorized: bool = False
 
@@ -420,6 +486,11 @@ class RegimeResolution(StrictContract):
     regime_id: Optional[str] = Field(default=None, max_length=200)
     controlling_fact_ids: List[str] = Field(default_factory=list)
     explanation: str = Field(min_length=1, max_length=2000)
+    applicable_ns_edition: Optional[str] = Field(default=None, pattern=r"^NS 3600:(2018|2025)$")
+    obligation_class: Optional[str] = Field(default=None, pattern=r"^(regulatory|standard_methodology|validert_product_quality)$")
+    controlling_fact_type: Optional[str] = Field(default=None, max_length=120)
+    excluded_alternatives: List[str] = Field(default_factory=list)
+    conflict_detail: Optional[str] = Field(default=None, max_length=2000)
 
 
 DocumentUnderstandingResult.model_rebuild()

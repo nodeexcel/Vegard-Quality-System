@@ -269,6 +269,39 @@ class PhysicalSourceInventoryBuilder:
                 ))
 
             low = primary.casefold()
+
+            # Structurally assessable no-TG modules. These detectors use the
+            # surrounding document grammar, not provider names or report text
+            # outcomes, and therefore remain extraction-only optimisations.
+            for match in re.finditer(r"(?im)^([^\n]{2,120})\s*\nAnvendelse\s*$", primary):
+                title = match.group(1).strip()
+                following = primary[match.end():match.end() + 6000]
+                if not re.search(r"(?im)^Byggeår(?:\s+Kommentar)?\s*$", following):
+                    continue
+                if not re.search(r"(?im)^Beskrivelse\s*$", following):
+                    continue
+                if not re.search(r"(?i)ikke\s+tilstandsvurdert.{0,120}(?:NS\s*3600|avhendingslova)", following):
+                    continue
+                markers.append(_Marker(
+                    InventoryRole.PRIMARY, page.number, base + match.start(), None,
+                    title, None, match.group(0).strip(),
+                    "physical_detached_building_methodology_section", "methodology_only",
+                ))
+
+            for heading, point_type, required_pattern in (
+                ("Elektrisk anlegg", "electrical_no_tg", r"(?i)eltilsynsrapport|elektriske\s+anlegget"),
+                ("Lovlighet", "legality_no_tg", r"(?i)byggetegninger|bruksendring|ferdigattest"),
+            ):
+                for match in re.finditer(rf"(?im)^{re.escape(heading)}\s*$", primary):
+                    following = primary[match.end():match.end() + 5000]
+                    if not re.search(required_pattern, following):
+                        continue
+                    markers.append(_Marker(
+                        InventoryRole.PRIMARY, page.number, base + match.start(), None,
+                        heading, None, match.group(0).strip(),
+                        f"physical_{point_type}_section", point_type,
+                    ))
+
             summary_start = min(
                 (position for position in (
                     low.find("oppsummering av avvik"), low.find("oppsummering / konklusjon")
@@ -314,6 +347,7 @@ class PhysicalSourceInventoryBuilder:
                 r"FORHOLD SOM ÅPENBART[^\n]*|HELSE,\s*MILJØ[^\n]*|HMS|"
                 r"BRANN(?:SIKKERHET|TEKNISKE FORHOLD)?|RADON|SKADEDYR[^\n]*|"
                 r"MARKEDSVERDI[^\n]*|BYGNINGER PÅ EIENDOMMEN|"
+                r"AREALER,\s*BYGGETEGNINGER OG BRANNCELLER|"
                 r"OPPSUMMERING / KONKLUSJON)\s*$",
                 r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*$",
                 r"(?im)^\d+\.\s+Oppsummering / konklusjon\s*$",
@@ -327,6 +361,20 @@ class PhysicalSourceInventoryBuilder:
                         InventoryRole.BOUNDARY, page.number, absolute_start, None,
                         match.group(0).strip(), None, match.group(0).strip(),
                         "physical_non_assessable_section_boundary", "unknown",
+                    ))
+
+            # Some PDFs place the visible section title inside their table text
+            # layer while the page's ordinary layer contains only explanatory
+            # boilerplate. In that case the whole page is a structural boundary
+            # for the preceding assessable point.
+            if re.search(r"(?im)^Arealer,\s*byggetegninger og brannceller\s*$", page.text):
+                absolute_start = page.start + (len(primary) - len(primary.lstrip()))
+                if not any(item.role == InventoryRole.BOUNDARY and item.start == absolute_start for item in markers):
+                    markers.append(_Marker(
+                        InventoryRole.BOUNDARY, page.number, absolute_start, None,
+                        "Arealer, byggetegninger og brannceller", None,
+                        "Arealer, byggetegninger og brannceller",
+                        "physical_table_layer_section_boundary", "unknown",
                     ))
 
         # Parse substantive summary children after all primary markers exist.
@@ -517,6 +565,31 @@ class PhysicalSourceInventoryBuilder:
                 ),
                 linked_primary_id=None,
             ))
+
+        # Canonicalize local or omitted point labels under an explicitly
+        # numbered main section. This is structural identity only: no provider,
+        # TG or substantive assessment rule participates in the decision.
+        section_ordinals: dict[str, int] = {}
+        canonicalized: list[PhysicalReportPoint] = []
+        for point in points:
+            if point.role != InventoryRole.PRIMARY:
+                canonicalized.append(point)
+                continue
+            section_match = re.match(r"^\s*(\d+)\.", point.section_context or "")
+            if not section_match:
+                canonicalized.append(point)
+                continue
+            section = section_match.group(1)
+            section_ordinals[section] = section_ordinals.get(section, 0) + 1
+            local = (point.point_label or "").strip().rstrip(".")
+            if local.startswith(f"{section}."):
+                canonical = local
+            elif re.fullmatch(r"\d+(?:\.\d+)*", local):
+                canonical = f"{section}.{local}"
+            else:
+                canonical = f"{section}.{section_ordinals[section]}"
+            canonicalized.append(point.model_copy(update={"point_label": canonical}))
+        points = canonicalized
 
         # Link summaries to a primary only when the complete hierarchy is safe.
         # Local-title similarity alone is intentionally insufficient.

@@ -46,8 +46,28 @@ def test_ivit_source_inventory_is_independent_and_contains_all_tgiu_points():
     primaries = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
     tgiu = [item.title for item in primaries if item.tg_grade == "TGIU"]
     assert inventory.structural_marker_counts["physical_primary_vurdering"] == 31
-    assert inventory.structural_marker_counts["physical_primary_points"] == 34
+    assert inventory.structural_marker_counts["physical_primary_points"] == 39
     assert sorted(tgiu) == ["Oljetank", "Septiktank", "Tilliggende konstruksjoner våtrom"]
+    typed = {(item.title, item.point_type) for item in primaries}
+    assert {("Sjøbod", "methodology_only"), ("Båtbu", "methodology_only"), ("Garasje", "methodology_only")} <= typed
+    assert ("Elektrisk anlegg", "electrical_no_tg") in typed
+    assert ("Lovlighet", "legality_no_tg") in typed
+    garage = next(item for item in primaries if item.title == "Garasje")
+    assert all(span.page == 31 for span in garage.body_spans)
+
+
+def test_bmtf_numbered_parent_sections_canonicalize_local_and_omitted_point_labels():
+    text = PDFExtractor.extract_text(str(ROOT / "files/Tilstandsrapport_Fritidsbolig-God_rapport.pdf"))
+    inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+    labels = {
+        item.title: item.point_label
+        for item in inventory.points
+        if item.role == InventoryRole.PRIMARY
+    }
+    assert labels["Bad – Dokumentasjon for våtrom"] == "7.4"
+    assert labels["Ventilasjon"] == "11.3"
+    assert labels["Fuktmåling i konstruksjoner"] == "11.4"
+    assert labels["Terrengforhold"] == "23.3"
 
 
 def test_physical_point_bodies_are_non_overlapping_and_do_not_depend_on_ai():
@@ -675,7 +695,4 @@ def test_one_model_failure_abstains_and_other_assessments_continue():
     assert len(result.assessments) == 1
     assert result.analysis_state.value == "limited"
     assert any(item.reason_code == "assessment_model_or_schema_failure" for item in result.abstentions)
-    assert result.formal_acceptance_blockers == [
-        "v46_tgiu_expected_behavior_requires_governed_resolution",
-        "v46_tg2_anbefalt_tiltak_expected_behavior_requires_governed_resolution",
-    ]
+    assert result.formal_acceptance_blockers == []

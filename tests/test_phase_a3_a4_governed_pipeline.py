@@ -16,7 +16,11 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///tmp.db")
 os.environ.setdefault("OPENAI_API_KEY", "dummy")
 os.environ.setdefault("SECRET_KEY", "dummy")
 
-from app.services.phase_a_assessment import BedrockSemanticAssessmentModel, PhaseA4ShadowService
+from app.services.phase_a_assessment import (
+    BedrockSemanticAssessmentModel,
+    PhaseA4ShadowService,
+    _assessment_segments_with_linked_summaries,
+)
 from app.services.phase_a_applicability import DeterministicApplicabilityPlanner
 from app.services.phase_a_contracts import (
     AssessmentCandidate,
@@ -25,6 +29,7 @@ from app.services.phase_a_contracts import (
     RegimeResolution,
     RegimeResolutionStatus,
     RuleCategory,
+    ValidatedSegment,
 )
 from app.services.phase_a_document_understanding import DocumentUnderstandingService
 from app.services.phase_a_governed_retrieval import (
@@ -35,6 +40,51 @@ from app.services.phase_a_governed_retrieval import (
 
 
 REPORT = "[SIDE 1]\nLovlighet\nIngen ferdigattest er fremlagt.\n"
+
+
+def test_hierarchy_linked_summary_is_supporting_assessment_evidence_only():
+    def evidence(evidence_id, quote, start):
+        return {
+            "evidence_id": evidence_id,
+            "exact_quote": quote,
+            "page": 1,
+            "char_start": start,
+            "char_end": start + len(quote),
+            "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+            "match_method": "exact",
+            "validation_status": "validated",
+            "validation_notes": [],
+        }
+
+    primary_span = evidence("evidence_primary_0001", "Avvik er observert.", 0)
+    summary_span = evidence("evidence_summary_0001", "Risiko for fuktskade.", 30)
+    common = {
+        "title": "Ventilasjon", "section_context": "7. Våtrom > Bad",
+        "professional_subject": "Ventilasjon", "point_label": "7.3", "tg_grade": "TG2",
+        "confidence": 1.0, "candidate_evidence": {
+            "exact_quote": "Ventilasjon", "page": 1,
+            "claimed_char_start": None, "claimed_char_end": None,
+        },
+        "validation_status": "validated", "validation_notes": [],
+    }
+    primary = ValidatedSegment.model_validate({
+        **common, "segment_id": "segment_primary_0001", "kind": "report_point",
+        "point_type": "graded", "evidence": primary_span,
+        "evidence_spans": [primary_span], "bound_body_spans": [primary_span],
+    })
+    summary = ValidatedSegment.model_validate({
+        **common, "segment_id": "segment_summary_0001", "kind": "summary",
+        "point_type": "summary", "evidence": summary_span,
+        "evidence_spans": [summary_span], "bound_body_spans": [summary_span],
+        "supporting_primary_segment_id": primary.segment_id,
+    })
+
+    enriched = _assessment_segments_with_linked_summaries([primary, summary])
+
+    assert [item.evidence_id for item in enriched[primary.segment_id].bound_body_spans] == [
+        "evidence_primary_0001", "evidence_summary_0001",
+    ]
+    assert enriched[summary.segment_id].supporting_primary_segment_id == primary.segment_id
 
 
 class Extractor:
@@ -204,7 +254,7 @@ def test_a4_admits_only_evidence_bound_governed_finding(tmp_path):
     assert result.validation_decisions[0].admission == FindingAdmission.ACCEPTED
     assert result.validation_decisions[0].accepted_finding_id
     assert result.finding_lineage[0].accepted_finding_id == result.validation_decisions[0].accepted_finding_id
-    assert result.finding_lineage[0].public_projection_status == "pending"
+    assert result.finding_lineage[0].public_projection_status == "projected"
 
 
 def test_governed_finding_aliases_share_one_canonical_stable_identity(tmp_path):

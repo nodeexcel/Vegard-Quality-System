@@ -74,6 +74,10 @@ def _pointer_escape(value: str) -> str:
     return value.replace("~", "~0").replace("/", "~1")
 
 
+def _pointer_unescape(value: str) -> str:
+    return value.replace("~1", "/").replace("~0", "~")
+
+
 def _tokens(value: str) -> set[str]:
     normalized = unicodedata.normalize("NFKD", value.casefold())
     normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
@@ -104,6 +108,15 @@ class ManifestGovernedCatalog:
                 "active manifest is not the independently pinned approved v46 manifest"
             )
         manifest = json.loads(manifest_raw)
+        baseline = manifest.get("baseline") if isinstance(manifest.get("baseline"), dict) else None
+        if baseline is not None:
+            if manifest.get("shadow_only") is not True or manifest.get("customer_publication_authorized") is not False:
+                raise GovernedAssetError("candidate manifest is not locked to shadow-only unpublished execution")
+            baseline_path = self.assets_root.parent / str(baseline.get("manifest_path") or "")
+            if not baseline_path.is_file():
+                raise GovernedAssetError("candidate baseline manifest is unavailable")
+            if _sha256(baseline_path.read_bytes()) != baseline.get("manifest_sha256"):
+                raise GovernedAssetError("candidate baseline manifest hash mismatch")
         entries = manifest.get("files")
         if not isinstance(entries, list):
             raise GovernedAssetError("active manifest has no files list")
@@ -118,7 +131,7 @@ class ManifestGovernedCatalog:
         if not expected:
             raise GovernedAssetError(f"asset is not declared by active manifest: {asset_path}")
         target = (self.assets_root / asset_path).resolve()
-        if target.parent != self.assets_root:
+        if self.assets_root not in target.parents:
             raise GovernedAssetError(f"asset path escapes governed root: {asset_path}")
         try:
             raw = target.read_bytes()
@@ -150,6 +163,8 @@ class ManifestGovernedCatalog:
                 return
             scalar_keys = {key for key, child in value.items() if not isinstance(child, (dict, list))}
             explicit_id = next((value.get(key) for key in ("rule_id", "id", "error_type") if isinstance(value.get(key), str)), None)
+            if explicit_id is None and isinstance(value.get("points"), (int, float)) and pointer:
+                explicit_id = _pointer_unescape(pointer.rsplit("/", 1)[-1])
             # A rule-like object either has an explicit identity or contains enough
             # substantive scalar/list content to be independently cited.
             substantive = explicit_id is not None or len(scalar_keys) >= 2 or any(isinstance(child, list) for child in value.values())
@@ -186,7 +201,14 @@ class ManifestVerifiedRuleRetriever:
     ) -> RuleRetrievalResult:
         facts = list(facts)
         resolution = self.resolver.resolve(category, facts)
-        query = " ".join(filter(None, (segment.title, segment.professional_subject, segment.point_label, segment.tg_grade, category.value)))
+        body = " ".join(
+            span.exact_quote
+            for span in (segment.bound_body_spans or segment.evidence_spans or ([segment.evidence] if segment.evidence else []))
+        )
+        query = " ".join(filter(None, (
+            segment.title, segment.professional_subject, segment.point_label,
+            segment.tg_grade, segment.section_context, category.value, body,
+        )))
         query_tokens = _tokens(query)
         scored: list[tuple[float, str, _Chunk, GovernedAssetVerification]] = []
         verifications: list[GovernedAssetVerification] = []
@@ -200,9 +222,43 @@ class ManifestVerifiedRuleRetriever:
                 exact_tg3_rule = category == RuleCategory.TG3_COST and chunk.rule_id in {
                     "E_METHOD.tg3_cost_missing", "E_METHOD.tg3_cost_single_amount_only"
                 }
-                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule:
-                    if exact_tg3_rule:
+                exact_tg2_measure_rule = (
+                    category == RuleCategory.ANBEFALT_TILTAK
+                    and chunk.rule_id == "E_METHOD.tg2_missing_anbefalt_tiltak_ns2025"
+                )
+                exact_tgiu_rule = (
+                    category == RuleCategory.METHODOLOGY
+                    and segment.point_type == "tgiu"
+                    and chunk.rule_id in {
+                        "TGIU_MISSING_REASON",
+                        "TGIU_MISSING_FURTHER_INVESTIGATION",
+                    }
+                )
+                exact_detached_method_rule = (
+                    category == RuleCategory.METHODOLOGY
+                    and segment.point_type == "methodology_only"
+                    and chunk.rule_id == "E_METHOD.garasje_avvik_uten_arkat"
+                )
+                exact_arkat_gate = (
+                    category in {RuleCategory.AARSAK, RuleCategory.RISIKO, RuleCategory.KONSEKVENS}
+                    and chunk.rule_id == "GATE_TG2_ARK_MISSING"
+                )
+                exact_semantic_field = (
+                    category in {
+                        RuleCategory.AARSAK, RuleCategory.RISIKO,
+                        RuleCategory.KONSEKVENS, RuleCategory.ANBEFALT_TILTAK,
+                    }
+                    and str(chunk.content.get("semantic_field") or "") == category.value
+                )
+                category_pointer = (
+                    f"/field_definitions/{category.value}" in chunk.pointer
+                    or f"/deductions/{category.value}" in chunk.pointer
+                )
+                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_arkat_gate or exact_semantic_field or category_pointer:
+                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_arkat_gate or exact_semantic_field:
                         score = 1.0
+                    elif category_pointer:
+                        score = max(score, 0.95)
                     scored.append((score, asset_path, chunk, verification))
         scored.sort(key=lambda item: (-item[0], item[1], item[2].pointer))
         applicability = (
@@ -211,6 +267,7 @@ class ManifestVerifiedRuleRetriever:
             else RuleApplicability.CANDIDATE_ONLY
         )
         records: list[RuleRetrievalRecord] = []
+        excluded_rule_ids: list[str] = []
         traces: list[TraceRecord] = []
         for score, asset_path, chunk, verification in scored[:top_k]:
             resolve_rule = getattr(self.resolver, "resolve_rule", None)
@@ -219,6 +276,9 @@ class ManifestVerifiedRuleRetriever:
                 if callable(resolve_rule)
                 else resolution
             )
+            if rule_resolution.status == RegimeResolutionStatus.NOT_APPLICABLE:
+                excluded_rule_ids.append(chunk.rule_id)
+                continue
             retrieval_id = _stable_id("ret", segment.segment_id, category.value, asset_path, chunk.pointer)
             record = RuleRetrievalRecord(
                 retrieval_id=retrieval_id,
@@ -277,6 +337,7 @@ class ManifestVerifiedRuleRetriever:
             rule_category=category,
             regime_resolution=resolution,
             records=records,
+            excluded_rule_ids=sorted(set(excluded_rule_ids)),
             asset_verifications=verifications,
             abstentions=abstentions,
             trace_records=traces,

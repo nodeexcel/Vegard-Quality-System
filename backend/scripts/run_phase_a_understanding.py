@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +13,10 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///tmp.db")
+os.environ.setdefault("OPENAI_API_KEY", "shadow-not-used")
+os.environ.setdefault("SECRET_KEY", "phase-a-shadow-only")
 
 from app.services.pdf_extractor import PDFExtractor
 from app.services.phase_a_document_understanding import (

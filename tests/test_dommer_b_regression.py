@@ -694,8 +694,52 @@ def test_tgiu_normalization_forces_arkat_fields_not_applicable():
             "error_type": None,
             "explanation": "",
         }
-    assert [item["error_type"] for item in actual["tgiu_findings"]["findings"]] == ["TGIU_MISSING_REASON"]
+    assert [item["error_type"] for item in actual["tgiu_findings"]["findings"]] == [
+        "TGIU_MISSING_REASON",
+        "TGIU_MISSING_FURTHER_INVESTIGATION",
+        "TGIU_MISSING_MOISTURE_FLAG",
+    ]
     assert actual["has_errors"] is True
+
+
+def test_tgiu_independent_followup_and_moisture_applicability_fixtures():
+    base = {
+        "point_id": "tgiu-neutral",
+        "tg_grade": "TGIU",
+        "field_results": {
+            name: {"status": "NOT_APPLICABLE", "error_type": None, "explanation": ""}
+            for name in ("aarsak", "risiko", "konsekvens", "anbefalt_tiltak")
+        },
+        "tgiu_findings": {"findings": []},
+        "has_errors": False,
+    }
+    neutral = _normalize_arkat_eval_result(
+        base,
+        point_id="tgiu-neutral",
+        point_label="Lukket teknisk installasjon",
+        tg_grade="TGIU",
+        extracted_fields={name: "" for name in ("aarsak", "risiko", "konsekvens", "anbefalt_tiltak")},
+        raw_point_text="Ikke undersøkt fordi adkomstdekselet var fastlåst. Videre kontroll bør utføres av fagperson.",
+        ns_version="NS3600:2025",
+        report_context={},
+        normalize_text=normalize_text,
+    )
+    assert [item["error_type"] for item in neutral["tgiu_findings"]["findings"]] == []
+
+    moisture = _normalize_arkat_eval_result(
+        base,
+        point_id="tgiu-crawlspace",
+        point_label="Krypkjeller",
+        tg_grade="TGIU",
+        extracted_fields={name: "" for name in ("aarsak", "risiko", "konsekvens", "anbefalt_tiltak")},
+        raw_point_text="Ikke undersøkt fordi inspeksjonsluken var fastskrudd. Videre kontroll bør utføres.",
+        ns_version="NS3600:2025",
+        report_context={"relevant_component_context": "Fuktutsatt krypkjeller"},
+        normalize_text=normalize_text,
+    )
+    errors = [item["error_type"] for item in moisture["tgiu_findings"]["findings"]]
+    assert "TGIU_MISSING_MOISTURE_FLAG" in errors
+    assert "TGIU_MISSING_FURTHER_INVESTIGATION" not in errors
 
 
 @pytest.mark.parametrize("case_id", range(1, 10))

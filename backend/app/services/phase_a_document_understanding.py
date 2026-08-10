@@ -701,7 +701,9 @@ class DocumentUnderstandingService:
                         stage="document_understanding",
                         subject=f"batch_{batch_index}",
                         reason_code="candidate_extraction_failed",
-                        explanation=f"Candidate extraction failed closed: {type(exc).__name__}",
+                        explanation=(
+                            f"Candidate extraction failed closed: {type(exc).__name__}."
+                        ),
                     )
                 )
 
@@ -728,6 +730,16 @@ class DocumentUnderstandingService:
                     )
                 )
 
+        candidate_fact_types = {
+            item.fact_type for candidate_batch in candidates for item in candidate_batch.facts
+        }
+        validated_fact_types = {
+            item.fact_type for item in facts if item.validation_status == ValidationStatus.VALIDATED
+        }
+        facts.extend(
+            item for item in self._deterministic_labeled_date_facts(text, pages)
+            if item.fact_type in candidate_fact_types and item.fact_type not in validated_fact_types
+        )
         facts = self._dedupe_facts(facts)
         segments, dispositions, segment_abstentions = self._reconcile_segments(segment_records)
         abstentions.extend(segment_abstentions)
@@ -820,6 +832,7 @@ class DocumentUnderstandingService:
     ) -> Tuple[List[ValidatedSegment], List[CoverageReconciliation]]:
         output: List[ValidatedSegment] = []
         reconciliation: List[CoverageReconciliation] = []
+        primary_segment_by_inventory_id: Dict[str, str] = {}
         for point in (item for item in inventory.points if item.role == InventoryRole.PRIMARY):
             overlaps = [
                 segment for segment in ai_segments
@@ -941,6 +954,7 @@ class DocumentUnderstandingService:
                     *(["ai_candidate_identity_conflict_rejected"] if incompatible else []),
                 ],
             ))
+            primary_segment_by_inventory_id[point.inventory_id] = segment_id
             reconciliation.append(CoverageReconciliation(
                 inventory_id=point.inventory_id,
                 inventory_role=point.role,
@@ -958,14 +972,48 @@ class DocumentUnderstandingService:
                 ),
             ))
         for point in (item for item in inventory.points if item.role == InventoryRole.SUMMARY):
+            primary_segment_id = primary_segment_by_inventory_id.get(point.linked_primary_id or "")
+            summary_segment_id = _stable_id(
+                "summary", document_hash, point.page, point.char_start,
+                point.char_end, point.inventory_id,
+            )
+            output.append(ValidatedSegment(
+                segment_id=summary_segment_id,
+                kind=SegmentKind.SUMMARY,
+                title=point.title,
+                section_context=point.section_context,
+                professional_subject=point.title,
+                point_label=point.point_label,
+                tg_grade=point.tg_grade,
+                point_type="summary",
+                confidence=1.0,
+                candidate_evidence=CandidateEvidence(
+                    exact_quote=point.structural_marker,
+                    page=point.page,
+                    claimed_char_start=point.char_start,
+                    claimed_char_end=point.char_start + len(point.structural_marker),
+                ),
+                evidence=point.body,
+                evidence_spans=point.body_spans or [point.body],
+                bound_body_spans=point.body_spans or [point.body],
+                bound_body_sha256=hashlib.sha256(
+                    json.dumps(
+                        [span.model_dump(mode="json") for span in (point.body_spans or [point.body])],
+                        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest(),
+                validation_status=ValidationStatus.VALIDATED,
+                validation_notes=["hierarchy_validated_summary_support_only"],
+                supporting_primary_segment_id=primary_segment_id,
+            ))
             reconciliation.append(CoverageReconciliation(
                 inventory_id=point.inventory_id,
                 inventory_role=point.role,
-                matched_segment_id=point.linked_primary_id,
-                status="linked_summary" if point.linked_primary_id else "missing",
+                matched_segment_id=primary_segment_id,
+                status="linked_summary" if primary_segment_id else "missing",
                 reason=(
                     "Summary linked to primary point and excluded from independent assessment."
-                    if point.linked_primary_id else
+                    if primary_segment_id else
                     f"Summary excluded from assessment; {point.link_reason}"
                 ),
             ))
@@ -981,7 +1029,10 @@ class DocumentUnderstandingService:
         # context, not independent applicability objects. Ambiguous multi-parent
         # overlap remains traceable and blocks completion downstream.
         physical_segments = list(output)
-        for segment in (item for item in ai_segments if item.kind != SegmentKind.REPORT_POINT):
+        for segment in (
+            item for item in ai_segments
+            if item.kind not in {SegmentKind.REPORT_POINT, SegmentKind.SUMMARY}
+        ):
             evidence = segment.evidence
             parents = []
             if evidence is not None:
@@ -1136,6 +1187,47 @@ class DocumentUnderstandingService:
         return blockers
 
     @staticmethod
+    def _deterministic_labeled_date_facts(
+        report_text: str,
+        pages: Sequence[PageSpan],
+    ) -> List[ValidatedDocumentFact]:
+        """Recover explicit labelled dates without choosing a governing date."""
+        patterns = (
+            (FactType.INSPECTION_DATE, r"(?i)\b(?:befaringsdato|befaring(?:sdato)?)(?:\s*\(cid:\d+\))*\s*[:–—-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
+            (FactType.REPORT_DATE, r"(?i)\b(?:rapportdato|rapport\s+utstedt|utstedelsesdato)(?:\s*\(cid:\d+\))*\s*[:–—-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
+        )
+        output: List[ValidatedDocumentFact] = []
+        for fact_type, pattern in patterns:
+            for match in re.finditer(pattern, report_text):
+                normalized = _normalize_date_value(match.group(1))
+                if not normalized:
+                    continue
+                page = next((item.page for item in pages if item.char_start <= match.start() < item.char_end), 1)
+                exact = match.group(0)
+                evidence = SourceEvidence(
+                    evidence_id=_stable_id("source", fact_type.value, match.start(), match.end()),
+                    exact_quote=exact,
+                    page=page,
+                    char_start=match.start(),
+                    char_end=match.end(),
+                    quote_sha256=hashlib.sha256(exact.encode("utf-8")).hexdigest(),
+                    validation_status=ValidationStatus.VALIDATED,
+                    validation_notes=["deterministic_explicit_date_label"],
+                )
+                output.append(ValidatedDocumentFact(
+                    fact_id=_stable_id("fact", fact_type.value, normalized, match.start()),
+                    fact_type=fact_type,
+                    raw_value=match.group(1),
+                    normalized_value=normalized,
+                    confidence=1.0,
+                    candidate_evidence=CandidateEvidence(exact_quote=exact, page=page),
+                    evidence=evidence,
+                    validation_status=ValidationStatus.VALIDATED,
+                    validation_notes=["deterministic_explicit_date_label"],
+                ))
+        return output
+
+    @staticmethod
     def _candidate_abstention(stage: str, entity_id: str, notes: Iterable[str]) -> Abstention:
         reason = next(iter(notes), "validation_failed")
         return Abstention(
@@ -1150,12 +1242,15 @@ class DocumentUnderstandingService:
     @staticmethod
     def _dedupe_facts(items: Sequence[ValidatedDocumentFact]) -> List[ValidatedDocumentFact]:
         output: List[ValidatedDocumentFact] = []
-        seen = set()
+        index_by_key: Dict[Tuple[str, str], int] = {}
+        rank = {ValidationStatus.REJECTED: 0, ValidationStatus.AMBIGUOUS: 1, ValidationStatus.VALIDATED: 2}
         for item in items:
             key = (item.fact_type.value, item.normalized_value or item.raw_value)
-            if key not in seen:
+            if key not in index_by_key:
+                index_by_key[key] = len(output)
                 output.append(item)
-                seen.add(key)
+            elif rank[item.validation_status] > rank[output[index_by_key[key]].validation_status]:
+                output[index_by_key[key]] = item
         return output
 
     @staticmethod

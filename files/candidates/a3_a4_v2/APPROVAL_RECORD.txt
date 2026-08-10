@@ -1,0 +1,6 @@
+approval_date: 2026-08-07
+product_owner: Vegard Ravna
+approval_reference: ChatGPT conversation – explicit product-owner approval, 7 August 2026
+approval_statement: Jeg godkjenner Validert Governed Regime Decision v2.0 og Validert A4 Acceptance Specification v2.0 uten endringer. Dokumentene kan fryses, hash-låses og sendes til Atul som styrende grunnlag for A3/A4.
+status: approved_frozen_hash_locked
+sealed_blind_report_included: false

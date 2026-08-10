@@ -292,6 +292,7 @@ interface Report {
   scoring_result?: { feedback_v11?: FeedbackV11 } | null
   public_feedback?: FeedbackV11 | null
   extracted_text: string | null
+  phase_a_shadow?: boolean
 }
 
 export default function ResultsPage() {
@@ -303,23 +304,28 @@ export default function ResultsPage() {
   const [error, setError] = useState('')
   const [showVerification, setShowVerification] = useState(false)
   const [showFullText, setShowFullText] = useState(false)
+  const shadowFixtureUrl = process.env.NEXT_PUBLIC_PHASE_A_SHADOW_FIXTURE_URL
+  const controlledShadowFixture = Boolean(shadowFixtureUrl && params.id === 'phase-a-shadow')
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !user && !controlledShadowFixture) {
       router.push('/login')
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, controlledShadowFixture])
 
   useEffect(() => {
-    if (!user) return // Don't fetch if not authenticated
+    if (!user && !controlledShadowFixture) return // Production still requires authentication.
 
     const fetchReport = async () => {
       try {
         console.log('Starting fetch for report', params.id)
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
         const authToken = localStorage.getItem('auth_token')
-        const response = await axios.get(`${apiUrl}/api/v1/reports/${params.id}`, {
+        const requestUrl = controlledShadowFixture
+          ? shadowFixtureUrl as string
+          : `${apiUrl}/api/v1/reports/${params.id}`
+        const response = await axios.get(requestUrl, {
           timeout: 60000,
           headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
         })
@@ -342,7 +348,7 @@ export default function ResultsPage() {
     if (params.id) {
       fetchReport()
     }
-  }, [params.id, user, router])
+  }, [params.id, user, router, controlledShadowFixture, shadowFixtureUrl])
 
   const analysisData = useMemo(() => {
     if (!report) return null
@@ -373,7 +379,9 @@ export default function ResultsPage() {
         (hasV16 && ((analysis as AnalysisV16).trygghetsscore != null || (analysis as AnalysisV16).top_issues?.length)))
     )
     const legacyAnalysis = !hasV14 ? (report.ai_analysis as any) : null
-    const scoreTotal: number | null = null
+    const scoreTotal: number | null = report.phase_a_shadow && typeof analysis?.score_total === 'number'
+      ? analysis.score_total
+      : null
     return { analysis, feedbackV11, hasFeedbackV11, hasV16, hasV14, legacyAnalysis, scoreTotal, safeStopActive, safeStopMessage }
   }, [report])
 
@@ -390,7 +398,7 @@ export default function ResultsPage() {
   }
 
   // Don't render if not authenticated (will redirect)
-  if (!user) {
+  if (!user && !controlledShadowFixture) {
     return null
   }
 

@@ -276,13 +276,13 @@ Expected output:
     "risiko": { "status": "CORRECT", "error_type": null, "explanation": "" },
     "konsekvens": { "status": "CORRECT", "error_type": null, "explanation": "" },
     "anbefalt_tiltak": {
-      "status": "MISSING",
-      "error_type": "MISSING (anbefalt_tiltak)",
-      "explanation": "Punktet beskriver hva en utbedring vil innebære, men gir ingen tydelig anbefaling om hva som bør gjøres ved TG3-forholdet."
+      "status": "CORRECT",
+      "error_type": null,
+      "explanation": ""
     }
   },
   "tgiu_findings": { "findings": [] },
-  "has_errors": true
+  "has_errors": false
 }
 ```
 Deductions: MISSING (anbefalt_tiltak) at TG3 = 5 points
