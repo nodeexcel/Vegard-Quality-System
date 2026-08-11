@@ -215,7 +215,7 @@
     },
     {
       "path": "backend/app/services/phase_a_assessment.py",
-      "sha256": "2eac5e5b48738922d5b6e9a9a6ea23d16c76f8d3c5487f370ae928f444e88ba7"
+      "sha256": "cb10c0cd5f918e201eab242605232f538b80deda85457a9fffbaa2e3812cfba3"
     },
     {
       "path": "backend/app/services/phase_a_scoring.py",
@@ -261,7 +261,7 @@
     },
     {
       "path": "tests/test_phase_a3_a4_governed_pipeline.py",
-      "sha256": "ac810d4c93f3b7d23df53065a36cf535b0fdd854ff0977b309004d43c6d40374"
+      "sha256": "bc7a625243f539902cb0991308a1515f2fddafe81ca0bdaa6473f2aaf677d606"
     },
     {
       "path": "tests/test_dommer_b_regression.py",

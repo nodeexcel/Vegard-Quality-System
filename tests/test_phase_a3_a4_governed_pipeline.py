@@ -171,6 +171,7 @@ def test_age_cause_is_not_mislabeled_as_observation_repeated_as_cause():
 
 @pytest.mark.parametrize(("consequence", "expected_type"), [
     ("Har noe setningsskader og trenger utbedringer.", "TILTAK_AS_KONSEKVENS"),
+    ("Risiko for videre utvikling av skade hvis forholdene vedvarer.", "RISIKO_AS_KONSEKVENS"),
     ("Økt fuktbelastning på mur.", "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"),
 ])
 def test_consequence_semantics_are_not_accepted_as_measure_or_risk_only(consequence, expected_type):

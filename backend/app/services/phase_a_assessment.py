@@ -456,6 +456,14 @@ def _normalize_semantic_candidate(
         ):
             finding_type = "TILTAK_AS_KONSEKVENS"
         elif (
+            "RISIKO_AS_KONSEKVENS" in governed
+            and re.fullmatch(
+                r"(?is)\s*(?:det\s+er\s+)?risiko\s+for\s+[^.]+\.?\s*",
+                consequence,
+            )
+        ):
+            finding_type = "RISIKO_AS_KONSEKVENS"
+        elif (
             "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS" in governed
             and re.fullmatch(r"(?is)\s*økt\s+(?:fukt)?belast\w*\s+(?:på|mot)\s+[^.]+\.?\s*", consequence)
         ):
