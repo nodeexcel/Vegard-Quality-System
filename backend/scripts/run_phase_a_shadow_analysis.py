@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Create an internal A3/A4 trace from an A2 artifact.
+"""Run the governed, manifest-pinned A3/A4 candidate in shadow mode.
 
-The active resolver intentionally remains pending, so this command retrieves
-manifest-verified candidate material and records abstentions without invoking AI
-or producing customer findings.
+The command performs semantic assessment, deterministic admission, scoring and
+production-compatible customer projection. It never publishes or activates the
+candidate result in production.
 """
 
 from __future__ import annotations
