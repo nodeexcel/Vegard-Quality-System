@@ -142,7 +142,7 @@ def test_generic_inspection_methodology_does_not_satisfy_point_bound_risiko():
     assert not _semantic_risiko_present(segment)
 
 
-def test_age_cause_is_not_mislabeled_as_observation_repeated_as_cause():
+def test_deterministic_compatibility_hook_does_not_override_age_cause_decision():
     quote = "Vurdering av avvik: Riss i puss. Årsak: Alder. Konsekvens: Fare for fuktskade."
     span = {
         "evidence_id": "evidence_age_cause_0001", "exact_quote": quote, "page": 1,
@@ -165,8 +165,8 @@ def test_age_cause_is_not_mislabeled_as_observation_repeated_as_cause():
         proposed_finding_type="OBSERVATION_AS_AARSAK",
     )
     normalized = _normalize_semantic_candidate(candidate, segment, [])
-    assert normalized.decision == AssessmentDecision.SATISFIED
-    assert normalized.proposed_finding_type is None
+    assert normalized.decision == AssessmentDecision.DEFICIENT
+    assert normalized.proposed_finding_type == "OBSERVATION_AS_AARSAK"
 
 
 @pytest.mark.parametrize(("consequence", "expected_type"), [
@@ -174,7 +174,7 @@ def test_age_cause_is_not_mislabeled_as_observation_repeated_as_cause():
     ("Risiko for videre utvikling av skade hvis forholdene vedvarer.", "RISIKO_AS_KONSEKVENS"),
     ("Økt fuktbelastning på mur.", "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"),
 ])
-def test_consequence_semantics_are_not_accepted_as_measure_or_risk_only(consequence, expected_type):
+def test_deterministic_compatibility_hook_does_not_override_consequence_semantics(consequence, expected_type):
     quote = f"Vurdering av avvik: Avvik. Årsak: Utførelse. Konsekvens: {consequence}"
     span = {
         "evidence_id": "evidence_consequence_01", "exact_quote": quote, "page": 1,
@@ -198,8 +198,70 @@ def test_consequence_semantics_are_not_accepted_as_measure_or_risk_only(conseque
     )
     records = [SimpleNamespace(rule_id=expected_type, content={"error_type": expected_type})]
     normalized = _normalize_semantic_candidate(candidate, segment, records)
-    assert normalized.decision == AssessmentDecision.DEFICIENT
-    assert normalized.proposed_finding_type == expected_type
+    assert normalized.decision == AssessmentDecision.SATISFIED
+    assert normalized.proposed_finding_type is None
+
+
+def test_semantic_adjudicator_requires_meaning_not_headings_or_exact_phrases():
+    prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
+    assert "A heading is never required" in prompt
+    assert "professional meaning" in prompt
+    assert "complete hierarchy-bound physical-point evidence" in prompt
+    assert "general age/wear statement" in prompt
+    assert "hidden defect categories" in prompt
+    assert "adjacent, underlying, or" in prompt
+    assert "surrounding constructions/building parts" in prompt
+    assert "water may escape the room" in prompt
+    assert "same component by itself" in prompt
+
+
+def test_semantic_system_prompt_keeps_named_hidden_defects_as_real_risk():
+    prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    assert "that still names the technical risk category and Risiko is satisfied" in prompt
+    assert "hidden execution defects" in prompt
+    assert "water may escape the room" in prompt
+    assert "stress an underlying membrane" in prompt
+    assert "same component by itself" in prompt
+
+
+def test_semantic_system_prompt_treats_adjacent_construction_moisture_as_consequence():
+    prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    assert "affect adjacent," in prompt
+    assert "underlying, or surrounding constructions/building parts" in prompt
+    assert "should normally be treated as satisfied" in prompt
+    assert "actual damage to a secondary building part" in prompt
+
+
+def test_semantic_system_prompt_treats_holistic_buyer_effect_as_satisfied_consequence():
+    prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    assert "Treat the complete consequence field holistically" in prompt
+    assert "reduced expected service life" in prompt
+    assert "must not emit a" in prompt
+    assert "deficiency merely because another sentence" in prompt
+
+
+def test_semantic_adjudication_prompt_treats_remaining_lifetime_as_practical_consequence():
+    prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
+    assert "limited remaining technical lifetime" in prompt
+    assert "aging-related maintenance or replacement burden is approaching" in prompt
+    assert "actual damage to a secondary building part" in prompt
+
+
+def test_semantic_prompts_treat_holistic_action_guidance_as_satisfied_tiltak():
+    system_prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    adjudication_prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
+    assert "Judge the complete ANBEFALT TILTAK field holistically" in system_prompt
+    assert "concrete action guidance" in system_prompt
+    assert "expected over time" in system_prompt
+    assert "Judge the complete ANBEFALT TILTAK field holistically" in adjudication_prompt
+
+
+def test_semantic_prompts_treat_extreme_weather_leakage_exposure_as_risiko():
+    system_prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    adjudication_prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
+    assert "especially exposed or vulnerable to leakage, moisture" in system_prompt
+    assert "heavy rain, snow, extreme weather" in system_prompt
+    assert "especially exposed or vulnerable to leakage, moisture" in adjudication_prompt
 
 
 def test_compound_tgiu_output_is_split_into_governed_atomic_candidates():
@@ -218,6 +280,206 @@ def test_compound_tgiu_output_is_split_into_governed_atomic_candidates():
     assert [item.proposed_finding_type for item in split] == [
         "TGIU_MISSING_REASON", "TGIU_MISSING_FURTHER_INVESTIGATION",
     ]
+
+
+def test_applicability_skips_aggregate_multi_issue_container_points():
+    def evidence(evidence_id, quote):
+        return {
+            "evidence_id": evidence_id,
+            "exact_quote": quote,
+            "page": 1,
+            "char_start": 0,
+            "char_end": len(quote),
+            "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+            "match_method": "exact",
+            "validation_status": "validated",
+            "validation_notes": [],
+        }
+
+    aggregate_quote = (
+        "TG 2 11. KJØKKEN\n"
+        "1. Avvik/Årsak: Første forhold\n"
+        "Risiko/Konsekvens\n"
+        "2. Avvik/Årsak: Andre forhold\n"
+        "Risiko/Konsekvens\n"
+    )
+    ordinary_quote = "TG 2 10.1 VEGGER OG HIMLINGER\nAvvik/Årsak: Slitt overflate."
+    aggregate = ValidatedSegment.model_validate({
+        "segment_id": "segment_aggregate_container_01",
+        "kind": "report_point",
+        "title": "KJØKKEN",
+        "section_context": "",
+        "professional_subject": "Kjøkken",
+        "point_label": "11",
+        "tg_grade": "TG2",
+        "point_type": "graded",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "KJØKKEN", "page": 1},
+        "evidence": evidence("evidence_aggregate_01", aggregate_quote),
+        "evidence_spans": [evidence("evidence_aggregate_01", aggregate_quote)],
+        "bound_body_spans": [evidence("evidence_aggregate_01", aggregate_quote)],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+    ordinary = ValidatedSegment.model_validate({
+        "segment_id": "segment_regular_point_01",
+        "kind": "report_point",
+        "title": "VEGGER OG HIMLINGER",
+        "section_context": "10. VASKEROM",
+        "professional_subject": "Våtrom",
+        "point_label": "10.1",
+        "tg_grade": "TG2",
+        "point_type": "graded",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "VEGGER OG HIMLINGER", "page": 1},
+        "evidence": evidence("evidence_regular_01", ordinary_quote),
+        "evidence_spans": [evidence("evidence_regular_01", ordinary_quote)],
+        "bound_body_spans": [evidence("evidence_regular_01", ordinary_quote)],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+
+    plan = DeterministicApplicabilityPlanner().plan([aggregate, ordinary])
+
+    assert {item.segment_id for item in plan} == {"segment_regular_point_01"}
+
+
+def test_tgiu_missing_reason_is_normalized_away_when_reason_is_explicit_in_point_body():
+    quote = "Hulltaking ikke mulig da vegger er i Ytong og ikke inneholder hulrom."
+    span = {
+        "evidence_id": "evidence_tgiu_reason_0001",
+        "exact_quote": quote,
+        "page": 1,
+        "char_start": 0,
+        "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact",
+        "validation_status": "validated",
+        "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_tgiu_reason_0001",
+        "kind": "report_point",
+        "title": "Tilliggende konstruksjoner våtrom",
+        "section_context": "1. ETASJE > VASKEROM",
+        "professional_subject": "Våtrom",
+        "point_label": "1.8",
+        "tg_grade": "TGIU",
+        "point_type": "tgiu",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span,
+        "evidence_spans": [span],
+        "bound_body_spans": [span],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id,
+        retrieval_ids=["retrieval_tgiu_reason_0001"],
+        rule_category=RuleCategory.METHODOLOGY,
+        decision=AssessmentDecision.DEFICIENT,
+        explanation="The point explains why inspection was not possible.",
+        evidence_ids=[span["evidence_id"]],
+        proposed_finding_type="TGIU_MISSING_REASON",
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.SATISFIED
+    assert normalized.proposed_finding_type is None
+
+
+def test_tgiu_missing_reason_is_not_normalized_away_for_bare_not_inspected_text():
+    quote = "Septiktank er ikke inspisert."
+    span = {
+        "evidence_id": "evidence_tgiu_bare_0001",
+        "exact_quote": quote,
+        "page": 1,
+        "char_start": 0,
+        "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact",
+        "validation_status": "validated",
+        "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_tgiu_bare_0001",
+        "kind": "report_point",
+        "title": "Septiktank",
+        "section_context": "TOMTEFORHOLD",
+        "professional_subject": "Septiktank",
+        "point_label": "Septiktank",
+        "tg_grade": "TGIU",
+        "point_type": "tgiu",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span,
+        "evidence_spans": [span],
+        "bound_body_spans": [span],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id,
+        retrieval_ids=["retrieval_tgiu_bare_0001"],
+        rule_category=RuleCategory.METHODOLOGY,
+        decision=AssessmentDecision.DEFICIENT,
+        explanation="No reason is given beyond the fact of non-inspection.",
+        evidence_ids=[span["evidence_id"]],
+        proposed_finding_type="TGIU_MISSING_REASON",
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.DEFICIENT
+    assert normalized.proposed_finding_type == "TGIU_MISSING_REASON"
+
+
+def test_tgiu_missing_reason_is_normalized_away_when_report_states_no_information_object_exists():
+    quote = "Det foreligger ingen opplysninger om at det er nedgravd oljetank på eiendommen."
+    span = {
+        "evidence_id": "evidence_tgiu_noinfo_0001",
+        "exact_quote": quote,
+        "page": 1,
+        "char_start": 0,
+        "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact",
+        "validation_status": "validated",
+        "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_tgiu_noinfo_0001",
+        "kind": "report_point",
+        "title": "Oljetank",
+        "section_context": "TOMTEFORHOLD",
+        "professional_subject": "Oljetank",
+        "point_label": "Oljetank",
+        "tg_grade": "TGIU",
+        "point_type": "tgiu",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span,
+        "evidence_spans": [span],
+        "bound_body_spans": [span],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id,
+        retrieval_ids=["retrieval_tgiu_noinfo_0001"],
+        rule_category=RuleCategory.METHODOLOGY,
+        decision=AssessmentDecision.DEFICIENT,
+        explanation="The point does not explain why the oil tank was not investigated.",
+        evidence_ids=[span["evidence_id"]],
+        proposed_finding_type="TGIU_MISSING_REASON",
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.SATISFIED
+    assert normalized.proposed_finding_type is None
 
 
 class Extractor:

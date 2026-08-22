@@ -18,6 +18,32 @@ from app.services.phase_a_contracts import (
 
 
 PAGE_RE = re.compile(r"(?m)^\[SIDE\s+(\d+)\]\s*$")
+_PAGE_FOOTER_RE = re.compile(r"(?i)^\d{1,2}[./-]\d{1,2}[./-]\d{4}\s+Side:\s+\d+\s+av\s+\d+$")
+_ADDRESS_RE = re.compile(r"^\d{4}\s+[A-ZÆØÅ][A-ZÆØÅ .-]{2,}$")
+_STREET_ADDRESS_RE = re.compile(
+    r"(?i)^[A-ZÆØÅ][A-Za-zÆØÅæøå0-9 .'-]{2,}"
+    r"(?:vei|vegen|veg|gate|gata|all[eé]n|stien|plassen|lia|bakken)\s+\d+[A-Za-z]?$"
+)
+_PROPERTY_ADDRESS_RE = re.compile(
+    r"(?i)^[A-ZÆØÅ][A-Za-zÆØÅæøå0-9 .'-]{2,},\s*\d{4}\s+[A-ZÆØÅ][A-ZÆØÅ .-]{2,}$"
+)
+_MULTI_ADDRESS_LINE_RE = re.compile(
+    r"(?i)^(?:.*\b(?:takst|tilstandsrapport)\b.*\d{4}\s+[A-ZÆØÅ][A-ZÆØÅ .-]{2,}"
+    r"|(?:\d{4}\s+[A-ZÆØÅ][A-ZÆØÅ .-]{2,}\s+){2,}.*)$"
+)
+_GENERIC_HEADING_LINES = {
+    "tilstandsrapport",
+    "beskrivelse",
+    "kommentar",
+    "anvendelse",
+    "byggeår kommentar",
+    "standard",
+    "vedlikehold",
+    "bruksareal bra m²",
+    "bruksareal bra m2",
+    "m2 takst as",
+    "bygninger på eiendommen",
+}
 
 
 def _id(prefix: str, *parts: object) -> str:
@@ -73,6 +99,177 @@ def _line_start(text: str, position: int) -> int:
     return text.rfind("\n", 0, position) + 1
 
 
+def _is_header_artifact_line(value: str) -> bool:
+    compact = " ".join(value.split())
+    if not compact:
+        return False
+    low = compact.casefold()
+    if low in {"tilstandsrapport", "m2 takst as"}:
+        return True
+    if _PAGE_FOOTER_RE.match(compact):
+        return True
+    if _ADDRESS_RE.match(compact):
+        return True
+    if _STREET_ADDRESS_RE.match(compact):
+        return True
+    if _PROPERTY_ADDRESS_RE.match(compact):
+        return True
+    if _MULTI_ADDRESS_LINE_RE.match(compact):
+        return True
+    if re.fullmatch(r"\d{4}\s+[A-ZÆØÅ][A-ZÆØÅ .-]{2,}", compact):
+        return True
+    return False
+
+
+def _trim_body_artifacts(exact: str, *, is_first_span: bool) -> str:
+    lines = exact.splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+
+    if lines:
+        preserved = [lines[0]]
+        for line in lines[1:]:
+            if _is_header_artifact_line(line.strip()):
+                continue
+            preserved.append(line)
+        lines = preserved
+
+    if not is_first_span:
+        while lines and _is_header_artifact_line(lines[0].strip()):
+            lines.pop(0)
+        while lines and re.fullmatch(r"[A-ZÆØÅ0-9 >_/().,-]{4,}", lines[0].strip()):
+            lines.pop(0)
+            if lines and lines[0].strip().casefold() == "tilstandsrapport":
+                lines.pop(0)
+            else:
+                break
+
+    while lines and _is_header_artifact_line(lines[-1].strip()):
+        lines.pop()
+
+    for index, line in enumerate(lines[1:], start=1):
+        compact = line.strip()
+        if re.fullmatch(r"(?:[A-ZÆØÅ0-9. ]+(?:\s*>\s*[A-ZÆØÅ0-9. ]+)+)", compact):
+            lines = lines[:index]
+            break
+
+    return "\n".join(lines).strip()
+
+
+def _body_span_chunks(raw: str, *, is_first_span: bool) -> list[tuple[int, int, str]]:
+    records = []
+    offset = 0
+    for line in raw.splitlines(keepends=True):
+        end = offset + len(line)
+        text = line[:-1] if line.endswith("\n") else line
+        records.append({
+            "start": offset,
+            "end": end,
+            "text": text,
+            "stripped": text.strip(),
+        })
+        offset = end
+    if not records and raw:
+        records.append({"start": 0, "end": len(raw), "text": raw, "stripped": raw.strip()})
+    if not records:
+        return []
+
+    lo = 0
+    hi = len(records) - 1
+    while lo <= hi and not records[lo]["stripped"]:
+        lo += 1
+    while hi >= lo and not records[hi]["stripped"]:
+        hi -= 1
+    if lo > hi:
+        return []
+
+    if not is_first_span:
+        while lo <= hi and _is_header_artifact_line(str(records[lo]["stripped"])):
+            lo += 1
+        while lo <= hi and re.fullmatch(r"[A-ZÆØÅ0-9 >_/().,-]{4,}", str(records[lo]["stripped"])):
+            lo += 1
+            if lo <= hi and str(records[lo]["stripped"]).casefold() == "tilstandsrapport":
+                lo += 1
+            else:
+                break
+
+    while hi >= lo and _is_header_artifact_line(str(records[hi]["stripped"])):
+        hi -= 1
+    if lo > hi:
+        return []
+
+    for index in range(lo + 1, hi + 1):
+        compact = str(records[index]["stripped"])
+        if re.fullmatch(r"(?:[A-ZÆØÅ0-9. ]+(?:\s*>\s*[A-ZÆØÅ0-9. ]+)+)", compact):
+            hi = index - 1
+            break
+    if lo > hi:
+        return []
+
+    dropped = {
+        index
+        for index in range(lo, hi + 1)
+        if records[index]["stripped"] and _is_header_artifact_line(str(records[index]["stripped"]))
+    }
+    chunks: list[tuple[int, int, str]] = []
+    chunk_start: int | None = None
+    chunk_end = 0
+    for index in range(lo, hi + 1):
+        if index in dropped:
+            if chunk_start is not None:
+                excerpt = raw[chunk_start:chunk_end].strip()
+                if excerpt:
+                    leading = len(raw[chunk_start:chunk_end]) - len(raw[chunk_start:chunk_end].lstrip())
+                    trailing = len(raw[chunk_start:chunk_end].rstrip())
+                    start = chunk_start + leading
+                    end = chunk_start + trailing
+                    chunks.append((start, end, raw[start:end]))
+                chunk_start = None
+            continue
+        if chunk_start is None:
+            chunk_start = int(records[index]["start"])
+        chunk_end = int(records[index]["end"])
+    if chunk_start is not None:
+        excerpt = raw[chunk_start:chunk_end].strip()
+        if excerpt:
+            leading = len(raw[chunk_start:chunk_end]) - len(raw[chunk_start:chunk_end].lstrip())
+            trailing = len(raw[chunk_start:chunk_end].rstrip())
+            start = chunk_start + leading
+            end = chunk_start + trailing
+            chunks.append((start, end, raw[start:end]))
+    return chunks
+
+
+def _is_probable_heading(value: str) -> bool:
+    compact = " ".join(value.split())
+    if not compact or len(compact) > 160:
+        return False
+    low = compact.casefold()
+    if low in _GENERIC_HEADING_LINES:
+        return False
+    if compact.startswith(("•", "[", "(")):
+        return False
+    if _PAGE_FOOTER_RE.match(compact):
+        return False
+    if _ADDRESS_RE.match(compact):
+        return False
+    if _STREET_ADDRESS_RE.match(compact):
+        return False
+    if _PROPERTY_ADDRESS_RE.match(compact):
+        return False
+    if compact.rstrip().endswith((".", ":", ";")):
+        return False
+    if low.startswith(("punktet må sees", "se også", "jf.")):
+        return False
+    if low.startswith(("det ", "ved ", "på ", "i ", "er ", "var ", "har ", "kan ")):
+        return False
+    if low in {"oppdragsnr.", "bygningssakkyndig", "enebolig"}:
+        return False
+    return True
+
+
 def _previous_heading_start(text: str, position: int) -> tuple[int, str]:
     before = text[:position]
     hms = before.casefold().rfind("helse, miljø og sikkerhet")
@@ -89,12 +286,9 @@ def _previous_heading_start(text: str, position: int) -> tuple[int, str]:
         for heading_index in range(description_index - 1, -1, -1):
             heading = lines[heading_index]
             value = heading.group(1).strip()
-            if value.casefold().startswith(("punktet må sees", "se også", "jf.")):
+            if not _is_probable_heading(value):
                 continue
             return heading.start(), value
-    if lines:
-        heading = lines[-1]
-        return heading.start(), heading.group(1).strip()
     return _line_start(text, position), "Uidentifisert rapportpunkt"
 
 
@@ -145,6 +339,8 @@ def _physical_section_context(text: str, marker: _Marker) -> str:
     hierarchy = _title_hierarchy(marker.title)
     if marker.role == InventoryRole.SUMMARY:
         return " > ".join(hierarchy[:-1])
+    if marker.method == "physical_detached_building_methodology_section" and len(hierarchy) <= 1:
+        return ""
     main = _main_section_context(text, marker.start)
     parent = " > ".join(hierarchy[:-1])
     components = [item for item in (main, parent) if item]
@@ -154,9 +350,9 @@ def _physical_section_context(text: str, marker: _Marker) -> str:
 
 
 _TGIU_RE = re.compile(
-    r"(?i)\b(?:TG\s*IU|TGIU|ikke\s+(?:undersøkt|inspisert|befart|kontrollert)|"
+    r"(?i)\b(?:TG\s*IU|TGIU|ikke\s+(?:undersøkt|inspisert|befart)|"
     r"(?:ikke|var\s+ikke)\s+tilgjengelig\s+for\s+(?:undersøkelse|inspeksjon)|"
-    r"(?:ikke|var\s+ikke)\s+mulig\s+å\s+(?:undersøke|inspisere|kontrollere)|"
+    r"(?:ikke|var\s+ikke)\s+mulig\s+å\s+(?:undersøke|inspisere)|"
     r"kunne\s+ikke\s+(?:undersøkes|inspiseres|kontrolleres)|utilgjengelig\s+for\s+(?:undersøkelse|inspeksjon)|"
     r"hulltaking\s+(?:er\s+)?ikke\s+utført|hulltaking\s+(?:var\s+)?ikke\s+mulig)\b"
 )
@@ -192,6 +388,8 @@ class PhysicalSourceInventoryBuilder:
             # IVIT/standard Norwegian layout: point heading + Beskrivelse + Vurdering av avvik.
             for match in re.finditer(r"(?im)^Vurdering av avvik\s*:\s*$", primary):
                 local_start, title = _previous_heading_start(primary, match.start())
+                if title == "Uidentifisert rapportpunkt":
+                    continue
                 tg_grade, point_type = _context_type(primary, local_start, match.end(), "TG2", title)
                 markers.append(_Marker(
                     InventoryRole.PRIMARY, page.number, base + local_start, None,
@@ -255,13 +453,16 @@ class PhysicalSourceInventoryBuilder:
                 following = primary[match.end():match.end() + 350].casefold()
                 if match.start() - local_start > 500 or not re.search(r"(?im)^Beskrivelse\s*$", local_block):
                     continue
+                context_window = primary[local_start:min(len(primary), match.end() + 2000)]
                 if "hulltaking" in match.group(0).casefold() and re.search(r"\b(?:måling er utført|ingen fukt målt)\b", following):
                     continue
+                if re.search(r"(?i)ikke\s+tilstandsvurdert.{0,200}(?:NS\s*3600|avhendingslova)", context_window):
+                    continue
                 if (
-                    title.isupper()
-                    or title.casefold() in {"tilstandsrapport", "beskrivelse"}
+                    title == "Uidentifisert rapportpunkt"
+                    or title.isupper()
+                    or not _is_probable_heading(title)
                     or len(title) > 120
-                    or title.rstrip().endswith((".", ":", ";"))
                 ):
                     continue
                 if any(item.start == base + local_start for item in markers):
@@ -352,6 +553,7 @@ class PhysicalSourceInventoryBuilder:
                 r"MARKEDSVERDI[^\n]*|BYGNINGER PÅ EIENDOMMEN|"
                 r"AREALER,\s*BYGGETEGNINGER OG BRANNCELLER|"
                 r"OPPSUMMERING / KONKLUSJON)\s*$",
+                r"(?im)^(?:KILDER OG VEDLEGG|BEFARINGS\s*-\s*OG EIENDOMSOPPLYSNINGER|ROMFORDELING|TILSTANDSRAPPORTENS|FORUTSETNINGER)\s*$",
                 r"(?im)^Total:\s*\d+\s+OPPSUMMERING[^\n]*$",
                 r"(?im)^\d+\.\s+Oppsummering / konklusjon\s*$",
             )
@@ -375,17 +577,13 @@ class PhysicalSourceInventoryBuilder:
                 heading = None
                 for candidate in reversed(preceding):
                     value = candidate.group(1).strip()
-                    if value.casefold().startswith(("punktet må sees", "se også", "jf.")):
+                    if not _is_probable_heading(value):
                         continue
                     heading = candidate
                     break
                 if heading is None:
                     continue
                 local_start, title = heading.start(), heading.group(1).strip()
-                if title.casefold() in {
-                    "tilstandsrapport", "bygningssakkyndig", "oppdragsnr.",
-                } or title.rstrip().endswith((".", ":", ";")):
-                    continue
                 absolute_start = base + local_start
                 if any(item.role == InventoryRole.BOUNDARY and item.start == absolute_start for item in markers):
                     continue
@@ -460,7 +658,11 @@ class PhysicalSourceInventoryBuilder:
                     if match.start() <= generic_summary.start():
                         continue
                     title = match.group(2).strip()
-                    if title.isupper() or "gå til side" in title.casefold():
+                    if (
+                        title.isupper()
+                        or "gå til side" in title.casefold()
+                        or not _is_probable_heading(title)
+                    ):
                         continue
                     markers.append(_Marker(
                         InventoryRole.SUMMARY, page.number, base + match.start(), match.group(1),
@@ -482,7 +684,7 @@ class PhysicalSourceInventoryBuilder:
             if (
                 not next_description or not next_tgiu or next_description.start() > next_tgiu.start()
                 or len(title) > 120 or title.startswith(("•", "["))
-                or title.rstrip().endswith((".", ":", ";"))
+                or not _is_probable_heading(title)
             ):
                 continue
             title_pos = primary.rfind(title)
@@ -491,6 +693,66 @@ class PhysicalSourceInventoryBuilder:
             markers.append(_Marker(
                 InventoryRole.PRIMARY, page.number, base + title_pos, None,
                 title, "TGIU", title, "physical_cross_page_uninvestigated_section", "tgiu",
+            ))
+
+        # Some layouts end a page immediately after "Title\nBeskrivelse", while
+        # the descriptive body and "Vurdering av avvik" continue on the next
+        # page. Preserve the title as the physical point rather than dropping it
+        # and letting the following page header become the next title.
+        for page_index, page in enumerate(pages[:-1]):
+            primary, base = _primary_text(page)
+            next_primary, _ = _primary_text(pages[page_index + 1])
+            if not re.search(r"(?im)^Vurdering av avvik\s*:\s*$", next_primary[:1400]):
+                continue
+            trailing_description = list(re.finditer(r"(?im)^Beskrivelse\s*$", primary))
+            if not trailing_description:
+                continue
+            description = trailing_description[-1]
+            if primary[description.end():].strip():
+                continue
+            local_start, title = _previous_heading_start(primary, description.end())
+            if title == "Uidentifisert rapportpunkt" or not _is_probable_heading(title):
+                continue
+            if any(item.role != InventoryRole.BOUNDARY and item.start == base + local_start for item in markers):
+                continue
+            tg_grade, point_type = _context_type(next_primary, 0, len(next_primary[:1400]), "TG2", title)
+            markers.append(_Marker(
+                InventoryRole.PRIMARY, page.number, base + local_start, None,
+                title, tg_grade, title, "physical_cross_page_continued_section", point_type,
+            ))
+
+        # Preserve report points that start near the end of one page and continue
+        # on the next page after the footer/image layer, even when some body text
+        # already appears after "Beskrivelse" before the page break.
+        for page_index, page in enumerate(pages[:-1]):
+            primary, base = _primary_text(page)
+            next_primary, _ = _primary_text(pages[page_index + 1])
+            vurdering = re.search(r"(?im)^Vurdering av avvik\s*:\s*$", next_primary[:1800])
+            if not vurdering:
+                continue
+            trailing_description = list(re.finditer(r"(?im)^Beskrivelse\s*$", primary))
+            if not trailing_description:
+                continue
+            description = trailing_description[-1]
+            local_start, title = _previous_heading_start(primary, description.end())
+            if title == "Uidentifisert rapportpunkt" or not _is_probable_heading(title):
+                continue
+            remainder = _trim_body_artifacts(
+                primary[description.end():],
+                is_first_span=False,
+            ).strip()
+            if not remainder:
+                continue
+            if re.search(r"(?im)^[A-ZÆØÅ][A-ZÆØÅ ,/&()\\-]{4,}$", remainder):
+                continue
+            if any(item.role != InventoryRole.BOUNDARY and item.start == base + local_start for item in markers):
+                continue
+            tg_grade, point_type = _context_type(next_primary, 0, len(next_primary[:1800]), None, title)
+            if tg_grade is None and point_type == "unknown":
+                continue
+            markers.append(_Marker(
+                InventoryRole.PRIMARY, page.number, base + local_start, None,
+                title, tg_grade, title, "physical_cross_page_body_continued_section", point_type,
             ))
 
         # Remove exact extraction duplicates while preserving distinct physical offsets.
@@ -541,23 +803,26 @@ class PhysicalSourceInventoryBuilder:
                 if span_start >= span_end:
                     continue
                 raw = report_text[span_start:span_end]
-                left_trim = len(raw) - len(raw.lstrip())
-                exact = raw.strip()
-                if not exact:
-                    continue
-                exact_start = span_start + left_trim
-                exact_end = exact_start + len(exact)
-                body_spans.append(SourceEvidence(
-                    evidence_id=_id("source", document_hash, page.number, exact_start, exact_end),
-                    exact_quote=exact,
-                    page=page.number,
-                    char_start=exact_start,
-                    char_end=exact_end,
-                    quote_sha256=hashlib.sha256(exact.encode()).hexdigest(),
-                    match_method="exact",
-                    validation_status=ValidationStatus.VALIDATED,
-                    validation_notes=["physical_source_inventory_reversible_page_span"],
-                ))
+                for relative_start, relative_end, exact in _body_span_chunks(
+                    raw,
+                    is_first_span=not body_spans,
+                ):
+                    exact_start = span_start + relative_start
+                    exact_end = span_start + relative_end
+                    body_spans.append(SourceEvidence(
+                        evidence_id=_id("source", document_hash, page.number, exact_start, exact_end),
+                        exact_quote=exact,
+                        page=page.number,
+                        char_start=exact_start,
+                        char_end=exact_end,
+                        quote_sha256=hashlib.sha256(exact.encode()).hexdigest(),
+                        match_method="exact",
+                        validation_status=ValidationStatus.VALIDATED,
+                        validation_notes=["physical_source_inventory_reversible_page_span"],
+                    ))
+            if not body_spans:
+                continue
+            body_spans = [span for span in body_spans if span.exact_quote.strip()]
             if not body_spans:
                 continue
             exact = "\n".join(span.exact_quote for span in body_spans)

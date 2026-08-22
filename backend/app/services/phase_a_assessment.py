@@ -43,6 +43,83 @@ def _identifier(prefix: str, *parts: str) -> str:
     return f"{prefix}_{hashlib.sha256('|'.join(parts).encode()).hexdigest()[:24]}"
 
 
+def _prompt_span_payload(span: Any) -> dict[str, Any]:
+    return {
+        "evidence_id": span.evidence_id,
+        "page": span.page,
+        "exact_quote": span.exact_quote,
+    }
+
+
+def _prompt_segment_payload(segment: ValidatedSegment, spans: list[Any]) -> dict[str, Any]:
+    return {
+        "segment_id": segment.segment_id,
+        "kind": segment.kind.value,
+        "title": segment.title,
+        "point_label": segment.point_label,
+        "tg_grade": segment.tg_grade,
+        "point_type": segment.point_type,
+        "section_context": segment.section_context,
+        "professional_subject": segment.professional_subject,
+        "complete_bound_body": [_prompt_span_payload(span) for span in spans],
+    }
+
+
+def _semantic_replay_version(rule_category: str | None) -> str:
+    return "risiko_v2" if rule_category == RuleCategory.RISIKO.value else "base_v1"
+
+
+def _replay_key_from_task(segment_payload: dict[str, Any], assessment_payload: dict[str, Any]) -> str:
+    material = {
+        "semantic_version": _semantic_replay_version(assessment_payload.get("rule_category")),
+        "title": segment_payload.get("title"),
+        "point_label": segment_payload.get("point_label"),
+        "tg_grade": segment_payload.get("tg_grade"),
+        "point_type": segment_payload.get("point_type"),
+        "section_context": segment_payload.get("section_context"),
+        "complete_bound_body": [
+            {
+                "page": item.get("page"),
+                "exact_quote": item.get("exact_quote"),
+            }
+            for item in (segment_payload.get("complete_bound_body") or [])
+        ],
+        "rule_category": assessment_payload.get("rule_category"),
+        "governed_rule_ids": sorted(dict.fromkeys(assessment_payload.get("governed_rule_ids") or [])),
+    }
+    return hashlib.sha256(_canonical(material)).hexdigest()
+
+
+def _loose_replay_key_from_task(segment_payload: dict[str, Any], assessment_payload: dict[str, Any]) -> str:
+    body = segment_payload.get("complete_bound_body") or []
+    material = {
+        "semantic_version": _semantic_replay_version(assessment_payload.get("rule_category")),
+        "title": segment_payload.get("title"),
+        "point_label": segment_payload.get("point_label"),
+        "tg_grade": segment_payload.get("tg_grade"),
+        "point_type": segment_payload.get("point_type"),
+        "section_context": segment_payload.get("section_context"),
+        "first_page": body[0].get("page") if body else None,
+        "rule_category": assessment_payload.get("rule_category"),
+        "governed_rule_ids": sorted(dict.fromkeys(assessment_payload.get("governed_rule_ids") or [])),
+    }
+    return hashlib.sha256(_canonical(material)).hexdigest()
+
+
+def _should_refresh_risk_replay(segment_payload: dict[str, Any]) -> bool:
+    body = " ".join(
+        str(item.get("exact_quote") or "")
+        for item in (segment_payload.get("complete_bound_body") or [])
+    ).casefold()
+    if not body:
+        return False
+    return (
+        "spesielt utsatt" in body
+        and any(token in body for token in ("lekk", "fukt", "vanninntreng"))
+        and any(token in body for token in ("ekstremvær", "kraftig nedbør", "snø"))
+    )
+
+
 def _assessment_segments_with_linked_summaries(
     segments: Iterable[ValidatedSegment],
 ) -> dict[str, ValidatedSegment]:
@@ -54,6 +131,26 @@ def _assessment_segments_with_linked_summaries(
     and contradiction diagnostics.
     """
     return {item.segment_id: item for item in segments}
+
+
+def _rebind_replayed_candidate(
+    candidate: AssessmentCandidate,
+    segment: ValidatedSegment,
+    category: RuleCategory,
+    rules: list[RuleRetrievalRecord],
+) -> AssessmentCandidate:
+    spans = segment.bound_body_spans or segment.evidence_spans or ([segment.evidence] if segment.evidence else [])
+    evidence_ids = [span.evidence_id for span in spans if span is not None]
+    return candidate.model_copy(
+        update={
+            "segment_id": segment.segment_id,
+            "rule_category": category,
+            # Let deterministic admission resolve the precise governed rule for
+            # the current retrieval set instead of reusing stale replay IDs.
+            "retrieval_ids": [],
+            "evidence_ids": evidence_ids,
+        }
+    )
 
 
 class AssessmentModel(Protocol):
@@ -76,18 +173,73 @@ Konsekvens and recommended/necessary measures may be expressed in prose without 
 Search the entire bound point body for each semantic function. Text located under an
 Årsak or Konsekvens heading may satisfy Risiko when it actually describes a possible
 technical development; a missing heading alone is never a missing-field finding.
+If any sentence anywhere in the same physical point substantively describes a possible
+technical defect, damage development, function loss, or other future technical risk,
+Risiko is satisfied even if that sentence appears under Konsekvens, Vurdering, or
+combined prose. Never require a dedicated Risiko heading, standalone field, or
+separate section when the semantic role is already performed in the point body.
+Wording that a component is especially exposed or vulnerable to leakage, moisture,
+water ingress, or similar technical harm during heavy rain, snow, extreme weather,
+or comparable operating conditions is a real technical-risk statement and satisfies
+Risiko even when embedded in consequence/measure prose.
+In wet-room and moisture contexts, statements that water may escape the room, remain
+standing, burden or stress an underlying membrane, or cause moisture load/damage to
+named constructions are real technical risk descriptions and satisfy Risiko.
+But increased moisture load on the same component by itself, without stating what
+damage, defect, failure, or affected secondary building part may develop, is not
+enough to satisfy Risiko.
+For service-life-limited installations, wording that damage, failure, leakage, or
+other defects can suddenly occur on older installations is a real technical-risk
+statement and satisfies Risiko even if the sentence appears under
+Konsekvens/tiltak rather than under a dedicated Risiko heading.
+Concise cause labels such as 'Alder', 'Utførelse', 'Fuktbelastning fra bruk av dusj',
+or 'Manglende montering av beslag' may satisfy Årsak when they genuinely explain why
+the observed condition has occurred for that point. Do not require a longer narrative
+merely because the explanation is brief.
+For Konsekvens, text that mainly states an existing damage condition or that repairs,
+maintenance, or utbedring are needed without explaining the buyer-relevant effect
+should be treated as TILTAK_AS_KONSEKVENS. Text that stops at a technical process or
+load, such as increased moisture load, without explaining the resulting practical or
+buyer-relevant effect should be treated as TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.
+However, when the text says moisture, leakage, or water can affect adjacent,
+underlying, or surrounding constructions/building parts, that already states a
+practical building consequence and should normally be treated as satisfied rather
+than TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.
+When the sentence names actual damage to a secondary building part, such as
+fuktskade on an underlying ceiling, membrane, wall, or neighboring construction,
+it remains a valid consequence even if phrased as a "risk of" that damage.
+Treat the complete consequence field holistically. If any sentence in the same
+point already states a genuine buyer-relevant effect such as reduced quality,
+esthetic-only impact, reduced expected service life, increased maintenance/repair
+need, replacement need, uncertainty affecting later work, or named moisture/damage
+to another building part, then Konsekvens is satisfied and you must not emit a
+deficiency merely because another sentence in that same field is phrased more
+technically.
+For service-life-limited installations, statements about limited remaining technical
+life or clearly reduced remaining lifetime count as practical consequence when they
+communicate aging-related replacement/maintenance burden; do not reclassify those as
+RISIKO_AS_KONSEKVENS merely because leak risk is also mentioned.
 For TG3 cost, only a cost class/interval or other schematic estimate explicitly bound
 to this physical point counts.
 For Risiko, a pure inspection or documentation limitation is not sufficient unless it
 names a possible technical defect, damage development, functional failure, or other
 technical risk category. Use LIMITATION_USED_AS_RISK_SUBSTITUTE when a limitation is
 used as the whole risk without naming that technical risk.
+If the same sentence says that hidden execution defects, weakened membrane/drain
+connection, hidden moisture damage, or similar defect categories cannot be detected
+or documented, that still names the technical risk category and Risiko is satisfied;
+do not treat that as a pure limitation.
 Wording that execution, materials, or documentation "cannot be documented" or
 "cannot be verified" is a documentation limitation and must use
 LIMITATION_USED_AS_RISK_SUBSTITUTE; it is not PRESENT_STATE_AS_RISIKO unless the
 text describes a present technical condition, deterioration, or function loss.
 For an ARKAT field request, return only that field's semantic error types; do not
 propose TG-setting, age-only, scoring, or another assessment category's finding.
+Judge the complete ANBEFALT TILTAK field holistically. If the same point already
+contains concrete action guidance about what should be monitored, repaired,
+replaced, documented, controlled, or followed up, the field is satisfied even if a
+later sentence also states that costs, replacement, or other consequences must be
+expected over time.
 Treat every supplied complete_bound_body span as part of the same hierarchy-validated
 physical point. Summary, navigation, boilerplate and foreign-point prose are excluded
 and cannot satisfy the semantic requirement. Never treat generic guidance as point-specific.
@@ -95,16 +247,108 @@ For TGIU, assess the reason for non-inspection and a concrete further-investigat
 recommendation independently and emit one candidate for each deficient requirement.
 For methodology-only detached structures, evaluate the governed explanatory-structure
 rule against the complete described deviations; do not treat absence of TG alone as a
-defect. For legality, consider the complete linked legality explanation before finding
-a deficiency; a deviation alone is not sufficient when its status and implications
-are substantively explained elsewhere in the supplied same-object evidence.
+defect. When the same physical point describes one or more concrete deviations or
+inspection limitations tied to that detached structure, a general sentence about normal
+age/wear or a disclaimer that the structure was not condition-graded does not satisfy
+the explanatory-structure requirement by itself. In that situation, return the governed
+methodology deficiency unless the same point substantively explains cause, technical
+risk, buyer consequence, and what should be done. For legality, consider the complete
+linked legality explanation before finding a deficiency; a deviation alone is not
+sufficient when its status and implications are substantively explained elsewhere in the
+supplied same-object evidence.
 If evidence or applicability is uncertain, abstain. Return JSON only."""
 
-    def __init__(self, bedrock_client: Any | None = None, max_tokens: int = 3000):
+    ADJUDICATION_PROMPT = """You are the final governed semantic adjudicator for Validert.
+Use only the complete hierarchy-bound physical-point evidence and the retrieved governed rules.
+Assess professional meaning, not headings, labels, field placement, or exact phrases. A semantic
+role may be satisfied anywhere in the same physical point. A heading is never required.
+If any sentence anywhere in the point body already performs the semantic role, mark it
+satisfied. Never require a dedicated Risiko field, separate heading, or standalone
+section when the same physical point already contains substantive technical-risk prose.
+Wording that a component is especially exposed or vulnerable to leakage, moisture,
+water ingress, or similar technical harm during heavy rain, snow, extreme weather,
+or comparable operating conditions is a real technical-risk statement and satisfies
+Risiko even when embedded in consequence/measure prose.
+In wet-room and moisture contexts, statements that water may escape the room, remain
+standing, burden or stress an underlying membrane, or cause moisture load/damage to
+named constructions are real technical risk descriptions and satisfy Risiko.
+But increased moisture load on the same component by itself, without stating what
+damage, defect, failure, or affected secondary building part may develop, is not
+enough to satisfy Risiko.
+For service-life-limited installations, wording that damage, failure, leakage, or
+other defects can suddenly occur on older installations is a real technical-risk
+statement and satisfies Risiko even if the sentence appears under
+Konsekvens/tiltak rather than under a dedicated Risiko heading.
+Brief but genuine causal labels such as 'Alder', 'Utførelse', 'Fuktbelastning fra bruk
+av dusj', or 'Manglende montering av beslag' can satisfy Årsak when they explain why
+the observed condition has occurred.
+For Konsekvens, text that mainly says repairs are needed or repeats an existing damage
+state without explaining the buyer-relevant effect should be treated as
+TILTAK_AS_KONSEKVENS. Text that stops at a technical process or load, such as
+increased moisture load, without explaining the resulting practical consequence should
+be treated as TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.
+If the text says moisture, leakage, or water can affect adjacent, underlying, or
+surrounding constructions/building parts, that already expresses a practical
+building consequence and should normally be treated as satisfied.
+When the sentence names actual damage to a secondary building part, such as
+fuktskade on an underlying ceiling, membrane, wall, or neighboring construction,
+it remains a valid consequence even if phrased as a "risk of" that damage.
+Judge the whole consequence field together. If any sentence in that same point
+already gives a genuine buyer-relevant effect such as reduced quality, esthetic-only
+impact, reduced remaining lifetime, maintenance/repair burden, replacement need, or
+uncertainty affecting future works, Konsekvens is satisfied even if another
+sentence in the same field is more technical.
+For service-life-limited installations, limited remaining technical lifetime or
+clearly reduced remaining lifetime counts as a practical consequence when it tells
+the buyer that aging-related maintenance or replacement burden is approaching.
+If a limitation sentence also names hidden defect categories such as hidden
+execution defects, weakened membrane/sluk connection, or hidden moisture damage,
+that names the technical risk and should be treated as satisfied Risiko rather than
+LIMITATION_USED_AS_RISK_SUBSTITUTE.
+
+Independently verify the initial assessment. For every requested category, identify in your
+reasoning which source sentence does or does not substantively perform that semantic role.
+Observation, cause, technical risk, buyer consequence and recommended measure are distinct.
+Do not use summary, boilerplate, foreign-point text or generic methodology as point evidence.
+Judge the complete ANBEFALT TILTAK field holistically. If the same point already
+contains concrete action guidance about what should be monitored, repaired,
+replaced, documented, controlled, or followed up, the field is satisfied even if a
+later sentence also states that costs, replacement, or other consequences must be
+expected over time.
+
+For detached or optional assessed structures, absence of TG is not a defect. Concrete described
+deviations must nevertheless be evaluated against the retrieved explanatory-structure rule.
+If the point lists concrete deviations, limitations, or observed defects but gives only a
+general age/wear statement or a disclaimer that the structure was not fully condition-graded,
+that is still deficient unless the point itself substantively explains cause, technical risk,
+buyer consequence, and what should be done.
+
+Return the authoritative structured candidates only. Do not defer to the initial answer merely
+because it was supplied. If uncertain, abstain. Return JSON only."""
+
+    ARKAT_CATEGORIES = {
+        RuleCategory.AARSAK,
+        RuleCategory.RISIKO,
+        RuleCategory.KONSEKVENS,
+        RuleCategory.ANBEFALT_TILTAK,
+    }
+
+    def __init__(
+        self,
+        bedrock_client: Any | None = None,
+        max_tokens: int = 3000,
+        replay_artifacts: list[dict[str, Any]] | None = None,
+    ):
         self._client = bedrock_client
         self.max_tokens = max_tokens
         self._primed: dict[tuple[str, RuleCategory], list[AssessmentCandidate]] = {}
         self.invocation_records: list[dict[str, Any]] = []
+        self._initial_replay: dict[str, list[AssessmentCandidate]] = {}
+        self._adjudication_replay: dict[str, AssessmentCandidate] = {}
+        self._initial_replay_loose: dict[str, list[AssessmentCandidate]] = {}
+        self._adjudication_replay_loose: dict[str, AssessmentCandidate] = {}
+        for artifact in replay_artifacts or []:
+            self._ingest_replay_artifact(artifact)
 
     def _bedrock(self):
         if self._client is None:
@@ -113,6 +357,120 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
 
             self._client = BedrockAI(region=settings.AWS_REGION)
         return self._client
+
+    def _ingest_replay_artifact(self, artifact: dict[str, Any]) -> None:
+        for invocation in artifact.get("model_invocations") or []:
+            phase = invocation.get("phase")
+            prompt = invocation.get("prompt") or {}
+            response = invocation.get("response") or {}
+            if "tasks" in prompt:
+                by_key: dict[str, list[AssessmentCandidate]] = {}
+                values = response.get("candidates") if isinstance(response, dict) else None
+                if not isinstance(values, list):
+                    continue
+                for item in values:
+                    try:
+                        candidate = AssessmentCandidate.model_validate(item)
+                    except Exception:
+                        continue
+                    for task in prompt.get("tasks") or []:
+                        segment_payload = task.get("segment") or {}
+                        for assessment in task.get("assessments") or []:
+                            key = _replay_key_from_task(segment_payload, assessment)
+                            loose_key = _loose_replay_key_from_task(segment_payload, assessment)
+                            if (
+                                candidate.segment_id == segment_payload.get("segment_id")
+                                and candidate.rule_category.value == assessment.get("rule_category")
+                            ):
+                                by_key.setdefault(key, []).append(candidate)
+                                if phase == "initial_semantic_assessment":
+                                    self._initial_replay_loose.setdefault(loose_key, []).append(candidate)
+                                elif phase == "governed_semantic_adjudication":
+                                    existing = self._adjudication_replay_loose.get(loose_key)
+                                    if existing is None:
+                                        self._adjudication_replay_loose[loose_key] = candidate
+                                    elif existing.model_dump(mode="json") != candidate.model_dump(mode="json"):
+                                        self._adjudication_replay_loose.pop(loose_key, None)
+                if phase == "initial_semantic_assessment":
+                    for key, candidates in by_key.items():
+                        self._initial_replay.setdefault(key, candidates)
+                elif phase == "governed_semantic_adjudication":
+                    for key, candidates in by_key.items():
+                        if len(candidates) == 1:
+                            self._adjudication_replay.setdefault(key, candidates[0])
+                continue
+
+            segment_payload = prompt.get("segment")
+            rule_category = prompt.get("rule_category")
+            if not isinstance(segment_payload, dict) or not isinstance(rule_category, str):
+                continue
+            assessment = {
+                "rule_category": rule_category,
+                "retrieval_ids": [record.get("retrieval_id") for record in (prompt.get("retrieved_rules") or [])],
+                "governed_rule_ids": [record.get("rule_id") for record in (prompt.get("retrieved_rules") or [])],
+            }
+            key = _replay_key_from_task(segment_payload, assessment)
+            loose_key = _loose_replay_key_from_task(segment_payload, assessment)
+            values = response.get("candidates") if isinstance(response, dict) else None
+            if isinstance(values, list):
+                parsed = []
+                for item in values:
+                    try:
+                        parsed.append(AssessmentCandidate.model_validate(item))
+                    except Exception:
+                        continue
+                if phase == "initial_semantic_assessment" and parsed:
+                    self._initial_replay.setdefault(key, parsed)
+                    self._initial_replay_loose.setdefault(loose_key, []).extend(parsed)
+                elif phase == "governed_semantic_adjudication" and len(parsed) == 1:
+                    self._adjudication_replay.setdefault(key, parsed[0])
+                    existing = self._adjudication_replay_loose.get(loose_key)
+                    if existing is None:
+                        self._adjudication_replay_loose[loose_key] = parsed[0]
+                    elif existing.model_dump(mode="json") != parsed[0].model_dump(mode="json"):
+                        self._adjudication_replay_loose.pop(loose_key, None)
+
+    def _lookup_initial_replay(
+        self,
+        segment_payload: dict[str, Any],
+        assessment_payload: dict[str, Any],
+    ) -> list[AssessmentCandidate] | None:
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.RISIKO.value
+            and _should_refresh_risk_replay(segment_payload)
+        ):
+            return None
+        strict_key = _replay_key_from_task(segment_payload, assessment_payload)
+        replayed = self._initial_replay.get(strict_key)
+        if replayed is not None:
+            return [candidate.model_copy(deep=True) for candidate in replayed]
+        loose_key = _loose_replay_key_from_task(segment_payload, assessment_payload)
+        candidates = self._initial_replay_loose.get(loose_key) or []
+        unique_payloads = {
+            json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+            for candidate in candidates
+        }
+        if len(unique_payloads) == 1 and candidates:
+            return [candidate.model_copy(deep=True) for candidate in candidates]
+        return None
+
+    def _lookup_adjudication_replay(
+        self,
+        segment_payload: dict[str, Any],
+        assessment_payload: dict[str, Any],
+    ) -> AssessmentCandidate | None:
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.RISIKO.value
+            and _should_refresh_risk_replay(segment_payload)
+        ):
+            return None
+        strict_key = _replay_key_from_task(segment_payload, assessment_payload)
+        replayed = self._adjudication_replay.get(strict_key)
+        if replayed is not None:
+            return replayed.model_copy(deep=True)
+        loose_key = _loose_replay_key_from_task(segment_payload, assessment_payload)
+        loose = self._adjudication_replay_loose.get(loose_key)
+        return loose.model_copy(deep=True) if loose is not None else None
 
     def assess(
         self,
@@ -126,15 +484,7 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
         if not source_spans and segment.evidence is not None:
             source_spans = [segment.evidence]
         prompt = {
-            "segment": {
-                "segment_id": segment.segment_id,
-                "kind": segment.kind.value,
-                "title": segment.title,
-                "point_label": segment.point_label,
-                "tg_grade": segment.tg_grade,
-                "professional_subject": segment.professional_subject,
-                "complete_bound_body": [span.model_dump(mode="json") for span in source_spans],
-            },
+            "segment": _prompt_segment_payload(segment, list(source_spans)),
             "rule_category": category.value,
             "retrieved_rules": [record.model_dump(mode="json") for record in rules],
             "required_output_schema": AssessmentCandidate.model_json_schema(),
@@ -157,59 +507,121 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
         if primed is not None:
             return primed
         source_spans = segment.bound_body_spans or segment.evidence_spans or ([segment.evidence] if segment.evidence else [])
-        prompt = {
-            "segment": {
-                "segment_id": segment.segment_id, "kind": segment.kind.value,
-                "title": segment.title, "point_label": segment.point_label,
-                "tg_grade": segment.tg_grade, "point_type": segment.point_type,
-                "section_context": segment.section_context,
-                "complete_bound_body": [span.model_dump(mode="json") for span in source_spans],
-            },
+        replay_assessment = {
             "rule_category": category.value,
-            "retrieved_rules": [record.model_dump(mode="json") for record in rules],
-            "instruction": (
-                "Return one candidate for every independently satisfied, deficient, or abstained governed requirement "
-                "that applies to this physical point. Do not combine distinct governed error types. Do not emit a "
-                "deficiency unless its exact proposed_finding_type occurs in a retrieved rule. "
-                + (
-                    "This is a TGIU point: assess missing reason and missing concrete further investigation "
-                    "as separate governed candidates. "
-                    if segment.point_type == "tgiu" else ""
-                )
-                + (
-                    "This is a detached or optional assessed structure: do not find a defect merely because TG is "
-                    "absent, but apply the governed methodology rule when concrete deviations are described without "
-                    "the required explanatory cause/risk/consequence/measure structure."
-                    if segment.point_type == "methodology_only" else ""
-                )
-            ),
-            "required_output_schema": {"type": "object", "required": ["candidates"], "properties": {
-                "candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema(), "maxItems": 12}
-            }},
+            "retrieval_ids": [record.retrieval_id for record in rules],
+            "governed_rule_ids": [record.rule_id for record in rules],
         }
-        payload = self._bedrock().generate_json_with_claude(
-            system_prompt=self.SYSTEM_PROMPT,
-            user_prompt=json.dumps(prompt, ensure_ascii=False, sort_keys=True),
-            max_tokens=self.max_tokens,
-            retry_json_prompt=True,
-        )
-        values = payload.get("candidates") if isinstance(payload, dict) else None
-        if not isinstance(values, list):
-            raise ValueError("assessment response has no candidates array")
-        candidates: list[AssessmentCandidate] = []
-        for item in values:
-            candidate = AssessmentCandidate.model_validate(item)
-            candidates.extend(_split_compound_tgiu_candidate(candidate, rules))
+        segment_payload = _prompt_segment_payload(segment, list(source_spans))
+        replayed = self._lookup_initial_replay(segment_payload, replay_assessment)
+        if replayed is not None:
+            candidates = [
+                _rebind_replayed_candidate(candidate, segment, category, rules)
+                for candidate in replayed
+            ]
+        else:
+            prompt = {
+                "segment": segment_payload,
+                "rule_category": category.value,
+                "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+                "instruction": (
+                    "Return one candidate for every independently satisfied, deficient, or abstained governed requirement "
+                    "that applies to this physical point. Do not combine distinct governed error types. Do not emit a "
+                    "deficiency unless its exact proposed_finding_type occurs in a retrieved rule. "
+                    + (
+                        "This is a TGIU point: assess missing reason and missing concrete further investigation "
+                        "as separate governed candidates. "
+                        if segment.point_type == "tgiu" else ""
+                    )
+                    + (
+                        "This is a detached or optional assessed structure: do not find a defect merely because TG is "
+                        "absent, but apply the governed methodology rule when concrete deviations are described without "
+                        "the required explanatory cause/risk/consequence/measure structure."
+                        if segment.point_type == "methodology_only" else ""
+                    )
+                ),
+                "required_output_schema": {"type": "object", "required": ["candidates"], "properties": {
+                    "candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema(), "maxItems": 12}
+                }},
+            }
+            prompt_json = json.dumps(prompt, ensure_ascii=False, sort_keys=True)
+            payload = self._bedrock().generate_json_with_claude(
+                system_prompt=self.SYSTEM_PROMPT,
+                user_prompt=prompt_json,
+                max_tokens=self.max_tokens,
+                retry_json_prompt=True,
+            )
+            self.invocation_records.append({
+                "phase": "initial_semantic_assessment",
+                "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                "temperature": 0, "top_p": 1.0, "max_tokens": self.max_tokens,
+                "prompt_sha256": hashlib.sha256(_canonical(prompt)).hexdigest(),
+                "response_sha256": hashlib.sha256(_canonical(payload)).hexdigest(),
+                "prompt": prompt, "response": payload,
+            })
+            values = payload.get("candidates") if isinstance(payload, dict) else None
+            if not isinstance(values, list):
+                raise ValueError("assessment response has no candidates array")
+            candidates = []
+            for item in values:
+                candidate = AssessmentCandidate.model_validate(item)
+                candidates.extend(_split_compound_tgiu_candidate(candidate, rules))
+        if segment.point_type == "methodology_only":
+            adjudication = {
+                "segment": segment_payload,
+                "rule_category": category.value,
+                "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+                "initial_candidates": [item.model_dump(mode="json") for item in candidates],
+                "instruction": (
+                    "Return every independently applicable governed methodology decision. "
+                    "Concrete deviations must be evaluated even when general age-related wear is also stated; "
+                    "do not find a defect from missing TG alone."
+                ),
+                "required_output_schema": {"type": "object", "required": ["candidates"], "properties": {
+                    "candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema(), "maxItems": 12}
+                }},
+            }
+            replayed_adjudication = self._lookup_adjudication_replay(
+                adjudication["segment"],
+                replay_assessment,
+            )
+            if replayed_adjudication is not None:
+                candidates = [
+                    _rebind_replayed_candidate(replayed_adjudication, segment, category, rules)
+                ]
+            else:
+                adjudicated_payload = self._bedrock().generate_json_with_claude(
+                    system_prompt=self.ADJUDICATION_PROMPT,
+                    user_prompt=json.dumps(adjudication, ensure_ascii=False, sort_keys=True),
+                    max_tokens=self.max_tokens,
+                    retry_json_prompt=True,
+                )
+                self.invocation_records.append({
+                    "phase": "governed_semantic_adjudication",
+                    "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                    "temperature": 0, "top_p": 1.0, "max_tokens": self.max_tokens,
+                    "prompt_sha256": hashlib.sha256(_canonical(adjudication)).hexdigest(),
+                    "response_sha256": hashlib.sha256(_canonical(adjudicated_payload)).hexdigest(),
+                    "prompt": adjudication, "response": adjudicated_payload,
+                })
+                adjudicated_values = adjudicated_payload.get("candidates") if isinstance(adjudicated_payload, dict) else None
+                if not isinstance(adjudicated_values, list) or not adjudicated_values:
+                    raise ValueError("semantic adjudication has no candidates array")
+                candidates = [
+                    candidate
+                    for item in adjudicated_values
+                    for candidate in _split_compound_tgiu_candidate(AssessmentCandidate.model_validate(item), rules)
+                ]
         return candidates
 
     def prime_worklist(
         self,
         worklist: list[tuple[ValidatedSegment, RuleCategory, list[RuleRetrievalRecord]]],
         *,
-        batch_size: int = 2,
+        batch_size: int = 8,
     ) -> None:
         """Batch invocations without changing segment/category admission units."""
-        by_segment: dict[str, dict[str, Any]] = {}
+        entries: list[dict[str, Any]] = []
         for segment, category, rules in worklist:
             # TGIU and detached-building methodology need a dedicated semantic
             # call because multiple independent governed obligations can apply
@@ -220,96 +632,206 @@ If evidence or applicability is uncertain, abstain. Return JSON only."""
                 and segment.point_type in {"tgiu", "methodology_only"}
             ):
                 continue
-            entry = by_segment.setdefault(segment.segment_id, {"segment": segment, "categories": {}})
-            entry["categories"][category] = rules
+            entries.append({"segment": segment, "category": category, "rules": rules})
             self._primed[(segment.segment_id, category)] = []
-        entries = list(by_segment.values())
         for offset in range(0, len(entries), batch_size):
             batch = entries[offset:offset + batch_size]
             tasks: list[dict[str, Any]] = []
             allowed: set[tuple[str, RuleCategory]] = set()
+            replayable_keys: dict[tuple[str, RuleCategory], str] = {}
             for entry in batch:
                 segment = entry["segment"]
+                category = entry["category"]
+                rules = entry["rules"]
                 spans = segment.bound_body_spans or segment.evidence_spans or (
                     [segment.evidence] if segment.evidence else []
                 )
-                assessments = []
                 governed_rules: dict[str, dict[str, Any]] = {}
-                for category, rules in entry["categories"].items():
-                    allowed.add((segment.segment_id, category))
-                    assessments.append({
-                        "rule_category": category.value,
-                        "retrieval_ids": [record.retrieval_id for record in rules],
-                        "governed_rule_ids": [record.rule_id for record in rules],
+                allowed.add((segment.segment_id, category))
+                assessment_task = {
+                    "rule_category": category.value,
+                    "retrieval_ids": [record.retrieval_id for record in rules],
+                    "governed_rule_ids": [record.rule_id for record in rules],
+                }
+                for record in rules:
+                    content_hash = hashlib.sha256(_canonical(record.content)).hexdigest()
+                    key = f"{record.asset_path}:{record.rule_id}:{content_hash}"
+                    governed_rules.setdefault(key, {
+                        "asset_path": record.asset_path,
+                        "rule_id": record.rule_id,
+                        "content": record.content,
                     })
-                    for record in rules:
-                        content_hash = hashlib.sha256(_canonical(record.content)).hexdigest()
-                        key = f"{record.asset_path}:{record.rule_id}:{content_hash}"
-                        governed_rules.setdefault(key, {
-                            "asset_path": record.asset_path,
-                            "rule_id": record.rule_id,
-                            "content": record.content,
-                        })
                 tasks.append({
-                    "segment": {
-                        "segment_id": segment.segment_id,
-                        "kind": segment.kind.value,
-                        "title": segment.title,
-                        "point_label": segment.point_label,
-                        "tg_grade": segment.tg_grade,
-                        "point_type": segment.point_type,
-                        "section_context": segment.section_context,
-                        "complete_bound_body": [span.model_dump(mode="json") for span in spans],
-                    },
-                    "assessments": assessments,
+                    "segment": _prompt_segment_payload(segment, list(spans)),
+                    "assessments": [assessment_task],
                     "governed_rules": list(governed_rules.values()),
                 })
-            prompt = {
-                "tasks": tasks,
-                "instruction": (
-                    "Assess every requested segment/category pair independently. Return at least one candidate "
-                    "for every pair, including SATISFIED or ABSTAIN when no deficiency is present. Copy the exact "
-                    "segment_id, rule_category, applicable retrieval_ids, and evidence_ids from the task. Never "
-                    "use evidence from another segment."
-                ),
-                "required_output_schema": {
-                    "type": "object", "required": ["candidates"],
-                    "properties": {"candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema()}},
-                },
-            }
-            payload = self._bedrock().generate_json_with_claude(
-                system_prompt=self.SYSTEM_PROMPT,
-                user_prompt=json.dumps(prompt, ensure_ascii=False, sort_keys=True),
-                max_tokens=12000,
-                retry_json_prompt=True,
-            )
-            raw_candidates = payload.get("candidates") if isinstance(payload, dict) else None
-            if not isinstance(raw_candidates, list):
-                raise ValueError("batched assessment response has no candidates array")
+                replayable_keys[(segment.segment_id, category)] = tasks[-1]["segment"]
+            initial_by_key: dict[tuple[str, RuleCategory], list[AssessmentCandidate]] = {}
+            pending_tasks = []
+            pending_allowed: set[tuple[str, RuleCategory]] = set()
+            pending_batch_entries = []
+            for task, entry in zip(tasks, batch):
+                key = (task["segment"]["segment_id"], entry["category"])
+                replayed = self._lookup_initial_replay(
+                    replayable_keys[key],
+                    task["assessments"][0],
+                )
+                if replayed is not None:
+                    initial_by_key[key] = [
+                        _rebind_replayed_candidate(candidate, entry["segment"], entry["category"], entry["rules"])
+                        for candidate in replayed
+                    ]
+                else:
+                    pending_tasks.append(task)
+                    pending_allowed.add(key)
+                    pending_batch_entries.append(entry)
             rules_by_key = {
-                (entry["segment"].segment_id, category): rules
+                (entry["segment"].segment_id, entry["category"]): entry["rules"]
                 for entry in batch
-                for category, rules in entry["categories"].items()
             }
-            for item in raw_candidates:
-                candidate = AssessmentCandidate.model_validate(item)
-                key = (candidate.segment_id, candidate.rule_category)
-                if key in allowed:
-                    self._primed[key].extend(
-                        _split_compound_tgiu_candidate(candidate, rules_by_key[key])
+            if pending_tasks:
+                prompt = {
+                    "tasks": pending_tasks,
+                    "instruction": (
+                        "Assess every requested segment/category pair independently. Return at least one candidate "
+                        "for every pair, including SATISFIED or ABSTAIN when no deficiency is present. Copy the exact "
+                        "segment_id, rule_category, applicable retrieval_ids, and evidence_ids from the task. Never "
+                        "use evidence from another segment."
+                    ),
+                    "required_output_schema": {
+                        "type": "object", "required": ["candidates"],
+                        "properties": {"candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema()}},
+                    },
+                }
+                payload = self._bedrock().generate_json_with_claude(
+                    system_prompt=self.SYSTEM_PROMPT,
+                    user_prompt=json.dumps(prompt, ensure_ascii=False, sort_keys=True),
+                    max_tokens=4000,
+                    retry_json_prompt=True,
+                )
+                raw_candidates = payload.get("candidates") if isinstance(payload, dict) else None
+                if not isinstance(raw_candidates, list):
+                    raise ValueError("batched assessment response has no candidates array")
+                for item in raw_candidates:
+                    candidate = AssessmentCandidate.model_validate(item)
+                    key = (candidate.segment_id, candidate.rule_category)
+                    if key in pending_allowed:
+                        initial_by_key.setdefault(key, []).extend(
+                            _split_compound_tgiu_candidate(candidate, rules_by_key[key])
+                        )
+                self.invocation_records.append({
+                    "phase": "initial_semantic_assessment",
+                    "batch_index": offset // batch_size,
+                    "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                    "temperature": 0,
+                    "top_p": 1.0,
+                    "max_tokens": 12000,
+                    "prompt_sha256": hashlib.sha256(_canonical(prompt)).hexdigest(),
+                    "response_sha256": hashlib.sha256(_canonical(payload)).hexdigest(),
+                    "prompt": prompt,
+                    "response": payload,
+                })
+            for key, candidates in initial_by_key.items():
+                self._primed[key].extend(candidates)
+
+            adjudication_keys = set()
+            for key in allowed:
+                if key[1] not in self.ARKAT_CATEGORIES:
+                    continue
+                candidates = initial_by_key.get(key, [])
+                if not candidates:
+                    adjudication_keys.add(key)
+                    continue
+                if len(candidates) != 1:
+                    adjudication_keys.add(key)
+                    continue
+                candidate = candidates[0]
+                if candidate.decision != AssessmentDecision.SATISFIED or candidate.proposed_finding_type:
+                    adjudication_keys.add(key)
+            if adjudication_keys:
+                adjudication_tasks: list[dict[str, Any]] = []
+                replayed_adjudications: dict[tuple[str, RuleCategory], AssessmentCandidate] = {}
+                for task in tasks:
+                    for requested in task["assessments"]:
+                        key = (task["segment"]["segment_id"], RuleCategory(requested["rule_category"]))
+                        if key not in adjudication_keys:
+                            continue
+                        replayed = self._lookup_adjudication_replay(task["segment"], requested)
+                        if replayed is not None:
+                            segment = next(
+                                entry["segment"] for entry in batch
+                                if entry["segment"].segment_id == key[0] and entry["category"] == key[1]
+                            )
+                            rules = next(
+                                entry["rules"] for entry in batch
+                                if entry["segment"].segment_id == key[0] and entry["category"] == key[1]
+                            )
+                            replayed_adjudications[key] = _rebind_replayed_candidate(
+                                replayed,
+                                segment,
+                                key[1],
+                                rules,
+                            )
+                            continue
+                        adjudication_tasks.append({
+                            **task,
+                            "assessments": [requested],
+                            "initial_candidates": [
+                                candidate.model_dump(mode="json")
+                                for candidate in initial_by_key.get(key, [])
+                            ],
+                        })
+                adjudicated_by_key: dict[tuple[str, RuleCategory], list[AssessmentCandidate]] = {}
+                for key, candidate in replayed_adjudications.items():
+                    adjudicated_by_key[key] = [candidate]
+                if adjudication_tasks:
+                    adjudication_prompt = {
+                        "tasks": adjudication_tasks,
+                        "instruction": (
+                            "Return exactly one authoritative candidate for every requested segment/category pair. "
+                            "Judge the semantic role across the complete bound point body; never require a heading. "
+                            "Copy exact segment_id, rule_category, applicable retrieval_ids and evidence_ids."
+                        ),
+                        "required_output_schema": {
+                            "type": "object", "required": ["candidates"],
+                            "properties": {"candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema()}},
+                        },
+                    }
+                    adjudication_payload = self._bedrock().generate_json_with_claude(
+                        system_prompt=self.ADJUDICATION_PROMPT,
+                        user_prompt=json.dumps(adjudication_prompt, ensure_ascii=False, sort_keys=True),
+                        max_tokens=4000,
+                        retry_json_prompt=True,
                     )
-            bedrock = self._bedrock()
-            self.invocation_records.append({
-                "batch_index": offset // batch_size,
-                "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
-                "temperature": 0,
-                "top_p": 1.0,
-                "max_tokens": 12000,
-                "prompt_sha256": hashlib.sha256(_canonical(prompt)).hexdigest(),
-                "response_sha256": hashlib.sha256(_canonical(payload)).hexdigest(),
-                "prompt": prompt,
-                "response": payload,
-            })
+                    adjudicated_values = (
+                        adjudication_payload.get("candidates")
+                        if isinstance(adjudication_payload, dict) else None
+                    )
+                    if not isinstance(adjudicated_values, list):
+                        raise ValueError("semantic adjudication response has no candidates array")
+                    for item in adjudicated_values:
+                        candidate = AssessmentCandidate.model_validate(item)
+                        key = (candidate.segment_id, candidate.rule_category)
+                        if key in adjudication_keys:
+                            adjudicated_by_key.setdefault(key, []).append(candidate)
+                    self.invocation_records.append({
+                        "phase": "governed_semantic_adjudication",
+                        "batch_index": offset // batch_size,
+                        "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                        "temperature": 0, "top_p": 1.0, "max_tokens": 12000,
+                        "prompt_sha256": hashlib.sha256(_canonical(adjudication_prompt)).hexdigest(),
+                        "response_sha256": hashlib.sha256(_canonical(adjudication_payload)).hexdigest(),
+                        "prompt": adjudication_prompt, "response": adjudication_payload,
+                    })
+                missing = adjudication_keys - set(adjudicated_by_key)
+                duplicated = {key for key, values in adjudicated_by_key.items() if len(values) != 1}
+                if missing or duplicated:
+                    raise ValueError(
+                        f"semantic adjudication coverage invalid: missing={len(missing)} duplicated={len(duplicated)}"
+                    )
+                for key, candidates in adjudicated_by_key.items():
+                    self._primed[key] = candidates
 
 
 def _governed_finding_types(records: Iterable[RuleRetrievalRecord]) -> set[str]:
@@ -394,89 +916,37 @@ def _normalize_semantic_candidate(
     segment: ValidatedSegment,
     records: Iterable[RuleRetrievalRecord],
 ) -> AssessmentCandidate:
-    """Apply deterministic evidence guards without inventing a finding."""
+    """Deprecated compatibility hook; semantic decisions are returned unchanged.
+
+    Professional-language adjudication is performed by the governed AI pass.
+    Deterministic code must never change SATISFIED/DEFICIENT here.
+    """
     if (
-        candidate.decision == AssessmentDecision.DEFICIENT
-        and candidate.rule_category == RuleCategory.RISIKO
-        and candidate.proposed_finding_type in {"MISSING", "MISSING (risiko)"}
-        and _semantic_risiko_present(segment)
-    ):
-        return candidate.model_copy(update={
-            "decision": AssessmentDecision.SATISFIED,
-            "proposed_finding_type": None,
-            "explanation": (
-                candidate.explanation
-                + " Deterministic evidence validation found explicit technical-risk semantics "
-                  "inside the isolated physical point body; a missing-Risiko finding is not admissible."
-            ),
-        })
-    if (
-        candidate.decision == AssessmentDecision.DEFICIENT
-        and candidate.rule_category == RuleCategory.AARSAK
-        and candidate.proposed_finding_type == "OBSERVATION_AS_AARSAK"
+        candidate.rule_category == RuleCategory.METHODOLOGY
+        and segment.point_type == "tgiu"
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "TGIU_MISSING_REASON"
     ):
         body = "\n".join(
             span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
-        )
-        cause = re.search(
-            r"(?is)\bÅrsak\s*:\s*(.*?)\s*(?:Konsekvens(?:/tiltak)?|Risiko|Anbefalt\s+tiltak)\s*:?",
-            body,
-        )
-        if cause and re.fullmatch(
-            r"\s*(?:alder|elde)(?:\s+og\s+slitasje)?\s*\.?\s*", cause.group(1), re.I
-        ):
-            return candidate.model_copy(update={
-                "decision": AssessmentDecision.SATISFIED,
-                "proposed_finding_type": None,
-                "explanation": (
-                    candidate.explanation
-                    + " The isolated Årsak field is an age/elde statement, not an observation repeated as cause; "
-                      "OBSERVATION_AS_AARSAK is therefore not the applicable governed taxonomy."
-                ),
-            })
-    if (
-        candidate.decision == AssessmentDecision.SATISFIED
-        and candidate.rule_category == RuleCategory.KONSEKVENS
-    ):
-        body = "\n".join(
-            span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
-        )
-        field = re.search(
-            r"(?is)\bKonsekvens\s*:\s*(.*?)(?:\n(?:Anbefalt(?:e)?\s+tiltak|Tiltak|"
-            r"[A-ZÆØÅ0-9][^\n]{0,100}\s+TG[0-3])\b|\Z)",
-            body,
-        )
-        consequence = re.sub(r"\s+", " ", field.group(1)).strip() if field else ""
-        governed = _governed_finding_types(records)
-        finding_type = None
+        ).casefold()
         if (
-            "TILTAK_AS_KONSEKVENS" in governed
-            and re.search(r"\b(?:trenger|må|bør)\s+(?:vedlikehold\w*\s+og\s+)?utbedr\w*", consequence, re.I)
-            and not re.search(r"\b(?:kan|medfører|fører\s+til|resulterer|risiko|fare|redusert\s+levetid)\b", consequence, re.I)
-        ):
-            finding_type = "TILTAK_AS_KONSEKVENS"
-        elif (
-            "RISIKO_AS_KONSEKVENS" in governed
-            and re.fullmatch(
-                r"(?is)\s*(?:det\s+er\s+)?risiko\s+for\s+[^.]+\.?\s*",
-                consequence,
+            "ikke mulig" in body
+            or "grunnet" in body
+            or "på grunn av" in body
+            or "fordi" in body
+            or "da " in body
+            or re.search(
+                r"\bingen\s+opplysning(?:er)?\s+om\s+at\s+.{0,120}\b(?:er|finnes|foreligger)\b",
+                body,
             )
         ):
-            finding_type = "RISIKO_AS_KONSEKVENS"
-        elif (
-            "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS" in governed
-            and re.fullmatch(r"(?is)\s*økt\s+(?:fukt)?belast\w*\s+(?:på|mot)\s+[^.]+\.?\s*", consequence)
-        ):
-            finding_type = "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"
-        if finding_type:
-            return candidate.model_copy(update={
-                "decision": AssessmentDecision.DEFICIENT,
-                "proposed_finding_type": finding_type,
-                "explanation": (
-                    candidate.explanation
-                    + f" Deterministic semantic validation classifies the isolated Konsekvens text as {finding_type}."
-                ),
-            })
+            return candidate.model_copy(
+                update={
+                    "decision": AssessmentDecision.SATISFIED,
+                    "proposed_finding_type": None,
+                }
+            )
     return candidate
 
 
@@ -618,7 +1088,6 @@ class DeterministicAssessmentValidator:
         missing_gate = bool(
             str(assessment.proposed_finding_type or "").startswith("MISSING (")
             and assessment.rule_category in {RuleCategory.AARSAK, RuleCategory.RISIKO, RuleCategory.KONSEKVENS}
-            and any(record.rule_id == "GATE_TG2_ARK_MISSING" for record in rules)
         )
         return FindingValidationDecision(
             validation_id=_identifier("val", assessment.assessment_id),
@@ -640,6 +1109,15 @@ class DeterministicAssessmentValidator:
 
 class PhaseA4ShadowService:
     FORMAL_ACCEPTANCE_BLOCKERS = ()
+    RETRIEVAL_TOP_K = {
+        RuleCategory.AARSAK: 6,
+        RuleCategory.RISIKO: 6,
+        RuleCategory.KONSEKVENS: 6,
+        RuleCategory.ANBEFALT_TILTAK: 6,
+        RuleCategory.METHODOLOGY: 6,
+        RuleCategory.LEGALITY: 4,
+        RuleCategory.TG3_COST: 4,
+    }
     def __init__(
         self,
         retriever: ManifestVerifiedRuleRetriever,
@@ -683,7 +1161,8 @@ class PhaseA4ShadowService:
                 category = plan_item.rule_category
                 retrieval = self.retriever.retrieve(
                     segment, category, understanding.facts,
-                    document_hash=understanding.document_hash, top_k=12,
+                    document_hash=understanding.document_hash,
+                    top_k=self.RETRIEVAL_TOP_K.get(category, 6),
                 )
                 retrieval_cache[(segment.segment_id, category)] = retrieval
                 retrieval_results.append(retrieval)

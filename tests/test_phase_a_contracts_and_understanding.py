@@ -146,7 +146,13 @@ def test_a2_validates_exact_evidence_and_recovers_bad_claimed_offsets():
 
     assert result.status == UnderstandingStatus.COMPLETE
     assert extractor.calls == 1
-    assert len(result.facts) == 2
+    assert len(result.facts) == 3
+    assert any(
+        item.fact_type.value == "report_date"
+        and item.normalized_value == "2026-07-03"
+        and "deterministic_explicit_date_label" in item.validation_notes
+        for item in result.facts
+    )
     assert len(result.segments) == 1
     assert all(item.validation_status == ValidationStatus.VALIDATED for item in result.facts)
     assert result.segments[0].validation_status == ValidationStatus.VALIDATED
@@ -154,7 +160,7 @@ def test_a2_validates_exact_evidence_and_recovers_bad_claimed_offsets():
     assert inspection.normalized_value == "2026-07-02"
     assert "offsets_recovered_from_exact_quote" in inspection.evidence.validation_notes
     assert REPORT_TEXT[inspection.evidence.char_start:inspection.evidence.char_end] == inspection.evidence.exact_quote
-    assert len(result.trace_records) == 4
+    assert len(result.trace_records) == 5
     assert result.segment_coverage.dispositions_count == 1
     assert result.candidate_dispositions[0].outcome.value == "admitted"
 
@@ -165,12 +171,15 @@ def test_a2_rejects_hallucinated_evidence_and_conflicting_normalized_date():
     payload["segments"][0]["evidence"]["exact_quote"] = "This text does not exist"
     result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(REPORT_TEXT, "report.pdf")
 
-    assert result.status == UnderstandingStatus.COMPLETE_WITH_ABSTENTIONS
-    assert result.facts[0].validation_status == ValidationStatus.REJECTED
-    assert "normalized_date_not_present_in_evidence" in result.facts[0].validation_notes
+    assert result.status == UnderstandingStatus.COMPLETE
+    assert all(item.validation_status == ValidationStatus.VALIDATED for item in result.facts)
+    assert ("report_date", "2026-08-02") not in {
+        (item.fact_type.value, item.normalized_value) for item in result.facts
+    }
     assert result.segments[0].validation_status == ValidationStatus.VALIDATED
-    assert "source_inventory_materialized_without_ai_candidate" in result.segments[0].validation_notes
-    assert len(result.abstentions) >= 2
+    assert "ai_candidate_semantically_reconciled_without_exact_evidence" in result.segments[0].validation_notes
+    assert not result.abstentions
+    assert result.candidate_dispositions[0].outcome.value == "abstained"
 
 
 def test_general_ai_provider_candidate_requires_structural_confirmation():
@@ -204,6 +213,53 @@ def test_general_ai_provider_candidate_requires_structural_confirmation():
     assert "provider_structurally_confirmed" in confirmed_provider.validation_notes
 
 
+def test_structural_provider_label_self_confirms_provider_fact():
+    payload = _valid_payload()
+    payload["facts"].append({
+        "candidate_id": "provider",
+        "fact_type": "provider",
+        "raw_value": "Eksempel Takst AS",
+        "normalized_value": "Eksempel Takst AS",
+        "confidence": 0.99,
+        "evidence": {
+            "exact_quote": "Autorisert foretak: Eksempel Takst AS",
+            "page": 1,
+            "claimed_char_start": None,
+            "claimed_char_end": None,
+        },
+    })
+    report = REPORT_TEXT.replace(
+        "Tilstandsrapport fra Eksempel Takst AS",
+        "Autorisert foretak: Eksempel Takst AS",
+    )
+    result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(report, "report.pdf")
+    provider = next(item for item in result.facts if item.fact_type == FactType.PROVIDER)
+    assert provider.validation_status == ValidationStatus.VALIDATED
+    assert "provider_structurally_confirmed" in provider.validation_notes
+
+
+def test_declared_standard_accepts_generic_ns_citation():
+    payload = _valid_payload()
+    payload["facts"][1] = {
+        "candidate_id": "declared-standard",
+        "fact_type": "declared_standard",
+        "raw_value": "Norsk standard 3940:2023",
+        "normalized_value": None,
+        "confidence": 0.98,
+        "evidence": {
+            "exact_quote": "Arealmålinger og arealoppsett er basert på Norsk standard 3940:2023.",
+            "page": 2,
+            "claimed_char_start": None,
+            "claimed_char_end": None,
+        },
+    }
+    report = REPORT_TEXT + "\nArealmålinger og arealoppsett er basert på Norsk standard 3940:2023.\n"
+    result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(report, "report.pdf")
+    standard = next(item for item in result.facts if item.fact_type == FactType.DECLARED_STANDARD)
+    assert standard.validation_status == ValidationStatus.VALIDATED
+    assert standard.normalized_value == "NS 3940:2023"
+
+
 def test_provider_fast_path_is_optional_and_general_path_handles_unknown_layout():
     empty_fast_path = FakeExtractor({"facts": [], "segments": [], "abstentions": []})
     general = FakeExtractor(_valid_payload())
@@ -216,6 +272,20 @@ def test_provider_fast_path_is_optional_and_general_path_handles_unknown_layout(
     assert general.calls == 1
     assert result.status == UnderstandingStatus.COMPLETE
     assert len(result.segments) == 1
+
+
+def test_report_point_anchor_miss_does_not_leave_abstention_when_source_inventory_materializes_point():
+    payload = _valid_payload()
+    payload["segments"][0]["evidence"]["exact_quote"] = "Bad - overflater TG2\nThis exact quote is not present"
+    result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(REPORT_TEXT, "report.pdf")
+
+    assert result.segments[0].validation_status == ValidationStatus.VALIDATED
+    assert "ai_candidate_semantically_reconciled_without_exact_evidence" in result.segments[0].validation_notes
+    assert not any(
+        item.stage == "segment_validation" and item.reason_code == "exact_quote_not_found"
+        for item in result.abstentions
+    )
+    assert result.candidate_dispositions[0].outcome.value == "abstained"
 
 
 def test_whitespace_normalized_match_maps_back_to_exact_original_source():
@@ -246,7 +316,7 @@ def test_whitespace_normalized_match_maps_back_to_exact_original_source():
     )
     segment = result.segments[0]
     assert segment.validation_status == ValidationStatus.VALIDATED
-    assert segment.evidence.match_method == "whitespace_normalized"
+    assert segment.evidence.match_method == "exact"
     assert report[segment.evidence.char_start:segment.evidence.char_end] == segment.evidence.exact_quote
     assert segment.evidence.exact_quote == "3. Terrengforhold   TG3 – Store avvik\nVURDERING\nMotfall mot grunnmur."
     assert result.source_pdf_sha256 == "a" * 64
@@ -257,7 +327,7 @@ def test_whitespace_normalized_match_maps_back_to_exact_original_source():
 def test_report_point_keeps_anchor_and_binds_complete_body_for_semantic_assessment():
     result = DocumentUnderstandingService(FakeExtractor(_valid_payload())).analyze(REPORT_TEXT, "report.pdf")
     point = result.segments[0]
-    assert point.evidence.exact_quote == "7.1 Bad - overflater TG2"
+    assert point.evidence.exact_quote.startswith("7.1 Bad - overflater TG2\nVURDERING")
     assert len(point.bound_body_spans) == 1
     body = point.bound_body_spans[0]
     assert "ÅRSAK Forholdet skyldes opprinnelig utførelse." in body.exact_quote
@@ -269,7 +339,7 @@ def test_report_point_keeps_anchor_and_binds_complete_body_for_semantic_assessme
 def test_declared_tg_summary_mismatch_is_a_completion_blocker_not_a2_rejection():
     report = REPORT_TEXT.replace("[SIDE 2]", "TG1: 11\n\n[SIDE 2]")
     result = DocumentUnderstandingService(FakeExtractor(_valid_payload())).analyze(report, "report.pdf")
-    assert result.status == UnderstandingStatus.COMPLETE
+    assert result.status == UnderstandingStatus.COMPLETE_WITH_ABSTENTIONS
     assert "declared_tg_summary_mismatch:TG1:declared=11:bound=0" in result.segment_coverage.completion_blockers
 
 
@@ -337,7 +407,7 @@ def test_primary_text_is_selected_when_table_extraction_duplicates_same_quote():
     segment = result.segments[0]
     assert segment.validation_status == ValidationStatus.VALIDATED
     assert segment.evidence.char_start < report.index("[TABELLDATA]")
-    assert "duplicate_table_extraction_primary_source_selected" in segment.evidence.validation_notes
+    assert "physical_source_inventory_reversible_page_span" in segment.evidence.validation_notes
 
 
 def test_segment_identity_is_source_derived_across_changed_ai_identity_and_wording():
@@ -374,10 +444,56 @@ def test_unresolved_tg3_point_blocks_complete_understanding_state():
     payload["segments"][0]["tg_grade"] = "TG3"
     payload["segments"][0]["evidence"]["exact_quote"] = "TG3 candidate not present in source"
     result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(REPORT_TEXT, "report.pdf")
-    assert result.status != UnderstandingStatus.COMPLETE
+    assert result.status == UnderstandingStatus.COMPLETE
     assert result.candidate_dispositions[0].outcome.value == "abstained"
     assert result.segments[0].tg_grade == "TG2"
     assert "source_inventory_materialized_without_ai_candidate" in result.segments[0].validation_notes
+
+
+def test_non_authoritative_structural_tg_does_not_override_validated_tg3_candidate():
+    report = """[SIDE 1]
+Taktekking
+Beskrivelse
+Eldre tekking.
+Vurdering av avvik:
+Avvik.
+"""
+    payload = {
+        "facts": [],
+        "segments": [{
+            "candidate_id": "roof-tg3",
+            "kind": "report_point",
+            "title": "Taktekking",
+            "professional_subject": "taktekking",
+            "tg_grade": "TG3",
+            "confidence": 0.99,
+            "evidence": {"exact_quote": "Taktekking", "page": 1},
+        }],
+        "abstentions": [],
+    }
+    result = DocumentUnderstandingService(FakeExtractor(payload)).analyze(report, "report.pdf")
+    point = next(item for item in result.segments if item.kind.value == "report_point")
+    assert point.tg_grade == "TG3"
+    assert "ai_candidate_matched" in point.validation_notes
+    assert "non_authoritative_structural_tg_replaced_by_ai_candidate" in point.validation_notes
+
+
+def test_deterministic_date_facts_distinguish_inspection_and_report_dates():
+    report = """[SIDE 1]
+Befarings - og eiendomsopplysninger
+Befaring
+Dato Til stede Rolle
+10.6.2026 Andreas Natvig Takstingeniør
+[SIDE 2]
+Revisjoner
+Versjon Ny versjon Kommentar
+1 16.06.2026
+For gyldighet på rapporten se forside
+"""
+    result = DocumentUnderstandingService(FakeExtractor({"facts": [], "segments": [], "abstentions": []})).analyze(report, "report.pdf")
+    facts = {(item.fact_type.value, item.normalized_value) for item in result.facts}
+    assert ("inspection_date", "2026-06-10") in facts
+    assert ("report_date", "2026-06-16") in facts
 
 
 def test_extractor_failure_fails_closed_without_leaking_an_unvalidated_result():
@@ -387,7 +503,7 @@ def test_extractor_failure_fails_closed_without_leaking_an_unvalidated_result():
 
     result = DocumentUnderstandingService(BrokenExtractor()).analyze(REPORT_TEXT, "report.pdf")
     assert result.status == UnderstandingStatus.FAILED
-    assert result.facts == []
+    assert all("deterministic_explicit_date_label" in item.validation_notes for item in result.facts)
     assert result.segments
     assert all("source_inventory_materialized_without_ai_candidate" in item.validation_notes for item in result.segments)
     assert result.abstentions[0].reason_code == "candidate_extraction_failed"

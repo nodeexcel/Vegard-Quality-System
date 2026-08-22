@@ -239,10 +239,6 @@ class ManifestVerifiedRuleRetriever:
                     and segment.point_type == "methodology_only"
                     and chunk.rule_id == "E_METHOD.garasje_avvik_uten_arkat"
                 )
-                exact_arkat_gate = (
-                    category in {RuleCategory.AARSAK, RuleCategory.RISIKO, RuleCategory.KONSEKVENS}
-                    and chunk.rule_id == "GATE_TG2_ARK_MISSING"
-                )
                 exact_semantic_field = (
                     category in {
                         RuleCategory.AARSAK, RuleCategory.RISIKO,
@@ -254,8 +250,8 @@ class ManifestVerifiedRuleRetriever:
                     f"/field_definitions/{category.value}" in chunk.pointer
                     or f"/deductions/{category.value}" in chunk.pointer
                 )
-                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_arkat_gate or exact_semantic_field or category_pointer:
-                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_arkat_gate or exact_semantic_field:
+                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or category_pointer:
+                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field:
                         score = 1.0
                     elif category_pointer:
                         score = max(score, 0.95)
@@ -266,6 +262,23 @@ class ManifestVerifiedRuleRetriever:
             if resolution.status == RegimeResolutionStatus.RESOLVED
             else RuleApplicability.CANDIDATE_ONLY
         )
+        detached_methodology_only = (
+            category == RuleCategory.METHODOLOGY
+            and segment.point_type == "methodology_only"
+        )
+        if detached_methodology_only and any(
+            chunk.rule_id == "E_METHOD.garasje_avvik_uten_arkat"
+            for _, _, chunk, _ in scored
+        ):
+            # Detached-structure methodology is governed by one approved rule.
+            # Keeping unrelated chunks out of the retrieval prevents the semantic
+            # model from treating regime-table or foreign methodology entries as
+            # alternative substantive requirements.
+            scored = [
+                item for item in scored
+                if item[2].rule_id == "E_METHOD.garasje_avvik_uten_arkat"
+            ]
+
         records: list[RuleRetrievalRecord] = []
         excluded_rule_ids: list[str] = []
         traces: list[TraceRecord] = []

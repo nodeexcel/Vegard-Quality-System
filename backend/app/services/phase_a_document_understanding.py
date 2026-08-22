@@ -46,6 +46,9 @@ DATE_TOKEN_RE = re.compile(
     r"(?<!\d)(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})[-./](\d{1,2})[-./](\d{4}))(?!\d)"
 )
 NS_3600_RE = re.compile(r"(?i)\bNS\s*3600\s*[:\-]?\s*(2018|2025)\b")
+DECLARED_STANDARD_RE = re.compile(
+    r"(?ix)\b(?:norsk\s+standard|ns)\s*([0-9]{3,4})(?:\s*[:\-]?\s*([0-9]{4}))?\b"
+)
 TG_RE = re.compile(r"(?i)^TG\s*(0|1|2|3|IU)$")
 
 
@@ -129,6 +132,19 @@ def _normalize_date_value(value: Optional[str]) -> Optional[str]:
     return values[0] if len(values) == 1 else None
 
 
+def _normalize_declared_standard_value(text: Optional[str]) -> Optional[str]:
+    matches = [
+        (match.group(1), match.group(2))
+        for match in DECLARED_STANDARD_RE.finditer(str(text or ""))
+    ]
+    if len(matches) != 1:
+        return None
+    standard_number, edition = matches[0]
+    if edition:
+        return f"NS {standard_number}:{edition}"
+    return f"NS {standard_number}"
+
+
 def _normalize_whitespace_with_map(value: str) -> NormalizedTextMap:
     """Collapse whitespace while retaining a reversible map to the original text."""
     source = str(value or "")
@@ -161,6 +177,24 @@ def _normalized_text(value: str) -> str:
     return _normalize_whitespace_with_map(value).text
 
 
+def _provider_label_structurally_confirms(evidence_text: str, provider_name: str) -> bool:
+    normalized = re.sub(r"\s+", " ", str(evidence_text or "")).strip().casefold()
+    provider = str(provider_name or "").strip().casefold()
+    if not normalized or not provider or provider not in normalized:
+        return False
+    return any(
+        marker in normalized
+        for marker in (
+            "autorisert foretak",
+            "utført av",
+            "utarbeidet av",
+            "foretak:",
+            "takstforetak",
+            "rapportfirma",
+        )
+    )
+
+
 def _all_occurrences(haystack: str, needle: str) -> List[int]:
     if not haystack or not needle:
         return []
@@ -190,10 +224,18 @@ class DeterministicEvidenceValidator:
         self.minimum_confidence = float(minimum_confidence)
         self.provider_identity_verifier = provider_identity_verifier
 
-    def _candidate_pages(self, claimed_page: Optional[int]) -> List[PageSpan]:
+    def _candidate_pages(
+        self,
+        claimed_page: Optional[int],
+        *,
+        include_adjacent: bool = False,
+    ) -> List[PageSpan]:
         if claimed_page is None:
             return list(self.pages)
-        return [page for page in self.pages if page.page == claimed_page]
+        allowed = {claimed_page}
+        if include_adjacent:
+            allowed.update({claimed_page - 1, claimed_page + 1})
+        return [page for page in self.pages if page.page in allowed]
 
     @staticmethod
     def _prefer_primary_extraction_occurrence(
@@ -316,7 +358,7 @@ class DeterministicEvidenceValidator:
             notes.append("claimed_offsets_not_exact")
 
         occurrences: List[Tuple[PageSpan, int, int]] = []
-        candidate_pages = self._candidate_pages(candidate.page)
+        candidate_pages = self._candidate_pages(candidate.page, include_adjacent=allow_multi_span)
         if candidate.page is not None and not candidate_pages:
             return [], ["claimed_page_not_found"]
         for page in candidate_pages:
@@ -444,8 +486,7 @@ class DeterministicEvidenceValidator:
                 status = ValidationStatus.REJECTED
                 notes.append("normalized_date_not_present_in_evidence")
         elif candidate.fact_type == FactType.DECLARED_STANDARD:
-            standards = {f"NS 3600:{match.group(1)}" for match in NS_3600_RE.finditer(candidate.evidence.exact_quote)}
-            normalized_standard = next(iter(standards)) if len(standards) == 1 else None
+            normalized_standard = _normalize_declared_standard_value(candidate.evidence.exact_quote)
             if not normalized_standard:
                 status = ValidationStatus.REJECTED
                 notes.append("declared_standard_not_unambiguous_in_evidence")
@@ -460,7 +501,13 @@ class DeterministicEvidenceValidator:
                 # A person/company named on the report is not necessarily the report
                 # platform/provider. A provider fast path may confirm this later; the
                 # general AI candidate is retained but cannot self-authorize identity.
+                structurally_confirmed = _provider_label_structurally_confirms(
+                    candidate.evidence.exact_quote,
+                    normalized,
+                )
                 if self.provider_identity_verifier and self.provider_identity_verifier(candidate, self.report_text):
+                    structurally_confirmed = True
+                if structurally_confirmed:
                     notes.append("provider_structurally_confirmed")
                 else:
                     status = ValidationStatus.AMBIGUOUS
@@ -713,8 +760,6 @@ class DocumentUnderstandingService:
             for item in candidate_batch.facts:
                 fact = validator.validate_fact(item, len(facts) + 1)
                 facts.append(fact)
-                if fact.validation_status != ValidationStatus.VALIDATED:
-                    abstentions.append(self._candidate_abstention("fact_validation", fact.fact_id, fact.validation_notes))
             for item in candidate_batch.segments:
                 segment = validator.validate_segment(item, len(segment_records) + 1)
                 segment_records.append((actual_batch_index, item, segment))
@@ -730,17 +775,15 @@ class DocumentUnderstandingService:
                     )
                 )
 
-        candidate_fact_types = {
-            item.fact_type for candidate_batch in candidates for item in candidate_batch.facts
-        }
         validated_fact_types = {
             item.fact_type for item in facts if item.validation_status == ValidationStatus.VALIDATED
         }
-        facts.extend(
-            item for item in self._deterministic_labeled_date_facts(text, pages)
-            if item.fact_type in candidate_fact_types and item.fact_type not in validated_fact_types
-        )
+        facts.extend(self._deterministic_labeled_date_facts(text, pages))
         facts = self._dedupe_facts(facts)
+        facts = self._prefer_explicit_labeled_dates(facts)
+        for fact in facts:
+            if fact.validation_status != ValidationStatus.VALIDATED:
+                abstentions.append(self._candidate_abstention("fact_validation", fact.fact_id, fact.validation_notes))
         segments, dispositions, segment_abstentions = self._reconcile_segments(segment_records)
         abstentions.extend(segment_abstentions)
         source_inventory = PhysicalSourceInventoryBuilder().build(report_text, document_hash)
@@ -757,11 +800,22 @@ class DocumentUnderstandingService:
             and not segment.bound_body_spans
         ]
         structural_blockers = []
+        reconciled_segment_by_inventory_id = {
+            item.inventory_id: next(
+                (segment for segment in segments if segment.segment_id == item.matched_segment_id),
+                None,
+            )
+            for item in coverage_reconciliation
+            if item.inventory_role == InventoryRole.PRIMARY and item.matched_segment_id
+        }
         for point in source_inventory.points:
             if point.role == InventoryRole.PRIMARY:
+                reconciled = reconciled_segment_by_inventory_id.get(point.inventory_id)
                 if point.boundary_status != "validated":
                     structural_blockers.append(f"physical_boundary_uncertain:{point.inventory_id}")
-                if point.point_type == "unknown":
+                if point.point_type == "unknown" and not (
+                    reconciled and reconciled.point_type != "unknown"
+                ):
                     structural_blockers.append(f"physical_point_type_uncertain:{point.inventory_id}")
                 if not point.body_spans or point.char_end != point.body_spans[-1].char_end:
                     structural_blockers.append(f"physical_body_span_incomplete:{point.inventory_id}")
@@ -789,7 +843,7 @@ class DocumentUnderstandingService:
         valid_segments = [item for item in segments if item.validation_status == ValidationStatus.VALIDATED]
         if not candidates or not valid_segments:
             status = UnderstandingStatus.FAILED
-        elif abstentions:
+        elif abstentions or coverage.completion_blockers:
             status = UnderstandingStatus.COMPLETE_WITH_ABSTENTIONS
         else:
             status = UnderstandingStatus.COMPLETE
@@ -833,6 +887,7 @@ class DocumentUnderstandingService:
         output: List[ValidatedSegment] = []
         reconciliation: List[CoverageReconciliation] = []
         primary_segment_by_inventory_id: Dict[str, str] = {}
+        matched_ai_segment_ids: set[str] = set()
         for point in (item for item in inventory.points if item.role == InventoryRole.PRIMARY):
             overlaps = [
                 segment for segment in ai_segments
@@ -846,6 +901,25 @@ class DocumentUnderstandingService:
             def norm(value: str | None) -> str:
                 return re.sub(r"\W+", "", (value or "").casefold())
 
+            def structural_tg_authoritative() -> bool:
+                return point.detection_method in {
+                    "physical_numbered_tg_heading",
+                    "general_physical_tg_heading",
+                    "physical_bolavi_tg_heading",
+                    "physical_cross_page_uninvestigated_section",
+                    "physical_uninvestigated_semantic",
+                }
+
+            def rescue_candidate(segment: ValidatedSegment) -> bool:
+                if segment.validation_status == ValidationStatus.VALIDATED:
+                    return False
+                if segment.candidate_evidence.page != point.page:
+                    return False
+                return {
+                    "exact_quote_not_found",
+                    "whitespace_normalized_quote_not_found",
+                } <= set(segment.validation_notes)
+
             def score(segment: ValidatedSegment) -> tuple[int, int]:
                 value = 0
                 if segment.evidence:
@@ -858,7 +932,11 @@ class DocumentUnderstandingService:
                     value += 30
                 if segment.tg_grade and point.tg_grade and segment.tg_grade == point.tg_grade:
                     value += 20
-                elif segment.tg_grade and point.tg_grade and segment.tg_grade != point.tg_grade:
+                elif (
+                    structural_tg_authoritative()
+                    and segment.tg_grade and point.tg_grade
+                    and segment.tg_grade != point.tg_grade
+                ):
                     value -= 50
                 body = "\n".join(span.exact_quote for span in (point.body_spans or [point.body])).casefold()
                 title_tokens = re.findall(r"\w+", segment.title.casefold())
@@ -899,18 +977,39 @@ class DocumentUnderstandingService:
                     ) >= 0.6
                 )
                 tg_compatible = not (
-                    point.tg_grade and segment.tg_grade
+                    structural_tg_authoritative()
+                    and point.tg_grade and segment.tg_grade
                     and point.tg_grade != segment.tg_grade
                 )
                 return tg_compatible and (title_compatible or label_compatible or token_compatible)
 
+            def resolved_point_type(segment: ValidatedSegment | None) -> str:
+                if point.point_type != "unknown":
+                    return point.point_type
+                candidate_tg = str((segment.tg_grade if segment else point.tg_grade) or "").upper().replace(" ", "")
+                if candidate_tg == "TGIU":
+                    return "tgiu"
+                if candidate_tg.startswith("TG"):
+                    return "graded"
+                return "unknown"
+
             compatible = [segment for segment in overlaps if identity_compatible(segment)]
             incompatible = [segment for segment in overlaps if segment not in compatible]
+            rescuable = [
+                segment for segment in ai_segments
+                if rescue_candidate(segment) and identity_compatible(segment)
+            ]
             ranked = sorted(compatible, key=score, reverse=True)
+            rescue_ranked = sorted(rescuable, key=score, reverse=True)
             matched = ranked[0] if ranked and score(ranked[0])[0] >= 10 else None
+            matched_from_rescue = False
+            if matched is None and rescue_ranked and score(rescue_ranked[0])[0] >= 10:
+                matched = rescue_ranked[0]
+                matched_from_rescue = True
             conflict = len(ranked) > 1 and score(ranked[0])[0] == score(ranked[1])[0]
             if conflict:
                 matched = None
+                matched_from_rescue = False
             segment_id = _stable_id(
                 "segment", document_hash, point.page, point.char_start,
                 point.char_end, point.point_label or point.structural_marker,
@@ -922,8 +1021,12 @@ class DocumentUnderstandingService:
                 section_context=point.section_context,
                 professional_subject=matched.professional_subject if matched else point.title,
                 point_label=point.point_label or (matched.point_label if matched else None),
-                tg_grade=point.tg_grade or (matched.tg_grade if matched else None),
-                point_type=point.point_type,
+                tg_grade=(
+                    point.tg_grade
+                    if point.tg_grade and (structural_tg_authoritative() or not matched or not matched.tg_grade)
+                    else (matched.tg_grade if matched else None)
+                ),
+                point_type=resolved_point_type(matched),
                 confidence=matched.confidence if matched else 1.0,
                 candidate_evidence=(
                     matched.candidate_evidence if matched else CandidateEvidence(
@@ -933,8 +1036,8 @@ class DocumentUnderstandingService:
                         claimed_char_end=point.char_start + len(point.structural_marker),
                     )
                 ),
-                evidence=matched.evidence if matched else point.body,
-                evidence_spans=matched.evidence_spans if matched else [point.body],
+                evidence=point.body,
+                evidence_spans=matched.evidence_spans if matched and matched.evidence_spans else [point.body],
                 bound_body_spans=point.body_spans or [point.body],
                 bound_body_sha256=(
                     (point.body_spans or [point.body])[0].quote_sha256
@@ -950,11 +1053,19 @@ class DocumentUnderstandingService:
                 validation_notes=[
                     "source_inventory_authoritative_boundary",
                     "ai_candidate_matched" if matched else "source_inventory_materialized_without_ai_candidate",
+                    *(["ai_candidate_semantically_reconciled_without_exact_evidence"] if matched_from_rescue else []),
+                    *(
+                        ["non_authoritative_structural_tg_replaced_by_ai_candidate"]
+                        if matched and matched.tg_grade and point.tg_grade != matched.tg_grade and not structural_tg_authoritative()
+                        else []
+                    ),
                     *(["ai_reconciliation_conflict_traceable_no_first_match"] if conflict else []),
                     *(["ai_candidate_identity_conflict_rejected"] if incompatible else []),
                 ],
             ))
             primary_segment_by_inventory_id[point.inventory_id] = segment_id
+            if matched is not None:
+                matched_ai_segment_ids.add(matched.segment_id)
             reconciliation.append(CoverageReconciliation(
                 inventory_id=point.inventory_id,
                 inventory_role=point.role,
@@ -969,6 +1080,55 @@ class DocumentUnderstandingService:
                         if incompatible else
                         "Physical point absent from AI candidates; materialized from source inventory."
                     )
+                ),
+            ))
+        for segment in ai_segments:
+            if (
+                segment.validation_status != ValidationStatus.VALIDATED
+                or segment.kind != SegmentKind.REPORT_POINT
+                or segment.segment_id in matched_ai_segment_ids
+            ):
+                continue
+            if any(
+                item.kind == SegmentKind.REPORT_POINT
+                and re.sub(r"\W+", "", item.title.casefold()) == re.sub(r"\W+", "", segment.title.casefold())
+                and item.section_context == segment.section_context
+                for item in output
+            ):
+                continue
+            if segment.evidence is None:
+                continue
+            body_spans = segment.bound_body_spans or segment.evidence_spans or [segment.evidence]
+            output.append(segment.model_copy(update={
+                "evidence_spans": body_spans,
+                "bound_body_spans": body_spans,
+                "point_type": (
+                    "tgiu" if str(segment.tg_grade or "").upper().replace(" ", "") == "TGIU"
+                    else "graded" if str(segment.tg_grade or "").upper().startswith("TG")
+                    else segment.point_type
+                ),
+                "bound_body_sha256": (
+                    body_spans[0].quote_sha256
+                    if len(body_spans) == 1 else hashlib.sha256(
+                        json.dumps(
+                            [span.model_dump(mode="json") for span in body_spans],
+                            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest()
+                ),
+                "validation_notes": [
+                    *segment.validation_notes,
+                    "ai_candidate_authoritative_fallback_missing_physical_point",
+                ],
+            }))
+            reconciliation.append(CoverageReconciliation(
+                inventory_id=_stable_id("inventory", document_hash, segment.segment_id, "ai_fallback"),
+                inventory_role=InventoryRole.PRIMARY,
+                matched_segment_id=segment.segment_id,
+                status="matched",
+                reason=(
+                    "Validated AI point was retained because the physical inventory missed the point; "
+                    "reconciliation must not silently drop an admitted report point."
                 ),
             ))
         for point in (item for item in inventory.points if item.role == InventoryRole.SUMMARY):
@@ -1195,6 +1355,8 @@ class DocumentUnderstandingService:
         patterns = (
             (FactType.INSPECTION_DATE, r"(?i)\b(?:befaringsdato|befaring(?:sdato)?)(?:\s*\(cid:\d+\))*\s*[:–—-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
             (FactType.REPORT_DATE, r"(?i)\b(?:rapportdato|rapport\s+utstedt|utstedelsesdato)(?:\s*\(cid:\d+\))*\s*[:–—-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
+            (FactType.INSPECTION_DATE, r"(?is)\bBefaring\s+Dato\s+Til\s+stede\s+Rolle\s+(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
+            (FactType.REPORT_DATE, r"(?is)\bRevisjoner\s+Versjon\s+Ny\s+versjon\s+Kommentar\s+\d+\s+(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
         )
         output: List[ValidatedDocumentFact] = []
         for fact_type, pattern in patterns:
@@ -1254,6 +1416,23 @@ class DocumentUnderstandingService:
         return output
 
     @staticmethod
+    def _prefer_explicit_labeled_dates(items: Sequence[ValidatedDocumentFact]) -> List[ValidatedDocumentFact]:
+        explicit_by_type = {
+            fact.fact_type: fact
+            for fact in items
+            if "deterministic_explicit_date_label" in fact.validation_notes
+        }
+        if not explicit_by_type:
+            return list(items)
+        output: List[ValidatedDocumentFact] = []
+        for item in items:
+            explicit = explicit_by_type.get(item.fact_type)
+            if explicit and item.normalized_value != explicit.normalized_value:
+                continue
+            output.append(item)
+        return output
+
+    @staticmethod
     def _segment_candidate_fingerprint(candidate: SegmentCandidate) -> str:
         identity = {
             "kind": candidate.kind.value,
@@ -1299,13 +1478,21 @@ class DocumentUnderstandingService:
                 else:
                     outcome = CandidateOutcome.ABSTAINED
                     reason_codes = list(segment.validation_notes) or ["segment_validation_failed"]
-                    abstentions.append(
-                        cls._candidate_abstention(
-                            "segment_validation",
-                            segment.segment_id,
-                            reason_codes,
-                        )
+                    suppress_abstention = (
+                        candidate.kind in {SegmentKind.SECTION, SegmentKind.REPORT_POINT}
+                        and set(reason_codes) <= {
+                            "exact_quote_not_found",
+                            "whitespace_normalized_quote_not_found",
+                        }
                     )
+                    if not suppress_abstention:
+                        abstentions.append(
+                            cls._candidate_abstention(
+                                "segment_validation",
+                                segment.segment_id,
+                                reason_codes,
+                            )
+                        )
 
             dispositions.append(
                 CandidateDisposition(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import unicodedata
 from typing import Iterable
 
@@ -23,6 +24,14 @@ def _id(segment_id: str, category: RuleCategory) -> str:
 def _normal(value: str) -> str:
     value = unicodedata.normalize("NFKD", value.casefold())
     return "".join(ch for ch in value if not unicodedata.combining(ch))
+
+
+def _is_aggregate_container(segment: ValidatedSegment) -> bool:
+    if segment.kind != SegmentKind.REPORT_POINT:
+        return False
+    body = "\n".join(span.exact_quote for span in segment.bound_body_spans)
+    markers = re.findall(r"(?m)^\d+\.\s+Avvik/Årsak:", body)
+    return len(markers) >= 2
 
 
 class DeterministicApplicabilityPlanner:
@@ -47,11 +56,13 @@ class DeterministicApplicabilityPlanner:
             categories: list[tuple[RuleCategory, list[str]]] = []
             if segment.kind == SegmentKind.REPORT_POINT:
                 # Validated physical type and section context are authoritative.
+                if _is_aggregate_container(segment):
+                    continue
                 if segment.point_type == "graded" and tg in {"TG2", "TG3"}:
                     categories.extend(
                         (category, [f"grade_{tg.lower()}", "validated_physical_type", "locked_arkat_structure"])
                         for category in self.ARKAT
-                    )
+                    ) 
                     if tg == "TG3":
                         categories.append((RuleCategory.TG3_COST, [
                             "grade_tg3", "validated_physical_type", "point_bound_cost_required",

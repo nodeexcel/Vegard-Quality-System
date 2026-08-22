@@ -417,6 +417,7 @@ class PhaseAScoreResult(StrictContract):
 class PhaseACustomerItem(StrictContract):
     customer_item_id: str = Field(min_length=8, max_length=200)
     accepted_finding_id: str = Field(min_length=8, max_length=200)
+    accepted_finding_ids: List[str] = Field(min_length=1)
     point_id: str = Field(min_length=1, max_length=200)
     point_title: str = Field(min_length=1, max_length=500)
     evidence: List[SourceEvidence] = Field(min_length=1)

@@ -122,7 +122,10 @@ class PDFExtractor:
                 continue
             left_count = sum(1 for center in centers if center < split)
             right_count = len(centers) - left_count
-            if min(left_count, right_count) < len(centers) * 0.22:
+            # Some mixed-column reports use one shorter parallel body, so a
+            # real second column should still be recognized without demanding
+            # near-symmetric density.
+            if min(left_count, right_count) < max(24, int(len(centers) * 0.12)):
                 continue
             if gap > best_gap:
                 best_gap = gap

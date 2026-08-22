@@ -21,6 +21,7 @@ from app.services.phase_a_assessment import PhaseA4ShadowService
 from app.services.phase_a_contracts import (
     AssessmentCandidate,
     AssessmentDecision,
+    DocumentUnderstandingResult,
     InventoryRole,
     RegimeResolution,
     RegimeResolutionStatus,
@@ -54,6 +55,8 @@ def test_ivit_source_inventory_is_independent_and_contains_all_tgiu_points():
     assert ("Lovlighet", "legality_no_tg") in typed
     garage = next(item for item in primaries if item.title == "Garasje")
     assert all(span.page == 31 for span in garage.body_spans)
+    detached = {item.title: item.section_context for item in primaries if item.title in {"Sjøbod", "Båtbu", "Garasje"}}
+    assert detached == {"Sjøbod": "", "Båtbu": "", "Garasje": ""}
 
 
 def test_bmtf_numbered_parent_sections_canonicalize_local_and_omitted_point_labels():
@@ -68,6 +71,41 @@ def test_bmtf_numbered_parent_sections_canonicalize_local_and_omitted_point_labe
     assert labels["Ventilasjon"] == "11.3"
     assert labels["Fuktmåling i konstruksjoner"] == "11.4"
     assert labels["Terrengforhold"] == "23.3"
+
+
+def test_detached_methodology_retrieval_uses_only_the_governed_detached_structure_rule():
+    class EmptyExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {"facts": [], "segments": [], "abstentions": []}, {"model_name": "test-empty"}
+
+    text = PDFExtractor.extract_text(str(ROOT / "files/ivit-svak_arkat.pdf"))
+    understanding = DocumentUnderstandingService(EmptyExtractor()).analyze(
+        text,
+        "ivit-svak_arkat.pdf",
+    )
+    segment = next(item for item in understanding.segments if item.title == "Båtbu")
+    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    retriever = ManifestVerifiedRuleRetriever(
+        ManifestGovernedCatalog(
+            ROOT / "files",
+            manifest,
+            approved_manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        ),
+        category_assets={
+            RuleCategory.METHODOLOGY: (
+                "arkat_semantic_rules_v1_2_3.json",
+                "rag_scoring_model_validert_v1.6.15.json",
+                "candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
+            ),
+        },
+    )
+    result = retriever.retrieve(
+        segment,
+        RuleCategory.METHODOLOGY,
+        understanding.facts,
+        document_hash=understanding.document_hash,
+    )
+    assert [record.rule_id for record in result.records] == ["E_METHOD.garasje_avvik_uten_arkat"]
 
 
 def test_physical_point_bodies_are_non_overlapping_and_do_not_depend_on_ai():
@@ -274,6 +312,33 @@ Avvik.
     assert "Vinduer" not in complete_body
 
 
+def test_cross_page_body_trims_headers_footers_and_trailing_section_labels():
+    report = """[SIDE 1]
+Vannledninger
+Beskrivelse
+Vannrør av kobber.
+Vurdering av avvik:
+10.06.2026 Side: 14 av 24
+[SIDE 2]
+Vestre Eskedal 67 , 4885 GRIMSTAD
+4202 GRIMSTAD
+Tilstandsrapport
+• Vurdering er basert på alder.
+Konsekvens/tiltak
+• Det er ikke behov for utbedringstiltak.
+2 ETASJE > BAD
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    point = next(item for item in inventory.points if item.role == InventoryRole.PRIMARY)
+    body = "\n".join(span.exact_quote for span in point.body_spans)
+    assert "10.06.2026 Side: 14 av 24" not in body
+    assert "Vestre Eskedal 67 , 4885 GRIMSTAD" not in body
+    assert "Tilstandsrapport" not in body
+    assert "2 ETASJE > BAD" not in body
+    assert "Vurdering er basert på alder" in body
+    assert "Det er ikke behov for utbedringstiltak" in body
+
+
 def test_cross_reference_is_not_used_as_primary_title():
     report = """[SIDE 1]
 Taktekking
@@ -387,6 +452,23 @@ def test_real_ivit_and_bolavi_point_hierarchy_and_bodies_are_isolated():
         if item.role == InventoryRole.PRIMARY and item.point_label == "3" and item.tg_grade == "TG3"
     )
     assert terrain.section_context != "Kjøkken"
+
+
+def test_fremtind_source_inventory_rejects_footers_headers_and_table_labels_as_points():
+    text = PDFExtractor.extract_text(str(ROOT / "files/fremtind-grimstad-10.06.26_svak_rapport.pdf"))
+    inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+    primary = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    titles = {item.title for item in primary}
+    assert "10.06.2026 Side: 9 av 24" not in titles
+    assert "Tilstandsrapport" not in titles
+    assert "4631 KRISTIANSAND S" not in titles
+    assert "Det er synlig fuktinnsig/fuktig treverk på påforet trekonstruksjon i" not in titles
+    assert "Bruksareal BRA m²" not in titles
+    lave = next(item for item in primary if item.title == "Låve")
+    body = "\n".join(span.exact_quote for span in lave.body_spans)
+    assert "Varierende etasjeskille" in body
+    assert "Vinduer svært varierende alder og stand" in body
+    assert "Kilder og vedlegg" not in body
 
 
 def test_real_report_summaries_are_all_linked_and_never_primary_assessments():

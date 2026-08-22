@@ -1,0 +1,134 @@
+{
+  "excerpt_version": "1.0",
+  "source_repository_checkpoint": "cac28d8badddc6bbaf125fe7f152f4870da85eea",
+  "source_manifest": {
+    "runtime_path": "files/MANIFEST.json",
+    "version": "3.11-v46-public-taxonomy-boundary",
+    "sha256": "310f2377501024ecc32646a6adad3175414f6dbdfa0b3ecd156bd4d47bc2d8a1",
+    "production_active": true,
+    "mutation_authorized": false
+  },
+  "version_convention_finding": {
+    "classification": "filename_and_internal_version_conventions_differ_within_the_same_hash_pinned_baseline",
+    "different_baseline_detected": false,
+    "explanation": "The exact files pinned by the signed v46 manifest contain internal versions newer than the historical filename suffixes. Runtime loading uses the manifest-pinned filename and SHA-256, so filename suffix alone is not authoritative."
+  },
+  "assets": [
+    {
+      "filename_file_id": "arkat_semantic_rules_v1_2_3.json",
+      "internal_version": "1.2.5",
+      "internal_version_source": "$.meta.version",
+      "sha256": "2a26676793ae8e0e11579ea88ba0561bd1c3163079cd237f88539c3c6b81d387",
+      "runtime_path": "files/arkat_semantic_rules_v1_2_3.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "unchanged_baseline_semantic_source",
+      "candidate_change": "none; existing field=anbefalt_tiltak and error_type=MISSING remain the semantic input fact"
+    },
+    {
+      "filename_file_id": "validert_orchestrator_pipeline_v2.1.json",
+      "internal_version": "3.1",
+      "internal_version_source": "$.version",
+      "sha256": "189a12eaa98502c2214be63b1ad913be74c44a7121e7ca8f798b60c3b73ce0cc",
+      "runtime_path": "files/validert_orchestrator_pipeline_v2.1.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "unchanged_baseline_reference",
+      "candidate_change": "none unless implementation proves a governed orchestration reference is required; production file will never be modified in place"
+    },
+    {
+      "filename_file_id": "validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+      "internal_version": "1.8",
+      "internal_version_source": "$.version",
+      "sha256": "26a8ba90317a877f958b3cd370b46f589d79696532f8a034d9e54c2d18898f34",
+      "runtime_path": "files/validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "baseline_reference_only",
+      "candidate_change": "new candidate-only version will replace the blanket TG2 no-deduction hook with edition-resolved E_METHOD admission; baseline remains immutable"
+    },
+    {
+      "filename_file_id": "arkat_error_to_deduction_mapping_v1_1_2.json",
+      "internal_version": "1.1.2",
+      "internal_version_source": "$.version",
+      "sha256": "712cdb5056fbf295e723ddcaeff71fcd8bb8cdc072b4f22a0a745b4c3e71b4a4",
+      "runtime_path": "files/arkat_error_to_deduction_mapping_v1_1_2.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "baseline semantic deduction reference",
+      "candidate_change": "new candidate-only version will explicitly exclude TG2+NS3600:2025 from the generic 5-point mapping and preserve existing TG3 behavior"
+    },
+    {
+      "filename_file_id": "rag_scoring_model_validert_v1.6.15.json",
+      "internal_version": "1.6.15",
+      "internal_version_source": "$.version",
+      "sha256": "7b8de4def001821685f02663cbfbd6a64453631b8136350f833a0e56660aa31e",
+      "runtime_path": "files/rag_scoring_model_validert_v1.6.15.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "baseline scoring and governed retrieval source",
+      "candidate_change": "new candidate-only version will register E_METHOD.tg2_missing_anbefalt_tiltak_ns2025 with category E, 3 points and no gate effect"
+    },
+    {
+      "filename_file_id": "validert_category_config_v1_0.json",
+      "internal_version": "v2.0",
+      "internal_version_source": "$.version",
+      "sha256": "6f6c44a701169ea8c6160a94b063c861c5e74c5f0ea6dee62d5e62a66daa5637",
+      "runtime_path": "files/validert_category_config_v1_0.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "unchanged baseline category-cap source",
+      "candidate_change": "none; existing category E cap is 10 and is referenced unchanged"
+    },
+    {
+      "filename_file_id": "validert_active_config_v1.2.json",
+      "internal_version": "1.2",
+      "internal_version_source": "$.version",
+      "sha256": "8368aa734ea2a0c4ad1619566f537631ccaf3606e8c75592f7f7c5ba06f5c8c5",
+      "runtime_path": "files/validert_active_config_v1.2.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "unchanged baseline reference",
+      "candidate_change": "none; candidate selection will be supplied explicitly to the shadow runner and will not alter production active configuration"
+    },
+    {
+      "filename_file_id": "output_schema_validert_v1.5.json",
+      "internal_version": "1.7",
+      "internal_version_source": "$.$id (https://validert.no/schemas/output_schema_validert_v1.7.json)",
+      "sha256": "73bfae011958f2d1715792d9197fbd2fa2888891c4751ae919b1584460cdb891",
+      "runtime_path": "files/output_schema_validert_v1.5.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "baseline output-contract reference",
+      "candidate_change": "none unless the existing schema cannot represent the frozen output; any required candidate schema would be separately versioned and shadow-only"
+    },
+    {
+      "filename_file_id": "scoring_policy.validert_output_overlay.v1.1.json",
+      "internal_version": "1.6.0",
+      "internal_version_source": "$.version",
+      "sha256": "502ccfd73230a645f9ed0ff84195a3840cebfb575aa3442c307a12c004143f99",
+      "runtime_path": "files/scoring_policy.validert_output_overlay.v1.1.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "unchanged baseline presentation-policy reference",
+      "candidate_change": "none planned; pass-through will be proved by integration tests"
+    },
+    {
+      "filename_file_id": "validert_ui_overlay_v1.1.json",
+      "internal_version": "1.6",
+      "internal_version_source": "$.version",
+      "sha256": "1151e9e956b0b4d280f67c25379cc81fb34444b1e6d1844273bcfa7857f9b57f",
+      "runtime_path": "files/validert_ui_overlay_v1.1.json",
+      "production_active": true,
+      "a3_a4_shadow_use": "unchanged baseline UI-policy reference",
+      "candidate_change": "none planned; shadow rendering proof will verify correct display"
+    }
+  ],
+  "approved_documents_for_candidate_manifest": [
+    {
+      "filename_file_id": "validert_governed_regime_decision_v2.0_approved.md",
+      "internal_version": "2.0",
+      "sha256": "3abd604a494dc7d4ffb1bd86a63d8da2836a69ce7a2b2300e0b48c5c3acb6cde",
+      "production_active": false,
+      "a3_a4_shadow_use": "governing candidate source"
+    },
+    {
+      "filename_file_id": "validert_a4_acceptance_specification_v2.0_frozen.md",
+      "internal_version": "2.0",
+      "sha256": "a0824121d0fbf43a03fb01a2fa2710ce30e0a9ad0bc25c197b346b821109061b",
+      "production_active": false,
+      "a3_a4_shadow_use": "frozen acceptance source"
+    }
+  ]
+}

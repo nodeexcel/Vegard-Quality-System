@@ -40,6 +40,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--manifest-sha256", required=True)
     parser.add_argument("--customer-envelope", type=Path)
+    parser.add_argument("--replay-from", type=Path, action="append", default=[])
     args = parser.parse_args()
 
     understanding = DocumentUnderstandingResult.model_validate_json(
@@ -79,7 +80,14 @@ def main() -> int:
     retriever = ManifestVerifiedRuleRetriever(
         catalog, resolver=ApprovedGovernedRegimeResolver(), category_assets=category_assets
     )
-    service = PhaseA4ShadowService(retriever, BedrockSemanticAssessmentModel())
+    replay_artifacts = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in args.replay_from
+    ]
+    service = PhaseA4ShadowService(
+        retriever,
+        BedrockSemanticAssessmentModel(replay_artifacts=replay_artifacts),
+    )
     result = service.analyze(understanding, list(RuleCategory))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

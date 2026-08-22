@@ -148,6 +148,45 @@ def test_tg2_ns2025_missing_measure_admits_exact_e_rule_and_customer_chain():
     assert not any(token in rendered for token in forbidden)
 
 
+def test_same_physical_point_findings_group_with_complete_raw_lineage():
+    segment = _segment("10.1")
+    assessments = [
+        StructuredAssessment(
+            assessment_id=f"assessment_group_{index}_12345678", segment_id=segment.segment_id,
+            retrieval_ids=["retrieval_12345678"], rule_category=category,
+            decision=AssessmentDecision.DEFICIENT, explanation="Semantic deficiency.",
+            evidence_ids=[segment.evidence.evidence_id], proposed_finding_type=identity,
+        )
+        for index, (category, identity) in enumerate([
+            (RuleCategory.AARSAK, "MISSING (aarsak)"),
+            (RuleCategory.RISIKO, "MISSING (risiko)"),
+        ], start=1)
+    ]
+    decisions = [
+        FindingValidationDecision(
+            validation_id=f"validation_group_{index}_12345678",
+            assessment_id=assessment.assessment_id, admission=FindingAdmission.ACCEPTED,
+            accepted_finding_id=f"finding_group_{index}_12345678",
+            canonical_finding_identity=assessment.proposed_finding_type,
+            canonical_point_id="10.1", category="A", deduction=deduction,
+            obligation_class="validert_product_quality", regulatory=False,
+            blocks_96_gate=True,
+        )
+        for index, (assessment, deduction) in enumerate(zip(assessments, [6, 5]), start=1)
+    ]
+    score = score_admitted_findings(decisions)
+    items, public, lineage = project_customer_result(
+        _understanding(segment), assessments, decisions, score, AnalysisState.COMPLETE_WITH_FINDINGS
+    )
+    assert len(items) == len(public.findings) == 1
+    assert items[0].accepted_finding_ids == [decision.accepted_finding_id for decision in decisions]
+    assert items[0].deduction == 11
+    assert len(lineage) == 2
+    assert len({item.public_finding_id for item in lineage}) == 1
+    assert "heading" not in public.findings[0].message.casefold()
+    assert "felt" not in public.findings[0].message.casefold()
+
+
 def test_category_e_cap_and_no_category_a_duplicate():
     decisions = [
         FindingValidationDecision(
