@@ -66,7 +66,13 @@ def _prompt_segment_payload(segment: ValidatedSegment, spans: list[Any]) -> dict
 
 
 def _semantic_replay_version(rule_category: str | None) -> str:
-    return "risiko_v2" if rule_category == RuleCategory.RISIKO.value else "base_v1"
+    if rule_category == RuleCategory.RISIKO.value:
+        return "risiko_v2"
+    if rule_category == RuleCategory.AARSAK.value:
+        return "aarsak_v2"
+    if rule_category == RuleCategory.METHODOLOGY.value:
+        return "methodology_v2"
+    return "base_v1"
 
 
 def _replay_key_from_task(segment_payload: dict[str, Any], assessment_payload: dict[str, Any]) -> str:
@@ -118,6 +124,61 @@ def _should_refresh_risk_replay(segment_payload: dict[str, Any]) -> bool:
         and any(token in body for token in ("lekk", "fukt", "vanninntreng"))
         and any(token in body for token in ("ekstremvær", "kraftig nedbør", "snø"))
     )
+
+
+def _should_refresh_aarsak_replay(segment_payload: dict[str, Any]) -> bool:
+    body = " ".join(
+        str(item.get("exact_quote") or "")
+        for item in (segment_payload.get("complete_bound_body") or [])
+    ).casefold()
+    if not body:
+        return False
+    service_life = (
+        "forventet brukstid er passert" in body
+        or "mer enn halvparten av forventet brukstid er passert" in body
+        or "modent for modernisering" in body
+    )
+    age_related = (
+        "eldre årgang" in body
+        or "varierende årgang" in body
+        or "fra byggeår" in body
+        or "dårligere isolasjonsevne" in body
+    )
+    return service_life or age_related
+
+
+def _should_refresh_methodology_replay(segment_payload: dict[str, Any]) -> bool:
+    body = " ".join(
+        str(item.get("exact_quote") or "")
+        for item in (segment_payload.get("complete_bound_body") or [])
+    ).casefold()
+    if not body:
+        return False
+    return (
+        "ingen opplysninger om at det er" in body
+        and any(token in body for token in ("nedgravd", "skjult", "tilstede", "finnes"))
+    )
+
+
+_TG3_COST_INTERVAL_RE = re.compile(
+    r"(?<!\d)\d{1,3}(?:[ .]\d{3})+\s*-\s*\d{1,3}(?:[ .]\d{3})+(?!\d)"
+)
+_TG3_COST_SINGLE_AMOUNT_RE = re.compile(r"(?<!\d)\d{1,3}(?:[ .]\d{3})+(?!\d)")
+_TG3_COST_CLASS_RE = re.compile(
+    r"(?i)\b(?:lav|middels?|høy)\s+kostnad\b|\bkostnad(?:sestimat|sklasse)?\s*:\s*(?:lav|middels?|høy)\b"
+)
+
+
+def _tg3_cost_status_from_segment(segment: ValidatedSegment) -> str:
+    body = "\n".join(
+        span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
+    )
+    normalized = re.sub(r"[–—]", "-", body)
+    if _TG3_COST_INTERVAL_RE.search(normalized) or _TG3_COST_CLASS_RE.search(normalized):
+        return "pass"
+    if _TG3_COST_SINGLE_AMOUNT_RE.search(normalized):
+        return "single_amount_only"
+    return "missing"
 
 
 def _assessment_segments_with_linked_summaries(
@@ -196,6 +257,11 @@ Concise cause labels such as 'Alder', 'Utførelse', 'Fuktbelastning fra bruk av 
 or 'Manglende montering av beslag' may satisfy Årsak when they genuinely explain why
 the observed condition has occurred for that point. Do not require a longer narrative
 merely because the explanation is brief.
+For age- and service-life-based assessments, wording such as 'mer enn halvparten av
+forventet brukstid er passert', 'eldre årgang', 'varierende årgang', 'fra byggeår',
+'dårligere isolasjonsevne sammenlignet med dagens standard', or 'modent for
+modernisering' may satisfy Årsak when it explains that the observed condition or
+reduced performance follows from age, service life, or original vintage.
 For Konsekvens, text that mainly states an existing damage condition or that repairs,
 maintenance, or utbedring are needed without explaining the buyer-relevant effect
 should be treated as TILTAK_AS_KONSEKVENS. Text that stops at a technical process or
@@ -220,7 +286,9 @@ life or clearly reduced remaining lifetime count as practical consequence when t
 communicate aging-related replacement/maintenance burden; do not reclassify those as
 RISIKO_AS_KONSEKVENS merely because leak risk is also mentioned.
 For TG3 cost, only a cost class/interval or other schematic estimate explicitly bound
-to this physical point counts.
+to this physical point counts. Never borrow an amount from another point, another page
+window, or a document-level estimate. If the cited point-bound evidence spans do not
+themselves contain the amount or cost class, TG3 cost is deficient.
 For Risiko, a pure inspection or documentation limitation is not sufficient unless it
 names a possible technical defect, damage development, functional failure, or other
 technical risk category. Use LIMITATION_USED_AS_RISK_SUBSTITUTE when a limitation is
@@ -245,6 +313,11 @@ physical point. Summary, navigation, boilerplate and foreign-point prose are exc
 and cannot satisfy the semantic requirement. Never treat generic guidance as point-specific.
 For TGIU, assess the reason for non-inspection and a concrete further-investigation
 recommendation independently and emit one candidate for each deficient requirement.
+When the point says there are no information/opplysninger that a suspected buried or
+hidden installation/object exists on the property, that can itself satisfy the reason
+for non-investigation because it explains why direct inspection basis was absent. Do
+not mark TGIU_MISSING_REASON in that situation. Assess any missing further
+investigation recommendation independently.
 For methodology-only detached structures, evaluate the governed explanatory-structure
 rule against the complete described deviations; do not treat absence of TG alone as a
 defect. When the same physical point describes one or more concrete deviations or
@@ -282,6 +355,11 @@ Konsekvens/tiltak rather than under a dedicated Risiko heading.
 Brief but genuine causal labels such as 'Alder', 'Utførelse', 'Fuktbelastning fra bruk
 av dusj', or 'Manglende montering av beslag' can satisfy Årsak when they explain why
 the observed condition has occurred.
+Age- and service-life wording can also satisfy Årsak when it explains the current
+condition through age, original vintage, or reduced performance over time. Examples
+include 'mer enn halvparten av forventet brukstid er passert', 'eldre årgang',
+'varierende årgang', 'fra byggeår', poorer performance compared with current standard,
+or that the component is mature for modernization.
 For Konsekvens, text that mainly says repairs are needed or repeats an existing damage
 state without explaining the buyer-relevant effect should be treated as
 TILTAK_AS_KONSEKVENS. Text that stops at a technical process or load, such as
@@ -301,10 +379,17 @@ sentence in the same field is more technical.
 For service-life-limited installations, limited remaining technical lifetime or
 clearly reduced remaining lifetime counts as a practical consequence when it tells
 the buyer that aging-related maintenance or replacement burden is approaching.
+For TG3 cost, accept only a cost class/interval or other schematic estimate that is
+actually present in the cited point-bound evidence for that same point. Never use an
+amount that belongs to another point or another page window.
 If a limitation sentence also names hidden defect categories such as hidden
 execution defects, weakened membrane/sluk connection, or hidden moisture damage,
 that names the technical risk and should be treated as satisfied Risiko rather than
 LIMITATION_USED_AS_RISK_SUBSTITUTE.
+For TGIU reason, wording that there are no information/opplysninger that a suspected
+buried or hidden installation/object exists on the property can satisfy the reason
+requirement; it explains why there was no direct basis for investigation. Further
+investigation remains a separate requirement.
 
 Independently verify the initial assessment. For every requested category, identify in your
 reasoning which source sentence does or does not substantively perform that semantic role.
@@ -440,6 +525,16 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
             and _should_refresh_risk_replay(segment_payload)
         ):
             return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.AARSAK.value
+            and _should_refresh_aarsak_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.METHODOLOGY.value
+            and _should_refresh_methodology_replay(segment_payload)
+        ):
+            return None
         strict_key = _replay_key_from_task(segment_payload, assessment_payload)
         replayed = self._initial_replay.get(strict_key)
         if replayed is not None:
@@ -462,6 +557,16 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
         if (
             assessment_payload.get("rule_category") == RuleCategory.RISIKO.value
             and _should_refresh_risk_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.AARSAK.value
+            and _should_refresh_aarsak_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.METHODOLOGY.value
+            and _should_refresh_methodology_replay(segment_payload)
         ):
             return None
         strict_key = _replay_key_from_task(segment_payload, assessment_payload)
@@ -921,6 +1026,40 @@ def _normalize_semantic_candidate(
     Professional-language adjudication is performed by the governed AI pass.
     Deterministic code must never change SATISFIED/DEFICIENT here.
     """
+    if candidate.rule_category == RuleCategory.TG3_COST:
+        cost_status = _tg3_cost_status_from_segment(segment)
+        if cost_status == "missing":
+            return candidate.model_copy(
+                update={
+                    "decision": AssessmentDecision.DEFICIENT,
+                    "proposed_finding_type": "E_METHOD.tg3_cost_missing",
+                    "explanation": (
+                        "The cited point-bound evidence for this TG3 point contains no cost class, "
+                        "cost interval, or other schematic estimate. TG3 cost therefore remains missing."
+                    ),
+                }
+            )
+        if cost_status == "single_amount_only":
+            return candidate.model_copy(
+                update={
+                    "decision": AssessmentDecision.DEFICIENT,
+                    "proposed_finding_type": "E_METHOD.tg3_cost_single_amount_only",
+                    "explanation": (
+                        "The cited point-bound evidence for this TG3 point contains only a single amount, "
+                        "not a valid schematic cost class or interval."
+                    ),
+                }
+            )
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The cited point-bound evidence contains a valid TG3 cost class or cost interval "
+                    "for this same physical point."
+                ),
+            }
+        )
     if (
         candidate.rule_category == RuleCategory.METHODOLOGY
         and segment.point_type == "tgiu"
@@ -945,6 +1084,11 @@ def _normalize_semantic_candidate(
                 update={
                     "decision": AssessmentDecision.SATISFIED,
                     "proposed_finding_type": None,
+                    "explanation": (
+                        "The point explains why direct investigation basis was absent by stating that "
+                        "there are no information/opplysninger that the suspected hidden installation "
+                        "exists on the property."
+                    ),
                 }
             )
     return candidate

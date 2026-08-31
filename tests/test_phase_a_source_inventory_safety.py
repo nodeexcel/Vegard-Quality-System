@@ -21,11 +21,16 @@ from app.services.phase_a_assessment import PhaseA4ShadowService
 from app.services.phase_a_contracts import (
     AssessmentCandidate,
     AssessmentDecision,
+    Abstention,
+    CoverageReconciliation,
     DocumentUnderstandingResult,
     InventoryRole,
     RegimeResolution,
     RegimeResolutionStatus,
     RuleCategory,
+    SegmentKind,
+    ValidationStatus,
+    ValidatedSegment,
 )
 from app.services.phase_a_document_understanding import DocumentUnderstandingService
 from app.services.phase_a_applicability import DeterministicApplicabilityPlanner
@@ -39,6 +44,38 @@ from app.services.phase_a_source_inventory import PhysicalSourceInventoryBuilder
 
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _validated_point(segment_id: str, title: str) -> ValidatedSegment:
+    evidence = {
+        "evidence_id": f"evidence_{segment_id}",
+        "exact_quote": title,
+        "page": 1,
+        "char_start": 0,
+        "char_end": len(title),
+        "quote_sha256": hashlib.sha256(title.encode()).hexdigest(),
+        "match_method": "exact",
+        "validation_status": "validated",
+        "validation_notes": [],
+    }
+    return ValidatedSegment.model_validate({
+        "segment_id": segment_id,
+        "kind": "report_point",
+        "title": title,
+        "section_context": "",
+        "professional_subject": title,
+        "point_label": None,
+        "tg_grade": "TG2",
+        "point_type": "graded",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": title, "page": 1},
+        "evidence": evidence,
+        "evidence_spans": [evidence],
+        "bound_body_spans": [evidence],
+        "bound_body_sha256": evidence["quote_sha256"],
+        "validation_status": "validated",
+        "validation_notes": ["source_inventory_authoritative_boundary"],
+    })
 
 
 def test_ivit_source_inventory_is_independent_and_contains_all_tgiu_points():
@@ -57,6 +94,89 @@ def test_ivit_source_inventory_is_independent_and_contains_all_tgiu_points():
     assert all(span.page == 31 for span in garage.body_spans)
     detached = {item.title: item.section_context for item in primaries if item.title in {"Sjøbod", "Båtbu", "Garasje"}}
     assert detached == {"Sjøbod": "", "Båtbu": "", "Garasje": ""}
+
+
+def test_structural_reconciliation_guard_blocks_material_non_point_inventory_misreads():
+    segments = [
+        _validated_point("segment_bad_1", "stk"),
+        _validated_point("segment_bad_2", "Utskrift: 24.08.2026 Telefon: 90635160"),
+        _validated_point("segment_good_1", "Grunnmur"),
+        _validated_point("segment_good_2", "Yttervegg"),
+    ]
+    reconciliation = [
+        CoverageReconciliation(
+            inventory_id="physical_bad_1",
+            inventory_role=InventoryRole.PRIMARY,
+            matched_segment_id="segment_bad_1",
+            status="source_materialized",
+            reason="Physical point absent from AI candidates; materialized from source inventory.",
+        ),
+        CoverageReconciliation(
+            inventory_id="physical_bad_2",
+            inventory_role=InventoryRole.PRIMARY,
+            matched_segment_id="segment_bad_2",
+            status="source_materialized",
+            reason="Overlapping AI candidate identity conflicted with physical title/label/TG; source inventory retained.",
+        ),
+        *[
+            CoverageReconciliation(
+                inventory_id=f"inventory_keep_{idx}",
+                inventory_role=InventoryRole.PRIMARY,
+                matched_segment_id="segment_good_1",
+                status="matched",
+                reason=(
+                    "Validated AI point was retained because the physical inventory missed the point; "
+                    "reconciliation must not silently drop an admitted report point."
+                ),
+            )
+            for idx in range(5)
+        ],
+    ]
+    abstentions = [
+        Abstention(
+            abstention_id=f"abstention_{idx:02d}",
+            stage="segment_validation",
+            subject=f"segment_{idx}",
+            reason_code="exact_quote_ambiguous",
+            explanation="deterministic validation did not pass",
+        )
+        for idx in range(5)
+    ]
+    blockers = DocumentUnderstandingService._structural_reconciliation_blockers(
+        segments, reconciliation, abstentions
+    )
+    assert blockers
+    assert blockers[0].startswith("structural_reconciliation_unreliable:")
+
+
+def test_structural_reconciliation_guard_allows_normal_inventory_fallback_patterns():
+    segments = [
+        _validated_point("segment_ok_1", "Taktekking"),
+        _validated_point("segment_ok_2", "Vinduer"),
+    ]
+    reconciliation = [
+        CoverageReconciliation(
+            inventory_id="inventory_ok_1",
+            inventory_role=InventoryRole.PRIMARY,
+            matched_segment_id="segment_ok_1",
+            status="matched",
+            reason=(
+                "Validated AI point was retained because the physical inventory missed the point; "
+                "reconciliation must not silently drop an admitted report point."
+            ),
+        ),
+        CoverageReconciliation(
+            inventory_id="physical_ok_2",
+            inventory_role=InventoryRole.PRIMARY,
+            matched_segment_id="segment_ok_2",
+            status="source_materialized",
+            reason="Physical point absent from AI candidates; materialized from source inventory.",
+        ),
+    ]
+    blockers = DocumentUnderstandingService._structural_reconciliation_blockers(
+        segments, reconciliation, []
+    )
+    assert blockers == []
 
 
 def test_bmtf_numbered_parent_sections_canonicalize_local_and_omitted_point_labels():

@@ -247,6 +247,17 @@ def test_semantic_adjudication_prompt_treats_remaining_lifetime_as_practical_con
     assert "actual damage to a secondary building part" in prompt
 
 
+def test_semantic_prompts_treat_age_and_service_life_wording_as_aarsak():
+    system_prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    adjudication_prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
+    assert "mer enn halvparten av" in system_prompt
+    assert "forventet brukstid er passert" in system_prompt
+    assert "varierende årgang" in system_prompt
+    assert "modent for" in system_prompt
+    assert "forventet brukstid er passert" in adjudication_prompt
+    assert "varierende årgang" in adjudication_prompt
+
+
 def test_semantic_prompts_treat_holistic_action_guidance_as_satisfied_tiltak():
     system_prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
     adjudication_prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
@@ -262,6 +273,18 @@ def test_semantic_prompts_treat_extreme_weather_leakage_exposure_as_risiko():
     assert "especially exposed or vulnerable to leakage, moisture" in system_prompt
     assert "heavy rain, snow, extreme weather" in system_prompt
     assert "especially exposed or vulnerable to leakage, moisture" in adjudication_prompt
+
+
+def test_semantic_prompts_treat_missing_information_about_hidden_installation_as_tgiu_reason():
+    system_prompt = BedrockSemanticAssessmentModel.SYSTEM_PROMPT
+    adjudication_prompt = BedrockSemanticAssessmentModel.ADJUDICATION_PROMPT
+    assert "no information/opplysninger" in system_prompt
+    assert "suspected buried or" in system_prompt
+    assert "hidden installation/object exists" in system_prompt
+    assert "Do" in system_prompt
+    assert "TGIU_MISSING_REASON" in system_prompt
+    assert "no information/opplysninger" in adjudication_prompt
+    assert "direct basis for investigation" in adjudication_prompt
 
 
 def test_compound_tgiu_output_is_split_into_governed_atomic_candidates():
@@ -474,6 +497,98 @@ def test_tgiu_missing_reason_is_normalized_away_when_report_states_no_informatio
         explanation="The point does not explain why the oil tank was not investigated.",
         evidence_ids=[span["evidence_id"]],
         proposed_finding_type="TGIU_MISSING_REASON",
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.SATISFIED
+    assert normalized.proposed_finding_type is None
+
+
+def test_tg3_cost_satisfied_is_normalized_to_missing_when_point_bound_evidence_has_no_cost():
+    quote = "Etasjeskille/gulv mot grunn\nKonsekvens/tiltak\nUtbedring må vurderes ved senere renovering."
+    span = {
+        "evidence_id": "evidence_tg3_cost_missing_0001",
+        "exact_quote": quote,
+        "page": 1,
+        "char_start": 0,
+        "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact",
+        "validation_status": "validated",
+        "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_tg3_cost_missing_0001",
+        "kind": "report_point",
+        "title": "Etasjeskille/gulv mot grunn",
+        "section_context": "INNVENDIG",
+        "professional_subject": "Etasjeskille/gulv mot grunn",
+        "point_label": "14.2",
+        "tg_grade": "TG3",
+        "point_type": "graded",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span,
+        "evidence_spans": [span],
+        "bound_body_spans": [span],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id,
+        retrieval_ids=["retrieval_tg3_cost_missing_0001"],
+        rule_category=RuleCategory.TG3_COST,
+        decision=AssessmentDecision.SATISFIED,
+        explanation="A cost amount is present.",
+        evidence_ids=[span["evidence_id"]],
+        proposed_finding_type=None,
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.DEFICIENT
+    assert normalized.proposed_finding_type == "E_METHOD.tg3_cost_missing"
+
+
+def test_tg3_cost_missing_is_normalized_to_satisfied_when_point_bound_interval_exists():
+    quote = "Kostnadsestimat: 20 000 - 100 000"
+    span = {
+        "evidence_id": "evidence_tg3_cost_pass_0001",
+        "exact_quote": quote,
+        "page": 1,
+        "char_start": 0,
+        "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact",
+        "validation_status": "validated",
+        "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_tg3_cost_pass_0001",
+        "kind": "report_point",
+        "title": "Terrengforhold",
+        "section_context": "UTVENDIG",
+        "professional_subject": "Terrengforhold",
+        "point_label": "3",
+        "tg_grade": "TG3",
+        "point_type": "graded",
+        "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span,
+        "evidence_spans": [span],
+        "bound_body_spans": [span],
+        "validation_status": "validated",
+        "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id,
+        retrieval_ids=["retrieval_tg3_cost_pass_0001"],
+        rule_category=RuleCategory.TG3_COST,
+        decision=AssessmentDecision.DEFICIENT,
+        explanation="Cost is missing.",
+        evidence_ids=[span["evidence_id"]],
+        proposed_finding_type="E_METHOD.tg3_cost_missing",
     )
 
     normalized = _normalize_semantic_candidate(candidate, segment, [])

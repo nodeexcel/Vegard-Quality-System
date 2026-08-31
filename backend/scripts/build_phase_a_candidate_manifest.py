@@ -21,7 +21,6 @@ CANDIDATE_ASSETS = (
     "candidates/a3_a4_v2/validert_governed_regime_decision_v2.0_approved.md",
     "candidates/a3_a4_v2/validert_a4_acceptance_specification_v2.0_frozen.md",
     "candidates/a3_a4_v2/validert_a4_approved_variances_v2_1.json",
-    "candidates/a3_a4_v2/validert_a4_approved_decisions_v2_2.json",
     "candidates/a3_a4_v2/APPROVAL_RECORD.txt",
 )
 
@@ -48,6 +47,8 @@ TEST_FILES = (
     "tests/test_phase_a_source_inventory_safety.py",
     "tests/test_phase_a3_a4_governed_pipeline.py",
     "tests/test_dommer_b_regression.py",
+    "tests/test_phase_a_contracts_and_understanding.py",
+    "tests/test_verified_template_gate.py",
 )
 
 
@@ -81,6 +82,7 @@ def main() -> int:
             "immutable": True,
         },
     }
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{digest(OUTPUT)}  {OUTPUT.relative_to(ROOT)}")
     return 0

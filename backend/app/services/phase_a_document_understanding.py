@@ -827,6 +827,11 @@ class DocumentUnderstandingService:
             for segment in segments
             if "structural_uncertainty_multiple_physical_overlap" in segment.validation_notes
         )
+        structural_blockers.extend(
+            self._structural_reconciliation_blockers(
+                segments, coverage_reconciliation, abstentions
+            )
+        )
         if summary_blockers or body_blockers or structural_blockers:
             coverage = coverage.model_copy(update={
                 "completion_blockers": [
@@ -1345,6 +1350,84 @@ class DocumentUnderstandingService:
             if actual.get(tg, 0) != count
         ]
         return blockers
+
+    @staticmethod
+    def _looks_like_non_point_structural_title(title: str) -> bool:
+        compact = " ".join(str(title or "").split())
+        if not compact:
+            return True
+        if re.fullmatch(r"(?i)(?:\d+\s+)?stk", compact):
+            return True
+        lowered = compact.casefold()
+        if lowered.startswith("utskrift:") or lowered.startswith("kontakt:"):
+            return True
+        word_tokens = re.findall(r"[A-Za-zÆØÅæøå]{2,}", compact)
+        if not word_tokens:
+            return True
+        metadata_tokens = {"utskrift", "telefon", "kontakt", "org", "nettsiden", "side"}
+        if ":" in compact and metadata_tokens & {token.casefold() for token in word_tokens}:
+            return True
+        if len(compact.split()) >= 8 and any(marker in compact for marker in (".", ";", ":")):
+            return True
+        return False
+
+    @classmethod
+    def _structural_reconciliation_blockers(
+        cls,
+        segments: Sequence[ValidatedSegment],
+        coverage_reconciliation: Sequence[CoverageReconciliation],
+        abstentions: Sequence[Abstention],
+    ) -> List[str]:
+        primary_segments = {
+            item.segment_id: item
+            for item in segments
+            if item.kind == SegmentKind.REPORT_POINT
+            and item.validation_status == ValidationStatus.VALIDATED
+        }
+        primary_reconciliation = [
+            item for item in coverage_reconciliation
+            if item.inventory_role == InventoryRole.PRIMARY
+        ]
+        if not primary_reconciliation:
+            return []
+        suspicious_materialized: List[str] = []
+        ai_fallback_count = 0
+        for item in primary_reconciliation:
+            reason = item.reason or ""
+            if "physical inventory missed the point" in reason:
+                ai_fallback_count += 1
+            if item.status != "source_materialized" or not item.matched_segment_id:
+                continue
+            segment = primary_segments.get(item.matched_segment_id)
+            if segment and cls._looks_like_non_point_structural_title(segment.title):
+                suspicious_materialized.append(segment.segment_id)
+        structural_abstention_count = sum(
+            1
+            for item in abstentions
+            if item.reason_code in {
+                "provider_requires_structural_confirmation",
+                "exact_quote_ambiguous",
+                "exact_quote_not_found",
+                "whitespace_normalized_quote_not_found",
+            }
+        )
+        primary_count = len(primary_reconciliation)
+        if not suspicious_materialized:
+            return []
+        materially_unreliable = (
+            len(suspicious_materialized) >= 2
+            or ai_fallback_count >= max(5, primary_count // 2)
+            or structural_abstention_count >= 5
+        )
+        if not materially_unreliable:
+            return []
+        return [
+            "structural_reconciliation_unreliable:"
+            f"suspicious_materialized={len(suspicious_materialized)}:"
+            f"ai_fallback={ai_fallback_count}:"
+            f"structural_abstentions={structural_abstention_count}:"
+            f"primary_points={primary_count}"
+        ]
 
     @staticmethod
     def _deterministic_labeled_date_facts(
