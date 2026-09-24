@@ -53,21 +53,21 @@ def main() -> int:
         args.assets_root, args.manifest, approved_manifest_sha256=args.manifest_sha256
     )
     category_assets = {
-        RuleCategory.AARSAK: ("arkat_semantic_rules_v1_2_3.json", "arkat_error_to_deduction_mapping_v1_1_2.json", "rag_scoring_model_validert_v1.6.15.json"),
+        RuleCategory.AARSAK: ("arkat_semantic_rules_v1_3_0.json", "arkat_error_to_deduction_mapping_v1_1_2.json", "rag_scoring_model_validert_v1.6.15.json"),
         RuleCategory.RISIKO: (
-            "arkat_semantic_rules_v1_2_3.json",
+            "arkat_semantic_rules_v1_3_0.json",
             "arkat_error_to_deduction_mapping_v1_1_2.json",
             "rag_scoring_model_validert_v1.6.15.json",
             "candidates/a3_a4_v2/validert_phase_a_semantic_admission_rules_v1_0.json",
         ),
-        RuleCategory.KONSEKVENS: ("arkat_semantic_rules_v1_2_3.json", "arkat_error_to_deduction_mapping_v1_1_2.json", "rag_scoring_model_validert_v1.6.15.json"),
+        RuleCategory.KONSEKVENS: ("arkat_semantic_rules_v1_3_0.json", "arkat_error_to_deduction_mapping_v1_1_2.json", "rag_scoring_model_validert_v1.6.15.json"),
         RuleCategory.ANBEFALT_TILTAK: (
-            "arkat_semantic_rules_v1_2_3.json",
+            "arkat_semantic_rules_v1_3_0.json",
             "arkat_error_to_deduction_mapping_v1_1_2.json",
             "candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
         ),
         RuleCategory.METHODOLOGY: (
-            "arkat_semantic_rules_v1_2_3.json",
+            "arkat_semantic_rules_v1_3_0.json",
             "rag_scoring_model_validert_v1.6.15.json",
             "candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
         ),

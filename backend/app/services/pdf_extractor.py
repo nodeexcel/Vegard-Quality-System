@@ -44,6 +44,7 @@ def _normalize_pdf_text_artifacts(text: str) -> str:
         "昀": "f",
         "氀": "l",
         "樀": "j",
+        "−": "-",
     }
     for old, new in glyph_replacements.items():
         text = text.replace(old, new)

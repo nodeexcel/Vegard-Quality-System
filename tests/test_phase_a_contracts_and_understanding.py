@@ -496,6 +496,45 @@ For gyldighet på rapporten se forside
     assert ("report_date", "2026-06-16") in facts
 
 
+def test_fremtind_gjovik_extracts_report_date_and_specific_ns_edition():
+    report = """[SIDE 1]
+Befarings - og eiendomsopplysninger
+Befaring
+Dato Til stede Rolle
+10.8.2026 Sindre Illøkken Eriksen Takstingeniør
+[SIDE 2]
+Revisjoner
+Versjon Ny versjon
+1 11.08.2026
+For gyldighet på rapporten se forside
+[SIDE 3]
+Rapporten baserer seg på krav i forskrift til avhendingslova (tryggere
+bolighandel). For valg av tilstandsgrad blir NS 3600:2025 (teknisk
+tilstandsanalyse ved omsetning av bolig) lagt til grunn.
+"""
+    result = DocumentUnderstandingService(FakeExtractor({"facts": [], "segments": [], "abstentions": []})).analyze(report, "report.pdf")
+    facts = {(item.fact_type.value, item.normalized_value) for item in result.facts}
+    assert ("inspection_date", "2026-08-10") in facts
+    assert ("report_date", "2026-08-11") in facts
+    assert ("declared_standard", "NS 3600:2025") in facts
+    assert ("declared_standard", "NS 3600") not in facts
+
+
+def test_signature_block_trailing_date_is_recognized_as_report_date():
+    report = """[SIDE 1]
+Ansvarlig for rapporten:
+Marcus Winther
+Navestadveien 20, 1738 Borgenhaugen
+92825503 | marcus@bolavi.no
+09/09/2026
+[SIDE 2]
+Tilstandsrapporten er utarbeidet i henhold til NS 3600:2025.
+"""
+    result = DocumentUnderstandingService(FakeExtractor({"facts": [], "segments": [], "abstentions": []})).analyze(report, "report.pdf")
+    facts = {(item.fact_type.value, item.normalized_value) for item in result.facts}
+    assert ("report_date", "2026-09-09") in facts
+
+
 def test_extractor_failure_fails_closed_without_leaking_an_unvalidated_result():
     class BrokenExtractor:
         def extract_candidates(self, **kwargs):
@@ -503,7 +542,13 @@ def test_extractor_failure_fails_closed_without_leaking_an_unvalidated_result():
 
     result = DocumentUnderstandingService(BrokenExtractor()).analyze(REPORT_TEXT, "report.pdf")
     assert result.status == UnderstandingStatus.FAILED
-    assert all("deterministic_explicit_date_label" in item.validation_notes for item in result.facts)
+    assert all(
+        {
+            "deterministic_explicit_date_label",
+            "deterministic_explicit_declared_standard",
+        } & set(item.validation_notes)
+        for item in result.facts
+    )
     assert result.segments
     assert all("source_inventory_materialized_without_ai_candidate" in item.validation_notes for item in result.segments)
     assert result.abstentions[0].reason_code == "candidate_extraction_failed"

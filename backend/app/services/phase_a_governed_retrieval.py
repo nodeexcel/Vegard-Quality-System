@@ -43,12 +43,12 @@ class RegimeResolver(Protocol):
 # This is technical source routing, not a decision about which edition/regime is
 # applicable. Applicability remains the responsibility of RegimeResolver.
 CATEGORY_ASSETS: Mapping[RuleCategory, tuple[str, ...]] = {
-    RuleCategory.AARSAK: ("arkat_semantic_rules_v1_2_3.json",),
-    RuleCategory.RISIKO: ("arkat_semantic_rules_v1_2_3.json",),
-    RuleCategory.KONSEKVENS: ("arkat_semantic_rules_v1_2_3.json",),
-    RuleCategory.ANBEFALT_TILTAK: ("arkat_semantic_rules_v1_2_3.json",),
+    RuleCategory.AARSAK: ("arkat_semantic_rules_v1_3_0.json",),
+    RuleCategory.RISIKO: ("arkat_semantic_rules_v1_3_0.json",),
+    RuleCategory.KONSEKVENS: ("arkat_semantic_rules_v1_3_0.json",),
+    RuleCategory.ANBEFALT_TILTAK: ("arkat_semantic_rules_v1_3_0.json",),
     RuleCategory.METHODOLOGY: (
-        "arkat_semantic_rules_v1_2_3.json",
+        "arkat_semantic_rules_v1_3_0.json",
         "validert_orchestrator_pipeline_v2.1.json",
     ),
     RuleCategory.LEGALITY: ("validert_legal_compliance_rules_v1_1.json",),
@@ -225,6 +225,15 @@ class ManifestVerifiedRuleRetriever:
                 exact_tg2_measure_rule = (
                     category == RuleCategory.ANBEFALT_TILTAK
                     and chunk.rule_id == "E_METHOD.tg2_missing_anbefalt_tiltak_ns2025"
+                    and (segment.tg_grade or "").upper() == "TG2"
+                )
+                exact_tiltak_form_rule = (
+                    category == RuleCategory.ANBEFALT_TILTAK
+                    and chunk.rule_id == "TILTAK_IMPERATIVE_FORM"
+                )
+                exact_tiltak_missing_rule = (
+                    category == RuleCategory.ANBEFALT_TILTAK
+                    and chunk.rule_id == "MISSING (anbefalt_tiltak)"
                 )
                 exact_tgiu_rule = (
                     category == RuleCategory.METHODOLOGY
@@ -246,12 +255,18 @@ class ManifestVerifiedRuleRetriever:
                     }
                     and str(chunk.content.get("semantic_field") or "") == category.value
                 )
+                resolved_edition = getattr(resolution, "applicable_ns_edition", None)
+                exact_aarsak_edition_scope = (
+                    category == RuleCategory.AARSAK
+                    and isinstance(resolved_edition, str)
+                    and chunk.pointer == "/edition_scope"
+                )
                 category_pointer = (
                     f"/field_definitions/{category.value}" in chunk.pointer
                     or f"/deductions/{category.value}" in chunk.pointer
                 )
-                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or category_pointer:
-                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field:
+                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tiltak_form_rule or exact_tiltak_missing_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or exact_aarsak_edition_scope or category_pointer:
+                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tiltak_form_rule or exact_tiltak_missing_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or exact_aarsak_edition_scope:
                         score = 1.0
                     elif category_pointer:
                         score = max(score, 0.95)
@@ -279,10 +294,34 @@ class ManifestVerifiedRuleRetriever:
                 if item[2].rule_id == "E_METHOD.garasje_avvik_uten_arkat"
             ]
 
+        selected_scored = list(scored[:top_k])
+        required_pointers: set[str] = set()
+        if category in {
+            RuleCategory.AARSAK,
+            RuleCategory.RISIKO,
+            RuleCategory.KONSEKVENS,
+            RuleCategory.ANBEFALT_TILTAK,
+        }:
+            required_pointers.add(f"/field_definitions/{category.value}")
+        if category == RuleCategory.AARSAK:
+            resolved_edition = getattr(resolution, "applicable_ns_edition", None)
+            required_pointers.add("/product_owner_rulings_nb/observation_as_aarsak")
+            if isinstance(resolved_edition, str):
+                required_pointers.add("/edition_scope")
+        if required_pointers:
+            selected_keys = {(asset_path, chunk.pointer) for _, asset_path, chunk, _ in selected_scored}
+            for item in scored:
+                _, asset_path, chunk, _ = item
+                key = (asset_path, chunk.pointer)
+                if key in selected_keys or chunk.pointer not in required_pointers:
+                    continue
+                selected_scored.append(item)
+                selected_keys.add(key)
+
         records: list[RuleRetrievalRecord] = []
         excluded_rule_ids: list[str] = []
         traces: list[TraceRecord] = []
-        for score, asset_path, chunk, verification in scored[:top_k]:
+        for score, asset_path, chunk, verification in selected_scored:
             resolve_rule = getattr(self.resolver, "resolve_rule", None)
             rule_resolution = (
                 resolve_rule(category, chunk.rule_id, chunk.content, facts)
