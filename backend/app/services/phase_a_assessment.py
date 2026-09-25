@@ -6,6 +6,7 @@ resolver it cannot invoke a model or admit a finding.
 
 from __future__ import annotations
 
+from functools import lru_cache
 import hashlib
 import json
 import re
@@ -33,6 +34,11 @@ from app.services.phase_a_governed_retrieval import ManifestVerifiedRuleRetrieve
 from app.services.phase_a_applicability import DeterministicApplicabilityPlanner
 from app.services.phase_a_scoring import score_admitted_findings
 from app.services.phase_a_projection import project_customer_result
+from app.services.validert_files import (
+    get_arkat_canonical_examples,
+    get_arkat_semantic_rules,
+    get_dommer_b_system_prompt_text,
+)
 
 
 def _canonical(value: object) -> bytes:
@@ -61,17 +67,59 @@ def _prompt_segment_payload(segment: ValidatedSegment, spans: list[Any]) -> dict
         "point_type": segment.point_type,
         "section_context": segment.section_context,
         "professional_subject": segment.professional_subject,
+        "semantic_focus_excerpt": _semantic_focus_excerpt(segment),
         "complete_bound_body": [_prompt_span_payload(span) for span in spans],
     }
 
 
+def _segment_body_text(segment: ValidatedSegment) -> str:
+    spans = segment.bound_body_spans or segment.evidence_spans
+    if not spans and segment.evidence is not None:
+        spans = [segment.evidence]
+    return "\n".join(span.exact_quote for span in spans)
+
+
+def _semantic_focus_excerpt(segment: ValidatedSegment) -> str:
+    body = _segment_body_text(segment)
+    if not body:
+        return ""
+    anchors = []
+    for pattern in (
+        r"(?im)^\s*vurdering av avvik:\s*$",
+        r"(?im)^\s*oppsummering av bygningsdel\s*$",
+        r"(?im)^\s*oppsummering / konklusjon\s*$",
+        r"(?im)^\s*1\.\s*avvik/årsak:\s*",
+        r"(?im)^\s*årsak\s*$",
+        r"(?im)^\s*risiko/konsekvens\s*$",
+        r"(?im)^\s*risiko\s*$",
+        r"(?im)^\s*konsekvens/tiltak\s*$",
+        r"(?im)^\s*konsekvens\s*$",
+        r"(?im)^\s*anbefalte tiltak\s*$",
+        r"(?im)^\s*anbefalt tiltak\s*$",
+        r"(?im)^\s*vurdering\s*$",
+    ):
+        match = re.search(pattern, body)
+        if match:
+            anchors.append(match.start())
+    if not anchors:
+        return body
+    focused = body[min(anchors):].strip()
+    return focused or body
+
+
 def _semantic_replay_version(rule_category: str | None) -> str:
     if rule_category == RuleCategory.RISIKO.value:
-        return "risiko_v2"
+        return "risiko_v6"
     if rule_category == RuleCategory.AARSAK.value:
-        return "aarsak_v2"
+        return "aarsak_v5"
     if rule_category == RuleCategory.METHODOLOGY.value:
-        return "methodology_v2"
+        return "methodology_v5"
+    if rule_category == RuleCategory.KONSEKVENS.value:
+        return "konsekvens_v3"
+    if rule_category == RuleCategory.LEGALITY.value:
+        return "legality_v2"
+    if rule_category == RuleCategory.ANBEFALT_TILTAK.value:
+        return "tiltak_v3"
     return "base_v1"
 
 
@@ -112,58 +160,55 @@ def _loose_replay_key_from_task(segment_payload: dict[str, Any], assessment_payl
     return hashlib.sha256(_canonical(material)).hexdigest()
 
 
+def _ultra_loose_replay_key_from_task(segment_payload: dict[str, Any], assessment_payload: dict[str, Any]) -> str:
+    body = segment_payload.get("complete_bound_body") or []
+    material = {
+        "semantic_version": _semantic_replay_version(assessment_payload.get("rule_category")),
+        "title": segment_payload.get("title"),
+        "point_label": segment_payload.get("point_label"),
+        "tg_grade": segment_payload.get("tg_grade"),
+        "point_type": segment_payload.get("point_type"),
+        "first_page": body[0].get("page") if body else None,
+        "rule_category": assessment_payload.get("rule_category"),
+    }
+    return hashlib.sha256(_canonical(material)).hexdigest()
+
+
 def _should_refresh_risk_replay(segment_payload: dict[str, Any]) -> bool:
-    body = " ".join(
-        str(item.get("exact_quote") or "")
-        for item in (segment_payload.get("complete_bound_body") or [])
-    ).casefold()
-    if not body:
-        return False
-    return (
-        "spesielt utsatt" in body
-        and any(token in body for token in ("lekk", "fukt", "vanninntreng"))
-        and any(token in body for token in ("ekstremvær", "kraftig nedbør", "snø"))
-    )
+    return False
 
 
 def _should_refresh_aarsak_replay(segment_payload: dict[str, Any]) -> bool:
-    body = " ".join(
-        str(item.get("exact_quote") or "")
-        for item in (segment_payload.get("complete_bound_body") or [])
-    ).casefold()
-    if not body:
-        return False
-    service_life = (
-        "forventet brukstid er passert" in body
-        or "mer enn halvparten av forventet brukstid er passert" in body
-        or "modent for modernisering" in body
-    )
-    age_related = (
-        "eldre årgang" in body
-        or "varierende årgang" in body
-        or "fra byggeår" in body
-        or "dårligere isolasjonsevne" in body
-    )
-    return service_life or age_related
+    # Current Aarsak semantics are version-pinned in replay keys.
+    # Avoid broad forced reruns when the newest approved replay already matches
+    # the governed runtime; future substantive changes should bump the replay
+    # version instead of invalidating all age/observation-based points.
+    return False
+
+
+def _should_refresh_konsekvens_replay(segment_payload: dict[str, Any]) -> bool:
+    return False
+
+
+def _should_refresh_legality_replay(segment_payload: dict[str, Any]) -> bool:
+    return False
 
 
 def _should_refresh_methodology_replay(segment_payload: dict[str, Any]) -> bool:
-    body = " ".join(
-        str(item.get("exact_quote") or "")
-        for item in (segment_payload.get("complete_bound_body") or [])
-    ).casefold()
-    if not body:
-        return False
-    return (
-        "ingen opplysninger om at det er" in body
-        and any(token in body for token in ("nedgravd", "skjult", "tilstede", "finnes"))
-    )
+    return False
+
+
+def _should_refresh_tiltak_replay(segment_payload: dict[str, Any]) -> bool:
+    return False
 
 
 _TG3_COST_INTERVAL_RE = re.compile(
     r"(?<!\d)\d{1,3}(?:[ .]\d{3})+\s*-\s*\d{1,3}(?:[ .]\d{3})+(?!\d)"
 )
 _TG3_COST_SINGLE_AMOUNT_RE = re.compile(r"(?<!\d)\d{1,3}(?:[ .]\d{3})+(?!\d)")
+_TG3_COST_BOUNDED_AMOUNT_RE = re.compile(
+    r"(?i)\b(?:under|over|inntil|minst)\s+\d{1,3}(?:[ .]\d{3})+(?!\d)"
+)
 _TG3_COST_CLASS_RE = re.compile(
     r"(?i)\b(?:lav|middels?|høy)\s+kostnad\b|\bkostnad(?:sestimat|sklasse)?\s*:\s*(?:lav|middels?|høy)\b"
 )
@@ -174,7 +219,11 @@ def _tg3_cost_status_from_segment(segment: ValidatedSegment) -> str:
         span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
     )
     normalized = re.sub(r"[–—]", "-", body)
-    if _TG3_COST_INTERVAL_RE.search(normalized) or _TG3_COST_CLASS_RE.search(normalized):
+    if (
+        _TG3_COST_INTERVAL_RE.search(normalized)
+        or _TG3_COST_CLASS_RE.search(normalized)
+        or _TG3_COST_BOUNDED_AMOUNT_RE.search(normalized)
+    ):
         return "pass"
     if _TG3_COST_SINGLE_AMOUNT_RE.search(normalized):
         return "single_amount_only"
@@ -194,6 +243,161 @@ def _assessment_segments_with_linked_summaries(
     return {item.segment_id: item for item in segments}
 
 
+@lru_cache(maxsize=1)
+def _governed_semantic_assets() -> dict[str, Any]:
+    return {
+        "system_prompt": get_dommer_b_system_prompt_text().strip(),
+        "semantic_rules": get_arkat_semantic_rules() or {},
+        "canonical_examples": get_arkat_canonical_examples() or {},
+    }
+
+
+def _prompt_tokens(value: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9_]{3,}", (value or "").casefold())
+        if token not in {"the", "and", "for", "med", "som", "ikke", "eller"}
+    }
+
+
+def _resolved_ns_edition_from_rules(records: Iterable[RuleRetrievalRecord]) -> str | None:
+    for record in records:
+        explanation = str(record.regime_explanation or "")
+        match = re.search(r"NS 3600:(2018|2025)", explanation)
+        if match:
+            return f"NS3600:{match.group(1)}"
+        applies = record.content.get("applies_when") if isinstance(record.content, dict) else None
+        edition = applies.get("applicable_ns_edition") if isinstance(applies, dict) else None
+        if isinstance(edition, str) and edition in {"NS 3600:2018", "NS 3600:2025"}:
+            return edition.replace(" ", "")
+    return None
+
+
+def _governed_record_payload(record: RuleRetrievalRecord) -> dict[str, Any]:
+    return {
+        "retrieval_id": record.retrieval_id,
+        "asset_path": record.asset_path,
+        "rule_id": record.rule_id,
+        "json_pointer": record.json_pointer,
+    }
+
+
+def _canonical_example_payload(
+    category: RuleCategory,
+    segment: ValidatedSegment,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    bundle = _governed_semantic_assets().get("canonical_examples") or {}
+    examples = bundle.get("examples") if isinstance(bundle, dict) else None
+    if not isinstance(examples, list):
+        return []
+    query = " ".join(filter(None, [
+        segment.title,
+        segment.professional_subject,
+        segment.point_label,
+        segment.tg_grade,
+        segment.section_context,
+    ]))
+    query_tokens = _prompt_tokens(query)
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for example in examples:
+        if not isinstance(example, dict):
+            continue
+        if str(example.get("field") or "").strip() != category.value:
+            continue
+        score = 0
+        if str(example.get("tg_grade") or "").strip().upper() == str(segment.tg_grade or "").strip().upper():
+            score += 3
+        component_tokens = _prompt_tokens(str(example.get("building_component") or ""))
+        score += len(query_tokens & component_tokens)
+        score += len(query_tokens & _prompt_tokens(json.dumps(example, ensure_ascii=False)))
+        scored.append((score, example))
+    scored.sort(key=lambda item: (-item[0], str(item[1].get("id") or "")))
+    selected: list[dict[str, Any]] = []
+    for _, example in scored[:limit]:
+        selected.append({
+            "id": example.get("id"),
+            "field": example.get("field"),
+            "tg_grade": example.get("tg_grade"),
+            "building_component": example.get("building_component"),
+            "error_type": example.get("error_type"),
+            "wrong": example.get("wrong"),
+            "correct": example.get("correct"),
+            "signals": example.get("retrieval_signals"),
+        })
+    return selected
+
+
+def _criterion_context_payload(
+    category: RuleCategory,
+    rules: list[RuleRetrievalRecord],
+) -> dict[str, Any] | None:
+    if category != RuleCategory.AARSAK:
+        return None
+    assets = _governed_semantic_assets()
+    semantic_rules = assets.get("semantic_rules") or {}
+    edition_key = _resolved_ns_edition_from_rules(rules)
+    edition_scope = (
+        semantic_rules.get("edition_scope", {}).get(edition_key)
+        if isinstance(semantic_rules, dict) and edition_key
+        else None
+    )
+    retrieval_sources = [
+        _governed_record_payload(record)
+        for record in rules
+        if record.asset_path == "arkat_semantic_rules_v1_3_0.json"
+        and (
+            record.json_pointer == "/field_definitions/aarsak"
+            or record.json_pointer.startswith("/product_owner_rulings_nb/aarsak")
+            or record.json_pointer == "/product_owner_rulings_nb/observation_as_aarsak"
+            or (edition_key is not None and record.json_pointer == "/edition_scope")
+        )
+    ]
+    return {
+        "routing_premise": "Use the report's actual TG as the routing premise. Do not re-grade.",
+        "resolved_ns_edition": edition_key,
+        "edition_scope_rule": edition_scope,
+        "retrieval_sources": retrieval_sources,
+    }
+
+
+def _semantic_governance_context_payload(
+    category: RuleCategory,
+    segment: ValidatedSegment,
+    rules: list[RuleRetrievalRecord],
+) -> dict[str, Any]:
+    assets = _governed_semantic_assets()
+    semantic_rules = assets.get("semantic_rules") or {}
+    arkat_categories = {
+        RuleCategory.AARSAK,
+        RuleCategory.RISIKO,
+        RuleCategory.KONSEKVENS,
+        RuleCategory.ANBEFALT_TILTAK,
+    }
+    field_definition = (
+        semantic_rules.get("field_definitions", {}).get(category.value)
+        if category in arkat_categories and isinstance(semantic_rules, dict)
+        else None
+    )
+    return {
+        "approved_prompt_asset": {
+            "asset_path": "dommer_b_system_prompt_v14.md",
+            "sha256": hashlib.sha256(
+                str(assets.get("system_prompt") or "").encode("utf-8")
+            ).hexdigest(),
+        },
+        "semantic_rule_asset": {
+            "asset_path": "arkat_semantic_rules_v1_3_0.json",
+            "field_definition": field_definition,
+        },
+        "canonical_examples_asset": {
+            "asset_path": "arkat_canonical_examples_v1_3_0.json",
+            "selected_examples": _canonical_example_payload(category, segment),
+        },
+        "criterion_context": _criterion_context_payload(category, rules),
+    }
+
+
 def _rebind_replayed_candidate(
     candidate: AssessmentCandidate,
     segment: ValidatedSegment,
@@ -202,13 +406,19 @@ def _rebind_replayed_candidate(
 ) -> AssessmentCandidate:
     spans = segment.bound_body_spans or segment.evidence_spans or ([segment.evidence] if segment.evidence else [])
     evidence_ids = [span.evidence_id for span in spans if span is not None]
+    current_retrieval_ids = {rule.retrieval_id for rule in rules}
+    replay_retrieval_ids = [
+        retrieval_id for retrieval_id in candidate.retrieval_ids
+        if retrieval_id in current_retrieval_ids
+    ]
     return candidate.model_copy(
         update={
             "segment_id": segment.segment_id,
             "rule_category": category,
-            # Let deterministic admission resolve the precise governed rule for
-            # the current retrieval set instead of reusing stale replay IDs.
-            "retrieval_ids": [],
+            # Preserve replayed retrieval IDs when they still match the current
+            # governed retrieval set; otherwise let deterministic admission
+            # resolve against the fresh runtime records.
+            "retrieval_ids": replay_retrieval_ids,
             "evidence_ids": evidence_ids,
         }
     )
@@ -225,191 +435,8 @@ class AssessmentModel(Protocol):
 
 class BedrockSemanticAssessmentModel:
     """JSON-only semantic assessor; invoked only after regime resolution."""
-
-    SYSTEM_PROMPT = """You assess one bound point from a Norwegian condition report.
-Use only the complete point body, its explicit source evidence, and the retrieved governed rules.
-Assess meaning, not the presence or absence of headings. For TG2/TG3, Årsak, Risiko,
-Konsekvens and recommended/necessary measures may be expressed in prose without an
-'ANBEFALT TILTAK' label. Do not use text from another point to satisfy this point.
-Search the entire bound point body for each semantic function. Text located under an
-Årsak or Konsekvens heading may satisfy Risiko when it actually describes a possible
-technical development; a missing heading alone is never a missing-field finding.
-If any sentence anywhere in the same physical point substantively describes a possible
-technical defect, damage development, function loss, or other future technical risk,
-Risiko is satisfied even if that sentence appears under Konsekvens, Vurdering, or
-combined prose. Never require a dedicated Risiko heading, standalone field, or
-separate section when the semantic role is already performed in the point body.
-Wording that a component is especially exposed or vulnerable to leakage, moisture,
-water ingress, or similar technical harm during heavy rain, snow, extreme weather,
-or comparable operating conditions is a real technical-risk statement and satisfies
-Risiko even when embedded in consequence/measure prose.
-In wet-room and moisture contexts, statements that water may escape the room, remain
-standing, burden or stress an underlying membrane, or cause moisture load/damage to
-named constructions are real technical risk descriptions and satisfy Risiko.
-But increased moisture load on the same component by itself, without stating what
-damage, defect, failure, or affected secondary building part may develop, is not
-enough to satisfy Risiko.
-For service-life-limited installations, wording that damage, failure, leakage, or
-other defects can suddenly occur on older installations is a real technical-risk
-statement and satisfies Risiko even if the sentence appears under
-Konsekvens/tiltak rather than under a dedicated Risiko heading.
-Concise cause labels such as 'Alder', 'Utførelse', 'Fuktbelastning fra bruk av dusj',
-or 'Manglende montering av beslag' may satisfy Årsak when they genuinely explain why
-the observed condition has occurred for that point. Do not require a longer narrative
-merely because the explanation is brief.
-For age- and service-life-based assessments, wording such as 'mer enn halvparten av
-forventet brukstid er passert', 'eldre årgang', 'varierende årgang', 'fra byggeår',
-'dårligere isolasjonsevne sammenlignet med dagens standard', or 'modent for
-modernisering' may satisfy Årsak when it explains that the observed condition or
-reduced performance follows from age, service life, or original vintage.
-For Konsekvens, text that mainly states an existing damage condition or that repairs,
-maintenance, or utbedring are needed without explaining the buyer-relevant effect
-should be treated as TILTAK_AS_KONSEKVENS. Text that stops at a technical process or
-load, such as increased moisture load, without explaining the resulting practical or
-buyer-relevant effect should be treated as TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.
-However, when the text says moisture, leakage, or water can affect adjacent,
-underlying, or surrounding constructions/building parts, that already states a
-practical building consequence and should normally be treated as satisfied rather
-than TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.
-When the sentence names actual damage to a secondary building part, such as
-fuktskade on an underlying ceiling, membrane, wall, or neighboring construction,
-it remains a valid consequence even if phrased as a "risk of" that damage.
-Treat the complete consequence field holistically. If any sentence in the same
-point already states a genuine buyer-relevant effect such as reduced quality,
-esthetic-only impact, reduced expected service life, increased maintenance/repair
-need, replacement need, uncertainty affecting later work, or named moisture/damage
-to another building part, then Konsekvens is satisfied and you must not emit a
-deficiency merely because another sentence in that same field is phrased more
-technically.
-For service-life-limited installations, statements about limited remaining technical
-life or clearly reduced remaining lifetime count as practical consequence when they
-communicate aging-related replacement/maintenance burden; do not reclassify those as
-RISIKO_AS_KONSEKVENS merely because leak risk is also mentioned.
-For TG3 cost, only a cost class/interval or other schematic estimate explicitly bound
-to this physical point counts. Never borrow an amount from another point, another page
-window, or a document-level estimate. If the cited point-bound evidence spans do not
-themselves contain the amount or cost class, TG3 cost is deficient.
-For Risiko, a pure inspection or documentation limitation is not sufficient unless it
-names a possible technical defect, damage development, functional failure, or other
-technical risk category. Use LIMITATION_USED_AS_RISK_SUBSTITUTE when a limitation is
-used as the whole risk without naming that technical risk.
-If the same sentence says that hidden execution defects, weakened membrane/drain
-connection, hidden moisture damage, or similar defect categories cannot be detected
-or documented, that still names the technical risk category and Risiko is satisfied;
-do not treat that as a pure limitation.
-Wording that execution, materials, or documentation "cannot be documented" or
-"cannot be verified" is a documentation limitation and must use
-LIMITATION_USED_AS_RISK_SUBSTITUTE; it is not PRESENT_STATE_AS_RISIKO unless the
-text describes a present technical condition, deterioration, or function loss.
-For an ARKAT field request, return only that field's semantic error types; do not
-propose TG-setting, age-only, scoring, or another assessment category's finding.
-Judge the complete ANBEFALT TILTAK field holistically. If the same point already
-contains concrete action guidance about what should be monitored, repaired,
-replaced, documented, controlled, or followed up, the field is satisfied even if a
-later sentence also states that costs, replacement, or other consequences must be
-expected over time.
-Treat every supplied complete_bound_body span as part of the same hierarchy-validated
-physical point. Summary, navigation, boilerplate and foreign-point prose are excluded
-and cannot satisfy the semantic requirement. Never treat generic guidance as point-specific.
-For TGIU, assess the reason for non-inspection and a concrete further-investigation
-recommendation independently and emit one candidate for each deficient requirement.
-When the point says there are no information/opplysninger that a suspected buried or
-hidden installation/object exists on the property, that can itself satisfy the reason
-for non-investigation because it explains why direct inspection basis was absent. Do
-not mark TGIU_MISSING_REASON in that situation. Assess any missing further
-investigation recommendation independently.
-For methodology-only detached structures, evaluate the governed explanatory-structure
-rule against the complete described deviations; do not treat absence of TG alone as a
-defect. When the same physical point describes one or more concrete deviations or
-inspection limitations tied to that detached structure, a general sentence about normal
-age/wear or a disclaimer that the structure was not condition-graded does not satisfy
-the explanatory-structure requirement by itself. In that situation, return the governed
-methodology deficiency unless the same point substantively explains cause, technical
-risk, buyer consequence, and what should be done. For legality, consider the complete
-linked legality explanation before finding a deficiency; a deviation alone is not
-sufficient when its status and implications are substantively explained elsewhere in the
-supplied same-object evidence.
-If evidence or applicability is uncertain, abstain. Return JSON only."""
-
-    ADJUDICATION_PROMPT = """You are the final governed semantic adjudicator for Validert.
-Use only the complete hierarchy-bound physical-point evidence and the retrieved governed rules.
-Assess professional meaning, not headings, labels, field placement, or exact phrases. A semantic
-role may be satisfied anywhere in the same physical point. A heading is never required.
-If any sentence anywhere in the point body already performs the semantic role, mark it
-satisfied. Never require a dedicated Risiko field, separate heading, or standalone
-section when the same physical point already contains substantive technical-risk prose.
-Wording that a component is especially exposed or vulnerable to leakage, moisture,
-water ingress, or similar technical harm during heavy rain, snow, extreme weather,
-or comparable operating conditions is a real technical-risk statement and satisfies
-Risiko even when embedded in consequence/measure prose.
-In wet-room and moisture contexts, statements that water may escape the room, remain
-standing, burden or stress an underlying membrane, or cause moisture load/damage to
-named constructions are real technical risk descriptions and satisfy Risiko.
-But increased moisture load on the same component by itself, without stating what
-damage, defect, failure, or affected secondary building part may develop, is not
-enough to satisfy Risiko.
-For service-life-limited installations, wording that damage, failure, leakage, or
-other defects can suddenly occur on older installations is a real technical-risk
-statement and satisfies Risiko even if the sentence appears under
-Konsekvens/tiltak rather than under a dedicated Risiko heading.
-Brief but genuine causal labels such as 'Alder', 'Utførelse', 'Fuktbelastning fra bruk
-av dusj', or 'Manglende montering av beslag' can satisfy Årsak when they explain why
-the observed condition has occurred.
-Age- and service-life wording can also satisfy Årsak when it explains the current
-condition through age, original vintage, or reduced performance over time. Examples
-include 'mer enn halvparten av forventet brukstid er passert', 'eldre årgang',
-'varierende årgang', 'fra byggeår', poorer performance compared with current standard,
-or that the component is mature for modernization.
-For Konsekvens, text that mainly says repairs are needed or repeats an existing damage
-state without explaining the buyer-relevant effect should be treated as
-TILTAK_AS_KONSEKVENS. Text that stops at a technical process or load, such as
-increased moisture load, without explaining the resulting practical consequence should
-be treated as TECHNICAL_DEVELOPMENT_AS_KONSEKVENS.
-If the text says moisture, leakage, or water can affect adjacent, underlying, or
-surrounding constructions/building parts, that already expresses a practical
-building consequence and should normally be treated as satisfied.
-When the sentence names actual damage to a secondary building part, such as
-fuktskade on an underlying ceiling, membrane, wall, or neighboring construction,
-it remains a valid consequence even if phrased as a "risk of" that damage.
-Judge the whole consequence field together. If any sentence in that same point
-already gives a genuine buyer-relevant effect such as reduced quality, esthetic-only
-impact, reduced remaining lifetime, maintenance/repair burden, replacement need, or
-uncertainty affecting future works, Konsekvens is satisfied even if another
-sentence in the same field is more technical.
-For service-life-limited installations, limited remaining technical lifetime or
-clearly reduced remaining lifetime counts as a practical consequence when it tells
-the buyer that aging-related maintenance or replacement burden is approaching.
-For TG3 cost, accept only a cost class/interval or other schematic estimate that is
-actually present in the cited point-bound evidence for that same point. Never use an
-amount that belongs to another point or another page window.
-If a limitation sentence also names hidden defect categories such as hidden
-execution defects, weakened membrane/sluk connection, or hidden moisture damage,
-that names the technical risk and should be treated as satisfied Risiko rather than
-LIMITATION_USED_AS_RISK_SUBSTITUTE.
-For TGIU reason, wording that there are no information/opplysninger that a suspected
-buried or hidden installation/object exists on the property can satisfy the reason
-requirement; it explains why there was no direct basis for investigation. Further
-investigation remains a separate requirement.
-
-Independently verify the initial assessment. For every requested category, identify in your
-reasoning which source sentence does or does not substantively perform that semantic role.
-Observation, cause, technical risk, buyer consequence and recommended measure are distinct.
-Do not use summary, boilerplate, foreign-point text or generic methodology as point evidence.
-Judge the complete ANBEFALT TILTAK field holistically. If the same point already
-contains concrete action guidance about what should be monitored, repaired,
-replaced, documented, controlled, or followed up, the field is satisfied even if a
-later sentence also states that costs, replacement, or other consequences must be
-expected over time.
-
-For detached or optional assessed structures, absence of TG is not a defect. Concrete described
-deviations must nevertheless be evaluated against the retrieved explanatory-structure rule.
-If the point lists concrete deviations, limitations, or observed defects but gives only a
-general age/wear statement or a disclaimer that the structure was not fully condition-graded,
-that is still deficient unless the point itself substantively explains cause, technical risk,
-buyer consequence, and what should be done.
-
-Return the authoritative structured candidates only. Do not defer to the initial answer merely
-because it was supplied. If uncertain, abstain. Return JSON only."""
+    SYSTEM_PROMPT = _governed_semantic_assets()["system_prompt"]
+    ADJUDICATION_PROMPT = SYSTEM_PROMPT
 
     ARKAT_CATEGORIES = {
         RuleCategory.AARSAK,
@@ -432,6 +459,11 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
         self._adjudication_replay: dict[str, AssessmentCandidate] = {}
         self._initial_replay_loose: dict[str, list[AssessmentCandidate]] = {}
         self._adjudication_replay_loose: dict[str, AssessmentCandidate] = {}
+        self._initial_replay_ultra_loose: dict[str, list[AssessmentCandidate]] = {}
+        self._adjudication_replay_ultra_loose: dict[str, AssessmentCandidate] = {}
+        self._tgiu_adjudication_replay: dict[str, list[AssessmentCandidate]] = {}
+        self._tgiu_adjudication_replay_loose: dict[str, list[AssessmentCandidate]] = {}
+        self._tgiu_adjudication_replay_ultra_loose: dict[str, list[AssessmentCandidate]] = {}
         for artifact in replay_artifacts or []:
             self._ingest_replay_artifact(artifact)
 
@@ -463,6 +495,7 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                         for assessment in task.get("assessments") or []:
                             key = _replay_key_from_task(segment_payload, assessment)
                             loose_key = _loose_replay_key_from_task(segment_payload, assessment)
+                            ultra_loose_key = _ultra_loose_replay_key_from_task(segment_payload, assessment)
                             if (
                                 candidate.segment_id == segment_payload.get("segment_id")
                                 and candidate.rule_category.value == assessment.get("rule_category")
@@ -470,12 +503,18 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                                 by_key.setdefault(key, []).append(candidate)
                                 if phase == "initial_semantic_assessment":
                                     self._initial_replay_loose.setdefault(loose_key, []).append(candidate)
+                                    self._initial_replay_ultra_loose.setdefault(ultra_loose_key, []).append(candidate)
                                 elif phase == "governed_semantic_adjudication":
                                     existing = self._adjudication_replay_loose.get(loose_key)
                                     if existing is None:
                                         self._adjudication_replay_loose[loose_key] = candidate
                                     elif existing.model_dump(mode="json") != candidate.model_dump(mode="json"):
                                         self._adjudication_replay_loose.pop(loose_key, None)
+                                    existing_ultra = self._adjudication_replay_ultra_loose.get(ultra_loose_key)
+                                    if existing_ultra is None:
+                                        self._adjudication_replay_ultra_loose[ultra_loose_key] = candidate
+                                    elif existing_ultra.model_dump(mode="json") != candidate.model_dump(mode="json"):
+                                        self._adjudication_replay_ultra_loose.pop(ultra_loose_key, None)
                 if phase == "initial_semantic_assessment":
                     for key, candidates in by_key.items():
                         self._initial_replay.setdefault(key, candidates)
@@ -496,6 +535,7 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
             }
             key = _replay_key_from_task(segment_payload, assessment)
             loose_key = _loose_replay_key_from_task(segment_payload, assessment)
+            ultra_loose_key = _ultra_loose_replay_key_from_task(segment_payload, assessment)
             values = response.get("candidates") if isinstance(response, dict) else None
             if isinstance(values, list):
                 parsed = []
@@ -507,13 +547,24 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                 if phase == "initial_semantic_assessment" and parsed:
                     self._initial_replay.setdefault(key, parsed)
                     self._initial_replay_loose.setdefault(loose_key, []).extend(parsed)
-                elif phase == "governed_semantic_adjudication" and len(parsed) == 1:
-                    self._adjudication_replay.setdefault(key, parsed[0])
-                    existing = self._adjudication_replay_loose.get(loose_key)
-                    if existing is None:
-                        self._adjudication_replay_loose[loose_key] = parsed[0]
-                    elif existing.model_dump(mode="json") != parsed[0].model_dump(mode="json"):
-                        self._adjudication_replay_loose.pop(loose_key, None)
+                    self._initial_replay_ultra_loose.setdefault(ultra_loose_key, []).extend(parsed)
+                elif phase == "governed_semantic_adjudication" and parsed:
+                    if "rule_pairs" in prompt:
+                        self._tgiu_adjudication_replay.setdefault(key, parsed)
+                        self._tgiu_adjudication_replay_loose.setdefault(loose_key, []).extend(parsed)
+                        self._tgiu_adjudication_replay_ultra_loose.setdefault(ultra_loose_key, []).extend(parsed)
+                    elif len(parsed) == 1:
+                        self._adjudication_replay.setdefault(key, parsed[0])
+                        existing = self._adjudication_replay_loose.get(loose_key)
+                        if existing is None:
+                            self._adjudication_replay_loose[loose_key] = parsed[0]
+                        elif existing.model_dump(mode="json") != parsed[0].model_dump(mode="json"):
+                            self._adjudication_replay_loose.pop(loose_key, None)
+                        existing_ultra = self._adjudication_replay_ultra_loose.get(ultra_loose_key)
+                        if existing_ultra is None:
+                            self._adjudication_replay_ultra_loose[ultra_loose_key] = parsed[0]
+                        elif existing_ultra.model_dump(mode="json") != parsed[0].model_dump(mode="json"):
+                            self._adjudication_replay_ultra_loose.pop(ultra_loose_key, None)
 
     def _lookup_initial_replay(
         self,
@@ -535,6 +586,21 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
             and _should_refresh_methodology_replay(segment_payload)
         ):
             return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.KONSEKVENS.value
+            and _should_refresh_konsekvens_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.LEGALITY.value
+            and _should_refresh_legality_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.ANBEFALT_TILTAK.value
+            and _should_refresh_tiltak_replay(segment_payload)
+        ):
+            return None
         strict_key = _replay_key_from_task(segment_payload, assessment_payload)
         replayed = self._initial_replay.get(strict_key)
         if replayed is not None:
@@ -547,6 +613,14 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
         }
         if len(unique_payloads) == 1 and candidates:
             return [candidate.model_copy(deep=True) for candidate in candidates]
+        ultra_loose_key = _ultra_loose_replay_key_from_task(segment_payload, assessment_payload)
+        ultra_loose_candidates = self._initial_replay_ultra_loose.get(ultra_loose_key) or []
+        unique_ultra_payloads = {
+            json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+            for candidate in ultra_loose_candidates
+        }
+        if len(unique_ultra_payloads) == 1 and ultra_loose_candidates:
+            return [candidate.model_copy(deep=True) for candidate in ultra_loose_candidates]
         return None
 
     def _lookup_adjudication_replay(
@@ -569,13 +643,59 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
             and _should_refresh_methodology_replay(segment_payload)
         ):
             return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.KONSEKVENS.value
+            and _should_refresh_konsekvens_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.LEGALITY.value
+            and _should_refresh_legality_replay(segment_payload)
+        ):
+            return None
+        if (
+            assessment_payload.get("rule_category") == RuleCategory.ANBEFALT_TILTAK.value
+            and _should_refresh_tiltak_replay(segment_payload)
+        ):
+            return None
         strict_key = _replay_key_from_task(segment_payload, assessment_payload)
         replayed = self._adjudication_replay.get(strict_key)
         if replayed is not None:
             return replayed.model_copy(deep=True)
         loose_key = _loose_replay_key_from_task(segment_payload, assessment_payload)
         loose = self._adjudication_replay_loose.get(loose_key)
-        return loose.model_copy(deep=True) if loose is not None else None
+        if loose is not None:
+            return loose.model_copy(deep=True)
+        ultra_loose_key = _ultra_loose_replay_key_from_task(segment_payload, assessment_payload)
+        ultra_loose = self._adjudication_replay_ultra_loose.get(ultra_loose_key)
+        return ultra_loose.model_copy(deep=True) if ultra_loose is not None else None
+
+    def _lookup_tgiu_adjudication_replay(
+        self,
+        segment_payload: dict[str, Any],
+        assessment_payload: dict[str, Any],
+    ) -> list[AssessmentCandidate] | None:
+        strict_key = _replay_key_from_task(segment_payload, assessment_payload)
+        replayed = self._tgiu_adjudication_replay.get(strict_key)
+        if replayed is not None:
+            return [candidate.model_copy(deep=True) for candidate in replayed]
+        loose_key = _loose_replay_key_from_task(segment_payload, assessment_payload)
+        candidates = self._tgiu_adjudication_replay_loose.get(loose_key) or []
+        unique_payloads = {
+            json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+            for candidate in candidates
+        }
+        if len(unique_payloads) == 1 and candidates:
+            return [candidate.model_copy(deep=True) for candidate in candidates]
+        ultra_loose_key = _ultra_loose_replay_key_from_task(segment_payload, assessment_payload)
+        ultra_loose_candidates = self._tgiu_adjudication_replay_ultra_loose.get(ultra_loose_key) or []
+        unique_ultra_payloads = {
+            json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+            for candidate in ultra_loose_candidates
+        }
+        if len(unique_ultra_payloads) == 1 and ultra_loose_candidates:
+            return [candidate.model_copy(deep=True) for candidate in ultra_loose_candidates]
+        return None
 
     def assess(
         self,
@@ -592,6 +712,15 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
             "segment": _prompt_segment_payload(segment, list(source_spans)),
             "rule_category": category.value,
             "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+            "semantic_governance_context": _semantic_governance_context_payload(category, segment, rules),
+            "semantic_diagnostics": _semantic_diagnostics_payload(category, segment),
+            "runtime_instruction": (
+                "Use the approved Dommer B system prompt and the supplied governed semantic context. "
+                "Criterion context for Årsak must follow the resolved lawful NS edition/regime and the "
+                "report's actual TG remains the routing premise. Do not re-grade. Prefer semantic_focus_excerpt "
+                "over generic boilerplate such as Nøkkelfakta, Kontrollpunkter, and Hvordan kontrollen er utført "
+                "when deciding substantive ARKAT meaning."
+            ),
             "required_output_schema": AssessmentCandidate.model_json_schema(),
         }
         payload = self._bedrock().generate_json_with_claude(
@@ -624,18 +753,46 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                 _rebind_replayed_candidate(candidate, segment, category, rules)
                 for candidate in replayed
             ]
+        elif (
+            category == RuleCategory.ANBEFALT_TILTAK
+            and (segment.tg_grade or "").upper() == "TG2"
+            and _resolved_ns_edition_from_rules(rules) == "NS3600:2018"
+            and _semantic_anbefalt_tiltak_present(segment)
+        ):
+            evidence = (segment.bound_body_spans or segment.evidence_spans or ([segment.evidence] if segment.evidence else []))[0]
+            candidates = [
+                AssessmentCandidate(
+                    segment_id=segment.segment_id,
+                    retrieval_ids=[record.retrieval_id for record in rules],
+                    rule_category=category,
+                    decision=AssessmentDecision.SATISFIED,
+                    explanation=(
+                        "The same bound point already contains a concrete measure or follow-up, so TG2/NS3600:2018 "
+                        "tiltak can be evaluated for form without a fresh semantic inference call."
+                    ),
+                    evidence_ids=[evidence.evidence_id],
+                    proposed_finding_type=None,
+                )
+            ]
         else:
             prompt = {
                 "segment": segment_payload,
                 "rule_category": category.value,
                 "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+                "semantic_governance_context": _semantic_governance_context_payload(category, segment, rules),
+                "semantic_diagnostics": _semantic_diagnostics_payload(category, segment),
                 "instruction": (
                     "Return one candidate for every independently satisfied, deficient, or abstained governed requirement "
                     "that applies to this physical point. Do not combine distinct governed error types. Do not emit a "
                     "deficiency unless its exact proposed_finding_type occurs in a retrieved rule. "
+                    "Use the approved governed semantic assets as the semantic source of truth; the report's actual TG "
+                    "remains the routing premise and Årsak criterion context must follow the resolved lawful NS edition. "
+                    "Prefer semantic_focus_excerpt over generic boilerplate such as Nøkkelfakta, Kontrollpunkter, and "
+                    "Hvordan kontrollen er utført when deciding substantive meaning. "
                     + (
                         "This is a TGIU point: assess missing reason and missing concrete further investigation "
-                        "as separate governed candidates. "
+                        "as separate governed candidates. A concrete access or construction constraint that explains "
+                        "why inspection or moisture measurement could not be performed counts as a reason. "
                         if segment.point_type == "tgiu" else ""
                     )
                     + (
@@ -671,16 +828,73 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
             for item in values:
                 candidate = AssessmentCandidate.model_validate(item)
                 candidates.extend(_split_compound_tgiu_candidate(candidate, rules))
+        if segment.point_type == "tgiu":
+            adjudication = {
+                "segment": segment_payload,
+                "rule_category": category.value,
+                "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+                "semantic_governance_context": _semantic_governance_context_payload(category, segment, rules),
+                "semantic_diagnostics": _semantic_diagnostics_payload(category, segment),
+                "rule_pairs": _tgiu_rule_tasks(rules),
+                "initial_candidates": [item.model_dump(mode="json") for item in candidates],
+                "instruction": (
+                    "This is a TGIU point. Return exactly one authoritative candidate for every supplied "
+                    "TGIU rule pair. For each pair, copy that pair's retrieval_id exactly and decide "
+                    "SATISFIED, DEFICIENT, or ABSTAIN independently. Use DEFICIENT only with the exact "
+                    "same proposed_finding_type as the supplied rule_id. Do not omit, merge, or silently "
+                    "satisfy any rule. A concrete access or construction constraint that explains why "
+                    "inspection or moisture measurement could not be performed counts as a valid reason."
+                ),
+                "required_output_schema": {"type": "object", "required": ["candidates"], "properties": {
+                    "candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema(), "maxItems": 12}
+                }},
+            }
+            replayed_tgiu = self._lookup_tgiu_adjudication_replay(
+                adjudication["segment"],
+                replay_assessment,
+            )
+            if replayed_tgiu is not None:
+                candidates = [
+                    _rebind_replayed_candidate(candidate, segment, category, rules)
+                    for candidate in replayed_tgiu
+                ]
+            else:
+                adjudicated_payload = self._bedrock().generate_json_with_claude(
+                    system_prompt=self.ADJUDICATION_PROMPT,
+                    user_prompt=json.dumps(adjudication, ensure_ascii=False, sort_keys=True),
+                    max_tokens=self.max_tokens,
+                    retry_json_prompt=True,
+                )
+                self.invocation_records.append({
+                    "phase": "governed_semantic_adjudication",
+                    "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                    "temperature": 0, "top_p": 1.0, "max_tokens": self.max_tokens,
+                    "prompt_sha256": hashlib.sha256(_canonical(adjudication)).hexdigest(),
+                    "response_sha256": hashlib.sha256(_canonical(adjudicated_payload)).hexdigest(),
+                    "prompt": adjudication, "response": adjudicated_payload,
+                })
+                adjudicated_values = adjudicated_payload.get("candidates") if isinstance(adjudicated_payload, dict) else None
+                if not isinstance(adjudicated_values, list):
+                    raise ValueError("tgiu semantic adjudication response has no candidates array")
+                candidates = [
+                    candidate
+                    for item in adjudicated_values
+                    for candidate in _split_compound_tgiu_candidate(AssessmentCandidate.model_validate(item), rules)
+                ]
+            _validate_tgiu_candidate_coverage(candidates, rules)
         if segment.point_type == "methodology_only":
             adjudication = {
                 "segment": segment_payload,
                 "rule_category": category.value,
                 "retrieved_rules": [record.model_dump(mode="json") for record in rules],
+                "semantic_governance_context": _semantic_governance_context_payload(category, segment, rules),
+                "semantic_diagnostics": _semantic_diagnostics_payload(category, segment),
                 "initial_candidates": [item.model_dump(mode="json") for item in candidates],
                 "instruction": (
-                    "Return every independently applicable governed methodology decision. "
+                    "Return exactly one authoritative governed methodology decision for this bound point. "
                     "Concrete deviations must be evaluated even when general age-related wear is also stated; "
-                    "do not find a defect from missing TG alone."
+                    "do not find a defect from missing TG alone. If the retrieved methodology rule does not trigger "
+                    "on the bound point, return SATISFIED rather than ABSTAIN."
                 ),
                 "required_output_schema": {"type": "object", "required": ["candidates"], "properties": {
                     "candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema(), "maxItems": 12}
@@ -737,6 +951,13 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                 and segment.point_type in {"tgiu", "methodology_only"}
             ):
                 continue
+            if (
+                category == RuleCategory.ANBEFALT_TILTAK
+                and (segment.tg_grade or "").upper() == "TG2"
+                and _resolved_ns_edition_from_rules(rules) == "NS3600:2018"
+                and _semantic_anbefalt_tiltak_present(segment)
+            ):
+                continue
             entries.append({"segment": segment, "category": category, "rules": rules})
             self._primed[(segment.segment_id, category)] = []
         for offset in range(0, len(entries), batch_size):
@@ -770,6 +991,8 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                     "segment": _prompt_segment_payload(segment, list(spans)),
                     "assessments": [assessment_task],
                     "governed_rules": list(governed_rules.values()),
+                    "semantic_governance_context": _semantic_governance_context_payload(category, segment, rules),
+                    "semantic_diagnostics": _semantic_diagnostics_payload(category, segment),
                 })
                 replayable_keys[(segment.segment_id, category)] = tasks[-1]["segment"]
             initial_by_key: dict[tuple[str, RuleCategory], list[AssessmentCandidate]] = {}
@@ -802,7 +1025,10 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                         "Assess every requested segment/category pair independently. Return at least one candidate "
                         "for every pair, including SATISFIED or ABSTAIN when no deficiency is present. Copy the exact "
                         "segment_id, rule_category, applicable retrieval_ids, and evidence_ids from the task. Never "
-                        "use evidence from another segment."
+                        "use evidence from another segment. Use the supplied approved governed semantic context rather "
+                        "than any independent semantic rule set. Prefer semantic_focus_excerpt over generic boilerplate "
+                        "such as Nøkkelfakta, Kontrollpunkter, and Hvordan kontrollen er utført when deciding "
+                        "substantive meaning."
                     ),
                     "required_output_schema": {
                         "type": "object", "required": ["candidates"],
@@ -837,12 +1063,19 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                     "prompt": prompt,
                     "response": payload,
                 })
+            task_by_key = {
+                (
+                    task["segment"]["segment_id"],
+                    RuleCategory(task["assessments"][0]["rule_category"]),
+                ): task
+                for task in tasks
+            }
             for key, candidates in initial_by_key.items():
                 self._primed[key].extend(candidates)
 
             adjudication_keys = set()
             for key in allowed:
-                if key[1] not in self.ARKAT_CATEGORIES:
+                if key[1] not in self.ARKAT_CATEGORIES | {RuleCategory.METHODOLOGY, RuleCategory.LEGALITY}:
                     continue
                 candidates = initial_by_key.get(key, [])
                 if not candidates:
@@ -891,13 +1124,13 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                 for key, candidate in replayed_adjudications.items():
                     adjudicated_by_key[key] = [candidate]
                 if adjudication_tasks:
+                    adjudication_categories = [
+                        RuleCategory(task["assessments"][0]["rule_category"])
+                        for task in adjudication_tasks
+                    ]
                     adjudication_prompt = {
                         "tasks": adjudication_tasks,
-                        "instruction": (
-                            "Return exactly one authoritative candidate for every requested segment/category pair. "
-                            "Judge the semantic role across the complete bound point body; never require a heading. "
-                            "Copy exact segment_id, rule_category, applicable retrieval_ids and evidence_ids."
-                        ),
+                        "instruction": _adjudication_instruction_for_categories(adjudication_categories),
                         "required_output_schema": {
                             "type": "object", "required": ["candidates"],
                             "properties": {"candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema()}},
@@ -935,6 +1168,103 @@ because it was supplied. If uncertain, abstain. Return JSON only."""
                     raise ValueError(
                         f"semantic adjudication coverage invalid: missing={len(missing)} duplicated={len(duplicated)}"
                     )
+                focused_recheck_keys = {
+                    key
+                    for key, candidates in adjudicated_by_key.items()
+                    if len(candidates) == 1
+                    and (
+                        _needs_focused_recheck(
+                            key[1],
+                            candidates[0],
+                            next(
+                                (
+                                    entry.get("semantic_diagnostics")
+                                    for entry in adjudication_tasks
+                                    if entry["segment"]["segment_id"] == key[0]
+                                    and entry["assessments"][0]["rule_category"] == key[1].value
+                                ),
+                                task_by_key.get(key, {}).get("semantic_diagnostics"),
+                            ),
+                        )
+                        or _needs_focused_false_positive_recheck(
+                            key[1],
+                            candidates[0],
+                            next(
+                                (
+                                    entry.get("semantic_diagnostics")
+                                    for entry in adjudication_tasks
+                                    if entry["segment"]["segment_id"] == key[0]
+                                    and entry["assessments"][0]["rule_category"] == key[1].value
+                                ),
+                                task_by_key.get(key, {}).get("semantic_diagnostics"),
+                            ),
+                        )
+                    )
+                }
+                if focused_recheck_keys:
+                    focused_tasks = []
+                    for key in focused_recheck_keys:
+                        base_task = task_by_key[key]
+                        focused_tasks.append({
+                            **base_task,
+                            "assessments": [base_task["assessments"][0]],
+                            "initial_candidates": [
+                                candidate.model_dump(mode="json")
+                                for candidate in adjudicated_by_key[key]
+                            ],
+                            "focused_recheck_reason": (
+                                "Re-read the whole point and the diagnostic snippets before finalizing the decision. "
+                                "If the field appears satisfied only because of limitation-driven uncertainty, "
+                                "use-impact wording, or other non-qualifying same-point prose, correct it now."
+                            ),
+                        })
+                    focused_prompt = {
+                        "tasks": focused_tasks,
+                        "instruction": (
+                            _adjudication_instruction_for_categories(
+                                [RuleCategory(task["assessments"][0]["rule_category"]) for task in focused_tasks]
+                            )
+                            + " Diagnostic supporting quotes come from the same bound point and may already satisfy "
+                            + "the governed field. Keep a deficiency only if the whole bound point still lacks the "
+                            + "required semantic content after considering those snippets."
+                        ),
+                        "required_output_schema": {
+                            "type": "object", "required": ["candidates"],
+                            "properties": {"candidates": {"type": "array", "items": AssessmentCandidate.model_json_schema()}},
+                        },
+                    }
+                    focused_payload = self._bedrock().generate_json_with_claude(
+                        system_prompt=self.ADJUDICATION_PROMPT,
+                        user_prompt=json.dumps(focused_prompt, ensure_ascii=False, sort_keys=True),
+                        max_tokens=4000,
+                        retry_json_prompt=True,
+                    )
+                    focused_values = focused_payload.get("candidates") if isinstance(focused_payload, dict) else None
+                    if not isinstance(focused_values, list):
+                        raise ValueError("focused semantic recheck response has no candidates array")
+                    focused_by_key: dict[tuple[str, RuleCategory], list[AssessmentCandidate]] = {}
+                    for item in focused_values:
+                        candidate = AssessmentCandidate.model_validate(item)
+                        key = (candidate.segment_id, candidate.rule_category)
+                        if key in focused_recheck_keys:
+                            focused_by_key.setdefault(key, []).append(candidate)
+                    missing_focused = focused_recheck_keys - set(focused_by_key)
+                    duplicated_focused = {key for key, values in focused_by_key.items() if len(values) != 1}
+                    if missing_focused or duplicated_focused:
+                        raise ValueError(
+                            f"focused semantic recheck coverage invalid: missing={len(missing_focused)} duplicated={len(duplicated_focused)}"
+                        )
+                    self.invocation_records.append({
+                        "phase": "governed_semantic_recheck",
+                        "batch_index": offset // batch_size,
+                        "model_id": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+                        "temperature": 0, "top_p": 1.0, "max_tokens": 12000,
+                        "prompt_sha256": hashlib.sha256(_canonical(focused_prompt)).hexdigest(),
+                        "response_sha256": hashlib.sha256(_canonical(focused_payload)).hexdigest(),
+                        "prompt": focused_prompt, "response": focused_payload,
+                    })
+                    for key, values in focused_by_key.items():
+                        adjudicated_by_key[key] = values
                 for key, candidates in adjudicated_by_key.items():
                     self._primed[key] = candidates
 
@@ -985,35 +1315,431 @@ def _split_compound_tgiu_candidate(
     ]
 
 
+def _tgiu_rule_records(records: Iterable[RuleRetrievalRecord]) -> list[RuleRetrievalRecord]:
+    return [record for record in records if record.rule_id.startswith("TGIU_")]
+
+
+def _candidate_covers_tgiu_rule(
+    candidate: AssessmentCandidate,
+    rule: RuleRetrievalRecord,
+) -> bool:
+    if rule.retrieval_id in candidate.retrieval_ids:
+        return True
+    return (
+        candidate.decision == AssessmentDecision.DEFICIENT
+        and str(candidate.proposed_finding_type or "").strip().upper() == rule.rule_id.upper()
+    )
+
+
+def _validate_tgiu_candidate_coverage(
+    candidates: list[AssessmentCandidate],
+    rules: Iterable[RuleRetrievalRecord],
+) -> None:
+    tgiu_rules = _tgiu_rule_records(rules)
+    if not tgiu_rules:
+        return
+    problems: list[str] = []
+    for rule in tgiu_rules:
+        matched = [candidate for candidate in candidates if _candidate_covers_tgiu_rule(candidate, rule)]
+        if len(matched) != 1:
+            problems.append(f"{rule.rule_id}:{len(matched)}")
+            continue
+        candidate = matched[0]
+        if candidate.decision == AssessmentDecision.DEFICIENT:
+            if candidate.proposed_finding_type != rule.rule_id:
+                problems.append(f"{rule.rule_id}:wrong_deficiency_type")
+        elif candidate.decision not in {AssessmentDecision.SATISFIED, AssessmentDecision.ABSTAIN}:
+            problems.append(f"{rule.rule_id}:invalid_decision")
+    if problems:
+        raise ValueError("tgiu semantic coverage invalid: " + ", ".join(problems))
+
+
+def _tgiu_rule_tasks(rules: Iterable[RuleRetrievalRecord]) -> list[dict[str, str]]:
+    return [
+        {"retrieval_id": rule.retrieval_id, "rule_id": rule.rule_id}
+        for rule in _tgiu_rule_records(rules)
+    ]
+
+
 def _semantic_risiko_present(segment: ValidatedSegment) -> bool:
     """Recognize explicit technical risk semantics in the isolated point body."""
-    body = "\n".join(
-        span.exact_quote
-        for span in (segment.bound_body_spans or segment.evidence_spans)
-    ).casefold()
+    return bool(_semantic_risiko_supporting_quotes(segment))
+
+
+def _semantic_risiko_false_positive_signal(segment: ValidatedSegment) -> bool:
+    body = _normalized_segment_body(segment)
+    if not body or _semantic_risiko_supporting_quotes(segment):
+        return False
+    return bool(
+        re.search(
+            r"(?ix)\b(?:påvirke\s+funksjon\s+og\s+bruk(?:\s+av\s+rommet)?|"
+            r"funksjon\s+og\s+bruk(?:\s+av\s+rommet)?|"
+            r"omfattende\s+og\s+kostbar|omfattende,\s+kostbar|"
+            r"bør\s+vurderes\s+ved\s+behov|"
+            r"oppst[aå]r\s+flassing\b[^.;]{0,100}\bved\s+bruk)\b",
+            body,
+        )
+    )
+
+
+def _normalized_segment_body(segment: ValidatedSegment) -> str:
+    body = _semantic_focus_excerpt(segment).casefold()
     body = re.sub(r"\s+", " ", body)
-    body = re.sub(
+    return re.sub(
         r"hvordan\s+kontrollen\s+er\s+utført.*?konklusjon\s+bygningsdel\s*:?",
         " ", body,
     )
+
+
+def _semantic_risiko_supporting_quotes(segment: ValidatedSegment, limit: int = 3) -> list[str]:
+    body = _normalized_segment_body(segment)
+    if not body:
+        return []
+    harm = (
+        r"(?:\w*skad\w*|fukt\w*|råte\w*|vanninntreng\w*|snøras\w*|"
+        r"\w*svikt\w*|nedbøyn\w*|nedbryt\w*|lekk\w*|kondens\w*|brann\w*|helse\w*|"
+        r"oppsvell\w*|membran\w*|fuktbelast\w*|lukt\w*|inneklima\w*|"
+        r"funksjonstap\w*|redusert\s+levetid|setningsskad\w*|korrosjon\w*|varmetap\w*)"
+    )
     risk_patterns = (
-        r"\b(?:økt\s+)?risiko(?:en)?\s+(?:for|av)\s+[^.\n;]{2,220}",
-        r"\bfare\s+for\s+[^.\n;]{2,220}",
-        r"\bøkt\s+sannsynlighet\s+for\s+[^.\n;]{2,220}",
-        r"\b(?:kan|vil\s+kunne|kan\s+over\s+tid)\s+[^.\n;]{0,120}"
-        r"(?:føre\s+til|medføre|resultere\s+i|utvikle|belaste|påvirke)\s+[^.\n;]{2,180}",
+        rf"\b(?:økt\s+)?risiko(?:en)?\s+(?:for|av)\s+[^.;]{{2,220}}{harm}[^.;]{{0,120}}",
+        rf"\bfare\s+for\s+[^.;]{{2,220}}{harm}[^.;]{{0,120}}",
+        rf"\bøkt\s+sannsynlighet\s+for\s+[^.;]{{2,220}}{harm}[^.;]{{0,120}}",
+        rf"\b(?:kan|vil\s+kunne|kan\s+over\s+tid)\s+[^.;]{{0,120}}"
+        rf"(?:føre\s+til|medføre|resultere\s+i|utvikle|belaste|påvirke|gi)\s+[^.;]{{0,160}}{harm}[^.;]{{0,120}}",
+        rf"\b(?:kan\s+oppstå|kan\s+forekomme)\s+[^.;]{{0,160}}{harm}[^.;]{{0,120}}",
+        rf"\b(?:må\s+påregnes|påregnelig\s+med)\s+[^.;]{{0,120}}{harm}[^.;]{{0,120}}",
+        rf"\bkonsekvens(?:en)?\s+er\s+[^.;]{{0,160}}{harm}[^.;]{{0,120}}",
+        r"\busikkerhe\w*\s+om\s+[^.;]{0,140}(?:materialval|oppbygging|utføring|skjulte\s+\w+løysing\w*|skjulte\s+\w+løsning\w*)[^.;]{0,160}",
+        r"\b(?:bedre|redusert)\s+sikkerhet(?:\s+og\s+tilgjengelighet)?\b[^.;]{0,120}",
     )
-    harm = re.compile(
-        r"\b(?:\w*skad\w*|fukt\w*|råte\w*|vanninntreng\w*|snøras\w*|"
-        r"\w*svikt\w*|nedbryt\w*|lekk\w*|kondens\w*|brann\w*|helse\w*|"
-        r"oppsvell\w*|membran\w*|fuktbelast\w*|"
-        r"funksjonstap\w*|redusert\s+levetid|setningsskad\w*|korrosjon\w*)\b"
+    matches: list[str] = []
+    for pattern in risk_patterns:
+        for match in re.finditer(pattern, body):
+            snippet = match.group(0).strip(" .")
+            if snippet and snippet not in matches:
+                matches.append(snippet)
+            if len(matches) >= limit:
+                return matches
+    return matches
+
+
+def _semantic_aarsak_rationale_present(segment: ValidatedSegment) -> bool:
+    """Recognize generic rationale/justification language for the reported TG."""
+    return bool(_semantic_aarsak_supporting_quotes(segment))
+
+
+def _semantic_aarsak_supporting_quotes(segment: ValidatedSegment, limit: int = 3) -> list[str]:
+    body = _segment_body_text(segment).casefold()
+    body = re.sub(r"\s+", " ", body)
+    if not body:
+        return []
+    patterns = (
+        r"\b(?:på grunn av|skyldes|begrunnes med|er satt fordi)\b[^.;]{0,220}",
+        r"\b(?:alder|eldre|slitasje|bruksslitasje|forventet funksjonstid|levetid)\b[^.;]{0,220}",
+        r"\b(?:oppført\s+etter\s+(?:tekniske\s+)?forskrift\w*|oppført\s+etter\s+byggeforskrift\w*)\b[^.;]{0,220}",
+        r"\bdet\s+foreligger\s+ingen\s+dokumentasjon\b[^.;]{0,220}",
+        r"\b(?:sprekk(?:er)?\s+i|terreng\w*\s+er\s+flatt|faller\s+inn\s+mot\s+bygning\w*|flomutsatt\s+område)\b[^.;]{0,220}",
+        r"\b(?:det er registrert|det er påvist|det er ikke påvist|det er ikke montert|mangler|"
+        r"sprekk(?:er)?|skjevheter|fuktmerker|bruksmerker|mangelfull|utdatert)\b[^.;]{0,220}",
+        r"\b(?:umulig|ikke fysisk mulig|manglende fysisk tilgang|begrenset tilgang|ikke inspisert)\b[^.;]{0,220}",
     )
-    return any(
-        harm.search(match.group(0))
-        for pattern in risk_patterns
-        for match in re.finditer(pattern, body)
+    matches: list[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, body):
+            snippet = match.group(0).strip(" .")
+            if snippet and snippet not in matches:
+                matches.append(snippet)
+            if len(matches) >= limit:
+                return matches
+    return matches
+
+
+def _semantic_anbefalt_tiltak_present(segment: ValidatedSegment) -> bool:
+    """Recognize generic action/follow-up language anywhere in the bound point."""
+    return bool(_semantic_anbefalt_tiltak_supporting_quotes(segment))
+
+
+def _semantic_anbefalt_tiltak_supporting_quotes(
+    segment: ValidatedSegment,
+    limit: int = 3,
+) -> list[str]:
+    body = _normalized_segment_body(segment)
+    if not body:
+        return []
+    patterns = (
+        r"\b(?:bør|må|skal|anbefales|oppfordres til)\b[^.\n;]{0,160}\b(?:"
+        r"kontrolleres|kontroll|etablere?s?|monteres|skiftes|isoleres|utbedres|"
+        r"undersøkes|følges opp|følges med på|vurderes|oppgraderes|vedlikeholdes)\b",
+        r"\b(?:holdes?|hold)\b[^.\n;]{0,80}\bund(er)?\s+oppsikt\b",
+        r"\bkan\s+det\s+være\s+påregnelig\s+med\s+(?:utskiftning|utbedringer|oppgradering|vedlikehold|moderniseringer)\b",
+        r"\b(?:utskiftning|utbedringer|oppgradering|vedlikehold|moderniseringer)\b[^.\n;]{0,80}\b(?:må påregnes|bør påregnes|anbefales)\b",
+        r"\b(?:må|bør)\b[^.\n;]{0,120}\bskiftes\b",
     )
+    matches: list[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, body):
+            snippet = match.group(0).strip(" .")
+            if snippet and snippet not in matches:
+                matches.append(snippet)
+            if len(matches) >= limit:
+                return matches
+    return matches
+
+
+def _tiltak_direct_execution_order_snippets(segment: ValidatedSegment, limit: int = 3) -> list[str]:
+    body = _semantic_focus_excerpt(segment)
+    if not body:
+        return []
+    snippets: list[str] = []
+    for chunk in re.split(r"(?<=[.!?])\s+|\n+", body):
+        sentence = " ".join(chunk.split()).strip(" .")
+        if not sentence:
+            continue
+        low = sentence.casefold()
+        if "påregnes" in low or "vurderes" in low:
+            continue
+        if re.search(
+            r"(?ix)\b(?:m[aå]\s+utføres|m[aå](?:\s+derfor)?\s+skiftes(?:\s+ut)?|m[aå]\s+justeres|m[aå]\s+totalrenoveres)\b",
+            low,
+        ):
+            snippets.append(sentence)
+            if len(snippets) >= limit:
+                return snippets
+    return snippets
+
+
+def _semantic_konsekvens_present(segment: ValidatedSegment) -> bool:
+    return bool(_semantic_konsekvens_supporting_quotes(segment))
+
+
+def _semantic_konsekvens_limitation_only_signal(segment: ValidatedSegment) -> bool:
+    body = _normalized_segment_body(segment)
+    if not body or _semantic_konsekvens_supporting_quotes(segment):
+        return False
+    has_verification_limit = bool(
+        re.search(
+            r"(?ix)\b(?:kan\s+ikke\s+verifiseres|ikke\s+kan\s+verifiseres|"
+            r"kan\s+ikke\s+fastslås|ikke\s+mulig\s+å\s+verifisere|"
+            r"manglende\s+dokumentasjon)\b",
+            body,
+        )
+    )
+    has_uncertainty_chain = bool(
+        re.search(
+            r"(?ix)\b(?:kan\s+derfor\s+ikke\s+utelukkes|økt\s+usikkerhet|"
+            r"nærmere\s+undersøkelser|fremskaffe\s+tilgjengelig\s+dokumentasjon)\b",
+            body,
+        )
+    )
+    return has_verification_limit and has_uncertainty_chain
+
+
+def _semantic_konsekvens_supporting_quotes(
+    segment: ValidatedSegment,
+    limit: int = 3,
+) -> list[str]:
+    body = _normalized_segment_body(segment)
+    if not body:
+        return []
+    patterns = (
+        r"\b(?:konsekvens(?:en)?\s+er|betyr(?:\s+ikke)?\s+nødvendigvis\s+at)\b[^.;]{0,220}"
+        r"(?:\w*skad\w*|fukt\w*|råte\w*|kostnad\w*|begrens\w*|funksjon\w*|sikkerhet\w*)[^.;]{0,120}",
+        r"\b(?:kan\s+ikke\s+utelukkes\s+at)\b[^.;]{0,220}(?:skjulte\s+)?(?:fuktforhold\w*|skad\w*|feil\w*)[^.;]{0,120}"
+        r"\b(?:foreligger|ligger)\b[^.;]{0,120}\b(?:i|bak)\s+(?:konstruksjon\w*|bygningsdel\w*)",
+        r"\b(?:egner\s+seg\s+ikke|redusert\s+luftutskifting|økt\s+forbruk)\b[^.;]{0,220}",
+        r"\bf[aå]r\s+ikke\s+luften\s+sirkulert\s+skikkelig\b[^.;]{0,220}",
+        r"\b(?:dårligere\s+inneklima|høyere\s+luftfuktighet|kondens|biologisk\s+vekst)\b[^.;]{0,220}",
+        r"\b(?:omfattende|kostbar)\s+(?:utbedring|rehabilitering|oppfølging)\b[^.;]{0,220}",
+        r"\b(?:kan|vil|medf[øo]rer?|f[øo]rer\s+til|resulterer?\s+i)\b[^.;]{0,180}"
+        r"\b(?:trekk|varmetap|kuldebro(?:er)?|utetthet(?:er)?|luftlekkasje(?:r)?)\b[^.;]{0,120}",
+        r"\b(?:g[aå]r\s+i\s+anslaget|sl[aå]r\s+i\s+karm(?:en)?|binder)\b[^.;]{0,160}"
+        r"(?:\bved\s+funksjonsprøving\b|\bved\s+bruk\b|\bn[aå]r\s+den\s+(?:åpnes|lukkes)\b)?",
+    )
+    matches: list[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, body):
+            snippet = match.group(0).strip(" .")
+            if snippet and snippet not in matches:
+                matches.append(snippet)
+            if len(matches) >= limit:
+                return matches
+    return matches
+
+
+def _semantic_konsekvens_measure_purpose_only_signal(segment: ValidatedSegment) -> bool:
+    body = _normalized_segment_body(segment)
+    if not body or _semantic_konsekvens_supporting_quotes(segment):
+        return False
+    return bool(
+        re.search(
+            r"(?ix)"
+            r"\bfor\s+å\s+unngå\b[^.;]{0,160}\b(?:miljø|forurensnings)risiko\b"
+            r"|"
+            r"\bfor\s+å\s+sikre\s+tilstrekkelig\s+luftutskifting\b"
+            r"|"
+            r"\boppst[aå]r\s+flassing\b[^.;]{0,100}\bved\s+bruk\b",
+            body,
+        )
+    )
+
+
+def _semantic_konsekvens_measurement_only_signal(segment: ValidatedSegment) -> bool:
+    body = _normalized_segment_body(segment)
+    if not body or _semantic_konsekvens_supporting_quotes(segment):
+        return False
+    has_measurements = bool(
+        re.search(
+            r"(?ix)\b(?:retningsavvik|høydeforskjell|nivåforskjell|vesentlig\s+skjevheter)\b",
+            body,
+        )
+    )
+    lacks_effect = not re.search(
+        r"(?ix)\b(?:kan|vil|medfører|fører\s+til|resultere|betyr|konsekvens(?:en)?\s+er)\b[^.;]{0,160}",
+        body,
+    )
+    return has_measurements and lacks_effect
+
+
+def _semantic_legality_present(segment: ValidatedSegment) -> bool:
+    return bool(_semantic_legality_supporting_quotes(segment))
+
+
+def _semantic_legality_supporting_quotes(
+    segment: ValidatedSegment,
+    limit: int = 3,
+) -> list[str]:
+    body = _normalized_segment_body(segment)
+    if not body:
+        return []
+    patterns = (
+        r"\b(?:oppfordres\s+derfor\s+til\s+å\s+sjekke|betydning\s+for\s+kjøpers\s+bruk|"
+        r"bruk/\s*utvikling\s+av\s+eiendommen)\b[^.;]{0,220}",
+        r"\b(?:stemmer\s+ikke\s+med\s+dagens\s+bruk|stemmer\s+ikke\s+overens\s+med\s+tegningene)\b[^.;]{0,220}",
+    )
+    matches: list[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, body):
+            snippet = match.group(0).strip(" .")
+            if snippet and snippet not in matches:
+                matches.append(snippet)
+            if len(matches) >= limit:
+                return matches
+    return matches
+
+
+def _semantic_diagnostics_payload(
+    category: RuleCategory,
+    segment: ValidatedSegment,
+) -> dict[str, Any] | None:
+    diagnostics: dict[str, Any] = {}
+    if category == RuleCategory.RISIKO:
+        diagnostics["future_risk_signal"] = _semantic_risiko_present(segment)
+        diagnostics["risk_false_positive_signal"] = _semantic_risiko_false_positive_signal(segment)
+        diagnostics["supporting_quotes"] = _semantic_risiko_supporting_quotes(segment)
+    elif category == RuleCategory.AARSAK:
+        diagnostics["rationale_signal"] = _semantic_aarsak_rationale_present(segment)
+        diagnostics["supporting_quotes"] = _semantic_aarsak_supporting_quotes(segment)
+    elif category == RuleCategory.ANBEFALT_TILTAK:
+        diagnostics["action_signal"] = _semantic_anbefalt_tiltak_present(segment)
+        diagnostics["supporting_quotes"] = _semantic_anbefalt_tiltak_supporting_quotes(segment)
+    elif category == RuleCategory.KONSEKVENS:
+        diagnostics["consequence_signal"] = _semantic_konsekvens_present(segment)
+        diagnostics["consequence_limitation_only_signal"] = _semantic_konsekvens_limitation_only_signal(segment)
+        diagnostics["supporting_quotes"] = _semantic_konsekvens_supporting_quotes(segment)
+    elif category == RuleCategory.METHODOLOGY:
+        diagnostics["non_triggered_rule_is_satisfied"] = True
+    elif category == RuleCategory.LEGALITY:
+        diagnostics["require_point_bound_legality_gap"] = True
+        diagnostics["legality_signal"] = _semantic_legality_present(segment)
+        diagnostics["supporting_quotes"] = _semantic_legality_supporting_quotes(segment)
+    return diagnostics or None
+
+
+def _adjudication_instruction_for_categories(
+    categories: Iterable[RuleCategory],
+) -> str:
+    category_set = set(categories)
+    parts = [
+        "Return exactly one authoritative candidate for every requested segment/category pair.",
+        "Judge the semantic role across the complete bound point body; never require a heading.",
+        "Copy exact segment_id, rule_category, applicable retrieval_ids and evidence_ids.",
+        "Use the supplied approved governed semantic context; do not re-grade the point.",
+    ]
+    if RuleCategory.RISIKO in category_set:
+        parts.append(
+            "For Risiko, future technical risk stated anywhere in the bound point counts, including mixed "
+            "Konsekvens/tiltak text. Do not return MISSING when the same point already states leakage, moisture, "
+            "fire, electrical, structural, or similar forward-looking technical risk. Same-point wording that "
+            "describes what the condition can cause, may cause, or results in as technical damage or deterioration "
+            "also counts even if it appears in consequence-style prose. Named uncertainty about concealed materials, "
+            "build-up, execution, or hidden wet-room solutions is substantive technical risk when it identifies the "
+            "same point's unresolved technical exposure. Present-state inconvenience, existing use impact, room "
+            "function impact, or costly remediation alone is not technical risk unless the point also states a "
+            "future technical harm. If the point only states use impact, room function impact, or costly "
+            "remediation burden, return MISSING for Risiko rather than CONSEQUENCE_AS_RISIKO. If the point only "
+            "states observed condition, tolerances, settlement/cause explanation, or current use impact without "
+            "future technical harm, return MISSING rather than AARSAK_AS_RISIKO."
+        )
+    if RuleCategory.AARSAK in category_set:
+        parts.append(
+            "For Årsak, the report's justification/rationale for the reported TG may be observation-based, "
+            "limitation-based, age/service-life based, or deficiency-based. Technical root-cause diagnosis is not "
+            "a universal requirement."
+        )
+    if RuleCategory.ANBEFALT_TILTAK in category_set:
+        parts.append(
+            "For Anbefalt tiltak, a concrete action or follow-up anywhere in the point counts even inside a combined "
+            "Konsekvens/tiltak field. Exact by-whom or exact timing is not a universal semantic requirement. Direct "
+            "execution orders such as 'må utføres', 'må skiftes', 'må justeres', and 'må totalrenoveres' can trigger "
+            "TILTAK_IMPERATIVE_FORM, while expectation or review wording such as 'må påregnes' and 'må vurderes' "
+            "does not do so automatically."
+        )
+    if RuleCategory.KONSEKVENS in category_set:
+        parts.append(
+            "For Konsekvens, concrete same-point follow-on harm, hidden-damage exposure, buyer-use limitation, or "
+            "other practical effect counts even in mixed prose. Keep TECHNICAL_DEVELOPMENT_AS_KONSEKVENS only when "
+            "the point states development without any actual consequence or practical effect. If the point only says "
+            "that hidden damage, defects, or leaks cannot be excluded because documentation, access, or execution "
+            "cannot be verified, treat that as LIMITATION_AS_KONSEKVENS rather than a satisfied consequence unless "
+            "the same point also states a concrete buyer-facing effect or present exposure. Increased assessment "
+            "uncertainty, need for further investigation, need to obtain documentation, or future maintenance/"
+            "replacement planning caused only by unresolved verification limits is still limitation/tiltak, not a "
+            "satisfied consequence. Poor indoor climate, higher humidity, condensation exposure, "
+            "biological growth, reduced safe use, extensive remediation burden, or concrete impact on function/use "
+            "are substantive consequences when the point itself states them. If the same point already states such "
+            "a concrete consequence, do not emit TILTAK_AS_KONSEKVENS merely because the field also contains a "
+            "recommendation."
+        )
+    if RuleCategory.METHODOLOGY in category_set:
+        parts.append(
+            "For methodology, if the retrieved rule does not trigger on the bound point, return SATISFIED, not "
+            "ABSTAIN. Use ABSTAIN only when applicability cannot be determined from the bound point evidence."
+        )
+    if RuleCategory.LEGALITY in category_set:
+        parts.append(
+            "For legality, do not emit a deficiency unless the bound point itself communicates the governed "
+            "buyer-relevant legality gap required by the retrieved rule. A same-point explanation that the buyer "
+            "should check plan or drawing compliance because it may matter for use or development is relevant "
+            "substantive legality context and must be considered."
+        )
+    return " ".join(parts)
+
+
+def _needs_focused_recheck(
+    category: RuleCategory,
+    candidate: AssessmentCandidate,
+    diagnostics: dict[str, Any] | None,
+) -> bool:
+    return False
+
+
+def _needs_focused_false_positive_recheck(
+    category: RuleCategory,
+    candidate: AssessmentCandidate,
+    diagnostics: dict[str, Any] | None,
+) -> bool:
+    return False
 
 
 def _normalize_semantic_candidate(
@@ -1062,32 +1788,204 @@ def _normalize_semantic_candidate(
         )
     if (
         candidate.rule_category == RuleCategory.METHODOLOGY
-        and segment.point_type == "tgiu"
-        and candidate.decision == AssessmentDecision.DEFICIENT
-        and candidate.proposed_finding_type == "TGIU_MISSING_REASON"
+        and candidate.decision == AssessmentDecision.ABSTAIN
+        and not candidate.proposed_finding_type
     ):
-        body = "\n".join(
-            span.exact_quote for span in (segment.bound_body_spans or segment.evidence_spans)
-        ).casefold()
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "explanation": (
+                    "The retrieved governed methodology rule does not trigger on this bound point. "
+                    "A non-triggered methodology rule is satisfied rather than abstained."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.METHODOLOGY
+        and _methodology_rule_requires_arkat(segment)
+        and candidate.decision != AssessmentDecision.DEFICIENT
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.DEFICIENT,
+                "proposed_finding_type": "E_METHOD.garasje_avvik_uten_arkat",
+                "explanation": (
+                    "The detached-building point describes a concrete deviation while also stating that the "
+                    "structure is only simply described and not fully condition-assessed. Full ARKAT therefore "
+                    "remains required under the governed methodology rule."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.AARSAK
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "MISSING (aarsak)"
+        and _semantic_aarsak_rationale_present(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The bound point already states the report's rationale for the reported TG in observation-, "
+                    "standard-, or documentation-based terms."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.RISIKO
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "MISSING (risiko)"
+        and _semantic_risiko_present(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The same bound point already communicates future technical or safety-related risk."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.RISIKO
+        and candidate.decision == AssessmentDecision.SATISFIED
+        and _semantic_risiko_false_positive_signal(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.DEFICIENT,
+                "proposed_finding_type": "MISSING (risiko)",
+                "explanation": (
+                    "The bound point still lacks a qualifying future technical risk statement; present-state or "
+                    "measure-purpose wording alone is not enough."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.KONSEKVENS
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "MISSING (konsekvens)"
+        and _semantic_konsekvens_present(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The same bound point already states a concrete practical effect or consequence."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.KONSEKVENS
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"
+        and _semantic_konsekvens_present(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The same bound point already states concrete practical effects or buyer-facing consequences, "
+                    "so technical development wording does not remain a separate consequence deficiency."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.KONSEKVENS
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "MISSING (konsekvens)"
+        and _semantic_konsekvens_measurement_only_signal(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The bound point only repeats measured deviation data without a separate practical-effect "
+                    "statement, so no scored consequence deficiency is emitted."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.KONSEKVENS
+        and candidate.decision == AssessmentDecision.SATISFIED
+        and _semantic_konsekvens_measure_purpose_only_signal(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.DEFICIENT,
+                "proposed_finding_type": "TILTAK_AS_KONSEKVENS",
+                "explanation": (
+                    "The bound point states a measure or follow-up but does not separately communicate a "
+                    "substantive consequence."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.ANBEFALT_TILTAK
+        and candidate.decision == AssessmentDecision.SATISFIED
+        and _tiltak_direct_execution_order_snippets(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.DEFICIENT,
+                "proposed_finding_type": "TILTAK_IMPERATIVE_FORM",
+                "explanation": (
+                    "The measure is formulated as a direct execution order rather than a recommendation."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.LEGALITY
+        and candidate.decision == AssessmentDecision.ABSTAIN
+        and not candidate.proposed_finding_type
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "explanation": (
+                    "The retrieved governed legality rules do not trigger a deficiency on this bound point. "
+                    "A non-triggered legality rule is satisfied rather than abstained."
+                ),
+            }
+        )
+    if candidate.rule_category == RuleCategory.RISIKO:
+        diagnostics = _semantic_diagnostics_payload(RuleCategory.RISIKO, segment) or {}
         if (
-            "ikke mulig" in body
-            or "grunnet" in body
-            or "på grunn av" in body
-            or "fordi" in body
-            or "da " in body
-            or re.search(
-                r"\bingen\s+opplysning(?:er)?\s+om\s+at\s+.{0,120}\b(?:er|finnes|foreligger)\b",
-                body,
-            )
+            candidate.decision == AssessmentDecision.DEFICIENT
+            and candidate.proposed_finding_type in {"AARSAK_AS_RISIKO", "CONSEQUENCE_AS_RISIKO"}
+            and not diagnostics.get("future_risk_signal")
+            and diagnostics.get("risk_false_positive_signal")
         ):
             return candidate.model_copy(
                 update={
-                    "decision": AssessmentDecision.SATISFIED,
-                    "proposed_finding_type": None,
+                    "proposed_finding_type": "MISSING (risiko)",
                     "explanation": (
-                        "The point explains why direct investigation basis was absent by stating that "
-                        "there are no information/opplysninger that the suspected hidden installation "
-                        "exists on the property."
+                        "The bound point does not state a future technical harm. It only gives observed condition, "
+                        "cause/current-state explanation, use impact, or remediation burden, so Risiko remains "
+                        "missing rather than a wrong-role subtype."
+                    ),
+                }
+            )
+    if candidate.rule_category == RuleCategory.KONSEKVENS:
+        diagnostics = _semantic_diagnostics_payload(RuleCategory.KONSEKVENS, segment) or {}
+        tiltak_diagnostics = _semantic_diagnostics_payload(RuleCategory.ANBEFALT_TILTAK, segment) or {}
+        if (
+            candidate.decision == AssessmentDecision.DEFICIENT
+            and candidate.proposed_finding_type == "MISSING (konsekvens)"
+            and not diagnostics.get("consequence_signal")
+            and tiltak_diagnostics.get("action_signal")
+        ):
+            return candidate.model_copy(
+                update={
+                    "proposed_finding_type": "TILTAK_AS_KONSEKVENS",
+                    "explanation": (
+                        "The bound point does not state a substantive consequence, but it does state a concrete "
+                        "recommendation or measure. Konsekvens therefore remains deficient as tiltak used as "
+                        "consequence rather than plain missing."
                     ),
                 }
             )
@@ -1193,6 +2091,12 @@ class DeterministicAssessmentValidator:
         ):
             reasons.append("governed_rule_domain_mismatch")
         if (
+            canonical_identity == "L-BU-01"
+            and assessment.rule_category == RuleCategory.LEGALITY
+            and not _semantic_legality_present(segment)
+        ):
+            reasons.append("buyer_relevant_legality_gap_not_point_bound")
+        if (
             assessment.decision == AssessmentDecision.DEFICIENT
             and assessment.proposed_finding_type
             and (
@@ -1249,6 +2153,35 @@ class DeterministicAssessmentValidator:
             regulatory=bool(metadata.get("regulatory")) if admission == FindingAdmission.ACCEPTED else False,
             blocks_96_gate=bool(metadata.get("blocks_96_gate") or gate_effect.get("blocks_96_gate") or missing_gate) if admission == FindingAdmission.ACCEPTED else False,
         )
+
+
+def _is_non_material_rejected_deficiency(
+    assessment: StructuredAssessment,
+    decision: FindingValidationDecision,
+) -> bool:
+    return (
+        assessment.decision == AssessmentDecision.DEFICIENT
+        and assessment.rule_category == RuleCategory.LEGALITY
+        and set(decision.reason_codes) == {"buyer_relevant_legality_gap_not_point_bound"}
+    )
+
+
+def _methodology_rule_requires_arkat(segment: ValidatedSegment) -> bool:
+    if segment.point_type != "methodology_only":
+        return False
+    body = _normalized_segment_body(segment)
+    if not body:
+        return False
+    has_methodology_disclaimer = bool(
+        re.search(r"(?is)\bikke\s+tilstandsvurdert\b.{0,220}\benkel\s+beskrivelse\b", body)
+    )
+    has_concrete_deviation = bool(
+        re.search(
+            r"(?ix)\b(?:ikke\s+egnet|mangler|sprekker?|riss|råte|fukt|deformasjoner?|skader?)\b",
+            body,
+        )
+    )
+    return has_methodology_disclaimer and has_concrete_deviation
 
 
 class PhaseA4ShadowService:
@@ -1352,6 +2285,7 @@ class PhaseA4ShadowService:
                     category == RuleCategory.ANBEFALT_TILTAK
                     and (segment.tg_grade or "").upper() == "TG2"
                     and retrieval.regime_resolution.applicable_ns_edition == "NS 3600:2018"
+                    and not _semantic_anbefalt_tiltak_present(segment)
                 ):
                     excluded_plan_items.add(plan_item.plan_item_id)
                     continue
@@ -1406,6 +2340,12 @@ class PhaseA4ShadowService:
                 for candidate_index, candidate in enumerate(candidates):
                     candidate = _normalize_semantic_candidate(candidate, segment, retrieval.records)
                     candidate_retrieval_ids = list(candidate.retrieval_ids)
+                    if (
+                        not candidate_retrieval_ids
+                        and category == RuleCategory.ANBEFALT_TILTAK
+                        and candidate.decision == AssessmentDecision.DEFICIENT
+                    ):
+                        candidate_retrieval_ids = [record.retrieval_id for record in retrieval.records]
                     if not candidate_retrieval_ids:
                         canonical = _canonical_finding_identity(candidate.proposed_finding_type, retrieval.records)
                         if (
@@ -1418,6 +2358,11 @@ class PhaseA4ShadowService:
                             if canonical is not None and record.rule_id == canonical
                         ]
                         candidate_retrieval_ids = matching or (
+                            [record.retrieval_id for record in retrieval.records]
+                            if candidate.decision == AssessmentDecision.DEFICIENT
+                            and candidate.proposed_finding_type in _governed_finding_types(retrieval.records)
+                            else []
+                        ) or (
                             [record.retrieval_id for record in retrieval.records]
                             if candidate.decision != AssessmentDecision.DEFICIENT else []
                         )
@@ -1463,7 +2408,11 @@ class PhaseA4ShadowService:
                             "decision": decision.model_dump(mode="json"),
                         })).hexdigest(),
                     ))
-                    if decision.admission == FindingAdmission.REJECTED and assessment.decision == AssessmentDecision.DEFICIENT:
+                    if (
+                        decision.admission == FindingAdmission.REJECTED
+                        and assessment.decision == AssessmentDecision.DEFICIENT
+                        and not _is_non_material_rejected_deficiency(assessment, decision)
+                    ):
                         abstentions.append(Abstention(
                             abstention_id=_identifier("abs", assessment_id), stage="finding_admission",
                             subject=assessment_id, reason_code="deterministic_validation_rejected",
@@ -1479,6 +2428,10 @@ class PhaseA4ShadowService:
         rejected_required = any(
             decision.admission == FindingAdmission.REJECTED
             and assessment_by_id[decision.assessment_id].decision == AssessmentDecision.DEFICIENT
+            and not _is_non_material_rejected_deficiency(
+                assessment_by_id[decision.assessment_id],
+                decision,
+            )
             for decision in decisions
         )
         assessment_abstained = any(item.decision == AssessmentDecision.ABSTAIN for item in assessments)

@@ -22,14 +22,18 @@ from app.services.phase_a_contracts import (
     AssessmentCandidate,
     AssessmentDecision,
     Abstention,
+    CandidateEvidence,
     CoverageReconciliation,
     DocumentUnderstandingResult,
+    FactType,
     InventoryRole,
     RegimeResolution,
     RegimeResolutionStatus,
     RuleCategory,
     SegmentKind,
+    SourceEvidence,
     ValidationStatus,
+    ValidatedDocumentFact,
     ValidatedSegment,
 )
 from app.services.phase_a_document_understanding import DocumentUnderstandingService
@@ -39,6 +43,7 @@ from app.services.phase_a_governed_retrieval import (
     ManifestGovernedCatalog,
     ManifestVerifiedRuleRetriever,
 )
+from app.services.phase_a_regime import ApprovedGovernedRegimeResolver
 from app.services.phase_a_source_inventory import PhysicalSourceInventoryBuilder
 
 
@@ -149,6 +154,32 @@ def test_structural_reconciliation_guard_blocks_material_non_point_inventory_mis
     assert blockers[0].startswith("structural_reconciliation_unreliable:")
 
 
+def test_structural_reconciliation_guard_blocks_ai_only_tg_fallback():
+    segment = _validated_point("segment_fallback_1", "Utvendige trapper").model_copy(update={
+        "validation_notes": [
+            "exact_quote_not_found",
+            "whitespace_normalized_quote_not_found",
+            "ai_candidate_authoritative_fallback_missing_physical_point",
+        ],
+        "tg_grade": "TG2",
+    })
+    blockers = DocumentUnderstandingService._structural_reconciliation_blockers(
+        [segment],
+        [CoverageReconciliation(
+            inventory_id="physical_missing",
+            inventory_role=InventoryRole.PRIMARY,
+            matched_segment_id=segment.segment_id,
+            status="matched",
+            reason=(
+                "Validated AI point was retained because the physical inventory missed the point; "
+                "reconciliation must not silently drop an admitted report point."
+            ),
+        )],
+        [],
+    )
+    assert blockers == ["ungrounded_ai_tg_fallback:segment_fallback_1"]
+
+
 def test_structural_reconciliation_guard_allows_normal_inventory_fallback_patterns():
     segments = [
         _validated_point("segment_ok_1", "Taktekking"),
@@ -213,9 +244,8 @@ def test_detached_methodology_retrieval_uses_only_the_governed_detached_structur
         ),
         category_assets={
             RuleCategory.METHODOLOGY: (
-                "arkat_semantic_rules_v1_2_3.json",
+                "arkat_semantic_rules_v1_3_0.json",
                 "rag_scoring_model_validert_v1.6.15.json",
-                "candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
             ),
         },
     )
@@ -226,6 +256,74 @@ def test_detached_methodology_retrieval_uses_only_the_governed_detached_structur
         document_hash=understanding.document_hash,
     )
     assert [record.rule_id for record in result.records] == ["E_METHOD.garasje_avvik_uten_arkat"]
+
+
+def test_aarsak_retrieval_includes_resolved_edition_scope_context():
+    quote = "Det registreres at enkelte vinduer går tregt ved åpning og lukking."
+    evidence = SourceEvidence(
+        evidence_id="evidence_aarsak_edition_0001",
+        exact_quote=quote,
+        page=1,
+        char_start=0,
+        char_end=len(quote),
+        quote_sha256=hashlib.sha256(quote.encode()).hexdigest(),
+        validation_status=ValidationStatus.VALIDATED,
+    )
+    segment = ValidatedSegment(
+        segment_id="segment_aarsak_edition_0001",
+        kind=SegmentKind.REPORT_POINT,
+        title="Vinduer",
+        professional_subject="Vinduer",
+        point_label="18.6",
+        tg_grade="TG2",
+        point_type="graded",
+        confidence=1.0,
+        candidate_evidence=CandidateEvidence(exact_quote=quote, page=1),
+        evidence=evidence,
+        evidence_spans=[evidence],
+        bound_body_spans=[evidence],
+        validation_status=ValidationStatus.VALIDATED,
+    )
+    facts = [
+        ValidatedDocumentFact(
+            fact_id="fact_report_date_0001",
+            fact_type=FactType.REPORT_DATE,
+            raw_value="2026-08-11",
+            normalized_value="2026-08-11",
+            confidence=1.0,
+            candidate_evidence=CandidateEvidence(exact_quote="11.08.2026", page=1),
+            evidence=evidence,
+            validation_status=ValidationStatus.VALIDATED,
+        ),
+        ValidatedDocumentFact(
+            fact_id="fact_declared_standard_0001",
+            fact_type=FactType.DECLARED_STANDARD,
+            raw_value="NS 3600:2025",
+            normalized_value="NS 3600:2025",
+            confidence=1.0,
+            candidate_evidence=CandidateEvidence(exact_quote="NS 3600:2025", page=1),
+            evidence=evidence,
+            validation_status=ValidationStatus.VALIDATED,
+        ),
+    ]
+    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    retriever = ManifestVerifiedRuleRetriever(
+        ManifestGovernedCatalog(
+            ROOT / "files",
+            manifest,
+            approved_manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        ),
+        resolver=ApprovedGovernedRegimeResolver(),
+    )
+    result = retriever.retrieve(
+        segment,
+        RuleCategory.AARSAK,
+        facts,
+        document_hash="a" * 64,
+    )
+    pointers = {record.json_pointer for record in result.records}
+    assert "/field_definitions/aarsak" in pointers
+    assert "/edition_scope" in pointers
 
 
 def test_physical_point_bodies_are_non_overlapping_and_do_not_depend_on_ai():
@@ -591,6 +689,71 @@ def test_fremtind_source_inventory_rejects_footers_headers_and_table_labels_as_p
     assert "Kilder og vedlegg" not in body
 
 
+def test_fremtind_gjovik_source_inventory_keeps_real_titles_and_drops_structural_noise():
+    text = PDFExtractor.extract_text(str(ROOT / "files/fremtind-etter-gjøvik.pdf"))
+    inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+    primary = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    titles = {item.title for item in primary}
+    assert "Vinduer og takvinduer/takluker/overlys" in titles
+    assert "Tilliggende konstruksjoner våtrom" in titles
+    assert "F. L. Suhrs veg 8, 2819 GJØVIK 2816 GJØVIK" not in titles
+    assert "Kostnadsestimat: 200 000 - 500 000" not in titles
+    assert "undersøkelse ikke vil avdekke. Vær derfor oppmerksom på denne risikoen, og søk videre veiledning eller få en fullstendig kontroll utført av registrert" not in titles
+    tilliggende = next(item for item in primary if item.title == "Tilliggende konstruksjoner våtrom")
+    assert tilliggende.tg_grade == "TGIU"
+    vinduer = next(item for item in primary if item.title == "Vinduer og takvinduer/takluker/overlys")
+    body = "\n".join(span.exact_quote for span in vinduer.body_spans)
+    assert "Trevinduer med 2-lags isolerglass." in body
+    assert "Ytterdører" not in body
+
+
+def test_fremtind_gjovik_tg3_points_keep_point_bound_cost_estimates_in_body():
+    text = PDFExtractor.extract_text(str(ROOT / "files/fremtind-etter-gjøvik.pdf"))
+    inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+    primary = {
+        item.title: item
+        for item in inventory.points
+        if item.role == InventoryRole.PRIMARY
+    }
+    assert "Kostnadsestimat: 200 000 - 500 000" in "\n".join(primary["Generell"].body_spans[i].exact_quote for i in range(len(primary["Generell"].body_spans)))
+    assert "Kostnadsestimat: Under 20 000" in "\n".join(primary["Avtrekk"].body_spans[i].exact_quote for i in range(len(primary["Avtrekk"].body_spans)))
+    assert "Kostnadsestimat: 200 000 - 500 000" in "\n".join(primary["Fuktsikring og drenering"].body_spans[i].exact_quote for i in range(len(primary["Fuktsikring og drenering"].body_spans)))
+    assert "\n".join(span.exact_quote for span in primary["Avtrekk"].body_spans).rstrip().splitlines()[-1] != "TOALETTROM"
+
+
+def test_oredalsveien_cross_page_titles_and_no_tg_sections_bind_to_correct_points():
+    text = PDFExtractor.extract_text(str(ROOT / "files/Docs/tilstandsrapport - ivit-fremtind - blindtest.pdf"))
+    inventory = PhysicalSourceInventoryBuilder().build(text, _hash(text))
+    primary = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    by_title = {item.title: item for item in primary}
+
+    assert "Ytterdører" in by_title
+    assert by_title["Ytterdører"].tg_grade == "TG2"
+    assert by_title["Ytterdører"].point_type == "graded"
+
+    assert "Utvendige trapper" in by_title
+    assert by_title["Utvendige trapper"].tg_grade == "TG2"
+    assert by_title["Utvendige trapper"].point_type == "graded"
+
+    assert "Innvendige trapper" in by_title
+    assert by_title["Innvendige trapper"].tg_grade is None
+    assert by_title["Innvendige trapper"].point_type == "hms_no_tg"
+
+    assert "Elektrisk anlegg" in by_title
+    assert by_title["Elektrisk anlegg"].tg_grade is None
+    assert by_title["Elektrisk anlegg"].point_type == "electrical_no_tg"
+
+    assert "Overflater - gulv" in by_title
+    assert by_title["Overflater - gulv"].tg_grade == "TG2"
+    assert by_title["Overflater - gulv"].point_type == "graded"
+
+    titles = {item.title for item in primary}
+    assert "HELSE, MILJØ OG SIKKERHET" not in titles
+    assert "Tilstanden er vurdert ut fra den forenklede og begrensede kontrollen" not in titles
+    assert "skader i konstruksjonen, samt behov for oppgradering eller" not in titles
+    assert "Våtrommet har skjult vanntett sjikt med" not in titles
+
+
 def test_real_report_summaries_are_all_linked_and_never_primary_assessments():
     expected_roles = {
         "ivit-svak_arkat.pdf": {"summary": 0, "navigation": 29},
@@ -689,21 +852,138 @@ Avvik: Kjelleren mangler veggventiler.
     assert primary_by_id[basement.linked_primary_id].title == "Ventilasjon"
 
 
+def test_hierarchical_summary_rows_ground_detailed_points_without_becoming_primary():
+    report = """[SIDE 1]
+Sammendrag av boligens tilstand
+Fordeling av tilstandsgrader
+STORE ELLER ALVORLIGE AVVIK
+1 Utvendig > Balkonger, verandaer, takterrasser og Gå til side
+altaner
+KONSTRUKSJONER SOM IKKE ER UNDERSØKT
+Våtrom > Kjeller > Vaskerom > Tilliggende Gå til side
+konstruksjoner våtrom
+[SIDE 2]
+Utvendig
+Balkonger, verandaer, takterrasser og altaner
+Beskrivelse
+Skjevheter.
+Vurdering av avvik:
+Store skader.
+[SIDE 3]
+KJELLER > VASKEROM
+Tilliggende konstruksjoner våtrom
+Beskrivelse
+Det var ikke mulig å undersøke konstruksjonen.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    primaries = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    summaries = [item for item in inventory.points if item.role == InventoryRole.SUMMARY]
+    assert all(item.title != "Utvendig > Balkonger, verandaer, takterrasser og altaner" for item in primaries)
+    tg3_summary = next(item for item in summaries if item.title == "Utvendig > Balkonger, verandaer, takterrasser og altaner")
+    tgiu_summary = next(item for item in summaries if item.title == "Våtrom > Kjeller > Vaskerom > Tilliggende konstruksjoner våtrom")
+    assert tg3_summary.tg_grade == "TG3"
+    assert tgiu_summary.tg_grade == "TGIU"
+    balcony = next(item for item in primaries if item.title == "Balkonger, verandaer, takterrasser og altaner")
+    tilliggende = next(item for item in primaries if item.title == "Tilliggende konstruksjoner våtrom")
+    assert balcony.tg_grade == "TG3"
+    assert tilliggende.tg_grade == "TGIU"
+
+
+def test_wrapped_heading_fragment_does_not_steal_summary_tg_from_another_point():
+    report = """[SIDE 1]
+Sammendrag av boligens tilstand
+Fordeling av tilstandsgrader
+STORE ELLER ALVORLIGE AVVIK
+Innvendig > Rom under terreng (kjeller, underetasje, Gå til side
+sokkeletasje)
+[SIDE 2]
+INNVENDIG
+Etasjeskiller og bærende konstruksjoner
+Beskrivelse
+Skjevheter i etasjeskilleren.
+Vurdering av avvik:
+Det er målt høydeforskjeller.
+Rom under terreng (kjeller, underetasje,
+sokkeletasje)
+Punktet må sees i sammenheng med drenering.
+Beskrivelse
+Det er påvist fukt-/råteskader i oppforet gulv.
+Vurdering av avvik:
+Skader er registrert i rom under terreng.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    primaries = [item for item in inventory.points if item.role == InventoryRole.PRIMARY]
+    primary_by_title = {item.title: item for item in primaries}
+    assert primary_by_title["Etasjeskiller og bærende konstruksjoner"].tg_grade == "TG2"
+    assert primary_by_title["Rom under terreng (kjeller, underetasje, sokkeletasje)"].tg_grade == "TG3"
+    summary = next(
+        item for item in inventory.points
+        if item.detection_method == "physical_hierarchical_summary_row"
+        and "Rom under terreng" in item.title
+    )
+    assert summary.linked_primary_id == primary_by_title["Rom under terreng (kjeller, underetasje, sokkeletasje)"].inventory_id
+
+
+def test_detached_building_methodology_body_keeps_internal_subheadings_until_next_real_section():
+    report = """[SIDE 1]
+Garasje
+Anvendelse
+Byggeår Kommentar
+2012
+Standard
+Standard fra byggeåret.
+Vedlikehold
+Beskrivelse
+Det er gruset gulv og ringmur av lettklinkerblokker.
+Det er montert 2 stk el.billader i 2023.
+Takshingel er ikke egnet for å brukes på slike lave takvinkler.
+Bygget er ikke tilstandsvurdert ihht Forskrift til avhendingslova og NS3600. Dette er kun en enkel beskrivelse.
+Kilder og vedlegg
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    garage = next(item for item in inventory.points if item.title == "Garasje")
+    body = "\n".join(span.exact_quote for span in garage.body_spans)
+    assert "Takshingel er ikke egnet" in body
+    assert "Bygget er ikke tilstandsvurdert" in body
+    assert "Kilder og vedlegg" not in body
+
+
+def test_summary_prose_with_tg_counts_never_becomes_primary_point():
+    report = """[SIDE 1]
+1. Oppsummering / konklusjon
+Oppsummering
+Det er registrert fleire TG 2-forhold, særleg knytte til våtrom og yttertak.
+Rapporten omfatter 0 punkt(er) med TG3, 20 med TG2 og 2 med TGIU.
+[SIDE 2]
+Yttertak TG2 – Vesentlige avvik
+Beskrivelse
+Taket er eldre.
+"""
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    titles = {item.title for item in inventory.points if item.role == InventoryRole.PRIMARY}
+    assert "Det er registrert fleire" not in titles
+    assert "rapporten." not in titles
+    assert "Yttertak" in titles
+
+
 def test_ambiguous_hierarchical_summary_link_blocks_completion():
     report = """[SIDE 1]
-DEL 7
-7. Våtrom
-Bad – Ventilasjon TG2 – Vesentlige avvik
-VURDERING
-Det mangler tilluft.
-Bad – Ventilasjon TG2 – Vesentlige avvik
-VURDERING
-Det mangler tilluft.
+Sammendrag av boligens tilstand
+Fordeling av tilstandsgrader
+AVVIK SOM KAN KREVE TILTAK
+Våtrom > Bad > Ventilasjon Gå til side
 [SIDE 2]
-28. Oppsummering / konklusjon
-TG2 – Vesentlige avvik
-1. Bad – Ventilasjon – Ventilasjon
-Avvik: Det mangler tilluft.
+7. Våtrom
+Bad > Ventilasjon
+Beskrivelse
+Det mangler tilluft.
+Vurdering av avvik:
+Det mangler tilluft.
+Bad > Ventilasjon
+Beskrivelse
+Det mangler tilluft.
+Vurdering av avvik:
+Det mangler tilluft.
 """
 
     class EmptyExtractor:
@@ -828,6 +1108,19 @@ Ukjent sammendrag.
     result = DocumentUnderstandingService(PointExtractor()).analyze(report, "uncertain.pdf")
     assert any(
         blocker.startswith("summary_primary_link_unresolved:")
+        for blocker in result.segment_coverage.completion_blockers
+    )
+
+
+def test_bmtf_ambiguous_summary_child_does_not_block_completion():
+    class EmptyExtractor:
+        def extract_candidates(self, **_kwargs):
+            return {"facts": [], "segments": [], "abstentions": []}, {"model": "fake"}
+
+    report = PDFExtractor.extract_text(str(ROOT / "files" / "Tilstandsrapport_Fritidsbolig-God_rapport.pdf"))
+    result = DocumentUnderstandingService(EmptyExtractor()).analyze(report, "bmtf-summary.pdf")
+    assert not any(
+        blocker.startswith("summary_primary_link_ambiguous:")
         for blocker in result.segment_coverage.completion_blockers
     )
 

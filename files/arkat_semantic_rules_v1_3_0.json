@@ -1,0 +1,167 @@
+{
+  "meta": {
+    "name": "arkat_semantic_rules",
+    "version": "1.3.0",
+    "description": "v1.2.0 introduces TGIU-specific taxonomy and aligns field definitions with pipeline_step. v1.2.1 removes stale deprecated_error_types and clarifies Konsekvens boundary between actual consequence, technical process, and generic risk. v1.2.2 removes the stale '[TG3 only]' qualifier from the anbefalt_tiltak error_type_if_wrong list; MISSING (anbefalt_tiltak) also fires at TG2 under NS3600:2025 per punkt 13. v1.2.4 adds product-owner rulings for observation-as-aarsak and limitation-as-risk, and formalizes regime date fallback governance. v1.2.5 moves point-boundary heading vocabulary and report-regime labels/date thresholds into versioned governance. v1.3.0 synchronizes Årsak with NS 3600:2025 point 13: Årsak is the justification for the selected TG and the criterion relied upon; a technical root-cause diagnosis is not universally required. An observation/limitation may satisfy Årsak when it genuinely functions as the rationale for the report's actual TG/avvik; this semantic check must not become TG re-grading. v1.3.0 also removes the universal 'by whom/when' requirement from ANBEFALT TILTAK and aligns the scoring-source reference with the active v1.1.2 deduction mapping. v1.3.0 also makes criterion retrieval edition-bound so NS 3600:2025 criteria are not back-applied to historical NS 3600:2018 reports.",
+    "applies_to": "All governed TG2, TG3 and TGIU semantic assessments; criterion context must follow the report's resolved lawful NS edition/regime."
+  },
+  "field_definitions": {
+    "aarsak": {
+      "label": "Årsak",
+      "correct_content": "Begrunner rapportens valgte tilstandsgrad ved å beskrive forholdet, avviket eller kriteriet som takstmannen legger til grunn. En teknisk rotårsaksdiagnose av hvorfor den fysiske tilstanden opprinnelig oppstod er ikke et universelt krav. En observasjon eller begrensning kan tilfredsstille Årsak når den klart fungerer som begrunnelse for rapportens faktiske TG/avvik. Validert vurderer den semantiske begrunnelsen, ikke om takstmannen har valgt riktig TG.",
+      "forbidden_content": [
+        "En ren metodeopplysning, generell beskrivelse eller observasjon som ikke fungerer som begrunnelse for valgt TG/avvik",
+        "En beskrivelse av hva som kan skje i fremtiden (risiko) uten noen begrunnelsesfunksjon for valgt TG/avvik",
+        "En uttalelse om hvem som er ansvarlig",
+        "Historikk eller generell bygningsbeskrivelse som ikke fungerer som begrunnelse for valgt TG/avvik"
+      ],
+      "uncertainty_rule": "Usikkerhet om teknisk rotårsak gjør ikke Årsak mangelfull når teksten likevel gjør klart hvilket forhold, avvik eller kriterium takstmannen bruker som begrunnelse for valgt TG. Validert skal ikke bruke Årsak-vurderingen til å kontrollere om kriteriet tilsier en annen TG.",
+      "error_signatures": [
+        "Metodeopplysning eller generell beskrivelse uten begrunnelsesfunksjon for valgt TG/avvik",
+        "Observasjon som ikke er knyttet til eller ikke fungerer som begrunnelse for valgt TG/avvik",
+        "Tekst som kun beskriver fremtidig risiko uten begrunnelsesfunksjon for valgt TG/avvik"
+      ],
+      "error_type_if_wrong": "MISSING (aarsak), OBSERVATION_AS_AARSAK, or RISK_AS_AARSAK"
+    },
+    "risiko": {
+      "label": "Risiko",
+      "correct_content": "Describes what COULD happen to the building or component if the defect is not addressed. Future, conditional, possible development — not a certain outcome. Not a consequence for the buyer.",
+      "forbidden_content": [
+        "What is currently happening to the building (present tense condition)",
+        "What this means for the buyer in practical or economic terms",
+        "A pure inspection limitation without named technical risk category",
+        "A cause explanation presented as risk"
+      ],
+      "language_test": "Risiko should be answerable with: 'If this is not addressed, [building component] could [develop/deteriorate/fail] in [this way].'",
+      "error_signatures": [
+        "Kjøper må påregne [buyer consequence in risk field]",
+        "Dreneringen er ikke synlig for inspeksjon [limitation as risk]",
+        "Kledningen mister evnen til å beskytte [present state]",
+        "Manglende vedlikehold har ført til [past tense causal explanation]",
+        "Dreneringen er utett fra byggeår [cause stated as risk]"
+      ],
+      "error_type_if_wrong": "MISSING (risiko), CONSEQUENCE_AS_RISIKO, LIMITATION_AS_RISIKO, PRESENT_STATE_AS_RISIKO, LIMITATION_USED_AS_RISK_SUBSTITUTE, or AARSAK_AS_RISIKO"
+    },
+    "konsekvens": {
+      "label": "Konsekvens",
+      "legal_basis": "Forskrift til avhendingslova § 2-22 og NS 3600:2025 punkt 13.",
+      "correct_content": "Explains what the defect means for the buyer (cost, safety, use, obligations). Conditional language is explicitly permitted. Damage spreading, reduced lifespan, continued deterioration, safety risk, or practical function loss are accepted because buyer relevance is implicit.",
+      "critical_clarification": "Conditional language ('kan', 'dersom', 'hvis') is NOT an error in Konsekvens. Konsekvens does not need to explicitly say kjøper, kostnad, or funksjonssvikt when the sentence describes an actual følge — damage, råte, reduced lifespan, reduced function, safety risk, investigation or repair need. A sentence that only describes a technical process underway (fukt that can 'trenge inn', 'spre seg', 'trekke videre') without stating what it leads to is NOT sufficient as konsekvens — that is TECHNICAL_DEVELOPMENT_AS_KONSEKVENS. Use RISIKO_AS_KONSEKVENS when the text is only a generic risk formulation without a concrete technical process.",
+      "error_signatures": [
+        "Only technical development with no buyer connection",
+        "Recommended action or maintenance need placed in konsekvens",
+        "Risk formulation placed in konsekvens",
+        "Inspection limitation placed in konsekvens",
+        "Word-for-word duplication of risiko field"
+      ],
+      "error_type_if_wrong": "MISSING (konsekvens), TECHNICAL_DEVELOPMENT_AS_KONSEKVENS, TILTAK_AS_KONSEKVENS, RISIKO_AS_KONSEKVENS, LIMITATION_AS_KONSEKVENS, or PURE_DUPLICATION",
+      "pure_duplication_detection_nb": "Hvis konsekvens-teksten er ordrett identisk med risiko-teksten, eller en nesten-identisk omformulering med samme kjernebetydning og uten å legge til informasjon om hva dette betyr for kjøper konkret, skal dette klassifiseres som PURE_DUPLICATION og ikke som TECHNICAL_DEVELOPMENT_AS_KONSEKVENS."
+    },
+    "anbefalt_tiltak": {
+      "label": "Anbefalt tiltak",
+      "correct_content": "Peker på hva som bør gjøres eller følges opp i tilknytning til det rapporterte forholdet. Tiltaket bør være så tydelig og konkret som rimelig mulig. Det er ikke et universelt semantisk krav å angi bestemt fagperson/ansvarlig eller eksakt tidspunkt, med mindre en separat gjeldende governed regel uttrykkelig krever det.",
+      "error_type_if_wrong": "MISSING (anbefalt_tiltak), EXPLANATION_AS_TILTAK, CONSEQUENCE_AS_TILTAK, TILTAK_IMPERATIVE_FORM, or TILTAK_VAGUE_WITHOUT_NECESSITY",
+      "tiltak_imperative_form_detection_nb": "Tiltak formulert som pålegg eller prosjekterende instruksjon. Kjennetegn: 'Skal utbedres...', 'Må utføres i henhold til...', 'Det kreves at...'. Ikke trigge på 'skal' alene når ordet står i en formåls-/funksjonsleddsetning innenfor en anbefalingsramme, f.eks. 'Det anbefales å ... for at vann skal kunne ledes ...' eller teknisk funksjonsbeskrivelse som 'overflatevann skal ledes ...'. Korrekt form er anbefaling: 'Det anbefales å...', 'Bør utbedres...', 'Videre undersøkelser anbefales...'",
+      "tiltak_vague_without_necessity_detection_nb": "Tiltak er vagt formulert ved TG3 uten å gjøre det klart at utbedring er nødvendig. Kjennetegn: 'Kan vurderes...', 'Eventuelt kan...', 'Kan på sikt...'. Ved TG3 kreves mer forpliktende anbefaling om nødvendig handling.",
+      "consequence_as_tiltak_detection_nb": "Tiltak-feltet beskriver kjøperkonsekvens (kostnader, brukspåvirkning) i stedet for konkret handling. Kjennetegn: 'Må påregne kostnader...', 'Kjøper må være oppmerksom...', 'Forholdet vil medføre...'"
+    }
+  },
+  "product_owner_rulings_nb": {
+    "observation_as_aarsak": "Observasjon eller begrensning er gyldig Årsak når den faktisk fungerer som begrunnelse for rapportens valgte TG/avvik. Dette kan være fordi observasjonen selv beskriver det konkrete forholdet/kriteriet som takstmannen legger til grunn. Observasjon er ikke automatisk gyldig: OBSERVATION_AS_AARSAK brukes når teksten bare beskriver noe sett, målt eller gjort uten å begrunne TG/avviket. Teknisk rotårsak er ikke et universelt krav. Rapportens faktiske TG er routing premise; Validert skal ikke bruke Årsak-vurderingen til å regradere punktet eller flagge at observasjonen eventuelt kunne tilsi en annen TG.",
+    "limitation_as_risk": "Begrensning er gyldig risiko når den navngir skjult teknisk risikokategori. LIMITATION_USED_AS_RISK_SUBSTITUTE brukes kun for ren dokumentasjonsbegrensning uten navngitt teknisk risiko."
+  },
+  "explicit_subsection_headings": {
+    "aarsak": [
+      "VURDERING",
+      "ÅRSAK",
+      "ARSAK",
+      "AARSAK",
+      "AVVIK/ÅRSAK",
+      "AVVIK/ARSAK"
+    ],
+    "risiko": [
+      "RISIKO",
+      "RISIKO/KONSEKVENS"
+    ],
+    "konsekvens": [
+      "KONSEKVENS",
+      "RISIKO/KONSEKVENS",
+      "KONSEKVENS/TILTAK"
+    ],
+    "anbefalt_tiltak": [
+      "ANBEFALT TILTAK",
+      "KONSEKVENS/TILTAK"
+    ]
+  },
+  "regime_date_rules": {
+    "ns2025_effective_from": "2026-07-01",
+    "transition_dec_2025_from": "2025-12-17",
+    "transition_2026_from": "2026-01-01",
+    "full_2026_from": "2026-07-01",
+    "report_regime_labels": {
+      "pre_2025": "PRE_2025",
+      "transition_dec_2025": "TRANSITION_DEC_2025",
+      "transition_2026": "TRANSITION_2026",
+      "full_2026": "FULL_2026"
+    }
+  },
+  "tgiu_field_definitions": {
+    "_description_nb": "Evaluering av TGIU-punkter. TGIU-punkter skal IKKE evalueres mot feltdefinisjonene for aarsak/risiko/konsekvens/anbefalt_tiltak. TGIU-punkter skal kun evalueres mot de fire TGIU-spesifikke feiltypene definert under.",
+    "_legal_basis_nb": "NS 3600:2018/2025 punkt 12.1 og 13.1 siste avsnitt. Forskrift til avhendingsloven § 2-14 tredje ledd gir særskilt 'bør'-krav for krypkjeller.",
+    "TGIU_MISSING_REASON": {
+      "description_nb": "TGIU gitt uten tilstrekkelig begrunnelse av hvorfor bygningsdelen ikke var mulig å undersøke.",
+      "correct_content_nb": "Forklaring av hvorfor inspeksjon ikke var mulig: ingen inspeksjonsluke, luke fastskrudd/låst, tak tildekt med snø, lukket konstruksjon uten destruktive inngrep, etc.",
+      "error_signatures_nb": [
+        "Kun 'lukket, ingen tilkomst' uten forklaring av hvorfor",
+        "Kun 'ikke undersøkt' uten kontekst",
+        "Ren konstatering av tilstand uten begrunnelse"
+      ]
+    },
+    "TGIU_MISSING_FURTHER_INVESTIGATION": {
+      "description_nb": "TGIU gitt uten anbefaling om ytterligere undersøkelser.",
+      "correct_content_nb": "Eksplisitt anbefaling om videre undersøkelser.",
+      "error_signatures_nb": [
+        "TGIU-punkt uten noen form for anbefaling om videre undersøkelser",
+        "Kun beskrivelse av hva som ikke ble undersøkt, uten veiledning videre"
+      ]
+    },
+    "TGIU_MISSING_MOISTURE_FLAG": {
+      "description_nb": "Bygningsdel som er eller åpenbart kan være særlig fuktutsatt er gitt TGIU uten at fuktrisiko er tatt stilling til.",
+      "applies_to_building_parts_nb": [
+        "krypkjeller",
+        "rom under terreng",
+        "yttertak med eldre tekking",
+        "våtrom",
+        "innvendig isolerte vegger under terreng"
+      ],
+      "correct_content_nb": "Eksplisitt vurdering av fuktrisiko.",
+      "note_nb": "Skal kun fyres når bygningsdelen er reell risikokonstruksjon."
+    },
+    "TGIU_CRAWLSPACE_MISSING_RISK_CONSEQUENCE": {
+      "description_nb": "Krypkjeller gitt TGIU uten at skaderisiko og konsekvens av manglende inspeksjon er omtalt.",
+      "legal_basis_nb": "Forskrift § 2-14 tredje ledd.",
+      "applies_only_to_nb": "Skal kun fyres på krypkjeller-punkter.",
+      "correct_content_nb": "Omtale av skaderisiko og konsekvens ved manglende inspeksjon av krypkjeller."
+    }
+  },
+  "scoring_integration": {
+    "_note_nb": "Denne filen er ikke eneansvarlig for feil-til-straff-mapping. Mapping av feiltyper til poengtrekk ligger i den separate aktive mapping-filen. Dommer B returnerer strukturerte feilklassifiseringer; scoring-laget slår opp poengverdier i mapping-tabellen.",
+    "source_of_truth": "arkat_error_to_deduction_mapping_v1_1_2.json",
+    "integration_contract": "See 'integration_contract' section in the mapping file for input/output schema."
+  },
+  "section_boundary_headings": [
+    "KOSTNADSKLASSE VED TG3",
+    "Nøkkelfakta",
+    "Hvordan kontrollen er utført",
+    "Konklusjon bygningsdel",
+    "Oppsummering av bygningsdel",
+    "Oppsummering avvik",
+    "Seksjonsnotat",
+    "VÆR OPPMERKSOM PÅ",
+    "TILLEGGSOPPLYSNINGER"
+  ],
+  "edition_scope": {
+    "NS3600:2025": "For Årsak, use the report's actual TG as routing premise and the applicable NS 3600:2025 criterion context as support for determining whether the report states the justification for that TG. Do not re-grade.",
+    "NS3600:2018": "Historical reports remain evaluated under their resolved 2018/regulatory regime. Do not use NS 3600:2025 criterion tables as substantive support for a 2018 report. Any criterion context must come from the lawfully applicable 2018/regulatory source."
+  }
+}

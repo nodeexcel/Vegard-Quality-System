@@ -13,16 +13,21 @@ ACTIVE = ROOT / "files/MANIFEST.json"
 OUTPUT = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
 
 CANDIDATE_ASSETS = (
+    "arkat_semantic_rules_v1_3_0.json",
+    "arkat_canonical_examples_v1_3_0.json",
+    "dommer_b_system_prompt_v14.md",
     "candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
     "candidates/a3_a4_v2/validert_phase_a_semantic_admission_rules_v1_0.json",
-    "candidates/a3_a4_v2/validert_punkt_for_punkt_scoring_hooks_phase_a_v1_0.json",
-    "candidates/a3_a4_v2/arkat_error_to_deduction_mapping_phase_a_v1_0.json",
-    "candidates/a3_a4_v2/rag_scoring_model_validert_phase_a_v1_0.json",
-    "candidates/a3_a4_v2/validert_governed_regime_decision_v2.0_approved.md",
-    "candidates/a3_a4_v2/validert_a4_acceptance_specification_v2.0_frozen.md",
-    "candidates/a3_a4_v2/validert_a4_approved_variances_v2_1.json",
-    "candidates/a3_a4_v2/APPROVAL_RECORD.txt",
+    "candidates/a3_a4_v2/validert_governed_regime_decision_v2.1_approved.md",
+    "candidates/a3_a4_v2/ACTIVE_RUNTIME_EVIDENCE.md",
+    "candidates/a3_a4_v2/CRITERION_CONTEXT_ROUTING_EVIDENCE.md",
 )
+
+SUPERSEDED_ACTIVE_ASSETS = {
+    "arkat_semantic_rules_v1_2_3.json",
+    "arkat_canonical_examples_v1_1_1.json",
+    "dommer_b_system_prompt_v13.md",
+}
 
 RUNTIME_FILES = (
     "backend/app/services/phase_a_contracts.py",
@@ -32,9 +37,9 @@ RUNTIME_FILES = (
     "backend/app/services/phase_a_regime.py",
     "backend/app/services/phase_a_governed_retrieval.py",
     "backend/app/services/phase_a_assessment.py",
+    "backend/app/services/validert_files.py",
     "backend/app/services/phase_a_scoring.py",
     "backend/app/services/phase_a_projection.py",
-    "backend/app/services/arkat_semantic_pipeline.py",
     "backend/scripts/run_phase_a_understanding.py",
     "backend/scripts/run_phase_a_shadow_analysis.py",
     "backend/scripts/verify_phase_a_frozen_acceptance.py",
@@ -66,11 +71,15 @@ def governed_entries(paths: tuple[str, ...]) -> list[dict[str, str]]:
 
 def main() -> int:
     active = json.loads(ACTIVE.read_text(encoding="utf-8"))
+    active_files = [
+        entry for entry in active["files"]
+        if entry.get("path") not in SUPERSEDED_ACTIVE_ASSETS
+    ]
     payload = {
         "version": "a3-a4-v2-candidate-implementation-1",
         "generate_on_packaging": False,
         "notes": "Hash-pinned shadow candidate; active signed v46 manifest is referenced and never mutated.",
-        "files": [*active["files"], *governed_entries(CANDIDATE_ASSETS)],
+        "files": [*active_files, *governed_entries(CANDIDATE_ASSETS)],
         "runtime_code_files": entries(RUNTIME_FILES),
         "test_files": entries(TEST_FILES),
         "shadow_only": True,
