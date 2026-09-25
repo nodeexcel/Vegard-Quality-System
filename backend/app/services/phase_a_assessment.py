@@ -1551,6 +1551,8 @@ def _semantic_konsekvens_supporting_quotes(
         r"\bf[aå]r\s+ikke\s+luften\s+sirkulert\s+skikkelig\b[^.;]{0,220}",
         r"\b(?:dårligere\s+inneklima|høyere\s+luftfuktighet|kondens|biologisk\s+vekst)\b[^.;]{0,220}",
         r"\b(?:omfattende|kostbar)\s+(?:utbedring|rehabilitering|oppfølging)\b[^.;]{0,220}",
+        r"\b(?:kan|vil|medf[øo]rer?|f[øo]rer\s+til|resulterer?\s+i)\b[^.;]{0,180}"
+        r"\b(?:trekk|varmetap|kuldebro(?:er)?|utetthet(?:er)?|luftlekkasje(?:r)?)\b[^.;]{0,120}",
         r"\b(?:g[aå]r\s+i\s+anslaget|sl[aå]r\s+i\s+karm(?:en)?|binder)\b[^.;]{0,160}"
         r"(?:\bved\s+funksjonsprøving\b|\bved\s+bruk\b|\bn[aå]r\s+den\s+(?:åpnes|lukkes)\b)?",
     )
@@ -1872,6 +1874,22 @@ def _normalize_semantic_candidate(
                 "proposed_finding_type": None,
                 "explanation": (
                     "The same bound point already states a concrete practical effect or consequence."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.KONSEKVENS
+        and candidate.decision == AssessmentDecision.DEFICIENT
+        and candidate.proposed_finding_type == "TECHNICAL_DEVELOPMENT_AS_KONSEKVENS"
+        and _semantic_konsekvens_present(segment)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.SATISFIED,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "The same bound point already states concrete practical effects or buyer-facing consequences, "
+                    "so technical development wording does not remain a separate consequence deficiency."
                 ),
             }
         )

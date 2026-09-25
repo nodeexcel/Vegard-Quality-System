@@ -499,7 +499,10 @@ _TGIU_RE = re.compile(
 
 def _context_type(text: str, start: int, end: int, explicit_tg: str | None, title: str = "") -> tuple[str | None, str]:
     """Classify from the physical section, never from one repeated phrase alone."""
-    context = (title + " " + text[max(0, start - 120):min(len(text), start + 220)]).casefold()
+    # For physical point headings we classify from the point's own heading/body,
+    # not trailing wording from the previous point.
+    context_start = start if title.strip() else max(0, start - 120)
+    context = (title + " " + text[context_start:min(len(text), start + 220)]).casefold()
     title_low = title.casefold()
     if explicit_tg == "TGIU":
         return "TGIU", "tgiu"

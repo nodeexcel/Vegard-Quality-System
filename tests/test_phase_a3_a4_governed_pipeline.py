@@ -661,6 +661,38 @@ def test_satisfied_consequence_normalizes_to_tiltak_as_konsekvens_when_only_acti
     assert normalized.proposed_finding_type == "TILTAK_AS_KONSEKVENS"
 
 
+def test_technical_development_consequence_normalizes_to_satisfied_when_same_point_states_practical_effects():
+    quote = (
+        "Konsekvens/tiltak "
+        "Avvik rundt innsettingsdetaljer kan føre til utettheter, med risiko for "
+        "fuktinntrenging, trekk og varmetap."
+    )
+    span = {
+        "evidence_id": "evidence_consequence_effects_01", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_consequence_effects_01", "kind": "report_point", "title": "Ytterdører",
+        "section_context": "UTVENDIG", "professional_subject": "Ytterdører", "point_label": "3.2",
+        "tg_grade": "TG2", "point_type": "graded", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": "Ytterdører", "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id, retrieval_ids=["retrieval_consequence_effects_01"],
+        rule_category=RuleCategory.KONSEKVENS, decision=AssessmentDecision.DEFICIENT,
+        explanation="Only technical development is stated.", evidence_ids=[span["evidence_id"]],
+        proposed_finding_type="TECHNICAL_DEVELOPMENT_AS_KONSEKVENS",
+    )
+    assert _semantic_konsekvens_present(segment) is True
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+    assert normalized.decision == AssessmentDecision.SATISFIED
+    assert normalized.proposed_finding_type is None
+
+
 def test_non_triggered_methodology_abstain_normalizes_to_satisfied():
     quote = "Garasje\nAnvendelse"
     span = {

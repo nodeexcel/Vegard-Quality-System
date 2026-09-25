@@ -743,6 +743,10 @@ def test_oredalsveien_cross_page_titles_and_no_tg_sections_bind_to_correct_point
     assert by_title["Elektrisk anlegg"].tg_grade is None
     assert by_title["Elektrisk anlegg"].point_type == "electrical_no_tg"
 
+    assert "Overflater - gulv" in by_title
+    assert by_title["Overflater - gulv"].tg_grade == "TG2"
+    assert by_title["Overflater - gulv"].point_type == "graded"
+
     titles = {item.title for item in primary}
     assert "HELSE, MILJØ OG SIKKERHET" not in titles
     assert "Tilstanden er vurdert ut fra den forenklede og begrensede kontrollen" not in titles
