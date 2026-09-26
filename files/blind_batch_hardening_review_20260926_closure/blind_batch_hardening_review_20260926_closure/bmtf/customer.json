@@ -1,0 +1,76 @@
+{
+  "id": 0,
+  "filename": "Tilstandsrapport – Storevegen 44 - blindtest-bmtf.pdf",
+  "report_system": "phase_a_shadow_candidate",
+  "building_year": null,
+  "uploaded_at": "2026-09-25T13:41:49Z",
+  "overall_score": null,
+  "quality_score": null,
+  "completeness_score": null,
+  "compliance_score": null,
+  "components": [],
+  "findings": [],
+  "extracted_text": null,
+  "phase_a_shadow": true,
+  "ai_analysis": {
+    "meta": {
+      "schema_version": "1.4",
+      "analysis_timestamp_utc": "2026-09-25T13:41:49Z",
+      "document_title": "Tilstandsrapport – Storevegen 44 - blindtest-bmtf.pdf"
+    },
+    "score_total": 100,
+    "score_band": "",
+    "score_by_category": [
+      {
+        "category_id": "A",
+        "category_name": "ARKAT-kvalitet (TG2/TG3)",
+        "deduction": 0,
+        "max_deduction": 40
+      },
+      {
+        "category_id": "B",
+        "category_name": "TG-setting og konsistens",
+        "deduction": 0,
+        "max_deduction": 20
+      },
+      {
+        "category_id": "C",
+        "category_name": "TGIU og undersøkelsesbegrensninger",
+        "deduction": 0,
+        "max_deduction": 15
+      },
+      {
+        "category_id": "D",
+        "category_name": "Klarspråk og struktur",
+        "deduction": 0,
+        "max_deduction": 15
+      },
+      {
+        "category_id": "E",
+        "category_name": "Metodikk og lovforankring",
+        "deduction": 0,
+        "max_deduction": 10
+      },
+      {
+        "category_id": "F",
+        "category_name": "Lovlighetsmangler",
+        "deduction": 0,
+        "max_deduction": 20
+      }
+    ],
+    "top_score_drivers": [],
+    "findings": [],
+    "improvements": [],
+    "disclaimers": [],
+    "gate": {
+      "active": true,
+      "blocked_96": false
+    }
+  },
+  "scoring_result": null,
+  "public_feedback": {
+    "version": "feedback_v11_public_v1",
+    "points_overview": [],
+    "findings": []
+  }
+}

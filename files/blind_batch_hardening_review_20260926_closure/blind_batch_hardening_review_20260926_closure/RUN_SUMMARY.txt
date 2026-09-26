@@ -1,0 +1,27 @@
+Blind-batch hardening rerun package
+Date: 2026-09-26
+Candidate manifest SHA-256: a17db000a5949f6d21e52dc3a0c90612d6be7356f6adf05e2ac0325f8026963a
+
+This bundle contains fresh rerun artifacts from one exact candidate state for all three blind-batch reports:
+
+1. BMTF
+Source file: Tilstandsrapport – Storevegen 44 - blindtest-bmtf.pdf
+Source SHA-256: 9ca6448b7434fbd7c0916ba601c677c8cba3ebe6a2f9f7d7950b6ed0617e0572
+A2 inventory: 20 TG2 / 0 TG3 / 2 TGIU
+A4 result: 0 raw findings / 0 normalized customer items
+Score/state: 100 / complete_without_findings / score_valid=true / gate_blocked=false
+
+2. Befar
+Source file: tilstandsrapport - befar - blindtest.pdf
+Source SHA-256: 7241d40889042966d70cdb362d96a5f034b05d6b7b7ceac8b76500ad23236ad0
+A2 inventory: 10 TG2 / 1 TG3 / 0 TGIU
+A4 result: 2 raw findings / 2 normalized customer items
+Score/state: 93 / complete_with_findings / score_valid=true / gate_blocked=true
+
+3. iVerdi/Fremtind Oredalsveien
+Source file: tilstandsrapport - ivit-fremtind - blindtest.pdf
+Source SHA-256: 6c98f20e98552fb16894ca03c1ff6aff8c5ed4802e84340ae7898044851799c5
+A2 inventory: 22 TG2 / 10 TG3 / 1 TGIU
+A4 result: 31 raw findings / 18 normalized customer items
+Category raw deductions: A 77 / C 4 / E 17
+Score/state: 46 / complete_with_findings / score_valid=true / gate_blocked=true

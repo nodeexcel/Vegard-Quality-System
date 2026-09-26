@@ -1,0 +1,101 @@
+{
+  "id": 0,
+  "filename": "tilstandsrapport - befar - blindtest.pdf",
+  "report_system": "phase_a_shadow_candidate",
+  "building_year": null,
+  "uploaded_at": "2026-09-25T13:41:57Z",
+  "overall_score": null,
+  "quality_score": null,
+  "completeness_score": null,
+  "compliance_score": null,
+  "components": [],
+  "findings": [],
+  "extracted_text": null,
+  "phase_a_shadow": true,
+  "ai_analysis": {
+    "meta": {
+      "schema_version": "1.4",
+      "analysis_timestamp_utc": "2026-09-25T13:41:57Z",
+      "document_title": "tilstandsrapport - befar - blindtest.pdf"
+    },
+    "score_total": 93,
+    "score_band": "",
+    "score_by_category": [
+      {
+        "category_id": "A",
+        "category_name": "ARKAT-kvalitet (TG2/TG3)",
+        "deduction": 7,
+        "max_deduction": 40
+      },
+      {
+        "category_id": "B",
+        "category_name": "TG-setting og konsistens",
+        "deduction": 0,
+        "max_deduction": 20
+      },
+      {
+        "category_id": "C",
+        "category_name": "TGIU og undersøkelsesbegrensninger",
+        "deduction": 0,
+        "max_deduction": 15
+      },
+      {
+        "category_id": "D",
+        "category_name": "Klarspråk og struktur",
+        "deduction": 0,
+        "max_deduction": 15
+      },
+      {
+        "category_id": "E",
+        "category_name": "Metodikk og lovforankring",
+        "deduction": 0,
+        "max_deduction": 10
+      },
+      {
+        "category_id": "F",
+        "category_name": "Lovlighetsmangler",
+        "deduction": 0,
+        "max_deduction": 20
+      }
+    ],
+    "top_score_drivers": [],
+    "findings": [],
+    "improvements": [],
+    "disclaimers": [],
+    "gate": {
+      "active": true,
+      "blocked_96": true
+    }
+  },
+  "scoring_result": null,
+  "public_feedback": {
+    "version": "feedback_v11_public_v1",
+    "points_overview": [],
+    "findings": [
+      {
+        "point_id": "3",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer.",
+        "evidence": {
+          "page": null,
+          "snippet": "TG 2 3. ETASJESKILLER\nNøkkelfakta\nMålinger: Lengde og bredde av leiligheten\nType konstruksjon: Trekonstruksjon\nTilleggsbeskrivelse bygningsdel\nPlanavvik målt med laser viser høydeforskjell på opptil 47 mm i lengderetning på 7,1 meter, og 36 mm i\nbredderetning på 3,6 meter, planavvik anses som unormalt forhøyet i forhold til hva som er innen for kravet til\nplanhet.\nHvordan kontrollen er utført\nKontrollen omfatter synlige forhold knyttet til planhet, deformasjoner, bevegelser, knirk og eventuelle tegn til\nsvekkelser eller skadeutvikling. Det vurderes også forhold som kan påvirke konstruksjonens stabilitet,\nbruksegenskaper og opplevelse av skjevheter.\nOppsummering av bygningsdel\nTG 2 Vesentlige avvik\nPlanavvik er målt med laser, opptil 47 mm over 7,1 m i lengderetning og 36 mm over 3,6 m i bredderetning. Det er\nregistrert vesentlige avvik utover toleransegrenser som kan påvirke funksjon og bruk av rommet, og skjevhetene\nkan ha sammenheng med setninger fra opprinnelig byggeår. Utbedring kan være omfattende og kostbar, berøre\nflere bygningsdeler og bør vurderes ved behov.\n1. Avvik/Årsak: Lokalt avvik >20mm / Total avvik >30mm\nLengde og bredde av leiligheten\nDet er utført målinger av planavvik på gulv på lengden og bredden av boligen.\nRisiko/Konsekvens\nDet registreres vesentlige avvik utover toleransegrenser. Slike forhold kan påvirke funksjon og bruk av\nrommet. Skjevhetene kan ha sammenheng med setninger fra opprinnelig byggeår.\nAnbefalte tiltak\nUtbedring av slike forhold kan være omfattende, kostbart og berøre flere bygningsdeler, ettersom\narbeidet ofte innebærer inngrep i både konstruksjon og overflater. Utbedring bør vurderes ved behov\n3.1 BAD"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 5,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "3.1.4",
+        "message": "Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "TG 2 3.1.4 BAD - SANITÆR OG RØR\nNøkkelfakta Utstyr\nÅrstall/alder: Ukjent Åpen dusj\nUtstyr: Åpen dusj, Servantinnredning, Vegghengt Servantinnredning\ntoalett, Speil over innredning Vegghengt toalett\nSanitær: Vannrør og avløp Speil over innredning\nOverflater: Fliser på gulv og vegger\nKontrollpunkter\nEr vanntrykket tilfredsstillende? Ja\nEr vannmengden tilfredsstillende? Ja\nEr avrenningen tilfredsstillende? Ja\nObserveres unormal endring i vannstanden i sluket\nved tapping? Nei\nHvordan kontrollen er utført\nVed kontroll av sanitær og utstyr vurderes blant annet servant, toalett, dusjløsninger, sluk, rørføringer,\nvarmtvannsbereder og øvrige synlige VVS-installasjoner. Det kontrolleres for tegn til lekkasje, slitasje, funksjonssvikt\nog manglende lekkasjesikring.\nOppsummering av bygningsdel\nTG 2 Vesentlige avvik\nDokumentasjon for den innebygde sisternen er ikke fremlagt, og drenering for synliggjøring av lekkasje mangler.\nDet anbefales å fremskaffe tilgjengelig dokumentasjon. Dersom dokumentasjon ikke foreligger, bør nærmere\nundersøkelser gjennomføres. Fremtidig vedlikehold og eventuelle utskiftninger bør planlegges ut fra den økte\nusikkerheten.\n1. Avvik/Årsak: Manglende dokumentasjon for installasjon (innebygget sisterne)\nDet foreligger ingen dokumentasjon på installasjon eller utførelse av den innebygde sisternen, samt\nmanglende drenering for synliggjøring av lekkasje.\nRisiko/Konsekvens\nManglende dokumentasjon medfører at utførelse, lekkasjesikring og inspeksjonsmuligheter ikke kan\nverifiseres. Det kan derfor ikke fastslås om installasjonen er utført i henhold til krav og produsentens\nmonteringsanvisninger som gjaldt på utførelsestidspunktet. Eventuelle skjulte feil, mangler eller\nlekkasjer kan derfor ikke utelukkes, noe som medfører økt usikkerhet ved vurderingen av\ninstallasjonens tilstand.\nAnbefalte tiltak\nDet anbefales å fremskaffe tilgjengelig dokumentasjon dersom dette er mulig. Dersom dokumentasjon\nikke kan fremskaffes og det er behov for en sikrere vurdering av installasjonens utførelse eller tilstand,\nbør det gjennomføres nærmere undersøkelser. Fremtidig vedlikehold og eventuelle utskiftninger bør\nplanlegges med utgangspunkt i den økte usikkerheten.\nBilder\nBilde viser svelling av sideskrog til innredning"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 2,
+        "affects_96_gate": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+Locked regression suite executed from the same candidate state as the bundled reruns.
+
+Pytest result:
+253 passed
+3 skipped
+0 failed
+0 errors
+
+JUnit file:
+locked_regressions.junit.xml

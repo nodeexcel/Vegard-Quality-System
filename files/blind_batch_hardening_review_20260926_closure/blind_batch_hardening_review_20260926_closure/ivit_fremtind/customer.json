@@ -1,0 +1,293 @@
+{
+  "id": 0,
+  "filename": "tilstandsrapport - ivit-fremtind - blindtest.pdf",
+  "report_system": "phase_a_shadow_candidate",
+  "building_year": null,
+  "uploaded_at": "2026-09-25T13:43:29Z",
+  "overall_score": null,
+  "quality_score": null,
+  "completeness_score": null,
+  "compliance_score": null,
+  "components": [],
+  "findings": [],
+  "extracted_text": null,
+  "phase_a_shadow": true,
+  "ai_analysis": {
+    "meta": {
+      "schema_version": "1.4",
+      "analysis_timestamp_utc": "2026-09-25T13:43:29Z",
+      "document_title": "tilstandsrapport - ivit-fremtind - blindtest.pdf"
+    },
+    "score_total": 46,
+    "score_band": "",
+    "score_by_category": [
+      {
+        "category_id": "A",
+        "category_name": "ARKAT-kvalitet (TG2/TG3)",
+        "deduction": 40,
+        "max_deduction": 40
+      },
+      {
+        "category_id": "B",
+        "category_name": "TG-setting og konsistens",
+        "deduction": 0,
+        "max_deduction": 20
+      },
+      {
+        "category_id": "C",
+        "category_name": "TGIU og undersøkelsesbegrensninger",
+        "deduction": 4,
+        "max_deduction": 15
+      },
+      {
+        "category_id": "D",
+        "category_name": "Klarspråk og struktur",
+        "deduction": 0,
+        "max_deduction": 15
+      },
+      {
+        "category_id": "E",
+        "category_name": "Metodikk og lovforankring",
+        "deduction": 10,
+        "max_deduction": 10
+      },
+      {
+        "category_id": "F",
+        "category_name": "Lovlighetsmangler",
+        "deduction": 0,
+        "max_deduction": 20
+      }
+    ],
+    "top_score_drivers": [],
+    "findings": [],
+    "improvements": [],
+    "disclaimers": [],
+    "gate": {
+      "active": true,
+      "blocked_96": true
+    }
+  },
+  "scoring_result": null,
+  "public_feedback": {
+    "version": "feedback_v11_public_v1",
+    "points_overview": [],
+    "findings": [
+      {
+        "point_id": "Takkonstruksjon_Loft",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres.",
+        "evidence": {
+          "page": null,
+          "snippet": "Takkonstruksjon/Loft\nPunktet må sees i sammenheng med Taktekking\nBeskrivelse\nTaket er et saltak med sperrekonstruksjon og undertak av rupanel. Det\ner oppvarmet loftsrom.\nDet er derfor ingen loftsrom og kontrollere.\nVurdering av avvik:\n• Det er synlig nedbøyning i takflaten ved besiktning utvendig.\nKonsekvens/tiltak\n• Ingen behov for å utbedre dette, men anbefales å holdes under\noppsikt."
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 7,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Yttervegger_Veggkonstruksjon",
+        "message": "Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Yttervegger/Veggkonstruksjon\nBeskrivelse\nYtterveggene er av murkonstruksjon med pussede murfasader.\nGavlevegger har trekonstruksjon med liggende trekledning.\nDet ble utført lokale utbedringer murpuss i 2018 og 2023 iflg tidligere\nsalgsannonse.\nVurdering av avvik:\n• Det er påvist sprekker i murte/pussede fasader\n• Det er registrr\nKonsekvens/tiltak\n• Lokal utbedring må utføres\n• Det er registrert behov for vedlikehold. Det anbefales å utføre jevnlig\nog grundig vedlikehold av trekledning for å bevare konstruksjonens\nlevetid og redusere risiko for råte-/fuktsakder på trekledning.\nDet er registrert områder med riss på mur ved vindu som er endret\nstørrelse mot øst.\nTørkesprekker og værslitasje på trekledning."
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 1,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "Terrasser_og_plattinger_på_terreng",
+        "message": "Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Terrasser og plattinger på terreng\nBeskrivelse\nDeter utført mark terrasse mot øst og nord.\nDet hvor det er synlig fundamentering er det utført jordspyd.\nVurdering av avvik:\n• Det er påvist fukt-/råteskader i konstruksjonen.\n• Det er påvist større skader og deformasjoner.\nKonsekvens/tiltak\n• Råteskadet trekledning må skiftes ut for å hindre videre forringelse av\nkonstruksjonen og redusere risikoen for ytterligere skader, svekket\nbæreevne og kan føre til personskader.\n• Det er tydelig skjevheter i konstruksjonen som har oppstått pga\nfundamentering/setninger\nKostnadsestimat: 20 000 - 100 000"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 1,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "Etasjeskiller_og_bærende_konstruksjoner",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. TG2-punktet beskriver ikke et nødvendig eller anbefalt tiltak i substans.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv hva som bør gjøres for det konkrete punktet.",
+        "evidence": {
+          "page": null,
+          "snippet": "Etasjeskiller og bærende konstruksjoner\nBeskrivelse\nEtasjeskillet er utført som trebjelkelag.\nDeler av kjeller har tregulv.\nDet er utført målinger med linjelaser på befaringsdagen.\nVurdering av avvik:\n• Det er registrert nivåforskjell mellom rommene som er større enn 25\nmm.\n• Det er målt total høydeforskjell > 30 mm.\nKonsekvens/tiltak\n20mm retningsavvik på soverom mot sør.\nDet er målt 31mm retningsavvik på gulv i gang i kjeller.\n25 mm retningsavvik på gulv på soverom og kjellerstue i kjeller.\nDette anses som vesentlig skjevheter."
+        },
+        "obligation_class": "standard_methodology",
+        "deduction": 8,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Innvendige_dører",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Innvendige dører\nBeskrivelse\nInnerdører av typen slette, formpresset og heltre med speil.\nDørene i kjeller er malt i 2024.\nVurdering av avvik:\n• Det er påvist monteringsavvik og skjevheter på enkelte dører.\nKonsekvens/tiltak\n• Enkelte dører må justeres.\nDør til soverom mot sør i 2.etg og dør til bod går i anslaget ved\nfunksjonsprøving."
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 6,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "1.1",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper. Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres. Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Generell\nBeskrivelse\nVåtrommet er oppført etter tekniske forskrifter i perioden 1997–2010.\nDet foreligger ingen dokumentasjon.\nVurdering av avvik:\n• Våtrommet må oppgraderes for å tåle normal bruk etter dagens krav.\nKonsekvens/tiltak\n• Våtrommet må totalrenoveres. Alle forhold med tettesjikt, våtsone,\nsluk m.m. må dokumenteres.\nKostnadsestimat: 200 000 - 500 000"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 8,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "1.2",
+        "message": "TG2-punktet beskriver ikke et nødvendig eller anbefalt tiltak i substans.",
+        "what_to_change": "Beskriv hva som bør gjøres for det konkrete punktet.",
+        "evidence": {
+          "page": null,
+          "snippet": "Overflater, vegger og himling\nBeskrivelse\nVåtrommet har malte flis på vegg og malt glassfiber tak.\nDet er utført glassbyggerstein mot dusjhjørne.\nVurdering av avvik:\n• Det er vindu/dør med ikke fuktbestandige materialer i våtsonen (ved\nvask, dusj, badekar, osv.), løsningen eller byggematerialet er uegnet.\nKonsekvens/tiltak\n• Dersom det ikke gjøres tiltak, kan dette medføre oppfukting,\noppsvelling og forringelse av materialer over tid og fuktskader på\ntilstøtende konstruksjoner.\nDet er vindu i våtsonen til badekar, hvor gerikter og foringer ikke er\nutført med fuktbestandige materialer."
+        },
+        "obligation_class": "standard_methodology",
+        "deduction": 3,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "1.3",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres.",
+        "evidence": {
+          "page": null,
+          "snippet": "Overflater gulv\nBeskrivelse\nVåtrommet har malt flislagt gulv med elektriske varmekabler. Det er\nmålt områder med flatt gulv i dusjsonen.\nVurdering av avvik:\n• Det er påvist avvik i fallforhold til sluk i forhold til krav i forskrift på\nbefaringstidspunktet.\nKonsekvens/tiltak\n• Det anbefales å kontrollere fallforholdene og utbedre disse slik at krav\ntil fall mot sluk oppfylles. Ved større avvik kan det være nødvendig å\nbygge opp gulvet på nytt i henhold til gjeldende våtromsnorm. Arbeidet\nbør utføres av kvalifisert fagperson.\nDet oppstår flassing av maling ved bruk av baderommet overtid."
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 7,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "1.5",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper. Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres. Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Ventilasjon\nBeskrivelse\nVåtrommet har el.vifte på yttervegg.\nTilluft under dørblad.\nVurdering av avvik:\n• Ødelagt el.vifte\nKonsekvens/tiltak\n• El.vifte er ødelagt, denne må derfor skiftes av elektriker.\nKostnadsestimat: Under 20 000"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 8,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Generell",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper. Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres. Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Generell\nBeskrivelse\nVåtrommet er oppført etter byggeforskrift fra før 1997. Det foreligger\ningen dokumentasjon.\nVurdering av avvik:\n• Våtrommet må oppgraderes for å tåle normal bruk etter dagens krav.\nKonsekvens/tiltak\n• Våtrommet må totalrenoveres. Alle forhold med tettesjikt, våtsone,\nsluk m.m. må dokumenteres.\nKostnadsestimat: 100 000 - 200 000"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 8,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Overflater_vegger_og_himling",
+        "message": "TG2-punktet beskriver ikke et nødvendig eller anbefalt tiltak i substans.",
+        "what_to_change": "Beskriv hva som bør gjøres for det konkrete punktet.",
+        "evidence": {
+          "page": null,
+          "snippet": "Overflater, vegger og himling\nBeskrivelse\nVåtrommet har panel og malte slette murvegger.\nPanel i innvendig tak.\nVurdering av avvik:\n• Det er påvist at noen fliser har bom (hulrom under).\n• Vegger saltutsalg\nKonsekvens/tiltak\n• Bom (hulrom) under fliser indikerer at de ikke er godt nok festet, noe\nsom øker risikoen for at fliser løsner eller sprekker. Dette kan også gi\nåpninger for fuktinntrengning og på sikt føre til skader i underliggende\nkonstruksjon.\n• Oppstår pga svikt ved drenering og kapillært oppsug.\nDet er registrert fliser med hulrom.\nDet er tydelig saltutslag på vegg, som har medført at maling flasser."
+        },
+        "obligation_class": "standard_methodology",
+        "deduction": 3,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "Vanntett_sjikt_membran_og_sluk",
+        "message": "Punktet oppfyller ikke det gjeldende kvalitetskravet i substans.",
+        "what_to_change": "Suppler punktet slik at det faglige kravet blir tydelig oppfylt.",
+        "evidence": {
+          "page": null,
+          "snippet": "Vanntett sjikt, membran og sluk\nBeskrivelse\nDet mangler kjent vanntett sjikt, både skjult og synlig. Våtrommet har\nplastsluk, og høydeforskjellen fra toppen av sluket til toppen av\nmembranen ved dørterskelen er 23 mm.\nVurdering av avvik:\n• Det er rundt sluk påvist en ikke-fagmessig utførelse av\nmembran/tettesjikt/klemring. Det vil si at overgangen mellom sluk og\ntettesjikt (membran) ikke er utført på en korrekt måte.\n• Våtrommet mangler vanntett sjikt.\nKonsekvens/tiltak\n• Usikker løsning rundt klemring gir økt risiko for at vann kan trenge ned\nmellom membranen og sluket. Dette kan føre til lekkasje og fuktskader i\nunderliggende konstruksjoner over tid.\nIngen synlig membranmansjett eller membran på vaskerommet.\nKostnadsestimat: 20 000 - 100 000"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 5,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "Ventilasjon",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. TG2-punktet beskriver ikke et nødvendig eller anbefalt tiltak i substans.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv hva som bør gjøres for det konkrete punktet.",
+        "evidence": {
+          "page": null,
+          "snippet": "Ventilasjon\nBeskrivelse\nVåtrommet har naturlig ventilasjon via nedtrekksluke på pipe og tilluft\nunder dørblad.\nVurdering av avvik:\n• Våtrommet mangler tilluftsventilering. For at ventilasjonen skal\nfungere, må luft både trekkes ut (avtrekk) og slippes inn (tilluft). Hvis det\nmangler tilluft, får ikke luften sirkulert skikkelig.\nKonsekvens/tiltak\nDet er ikke tilluft til vaskerommet."
+        },
+        "obligation_class": "standard_methodology",
+        "deduction": 8,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Tilliggende_konstruksjoner_våtrom",
+        "message": "Punktet gir ikke en konkret anbefaling om videre undersøkelse.",
+        "what_to_change": "Oppgi hvilken videre undersøkelse som bør utføres og av hvem når det er relevant.",
+        "evidence": {
+          "page": null,
+          "snippet": "Tilliggende konstruksjoner våtrom\nBeskrivelse\nFuktmåling ved hulltaking er ikke foretatt siden det er murvegger mot\nbaderommet.\nKJØKKEN"
+        },
+        "obligation_class": "standard_methodology",
+        "deduction": 4,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "Avtrekk_ventilasjon",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres.",
+        "evidence": {
+          "page": null,
+          "snippet": "Avtrekk/ventilasjon\nBeskrivelse\nManglende avtrekk på toalettrommet.\nDet er tilluft under dørblad.\nVurdering av avvik:\n• Det mangler avtrekkspunkt/ventilasjon/tilluftsløsning i toalettrom.\nKonsekvens/tiltak\n• Det anbefales å etablere ventilasjon/tilluftsløsning for å sikre\ntilstrekkelig luftutskifting.\nKostnadsestimat: Under 20 000"
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 7,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Grunnmur_og_fundamenter",
+        "message": "Punktet forklarer ikke den tekniske risikoen eller mulige skadeutviklingen som kan følge av forholdet. Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper.",
+        "what_to_change": "Beskriv hvilken teknisk utvikling, skade eller funksjonssvikt som kan oppstå dersom forholdet vedvarer. Beskriv konsekvensen separat fra hva som bør utbedres.",
+        "evidence": {
+          "page": null,
+          "snippet": "Grunnmur og fundamenter\nBeskrivelse\nGrunnmuren er av betong.\nVurdering av avvik:\n• Det er registrert stedvis noen riss på grunnmuren.\nKonsekvens/tiltak\n• Rissene har ingen umiddelbart behov for utbedringer.\nHold grunnmuren under oppsikt."
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 7,
+        "affects_96_gate": true
+      },
+      {
+        "point_id": "Oljetank",
+        "message": "Punktet oppgir et utbedringsbehov, men forklarer ikke den konkrete konsekvensen for kjøper.",
+        "what_to_change": "Beskriv konsekvensen separat fra hva som bør utbedres.",
+        "evidence": {
+          "page": null,
+          "snippet": "Oljetank\nBeskrivelse\nTidelige oljetank er fjernet.\nMEn dagtank innvendig er plassert i trappegang.\nVurdering av avvik:\n• Dagntank kan fjernes, siden systemet ikke lenger er i bruk.\nKonsekvens/tiltak\n• Dagtanken bør fjernes i henhold til gjeldende regelverk og\nanbefalinger fra myndighetene, for å unngå potensiell miljø- og\nforurensningsrisiko samt sikre trygg bruk av arealet."
+        },
+        "obligation_class": "validert_product_quality",
+        "deduction": 2,
+        "affects_96_gate": false
+      },
+      {
+        "point_id": "Garasje",
+        "message": "Det frittstående bygget har konkrete beskrevne avvik uten en fullstendig faglig forklaring av årsak, risiko, konsekvens og tiltak.",
+        "what_to_change": "Suppler de konkrete avvikene med nødvendig årsak, risiko, konsekvens og anbefalt tiltak.",
+        "evidence": {
+          "page": null,
+          "snippet": "Garasje\nAnvendelse\nByggeår Kommentar\n2012\nStandard\nStandard fra byggeåret.\nVedlikehold\nBeskrivelse\nDet er gruset gulv og ringmur av lettklinkerblokker.\nBærendekonstruksjon av bindingsverk utvendig kledd med trekledning.\nPulttak oppført med tresperrer utvendig tekket med takshingel.\nDet er montert 2 stk el.billader i 2023.\nTakshingel er ikke egnet for å brukes på slike lave takvinkler.\nBygget er ikke tilstandsvurdert ihht Forskrift til avhendingslova og NS3600. Dette er kun en enkel beskrivelse."
+        },
+        "obligation_class": "standard_methodology",
+        "deduction": 5,
+        "affects_96_gate": false
+      }
+    ]
+  }
+}
