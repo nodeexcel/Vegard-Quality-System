@@ -1823,7 +1823,7 @@ def test_anbefalt_tiltak_retrieval_keeps_governed_field_definition_for_imperativ
     assert "TILTAK_IMPERATIVE_FORM" in json.dumps(field_rule.content, ensure_ascii=False)
 
 
-def test_stable_finding_identity_and_complete_without_findings_rules(tmp_path):
+def test_stable_finding_identity_and_complete_no_findings_rules(tmp_path):
     retriever = _retriever(_catalog(tmp_path), ResolvedResolver())
     understanding = _understanding()
     first = PhaseA4ShadowService(retriever, DeficiencyModel()).analyze(understanding, [RuleCategory.LEGALITY])
@@ -1840,9 +1840,11 @@ def test_stable_finding_identity_and_complete_without_findings_rules(tmp_path):
     assert first.validation_decisions[0].accepted_finding_id == alternate_evidence.validation_decisions[0].accepted_finding_id
 
     satisfied = PhaseA4ShadowService(retriever, SatisfiedModel()).analyze(understanding, [RuleCategory.LEGALITY])
-    assert satisfied.analysis_state.value == "complete_without_findings"
+    assert satisfied.analysis_state.value == "complete_no_findings"
+    assert satisfied.production_compatible_public_payload.status.value == "complete_no_findings"
     abstained = PhaseA4ShadowService(retriever, AbstainingModel()).analyze(understanding, [RuleCategory.LEGALITY])
-    assert abstained.analysis_state.value == "complete_without_findings"
+    assert abstained.analysis_state.value == "complete_no_findings"
+    assert abstained.production_compatible_public_payload.status.value == "complete_no_findings"
 
     blocked_understanding = understanding.model_copy(update={
         "segment_coverage": understanding.segment_coverage.model_copy(update={
@@ -1854,6 +1856,53 @@ def test_stable_finding_identity_and_complete_without_findings_rules(tmp_path):
     )
     assert structurally_blocked.analysis_state.value == "limited"
     assert structurally_blocked.customer_publication_authorized is False
+
+
+def test_legacy_complete_without_findings_roundtrips_to_complete_no_findings():
+    from app.services.phase_a_contracts import PhaseA4Result
+
+    payload = {
+        "run_id": "a4_legacy_roundtrip",
+        "document_hash": "0" * 64,
+        "analysis_state": "complete_without_findings",
+        "retrievals": [],
+        "applicability_plan": [],
+        "assessments": [],
+        "validation_decisions": [],
+        "finding_lineage": [],
+        "score_result": {
+            "score_start": 100,
+            "categories": [],
+            "total_deduction": 0,
+            "score": 100,
+            "gate_threshold": 96,
+            "gate_blocked": False,
+            "score_valid": True,
+        },
+        "normalized_customer_items": [],
+        "production_compatible_public_payload": {
+            "version": "phase_a_public_candidate_v1",
+            "status": "complete_without_findings",
+            "score": 100,
+            "score_valid": True,
+            "gate_blocked": False,
+            "findings": [],
+        },
+        "formal_acceptance_blockers": [],
+        "abstentions": [],
+        "trace_records": [],
+        "model_invocations": [],
+        "shadow_only": True,
+        "customer_publication_authorized": False,
+    }
+
+    result = PhaseA4Result.model_validate(payload)
+
+    assert result.analysis_state.value == "complete_no_findings"
+    assert result.production_compatible_public_payload.status.value == "complete_no_findings"
+    dumped = result.model_dump(mode="json")
+    assert dumped["analysis_state"] == "complete_no_findings"
+    assert dumped["production_compatible_public_payload"]["status"] == "complete_no_findings"
 
 
 def test_legality_l_bu_01_requires_buyer_relevant_point_bound_signal(tmp_path):

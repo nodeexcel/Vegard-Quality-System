@@ -1,0 +1,1 @@
+b6c53bcb76f27dea736bd8883db216efe23ceccca0878d46187a2225dbdd9063  MANIFEST.a3_a4_candidate.json

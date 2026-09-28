@@ -60,11 +60,17 @@ class UnderstandingStatus(str, Enum):
 
 class AnalysisState(str, Enum):
     COMPLETE_WITH_FINDINGS = "complete_with_findings"
-    COMPLETE_WITHOUT_FINDINGS = "complete_without_findings"
+    COMPLETE_WITHOUT_FINDINGS = "complete_no_findings"
     LIMITED = "limited"
     REQUIRES_CLARIFICATION = "requires_clarification"
     UNSUPPORTED = "unsupported"
     FAILED = "failed"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value == "complete_without_findings":
+            return cls.COMPLETE_WITHOUT_FINDINGS
+        return None
 
 
 class AssessmentDecision(str, Enum):

@@ -1,0 +1,22 @@
+BMTF no-findings output-contract correction
+Date: 2026-09-28
+Candidate manifest SHA-256: b6c53bcb76f27dea736bd8883db216efe23ceccca0878d46187a2225dbdd9063
+
+Requested correction:
+- align no-findings output state with the approved contract value `complete_no_findings`
+- keep A4 analysis_state and production-compatible public payload status consistent
+- do not change governance, scoring, or semantic findings
+
+Included evidence:
+- bmtf_a2_input.json
+- bmtf_a4_20260928_contract_fix.json
+- bmtf_customer_20260928_contract_fix.json
+- updated MANIFEST.a3_a4_candidate.json
+- locked_regressions.junit.xml
+
+Verified BMTF result:
+- analysis_state: complete_no_findings
+- public payload status: complete_no_findings
+- score: 100
+- score_valid: true
+- gate_blocked: false
