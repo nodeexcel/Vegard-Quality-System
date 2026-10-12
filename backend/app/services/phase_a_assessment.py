@@ -379,6 +379,24 @@ def _semantic_governance_context_payload(
         if category in arkat_categories and isinstance(semantic_rules, dict)
         else None
     )
+    ac2026_context = [
+        {
+            "retrieval_id": record.retrieval_id,
+            "asset_path": record.asset_path,
+            "asset_sha256": record.asset_sha256,
+            "json_pointer": record.json_pointer,
+            "content_sha256": record.content_sha256,
+            "content": record.content,
+        }
+        for record in rules
+        if record.asset_path.startswith("candidates/a3_a4_v4_ac2026/")
+        and record.asset_path.endswith((
+            "validert_optional_tg_forbidden_meta_rule_v1_0.json",
+            "validert_non_mandatory_assessed_meta_rule_v1_1.json",
+            "validert_points_overview_mapping_v1.1.json",
+            "validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+        ))
+    ]
     return {
         "approved_prompt_asset": {
             "asset_path": "dommer_b_system_prompt_v14.md",
@@ -395,6 +413,7 @@ def _semantic_governance_context_payload(
             "selected_examples": _canonical_example_payload(category, segment),
         },
         "criterion_context": _criterion_context_payload(category, rules),
+        "ac2026_governed_context": ac2026_context,
     }
 
 
@@ -1788,8 +1807,25 @@ def _normalize_semantic_candidate(
         )
     if (
         candidate.rule_category == RuleCategory.METHODOLOGY
+        and segment.point_type in {"electrical_no_tg", "hms_no_tg", "legality_no_tg"}
+        and bool(segment.tg_grade)
+        and any(record.rule_id == "M-TG-FORBIDDEN-01" for record in records)
+    ):
+        return candidate.model_copy(
+            update={
+                "decision": AssessmentDecision.ABSTAIN,
+                "proposed_finding_type": None,
+                "explanation": (
+                    "M-TG-FORBIDDEN-01 applies to the bound no-TG scope, but its category and admission "
+                    "mapping remain unresolved. No scoring, gate, or status fallback is authorized."
+                ),
+            }
+        )
+    if (
+        candidate.rule_category == RuleCategory.METHODOLOGY
         and candidate.decision == AssessmentDecision.ABSTAIN
         and not candidate.proposed_finding_type
+        and _is_supported_non_triggered_methodology(candidate)
     ):
         return candidate.model_copy(
             update={
@@ -2060,6 +2096,8 @@ class DeterministicAssessmentValidator:
                 and assessment.proposed_finding_type in {"MISSING", "MISSING (anbefalt_tiltak)"}
             ):
                 reasons.append("finding_type_not_governed_by_retrieved_rules")
+            if assessment.proposed_finding_type == "M-TG-FORBIDDEN-01":
+                reasons.append("finding_category_mapping_unresolved")
         else:
             reasons.append("no_finding_proposed")
         methodology_rule = next(
@@ -2182,6 +2220,26 @@ def _methodology_rule_requires_arkat(segment: ValidatedSegment) -> bool:
         )
     )
     return has_methodology_disclaimer and has_concrete_deviation
+
+
+def _is_supported_non_triggered_methodology(candidate: AssessmentCandidate) -> bool:
+    if not candidate.retrieval_ids or not candidate.evidence_ids:
+        return False
+    explanation = " ".join(candidate.explanation.casefold().split())
+    non_triggered = bool(re.search(
+        r"\b(?:no methodology deficiency is triggered|"
+        r"retrieved governed methodology rule does not trigger|"
+        r"governed methodology rule is not triggered)\b",
+        explanation,
+    ))
+    material_limitation = bool(re.search(
+        r"\b(?:unresolved|not\s+resolved|cannot\s+be\s+(?:completed|determined|assessed)|"
+        r"unable\s+to\s+(?:complete|determine|assess)|insufficient|unavailable|"
+        r"required\s+assessment\s+(?:cannot|could\s+not)|"
+        r"(?:governance|category|admission)\s+(?:binding|mapping).{0,40}(?:missing|unresolved))\b",
+        explanation,
+    ))
+    return non_triggered and not material_limitation
 
 
 class PhaseA4ShadowService:

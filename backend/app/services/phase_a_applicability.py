@@ -34,6 +34,55 @@ def _is_aggregate_container(segment: ValidatedSegment) -> bool:
     return len(markers) >= 2
 
 
+def _has_traceable_assessment_coverage(
+    segment: ValidatedSegment,
+    segments_by_id: dict[str, ValidatedSegment],
+) -> bool:
+    primary_id = segment.supporting_primary_segment_id
+    if not primary_id:
+        return False
+    primary = segments_by_id.get(primary_id)
+    if primary is None or primary.validation_status != ValidationStatus.VALIDATED:
+        return False
+    if primary.supporting_primary_segment_id:
+        return False
+    if primary.kind == SegmentKind.REPORT_POINT:
+        tg = (primary.tg_grade or "").upper()
+        eligible = (
+            (primary.point_type == "graded" and tg in {"TG2", "TG3"})
+            or primary.point_type in {
+                "tgiu", "electrical_no_tg", "hms_no_tg", "methodology_only", "legality_no_tg",
+            }
+        )
+    else:
+        eligible = primary.kind in {SegmentKind.METHODOLOGY, SegmentKind.LEGALITY, SegmentKind.SECTION}
+    if not eligible:
+        return False
+
+    covered_spans = primary.bound_body_spans or primary.evidence_spans
+    required_spans = segment.bound_body_spans or segment.evidence_spans
+    if not covered_spans or not required_spans:
+        return False
+
+    def span_is_covered(required) -> bool:
+        for covered in covered_spans:
+            if required.page != covered.page:
+                continue
+            if not (covered.char_start <= required.char_start and required.char_end <= covered.char_end):
+                continue
+            offset = required.char_start - covered.char_start
+            if covered.exact_quote[offset:offset + len(required.exact_quote)] == required.exact_quote:
+                return True
+        return False
+
+    if all(span_is_covered(required) for required in required_spans):
+        return True
+
+    required_body = "\n".join(span.exact_quote for span in required_spans)
+    covered_body = "\n".join(span.exact_quote for span in covered_spans)
+    return _normal(required_body).strip() == _normal(covered_body).strip()
+
+
 class DeterministicApplicabilityPlanner:
     """Select categories from structural facts, never from model judgement."""
 
@@ -45,18 +94,24 @@ class DeterministicApplicabilityPlanner:
     )
 
     def plan(self, segments: Iterable[ValidatedSegment]) -> list[ApplicabilityPlanItem]:
+        segments = list(segments)
+        segments_by_id = {segment.segment_id: segment for segment in segments}
         output: list[ApplicabilityPlanItem] = []
         for segment in segments:
             if segment.validation_status != ValidationStatus.VALIDATED:
                 continue
             if segment.supporting_primary_segment_id:
-                # Explicit supporting context is never independently assessed.
-                continue
+                if _has_traceable_assessment_coverage(segment, segments_by_id):
+                    # Explicit supporting context is deduplicated only when its
+                    # linked primary is itself eligible for governed assessment.
+                    continue
             tg = (segment.tg_grade or "").upper()
             categories: list[tuple[RuleCategory, list[str]]] = []
             if segment.kind == SegmentKind.REPORT_POINT:
                 # Validated physical type and section context are authoritative.
-                if _is_aggregate_container(segment):
+                if _is_aggregate_container(segment) and _has_traceable_assessment_coverage(
+                    segment, segments_by_id
+                ):
                     continue
                 if segment.point_type == "graded" and tg in {"TG2", "TG3"}:
                     categories.extend(

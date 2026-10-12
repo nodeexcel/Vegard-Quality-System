@@ -44,7 +44,7 @@ from app.services.phase_a_governed_retrieval import (
     ManifestVerifiedRuleRetriever,
 )
 from app.services.phase_a_regime import ApprovedGovernedRegimeResolver
-from app.services.phase_a_source_inventory import PhysicalSourceInventoryBuilder
+from app.services.phase_a_source_inventory import PhysicalSourceInventoryBuilder, _context_type
 
 
 def _hash(value: str) -> str:
@@ -81,6 +81,86 @@ def _validated_point(segment_id: str, title: str) -> ValidatedSegment:
         "validation_status": "validated",
         "validation_notes": ["source_inventory_authoritative_boundary"],
     })
+
+
+@pytest.mark.parametrize(
+    "title,body,expected",
+    [
+        (
+            "Snøfangere",
+            "TG2. Snøfangere mangler der rapporten opplyser at sikkerhetstiltaket kreves.",
+            ("TG2", "hms_no_tg"),
+        ),
+        (
+            "Snøfangere",
+            "TG2. Snøfangere mangler. Snøras kan føre til skade på personer.",
+            ("TG2", "hms_no_tg"),
+        ),
+        (
+            "Utstyr og installasjoner på tak",
+            "TG2. Ingen tilkomst til skorstein der det er krav til det.",
+            ("TG2", "hms_no_tg"),
+        ),
+        (
+            "Snøfangere",
+            "TG2. Det mangler ikke snøfangere. Anlegget er i orden.",
+            ("TG2", "graded"),
+        ),
+        (
+            "Takutstyr",
+            "TG2. Innfestingen er skadet og utstyret er deformert.",
+            ("TG2", "graded"),
+        ),
+        (
+            "Takutstyr",
+            "TG2. Snøfangere mangler, og innfestingen er skadet.",
+            ("TG2", "graded"),
+        ),
+        (
+            "Innfelte installasjoner",
+            "TG2. Det er synlige tegn til varmgang ved downlights.",
+            ("TG2", "hms_no_tg"),
+        ),
+        (
+            "Innfelte installasjoner",
+            "TG2. Det er fuktmerker og skade i dampsperren ved downlights.",
+            ("TG2", "graded"),
+        ),
+        (
+            "Innfelte installasjoner",
+            "TG2. Det er tegn til varmgang. Det er ikke funnet fuktmerker eller skade i dampsperren.",
+            ("TG2", "hms_no_tg"),
+        ),
+        (
+            "Innvendige trapper",
+            "TG2. Innfestingen er skadet. Håndløper mangler på vegg.",
+            ("TG2", "graded"),
+        ),
+        (
+            "Innvendige trapper",
+            "TG2. Håndløper mangler på vegg.",
+            ("TG2", "hms_no_tg"),
+        ),
+    ],
+)
+def test_ac2026_context_type_separates_safety_from_technical_condition(title, body, expected):
+    assert _context_type(body, 0, len(body), "TG2", title) == expected
+
+
+def test_ac2026_inventory_classifies_from_complete_bound_point():
+    filler = "Kontrollen omfatter sikkerhetsforhold og synlige overflater. " * 6
+    report = (
+        "[SIDE 1]\nTakutstyr TG2\n"
+        "Snøfangere mangler der sikkerhetstiltaket kreves. "
+        f"{filler}Innfestingen er skadet.\n"
+    )
+
+    inventory = PhysicalSourceInventoryBuilder().build(report, _hash(report))
+    point = next(item for item in inventory.points if item.title == "Takutstyr")
+
+    assert len("Snøfangere mangler der sikkerhetstiltaket kreves. " + filler) > 220
+    assert point.point_type == "graded"
+    assert point.tg_grade == "TG2"
 
 
 def test_ivit_source_inventory_is_independent_and_contains_all_tgiu_points():
@@ -235,7 +315,7 @@ def test_detached_methodology_retrieval_uses_only_the_governed_detached_structur
         "ivit-svak_arkat.pdf",
     )
     segment = next(item for item in understanding.segments if item.title == "Båtbu")
-    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    manifest = ROOT / "files/candidates/a3_a4_v4_ac2026/MANIFEST.a3_a4_candidate.json"
     retriever = ManifestVerifiedRuleRetriever(
         ManifestGovernedCatalog(
             ROOT / "files",
@@ -306,7 +386,7 @@ def test_aarsak_retrieval_includes_resolved_edition_scope_context():
             validation_status=ValidationStatus.VALIDATED,
         ),
     ]
-    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    manifest = ROOT / "files/candidates/a3_a4_v4_ac2026/MANIFEST.a3_a4_candidate.json"
     retriever = ManifestVerifiedRuleRetriever(
         ManifestGovernedCatalog(
             ROOT / "files",

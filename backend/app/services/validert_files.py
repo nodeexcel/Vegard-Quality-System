@@ -59,7 +59,7 @@ VERIFIED_CUSTOMER_TEMPLATES_PATH = FILES_DIR / "verified_customer_templates_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
 # OPTIONAL elements only shown if present. Room instances: validate ARKAT per instance, enforce coverage assertion.
 META_RULE_ROUTING = """META RULE ROUTING (apply in this order per element):
-- If element.tg_policy == "FORBIDDEN" -> apply validert_optional_tg_forbidden_meta_rule_v1_0 (minimum Årsak + Konsekvens).
+- If element.tg_policy == "FORBIDDEN" -> apply validert_optional_tg_forbidden_meta_rule_v1_0 (minimum deviation/observation description + Konsekvens; arsak names the observation here, not an additional technical root cause).
 - Else if element.element_type == "NON_MANDATORY_ASSESSED" -> apply validert_non_mandatory_assessed_meta_rule_v1_1.
 - OPTIONAL and NON_MANDATORY_ASSESSED elements: show only if present in the report; no deduction if missing.
 - Room instances (BE-20, BE-21, BE-22, BE-23): validate ARKAT per instance; enforce coverage assertion (every instance must be validated)."""

@@ -497,21 +497,115 @@ _TGIU_RE = re.compile(
 )
 
 
+_AC2026_TECHNICAL_SUBJECT = (
+    r"(?:innfest\w*|utstyr\w*|anlegg\w*|beslag\w*|dampsperr\w*|konstruksjon\w*|"
+    r"overflat\w*|material\w*|komponent\w*|mur\w*|vegg\w*|trapp\w*|rekkverk\w*|"
+    r"snøfang\w*|snofang\w*)"
+)
+_AC2026_TECHNICAL_STATE = (
+    r"(?:skad\w*|deform\w*|løs\w*|defekt\w*|slitasj\w*|korrosjon\w*|lekk\w*|"
+    r"fukt\w*|råte\w*|sprek\w*|knirk\w*|svikt\w*|brudd\w*)"
+)
+
+
+def _is_negated_or_consequential_observation(
+    clause: str,
+    start: int,
+    end: int,
+    *,
+    allow_explicit_absence: bool = False,
+) -> bool:
+    local = clause[max(0, start - 80):min(len(clause), end + 20)]
+    negation = r"\b(?:ikke|intet|uten)\b" if allow_explicit_absence else r"\b(?:ikke|ingen|intet|uten)\b"
+    if re.search(negation, local):
+        return True
+    prefix = clause[max(0, start - 80):start]
+    return bool(re.search(
+        r"\b(?:kan|kunne|vil)\s+(?:føre|medføre)|\b(?:risiko|fare|konsekvens)\s+for\b",
+        prefix,
+    ))
+
+
+def _has_ac2026_technical_condition(context: str) -> bool:
+    patterns = (
+        rf"\b{_AC2026_TECHNICAL_SUBJECT}\b.{{0,55}}\b{_AC2026_TECHNICAL_STATE}\b",
+        rf"\b{_AC2026_TECHNICAL_STATE}\b.{{0,25}}\b(?:i|på|ved)\s+{_AC2026_TECHNICAL_SUBJECT}\b",
+        rf"\b(?:det\s+(?:er|ble)|er|ble|har|viser|påvist|registrert|observert|avdekket)\b"
+        rf".{{0,55}}\b(?:fuktmerke\w*|lekkasje\w*|råte\w*|korrosjon\w*)\b",
+    )
+    for clause in re.split(r"(?<=[.!?])|[;\n]", context):
+        for pattern in patterns:
+            for match in re.finditer(pattern, clause):
+                if not _is_negated_or_consequential_observation(clause, match.start(), match.end()):
+                    return True
+    return False
+
+
+def _has_positive_safety_observation(context: str, patterns: tuple[str, ...]) -> bool:
+    for clause in re.split(r"(?<=[.!?])|[;\n]", context):
+        for pattern in patterns:
+            for match in re.finditer(pattern, clause):
+                explicit_absence = bool(re.search(
+                    r"\bingen\s+(?:tilkomst\w*|snøfang\w*|snofang\w*)\b",
+                    match.group(0),
+                ))
+                if not _is_negated_or_consequential_observation(
+                    clause,
+                    match.start(),
+                    match.end(),
+                    allow_explicit_absence=explicit_absence,
+                ):
+                    return True
+    return False
+
+
+def _ac2026_hms_safety_scope(title: str, context: str) -> bool:
+    roof_safety = _has_positive_safety_observation(context, (
+        r"\b(?:snøfang\w*|snofang\w*)\b.{0,35}\b(?:mangler(?!\s+ikke)|"
+        r"er\s+ikke\s+(?:montert|etablert|tilgjengelig))\b",
+        r"\b(?:mangler(?!\s+ikke)|ingen)\s+(?:snøfang\w*|snofang\w*)\b",
+        r"\bingen\s+tilkomst\w*\s+til\s+skorstein\w*\b",
+        r"\btilkomst\w*\s+til\s+skorstein\w*\b.{0,35}\b(?:mangler(?!\s+ikke)|"
+        r"er\s+ikke\s+(?:etablert|tilgjengelig))\b",
+        r"\bmangler(?!\s+ikke)\s+tilkomst\w*\s+til\s+skorstein\w*\b",
+    ))
+    overheating_safety = bool(
+        re.search(r"\b(?:innfelt\w*|downlight\w*|gjennomføring\w*|installasjon\w*)\b", context)
+        and _has_positive_safety_observation(context, (
+            r"\b(?:varmgang\w*|overopphet\w*|svidd\w*|varmeskad\w*)\b",
+        ))
+    )
+    stair_safety = bool(
+        re.search(r"\b(?:trapp\w*|rekkverk\w*|håndløper\w*|håndrekk\w*)\b", title + " " + context)
+        and _has_positive_safety_observation(context, (
+            r"\b(?:håndløper\w*|håndrekk\w*|rekkverk\w*)\b.{0,35}\bmangler(?!\s+ikke)\b",
+            r"\bmangler(?!\s+ikke)\s+(?:håndløper\w*|håndrekk\w*|rekkverk\w*)\b",
+            r"\b(?:rekkverk\w*|åpning\w*)\s+(?:er\s+)?(?:for\s+lav\w*|for\s+stor\w*)\b",
+        ))
+    )
+    return roof_safety or overheating_safety or stair_safety
+
+
 def _context_type(text: str, start: int, end: int, explicit_tg: str | None, title: str = "") -> tuple[str | None, str]:
     """Classify from the physical section, never from one repeated phrase alone."""
-    # For physical point headings we classify from the point's own heading/body,
-    # not trailing wording from the previous point.
     context_start = start if title.strip() else max(0, start - 120)
-    context = (title + " " + text[context_start:min(len(text), start + 220)]).casefold()
+    context_end = max(start + 220, end)
+    context = (title + " " + text[context_start:min(len(text), context_end)]).casefold()
     title_low = title.casefold()
     if explicit_tg == "TGIU":
         return "TGIU", "tgiu"
+    if _ac2026_hms_safety_scope(title_low, context):
+        if _has_ac2026_technical_condition(context):
+            return (explicit_tg, "graded") if explicit_tg else (None, "unknown")
+        return explicit_tg, "hms_no_tg"
     if re.search(r"\b(elektrisk(?:e)?\s+anlegg|el-anlegg|el anlegg)\b", title_low):
         return None, "electrical_no_tg"
     if re.search(r"\b(helse, miljø og sikkerhet|hms|radon|branntekniske forhold)\b", title_low):
         return None, "hms_no_tg"
     if "innvendige trapper" in title_low and re.search(r"\b(håndløper|sikkerhet|tilgjengelighet)\b", context):
-        return None, "hms_no_tg"
+        if explicit_tg and _has_ac2026_technical_condition(context):
+            return explicit_tg, "graded"
+        return explicit_tg, "hms_no_tg"
     if re.search(r"\b(lovlighet|ferdigattest|brukstillatelse|bruksendring)\b", title_low):
         return None, "legality_no_tg"
     if re.search(r"\b(metodikk|forutsetninger|avgrensning|oppdragets rammer)\b", title_low):
@@ -1290,6 +1384,13 @@ class PhysicalSourceInventoryBuilder:
                 continue
             exact = "\n".join(span.exact_quote for span in body_spans)
             end = body_spans[-1].char_end
+            point_type = marker.point_type
+            if marker.role == InventoryRole.PRIMARY:
+                complete_context = (marker.title + " " + exact).casefold()
+                if _ac2026_hms_safety_scope(marker.title.casefold(), complete_context):
+                    point_type = (
+                        "graded" if _has_ac2026_technical_condition(complete_context) else "hms_no_tg"
+                    )
             boundary_uncertain = (
                 marker.role == InventoryRole.PRIMARY
                 and not later_markers
@@ -1310,7 +1411,7 @@ class PhysicalSourceInventoryBuilder:
                 title=marker.title,
                 section_context=_physical_section_context(report_text, marker),
                 tg_grade=marker.tg_grade,
-                point_type=marker.point_type,
+                point_type=point_type,
                 structural_marker=marker.marker,
                 detection_method=marker.method,
                 body=evidence,

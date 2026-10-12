@@ -48,11 +48,13 @@ from app.services.phase_a_contracts import (
     RegimeResolutionStatus,
     RuleCategory,
     RuleRetrievalRecord,
+    SegmentKind,
     StructuredAssessment,
     ValidatedSegment,
 )
 from app.services.phase_a_document_understanding import DocumentUnderstandingService
 from app.services.phase_a_governed_retrieval import (
+    AC2026_CATEGORY_ASSETS,
     GovernedAssetError,
     ManifestGovernedCatalog,
     ManifestVerifiedRuleRetriever,
@@ -720,6 +722,67 @@ def test_non_triggered_methodology_abstain_normalizes_to_satisfied():
     assert normalized.proposed_finding_type is None
 
 
+def test_material_methodology_abstain_is_preserved_with_reason():
+    quote = "HMS-forhold uten avklart kategoriopptak."
+    span = {
+        "evidence_id": "evidence_methodology_material_01", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_methodology_material_01", "kind": "report_point", "title": "HMS",
+        "section_context": "", "professional_subject": "HMS", "point_label": "H1",
+        "tg_grade": None, "point_type": "hms_no_tg", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id, retrieval_ids=["retrieval_methodology_material_01"],
+        rule_category=RuleCategory.METHODOLOGY, decision=AssessmentDecision.ABSTAIN,
+        explanation="Required governance/category binding remains unresolved.",
+        evidence_ids=[span["evidence_id"]], proposed_finding_type=None,
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.ABSTAIN
+    assert normalized.explanation == "Required governance/category binding remains unresolved."
+
+
+def test_non_triggered_methodology_rule_does_not_erase_material_abstention():
+    quote = "HMS-forhold med separat uavklart kategoriopptak."
+    span = {
+        "evidence_id": "evidence_methodology_mixed_01", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_methodology_mixed_01", "kind": "report_point", "title": "HMS",
+        "section_context": "", "professional_subject": "HMS", "point_label": "H2",
+        "tg_grade": None, "point_type": "hms_no_tg", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": span, "evidence_spans": [span], "bound_body_spans": [span],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    explanation = (
+        "The retrieved governed methodology rule does not trigger. However, another required assessment "
+        "cannot be completed because its governance/category binding remains unresolved."
+    )
+    candidate = AssessmentCandidate(
+        segment_id=segment.segment_id, retrieval_ids=["retrieval_methodology_mixed_01"],
+        rule_category=RuleCategory.METHODOLOGY, decision=AssessmentDecision.ABSTAIN,
+        explanation=explanation, evidence_ids=[span["evidence_id"]], proposed_finding_type=None,
+    )
+
+    normalized = _normalize_semantic_candidate(candidate, segment, [])
+
+    assert normalized.decision == AssessmentDecision.ABSTAIN
+    assert normalized.explanation == explanation
+
+
 def test_methodology_only_point_with_concrete_deviation_normalizes_to_garasje_rule():
     quote = (
         "Takshingel er ikke egnet for å brukes på slike lave takvinkler. "
@@ -955,7 +1018,7 @@ def test_semantic_governance_context_uses_approved_examples_and_aarsak_criterion
     }
     segment = ValidatedSegment.model_validate({
         "segment_id": "segment_aarsak_context_0001",
-        "kind": "report_point",
+        "kind": SegmentKind.REPORT_POINT,
         "title": "Vinduer",
         "section_context": "UTVENDIG",
         "professional_subject": "Vinduer",
@@ -1117,7 +1180,7 @@ def test_compound_tgiu_output_is_split_into_governed_atomic_candidates():
     ]
 
 
-def test_applicability_skips_aggregate_multi_issue_container_points():
+def test_applicability_assesses_multi_issue_graded_point_without_coverage():
     def evidence(evidence_id, quote):
         return {
             "evidence_id": evidence_id,
@@ -1139,7 +1202,7 @@ def test_applicability_skips_aggregate_multi_issue_container_points():
         "Risiko/Konsekvens\n"
     )
     ordinary_quote = "TG 2 10.1 VEGGER OG HIMLINGER\nAvvik/Årsak: Slitt overflate."
-    aggregate = ValidatedSegment.model_validate({
+    multi_issue = ValidatedSegment.model_validate({
         "segment_id": "segment_aggregate_container_01",
         "kind": "report_point",
         "title": "KJØKKEN",
@@ -1174,9 +1237,41 @@ def test_applicability_skips_aggregate_multi_issue_container_points():
         "validation_notes": [],
     })
 
-    plan = DeterministicApplicabilityPlanner().plan([aggregate, ordinary])
+    plan = DeterministicApplicabilityPlanner().plan([multi_issue, ordinary])
 
-    assert {item.segment_id for item in plan} == {"segment_regular_point_01"}
+    assert {item.segment_id for item in plan} == {
+        "segment_aggregate_container_01",
+        "segment_regular_point_01",
+    }
+    multi_issue_plan = [
+        item for item in plan if item.segment_id == "segment_aggregate_container_01"
+    ]
+    assert {item.rule_category for item in multi_issue_plan} == set(
+        DeterministicApplicabilityPlanner.ARKAT
+    )
+    assert all("locked_arkat_structure" in item.reason_codes for item in multi_issue_plan)
+
+    linked_but_uncovered = multi_issue.model_copy(update={
+        "supporting_primary_segment_id": ordinary.segment_id,
+    })
+    uncovered_plan = DeterministicApplicabilityPlanner().plan([linked_but_uncovered, ordinary])
+
+    assert {item.segment_id for item in uncovered_plan} == {
+        "segment_aggregate_container_01",
+        "segment_regular_point_01",
+    }
+
+    duplicate = multi_issue.model_copy(update={
+        "segment_id": "segment_duplicate_point_01",
+        "supporting_primary_segment_id": None,
+    })
+    covered_container = multi_issue.model_copy(update={
+        "supporting_primary_segment_id": duplicate.segment_id,
+    })
+    covered_plan = DeterministicApplicabilityPlanner().plan([covered_container, duplicate])
+
+    assert {item.segment_id for item in covered_plan} == {"segment_duplicate_point_01"}
+    assert len(covered_plan) == len(DeterministicApplicabilityPlanner.ARKAT)
 
 
 def test_tgiu_missing_reason_is_not_deterministically_rewritten_when_reason_is_explicit_in_point_body():
@@ -1612,6 +1707,36 @@ class AbstainingModel(SatisfiedModel):
         return candidate.model_copy(update={"decision": AssessmentDecision.ABSTAIN})
 
 
+class MaterialMethodologyAbstainingModel(SatisfiedModel):
+    def assess(self, segment, category, rules):
+        candidate = super().assess(segment, category, rules)
+        return candidate.model_copy(update={
+            "decision": AssessmentDecision.ABSTAIN,
+            "explanation": "Required governance/category binding remains unresolved.",
+        })
+
+
+class NonTriggeredMethodologyAbstainingModel(SatisfiedModel):
+    def assess(self, segment, category, rules):
+        candidate = super().assess(segment, category, rules)
+        return candidate.model_copy(update={
+            "decision": AssessmentDecision.ABSTAIN,
+            "explanation": "No methodology deficiency is triggered.",
+        })
+
+
+class MixedMaterialMethodologyAbstainingModel(SatisfiedModel):
+    def assess(self, segment, category, rules):
+        candidate = super().assess(segment, category, rules)
+        return candidate.model_copy(update={
+            "decision": AssessmentDecision.ABSTAIN,
+            "explanation": (
+                "The retrieved governed methodology rule does not trigger. However, another required assessment "
+                "cannot be completed because its governance/category binding remains unresolved."
+            ),
+        })
+
+
 def _catalog(tmp_path: Path, *, corrupt=False):
     content = {
         "rules": [{
@@ -1637,6 +1762,31 @@ def _catalog(tmp_path: Path, *, corrupt=False):
     )
 
 
+def _unresolved_m_rule_catalog(tmp_path: Path):
+    content = {
+        "rules": [{
+            "rule_id": "M-TG-FORBIDDEN-01",
+            "topic": "HMS",
+            "deduct_points": 10,
+            "affects_96_gate": True,
+            "message": "TG is used in a no-TG scope.",
+        }],
+    }
+    raw = json.dumps(content, ensure_ascii=False).encode()
+    (tmp_path / "rules.json").write_bytes(raw)
+    manifest = {
+        "version": "test",
+        "files": [{"path": "rules.json", "sha256": hashlib.sha256(raw).hexdigest()}],
+    }
+    manifest_path = tmp_path / "MANIFEST.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    return ManifestGovernedCatalog(
+        tmp_path,
+        manifest_path,
+        approved_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    )
+
+
 def _understanding():
     return DocumentUnderstandingService(Extractor()).analyze(REPORT, "test.pdf")
 
@@ -1646,6 +1796,24 @@ def _retriever(catalog, resolver=None):
         catalog,
         resolver=resolver,
         category_assets={RuleCategory.LEGALITY: ("rules.json",)},
+    )
+
+
+def _methodology_understanding():
+    understanding = _understanding()
+    segment = understanding.segments[0].model_copy(update={
+        "kind": SegmentKind.REPORT_POINT,
+        "point_type": "methodology_only",
+        "title": "Ferdigattest",
+    })
+    return understanding.model_copy(update={"segments": [segment]})
+
+
+def _methodology_retriever(catalog):
+    return ManifestVerifiedRuleRetriever(
+        catalog,
+        resolver=ResolvedResolver(),
+        category_assets={RuleCategory.METHODOLOGY: ("rules.json",)},
     )
 
 
@@ -1682,6 +1850,74 @@ def test_a4_pending_regime_abstains_before_model_invocation(tmp_path):
     assert any(item.reason_code == "pending_governed_decision" for item in result.abstentions)
     assert result.shadow_only is True
     assert result.customer_publication_authorized is False
+
+
+def test_a4_material_methodology_abstention_remains_limited_in_public_payload(tmp_path):
+    reason = "Required governance/category binding remains unresolved."
+    result = PhaseA4ShadowService(
+        _methodology_retriever(_catalog(tmp_path)),
+        MaterialMethodologyAbstainingModel(),
+    ).analyze(_methodology_understanding(), [RuleCategory.METHODOLOGY])
+
+    assert result.assessments[0].decision == AssessmentDecision.ABSTAIN
+    assert result.assessments[0].explanation == reason
+    assert result.analysis_state.value == "limited"
+    assert result.score_result.score_valid is False
+    assert result.production_compatible_public_payload.status.value == "limited"
+    assert result.production_compatible_public_payload.score is None
+
+
+def test_a4_supported_non_triggered_methodology_rule_remains_complete(tmp_path):
+    result = PhaseA4ShadowService(
+        _methodology_retriever(_catalog(tmp_path)),
+        NonTriggeredMethodologyAbstainingModel(),
+    ).analyze(_methodology_understanding(), [RuleCategory.METHODOLOGY])
+
+    assert result.assessments[0].decision == AssessmentDecision.SATISFIED
+    assert result.analysis_state.value == "complete_no_findings"
+    assert result.score_result.score_valid is True
+    assert result.production_compatible_public_payload.status.value == "complete_no_findings"
+    assert result.production_compatible_public_payload.score == 100
+
+
+def test_a4_non_triggered_rule_does_not_hide_material_abstention(tmp_path):
+    result = PhaseA4ShadowService(
+        _methodology_retriever(_catalog(tmp_path)),
+        MixedMaterialMethodologyAbstainingModel(),
+    ).analyze(_methodology_understanding(), [RuleCategory.METHODOLOGY])
+
+    assert result.assessments[0].decision == AssessmentDecision.ABSTAIN
+    assert "another required assessment cannot be completed" in result.assessments[0].explanation
+    assert result.analysis_state.value == "limited"
+    assert result.score_result.score_valid is False
+    assert result.production_compatible_public_payload.status.value == "limited"
+    assert result.production_compatible_public_payload.score is None
+
+
+def test_unmapped_m_tg_forbidden_rule_remains_limited_without_category_fallback(tmp_path):
+    understanding = _methodology_understanding()
+    understanding = understanding.model_copy(update={
+        "segments": [understanding.segments[0].model_copy(update={
+            "title": "HMS",
+            "point_type": "hms_no_tg",
+            "tg_grade": "TG2",
+        })],
+    })
+    result = PhaseA4ShadowService(
+        _methodology_retriever(_unresolved_m_rule_catalog(tmp_path)),
+        DeficiencyModel(finding_type="M-TG-FORBIDDEN-01"),
+    ).analyze(understanding, [RuleCategory.METHODOLOGY])
+
+    assessment = result.assessments[0]
+    assert assessment.decision == AssessmentDecision.ABSTAIN
+    assert assessment.proposed_finding_type is None
+    assert "category and admission mapping remain unresolved" in assessment.explanation
+    assert result.validation_decisions[0].category is None
+    assert result.validation_decisions[0].deduction == 0
+    assert result.validation_decisions[0].blocks_96_gate is False
+    assert result.analysis_state.value == "limited"
+    assert result.score_result.score_valid is False
+    assert result.production_compatible_public_payload.status.value == "limited"
 
 
 def test_a4_admits_only_evidence_bound_governed_finding(tmp_path):
@@ -1757,7 +1993,7 @@ def test_tg3_cost_retrieval_uses_actual_manifest_governed_rules():
     understanding = DocumentUnderstandingService(Tg3Extractor()).analyze(
         "[SIDE 1]\nTerrengforhold TG3\nTerrenget har motfall.\n", "tg3.pdf"
     )
-    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    manifest = ROOT / "files/candidates/a3_a4_v4_ac2026/MANIFEST.a3_a4_candidate.json"
     catalog = ManifestGovernedCatalog(
         ROOT / "files",
         manifest,
@@ -1805,7 +2041,7 @@ def test_anbefalt_tiltak_retrieval_keeps_governed_field_definition_for_imperativ
             }, {"model_name": "fake"}
 
     understanding = DocumentUnderstandingService(TiltakExtractor()).analyze(text, "tiltak.pdf")
-    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    manifest = ROOT / "files/candidates/a3_a4_v4_ac2026/MANIFEST.a3_a4_candidate.json"
     catalog = ManifestGovernedCatalog(
         ROOT / "files",
         manifest,
@@ -2008,6 +2244,78 @@ def test_semantic_model_receives_complete_body_and_does_not_require_headings(tmp
     assert candidate.decision == AssessmentDecision.SATISFIED
     assert "Fallet bør korrigeres" in captured["user_prompt"]
     assert captured["system_prompt"] == get_dommer_b_system_prompt_text().strip()
+
+
+def test_ac2026_rule_text_and_hash_reach_the_successor_assessment_context():
+    captured = {}
+
+    class FakeBedrock:
+        def generate_json_with_claude(self, **kwargs):
+            captured.update(kwargs)
+            prompt = json.loads(kwargs["user_prompt"])
+            segment_payload = prompt["segment"]
+            return {
+                "segment_id": segment_payload["segment_id"],
+                "retrieval_ids": [item["retrieval_id"] for item in prompt["retrieved_rules"]],
+                "rule_category": prompt["rule_category"],
+                "decision": "satisfied",
+                "explanation": "The governed no-TG observation and consequence are present.",
+                "evidence_ids": [segment_payload["complete_bound_body"][0]["evidence_id"]],
+                "proposed_finding_type": None,
+            }
+
+    quote = (
+        "TG2 Innvendige trapper. Håndløper mangler på vegg. "
+        "Konsekvens: redusert personsikkerhet."
+    )
+    evidence = {
+        "evidence_id": "evidence_ac2026_context_01", "exact_quote": quote, "page": 1,
+        "char_start": 0, "char_end": len(quote),
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "match_method": "exact", "validation_status": "validated", "validation_notes": [],
+    }
+    segment = ValidatedSegment.model_validate({
+        "segment_id": "segment_ac2026_context_01", "kind": "report_point",
+        "title": "Innvendige trapper", "section_context": "INNVENDIG",
+        "professional_subject": "Trapper", "point_label": "10.1", "tg_grade": "TG2",
+        "point_type": "hms_no_tg", "confidence": 1.0,
+        "candidate_evidence": {"exact_quote": quote, "page": 1},
+        "evidence": evidence, "evidence_spans": [evidence], "bound_body_spans": [evidence],
+        "validation_status": "validated", "validation_notes": [],
+    })
+    manifest = ROOT / "files/candidates/a3_a4_v4_ac2026/MANIFEST.a3_a4_candidate.json"
+    retriever = ManifestVerifiedRuleRetriever(
+        ManifestGovernedCatalog(
+            ROOT / "files",
+            manifest,
+            approved_manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        ),
+        resolver=ResolvedResolver(),
+        category_assets=AC2026_CATEGORY_ASSETS,
+    )
+    rules = retriever.retrieve(
+        segment, RuleCategory.METHODOLOGY, [], document_hash="a" * 64,
+    ).records
+
+    candidate = BedrockSemanticAssessmentModel(FakeBedrock()).assess(
+        segment, RuleCategory.METHODOLOGY, rules,
+    )
+
+    assert candidate.decision == AssessmentDecision.SATISFIED
+    prompt = json.loads(captured["user_prompt"])
+    context = prompt["semantic_governance_context"]["ac2026_governed_context"]
+    optional_rule = next(
+        item for item in context
+        if item["asset_path"].endswith("validert_optional_tg_forbidden_meta_rule_v1_0.json")
+    )
+    assert optional_rule["asset_sha256"] == "452e64158a516a2c99b8f7e6f78ae261e4bec68006fbc16186e72664f0a54e14"
+    assert optional_rule["json_pointer"] == "/principle"
+    assert "arsak betyr her hva som er observert" in optional_rule["content"]["text"]
+    assert any(
+        item["asset_path"].endswith("validert_points_overview_mapping_v1.1.json")
+        and item["json_pointer"] == "/child_mappings/59"
+        for item in context
+    )
 
 
 def test_tgiu_adjudication_replay_reuses_multi_candidate_authoritative_decisions():

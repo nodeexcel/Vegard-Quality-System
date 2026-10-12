@@ -10,23 +10,44 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ACTIVE = ROOT / "files/MANIFEST.json"
-OUTPUT = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+SOURCE_CANDIDATE = ROOT / "files/candidates/a3_a4_v3_ac2026"
+OUTPUT_DIR = ROOT / "files/candidates/a3_a4_v4_ac2026"
+OUTPUT = OUTPUT_DIR / "MANIFEST.a3_a4_candidate.json"
+
+RETAINED_CANDIDATE_FILES = (
+    "validert_phase_a_methodology_rules_v1_0.json",
+    "validert_phase_a_semantic_admission_rules_v1_0.json",
+    "validert_optional_tg_forbidden_meta_rule_v1_0.json",
+    "validert_points_overview_mapping_v1.1.json",
+    "validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+    "validert_non_mandatory_assessed_meta_rule_v1_1.json",
+    "validert_governed_regime_decision_v2.2_ac2026_approved.md",
+    "ACTIVE_RUNTIME_EVIDENCE.md",
+    "CRITERION_CONTEXT_ROUTING_EVIDENCE.md",
+    "accepted_baseline/report_format_detection.json",
+)
 
 CANDIDATE_ASSETS = (
     "arkat_semantic_rules_v1_3_0.json",
     "arkat_canonical_examples_v1_3_0.json",
     "dommer_b_system_prompt_v14.md",
-    "candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
-    "candidates/a3_a4_v2/validert_phase_a_semantic_admission_rules_v1_0.json",
-    "candidates/a3_a4_v2/validert_governed_regime_decision_v2.1_approved.md",
-    "candidates/a3_a4_v2/ACTIVE_RUNTIME_EVIDENCE.md",
-    "candidates/a3_a4_v2/CRITERION_CONTEXT_ROUTING_EVIDENCE.md",
+    "candidates/a3_a4_v4_ac2026/validert_phase_a_methodology_rules_v1_0.json",
+    "candidates/a3_a4_v4_ac2026/validert_phase_a_semantic_admission_rules_v1_0.json",
+    "candidates/a3_a4_v4_ac2026/validert_optional_tg_forbidden_meta_rule_v1_0.json",
+    "candidates/a3_a4_v4_ac2026/validert_points_overview_mapping_v1.1.json",
+    "candidates/a3_a4_v4_ac2026/validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+    "candidates/a3_a4_v4_ac2026/validert_non_mandatory_assessed_meta_rule_v1_1.json",
+    "candidates/a3_a4_v4_ac2026/validert_governed_regime_decision_v2.2_ac2026_approved.md",
+    "candidates/a3_a4_v4_ac2026/ACTIVE_RUNTIME_EVIDENCE.md",
+    "candidates/a3_a4_v4_ac2026/CRITERION_CONTEXT_ROUTING_EVIDENCE.md",
+    "candidates/a3_a4_v4_ac2026/accepted_baseline/report_format_detection.json",
 )
 
 SUPERSEDED_ACTIVE_ASSETS = {
     "arkat_semantic_rules_v1_2_3.json",
     "arkat_canonical_examples_v1_1_1.json",
     "dommer_b_system_prompt_v13.md",
+    "report_format_detection.json",
 }
 
 RUNTIME_FILES = (
@@ -70,15 +91,23 @@ def governed_entries(paths: tuple[str, ...]) -> list[dict[str, str]]:
 
 
 def main() -> int:
+    for relative_path in RETAINED_CANDIDATE_FILES:
+        source = SOURCE_CANDIDATE / relative_path
+        target = OUTPUT_DIR / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
     active = json.loads(ACTIVE.read_text(encoding="utf-8"))
     active_files = [
         entry for entry in active["files"]
         if entry.get("path") not in SUPERSEDED_ACTIVE_ASSETS
     ]
     payload = {
-        "version": "a3-a4-v2-candidate-implementation-1",
+        "version": "a3-a4-v4-ac2026-owner-review-corrected-1",
         "generate_on_packaging": False,
-        "notes": "Hash-pinned shadow candidate; active signed v46 manifest is referenced and never mutated.",
+        "notes": (
+            "Owner-review-corrected AC:2026 successor with completed classification, R01 and R02 boundaries; "
+            "accepted v2, delivered v3 and active signed v46 manifests are retained and never mutated."
+        ),
         "files": [*active_files, *governed_entries(CANDIDATE_ASSETS)],
         "runtime_code_files": entries(RUNTIME_FILES),
         "test_files": entries(TEST_FILES),

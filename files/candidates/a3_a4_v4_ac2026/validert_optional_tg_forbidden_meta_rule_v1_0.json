@@ -1,0 +1,110 @@
+{
+  "version": "v1.0-ac2026.1",
+  "module": "optional_tg_forbidden_meta_rule",
+  "applies_to": {
+    "match": {
+      "tg_policy": "FORBIDDEN"
+    }
+  },
+  "principle": "For forhold som etter avklart regime skal omtales uten TG (elektrisk anlegg, HMS, lovlighet), skal Validert ikke kreve full ordinær TG2/TG3-ARKAT. Minimum i denne metakontrollen ved avvik er avviks-/observasjonsbeskrivelse og Konsekvens. Den eksisterende nøkkelen arsak betyr her hva som er observert, ikke en ekstra teknisk årsaksforklaring. Risiko og anbefalt_tiltak beholdes som valgfrie felt i denne metaregelen; dette endrer ikke standardens omtale av vurdering av nødvendige tiltak i punkt 13 eller eksisterende særreglers opptak.",
+  "tg_forbidden_enforcement": {
+    "rule_id": "M-TG-FORBIDDEN-01",
+    "forbidden_tokens": [
+      "TG1",
+      "TG2",
+      "TG3",
+      "tilstandsgrad",
+      "TG:"
+    ],
+    "severity": "critical",
+    "deduct_points": 10,
+    "affects_96_gate": true,
+    "ui_badge": "TG brukt – ikke tillatt",
+    "message": "TG/tilstandsgrad er brukt i et område der TG ikke skal brukes (elektrisk/HMS/lovlighet). Omtal forholdet beskrivende uten TG."
+  },
+  "deviation_detection": {
+    "keywords_any_of": [
+      "avvik",
+      "mangel",
+      "defekt",
+      "skade",
+      "lekkasje",
+      "fukt",
+      "ikke iht",
+      "mangler",
+      "utilstrekkelig",
+      "fare",
+      "risiko"
+    ]
+  },
+  "requirements_when_deviation": {
+    "required_fields": [
+      "arsak",
+      "konsekvens"
+    ],
+    "optional_fields": [
+      "risiko",
+      "anbefalt_tiltak"
+    ],
+    "enforcement": [
+      {
+        "id": "Q-TGFORBIDDEN-MISSING-ARSAK",
+        "when_missing": "arsak",
+        "severity": "major",
+        "deduct_points": 4,
+        "affects_96_gate": false,
+        "message": "Avvik er omtalt, men det fremgår ikke tydelig hva som er observert. Feltet arsak betyr i denne metaregelen avviks-/observasjonsbeskrivelse, ikke en egen teknisk årsaksforklaring."
+      },
+      {
+        "id": "Q-TGFORBIDDEN-MISSING-KONSEKVENS",
+        "when_missing": "konsekvens",
+        "severity": "major",
+        "deduct_points": 5,
+        "affects_96_gate": false,
+        "ui_badge": "Mangelfull konsekvens",
+        "message": "Avvik er omtalt, men Konsekvens for kjøper fremgår ikke tydelig."
+      },
+      {
+        "id": "Q-TGFORBIDDEN-OPTIONAL-ANBEFALT",
+        "when_missing": "anbefalt_tiltak",
+        "severity": "info",
+        "deduct_points": 0,
+        "affects_96_gate": false,
+        "message": "Denne metaregelen gir ikke trekk for manglende anbefalt_tiltak. Dette er en avgrensning av metaregelen, ikke en uttalelse om at vurdering av nødvendige tiltak er valgfri etter NS 3600 punkt 13. Eksisterende særregler endres ikke av denne presiseringen."
+      },
+      {
+        "id": "Q-TGFORBIDDEN-OPTIONAL-RISIKO",
+        "when_missing": "risiko",
+        "severity": "info",
+        "deduct_points": 0,
+        "affects_96_gate": false,
+        "message": "Risiko er valgfritt i TG-forbudte områder (elektrisk/HMS/lovlighet)."
+      }
+    ]
+  },
+  "critical_safety_escalation": {
+    "applies_to_element_ids": [
+      "NMA-HMS-REK-01",
+      "NMA-HMS-ROM-01"
+    ],
+    "when": {
+      "deviation_detected": true,
+      "missing_field": "konsekvens"
+    },
+    "severity": "critical",
+    "deduct_points": 8,
+    "affects_96_gate": true,
+    "ui_badge": "Sikkerhetsavvik uten konsekvens",
+    "message": "Sikkerhetskritisk HMS-avvik er omtalt uten tydelig konsekvens. Dette må beskrives klart for kjøper."
+  },
+  "safeguards": {
+    "do_not_require_full_arkat": true,
+    "do_not_require_anbefalt_tiltak": true,
+    "do_not_require_risiko": true,
+    "allowed_penalty_families": [
+      "METHODOLOGY",
+      "QUALITY"
+    ],
+    "never_legality_hard_stop_from_optional_formatting": true
+  }
+}
