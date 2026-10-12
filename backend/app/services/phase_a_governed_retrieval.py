@@ -57,6 +57,52 @@ CATEGORY_ASSETS: Mapping[RuleCategory, tuple[str, ...]] = {
     ),
 }
 
+_AC2026_POINT_CONTEXT_ASSETS = (
+    "candidates/a3_a4_v4_ac2026/validert_points_overview_mapping_v1.1.json",
+    "candidates/a3_a4_v4_ac2026/validert_punkt_for_punkt_scoring_hooks_v1_1.json",
+)
+
+AC2026_CATEGORY_ASSETS: Mapping[RuleCategory, tuple[str, ...]] = {
+    RuleCategory.AARSAK: (
+        "arkat_semantic_rules_v1_3_0.json",
+        "arkat_error_to_deduction_mapping_v1_1_2.json",
+        "rag_scoring_model_validert_v1.6.15.json",
+        *_AC2026_POINT_CONTEXT_ASSETS,
+    ),
+    RuleCategory.RISIKO: (
+        "arkat_semantic_rules_v1_3_0.json",
+        "arkat_error_to_deduction_mapping_v1_1_2.json",
+        "rag_scoring_model_validert_v1.6.15.json",
+        "candidates/a3_a4_v4_ac2026/validert_phase_a_semantic_admission_rules_v1_0.json",
+        *_AC2026_POINT_CONTEXT_ASSETS,
+    ),
+    RuleCategory.KONSEKVENS: (
+        "arkat_semantic_rules_v1_3_0.json",
+        "arkat_error_to_deduction_mapping_v1_1_2.json",
+        "rag_scoring_model_validert_v1.6.15.json",
+        *_AC2026_POINT_CONTEXT_ASSETS,
+    ),
+    RuleCategory.ANBEFALT_TILTAK: (
+        "arkat_semantic_rules_v1_3_0.json",
+        "arkat_error_to_deduction_mapping_v1_1_2.json",
+        "candidates/a3_a4_v4_ac2026/validert_phase_a_methodology_rules_v1_0.json",
+        *_AC2026_POINT_CONTEXT_ASSETS,
+    ),
+    RuleCategory.METHODOLOGY: (
+        "arkat_semantic_rules_v1_3_0.json",
+        "rag_scoring_model_validert_v1.6.15.json",
+        "candidates/a3_a4_v4_ac2026/validert_phase_a_methodology_rules_v1_0.json",
+        "candidates/a3_a4_v4_ac2026/validert_optional_tg_forbidden_meta_rule_v1_0.json",
+        "candidates/a3_a4_v4_ac2026/validert_non_mandatory_assessed_meta_rule_v1_1.json",
+        *_AC2026_POINT_CONTEXT_ASSETS,
+    ),
+    RuleCategory.LEGALITY: ("validert_legal_compliance_rules_v1_1.json",),
+    RuleCategory.TG3_COST: (
+        "candidates/a3_a4_v4_ac2026/validert_phase_a_methodology_rules_v1_0.json",
+        "rag_scoring_model_validert_v1.6.15.json",
+    ),
+}
+
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -171,12 +217,55 @@ class ManifestGovernedCatalog:
             if substantive and pointer:
                 rule_id = explicit_id or f"{asset_path}#{pointer}"
                 chunks.append(_Chunk(rule_id, pointer, value, json.dumps(value, ensure_ascii=False, sort_keys=True)))
+            if not pointer:
+                for key in ("principle", "routing_note"):
+                    scalar = value.get(key)
+                    if isinstance(scalar, str) and scalar.strip():
+                        scalar_pointer = f"/{_pointer_escape(key)}"
+                        chunks.append(_Chunk(
+                            f"{asset_path}#{scalar_pointer}",
+                            scalar_pointer,
+                            {"source_field": key, "text": scalar},
+                            scalar,
+                        ))
             for key, child in value.items():
                 if isinstance(child, (dict, list)):
                     walk(child, f"{pointer}/{_pointer_escape(str(key))}")
 
         walk(document, "")
         return chunks
+
+
+def _is_exact_ac2026_context(
+    segment: ValidatedSegment,
+    category: RuleCategory,
+    asset_path: str,
+    pointer: str,
+) -> bool:
+    text = " ".join(filter(None, (
+        segment.title,
+        segment.professional_subject,
+        segment.section_context,
+        " ".join(span.exact_quote for span in segment.bound_body_spans),
+    ))).casefold()
+    roof_scope = bool(re.search(r"\b(?:snøfang\w*|snofang\w*|takutstyr\w*|takstig\w*|skorstein\w*)\b", text))
+    stair_scope = bool(re.search(r"\b(?:trapp\w*|rekkverk\w*|håndløper\w*|håndrekk\w*)\b", text))
+    heat_scope = bool(re.search(r"\b(?:varmgang\w*|overopphet\w*|downlight\w*|innfelt\w*)\b", text))
+    no_tg_scope = segment.point_type in {"electrical_no_tg", "hms_no_tg", "legality_no_tg"}
+    if asset_path.endswith("validert_optional_tg_forbidden_meta_rule_v1_0.json"):
+        return category == RuleCategory.METHODOLOGY and no_tg_scope and (
+            pointer == "/principle"
+            or (bool(segment.tg_grade) and pointer == "/tg_forbidden_enforcement")
+        )
+    if asset_path.endswith("validert_non_mandatory_assessed_meta_rule_v1_1.json"):
+        return category == RuleCategory.METHODOLOGY and no_tg_scope and pointer == "/routing_note"
+    if asset_path.endswith("validert_points_overview_mapping_v1.1.json"):
+        return (roof_scope and pointer == "/child_mappings/20") or (
+            stair_scope and pointer == "/child_mappings/59"
+        )
+    if asset_path.endswith("validert_punkt_for_punkt_scoring_hooks_v1_1.json"):
+        return (roof_scope or stair_scope or heat_scope or no_tg_scope) and pointer == "/special_rules/1"
+    return False
 
 
 class ManifestVerifiedRuleRetriever:
@@ -265,8 +354,11 @@ class ManifestVerifiedRuleRetriever:
                     f"/field_definitions/{category.value}" in chunk.pointer
                     or f"/deductions/{category.value}" in chunk.pointer
                 )
-                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tiltak_form_rule or exact_tiltak_missing_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or exact_aarsak_edition_scope or category_pointer:
-                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tiltak_form_rule or exact_tiltak_missing_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or exact_aarsak_edition_scope:
+                exact_ac2026_context = _is_exact_ac2026_context(
+                    segment, category, asset_path, chunk.pointer
+                )
+                if overlap or category.value in chunk.searchable_text.casefold() or exact_tg3_rule or exact_tg2_measure_rule or exact_tiltak_form_rule or exact_tiltak_missing_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or exact_aarsak_edition_scope or exact_ac2026_context or category_pointer:
+                    if exact_tg3_rule or exact_tg2_measure_rule or exact_tiltak_form_rule or exact_tiltak_missing_rule or exact_tgiu_rule or exact_detached_method_rule or exact_semantic_field or exact_aarsak_edition_scope or exact_ac2026_context:
                         score = 1.0
                     elif category_pointer:
                         score = max(score, 0.95)
