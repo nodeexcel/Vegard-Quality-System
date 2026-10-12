@@ -66,7 +66,7 @@ def _rule(segment, edition="NS 3600:2025"):
     return RuleRetrievalRecord(
         retrieval_id="retrieval_12345678", segment_id=segment.segment_id,
         rule_category=RuleCategory.ANBEFALT_TILTAK,
-        asset_path="candidates/a3_a4_v2/validert_phase_a_methodology_rules_v1_0.json",
+        asset_path="candidates/a3_a4_v4_ac2026/validert_phase_a_methodology_rules_v1_0.json",
         asset_sha256="a" * 64, rule_id=content["id"], json_pointer="/rules/0",
         content_sha256="b" * 64, content=content, relevance_score=1.0,
         applicability=RuleApplicability.REGIME_RESOLVED,
@@ -87,10 +87,10 @@ def _understanding(segment):
 
 
 def test_candidate_manifest_is_isolated_and_hash_pinned():
-    manifest = ROOT / "files/candidates/a3_a4_v2/MANIFEST.a3_a4_candidate.json"
+    manifest = ROOT / "files/candidates/a3_a4_v4_ac2026/MANIFEST.a3_a4_candidate.json"
     digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
     catalog = ManifestGovernedCatalog(ROOT / "files", manifest, approved_manifest_sha256=digest)
-    _, verification = catalog.load("candidates/a3_a4_v2/validert_phase_a_semantic_admission_rules_v1_0.json")
+    _, verification = catalog.load("candidates/a3_a4_v4_ac2026/validert_phase_a_semantic_admission_rules_v1_0.json")
     assert verification.verified is True
     assert hashlib.sha256((ROOT / "files/MANIFEST.json").read_bytes()).hexdigest() == "310f2377501024ecc32646a6adad3175414f6dbdfa0b3ecd156bd4d47bc2d8a1"
 
