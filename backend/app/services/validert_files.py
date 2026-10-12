@@ -46,12 +46,12 @@ CANONICAL_POINTS_V30_PATH = FILES_DIR / "validert_canonical_points_v3_0.json"
 MIGRATION_MAP_V33_TO_V34_PATH = FILES_DIR / "validert_migration_map_v3.3_to_v3.4.json"
 FORSKRIFT_MATRIX_PATH = FILES_DIR / "validert_forskrift_matrix_v1.0.json"
 MANDATORY_EXPLANATION_ONLY_PATH = FILES_DIR / "validert_mandatory_explanation_only_rules_v1.0.json"
-ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules_v1_2_3.json"
+ARKAT_SEMANTIC_RULES_PATH = FILES_DIR / "arkat_semantic_rules_v1_3_0.json"
 ARKAT_EVALUATION_PIPELINE_STEP_PATH = FILES_DIR / "arkat_evaluation_pipeline_step.json"
-DOMMER_B_SYSTEM_PROMPT_PATH = FILES_DIR / "dommer_b_system_prompt_v13.md"
+DOMMER_B_SYSTEM_PROMPT_PATH = FILES_DIR / "dommer_b_system_prompt_v14.md"
 ARKAT_ERROR_DEDUCTION_MAPPING_PATH = FILES_DIR / "arkat_error_to_deduction_mapping_v1_1_2.json"
 REPORT_FORMAT_DETECTION_PATH = FILES_DIR / "report_format_detection.json"
-ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples_v1_1_1.json"
+ARKAT_CANONICAL_EXAMPLES_PATH = FILES_DIR / "arkat_canonical_examples_v1_3_0.json"
 INCOMPLETE_ANALYSIS_POLICY_PATH = FILES_DIR / "validert_incomplete_analysis_policy_v1_5.json"
 VERIFIED_CUSTOMER_TEMPLATES_PATH = FILES_DIR / "verified_customer_templates_v1_0.json"
 
@@ -59,7 +59,7 @@ VERIFIED_CUSTOMER_TEMPLATES_PATH = FILES_DIR / "verified_customer_templates_v1_0
 #          if element.element_type == "NON_MANDATORY_ASSESSED" -> apply non_mandatory_assessed_meta_rule_v1_1
 # OPTIONAL elements only shown if present. Room instances: validate ARKAT per instance, enforce coverage assertion.
 META_RULE_ROUTING = """META RULE ROUTING (apply in this order per element):
-- If element.tg_policy == "FORBIDDEN" -> apply validert_optional_tg_forbidden_meta_rule_v1_0 (minimum Årsak + Konsekvens).
+- If element.tg_policy == "FORBIDDEN" -> apply validert_optional_tg_forbidden_meta_rule_v1_0 (minimum deviation/observation description + Konsekvens; arsak names the observation here, not an additional technical root cause).
 - Else if element.element_type == "NON_MANDATORY_ASSESSED" -> apply validert_non_mandatory_assessed_meta_rule_v1_1.
 - OPTIONAL and NON_MANDATORY_ASSESSED elements: show only if present in the report; no deduction if missing.
 - Room instances (BE-20, BE-21, BE-22, BE-23): validate ARKAT per instance; enforce coverage assertion (every instance must be validated)."""

@@ -779,8 +779,10 @@ class DocumentUnderstandingService:
             item.fact_type for item in facts if item.validation_status == ValidationStatus.VALIDATED
         }
         facts.extend(self._deterministic_labeled_date_facts(text, pages))
+        facts.extend(self._deterministic_declared_standard_facts(text, pages))
         facts = self._dedupe_facts(facts)
         facts = self._prefer_explicit_labeled_dates(facts)
+        facts = self._prefer_specific_declared_standards(facts)
         for fact in facts:
             if fact.validation_status != ValidationStatus.VALIDATED:
                 abstentions.append(self._candidate_abstention("fact_validation", fact.fact_id, fact.validation_notes))
@@ -819,7 +821,15 @@ class DocumentUnderstandingService:
                     structural_blockers.append(f"physical_point_type_uncertain:{point.inventory_id}")
                 if not point.body_spans or point.char_end != point.body_spans[-1].char_end:
                     structural_blockers.append(f"physical_body_span_incomplete:{point.inventory_id}")
-            elif point.role == InventoryRole.SUMMARY and not point.linked_primary_id:
+            elif (
+                point.role == InventoryRole.SUMMARY
+                and not point.linked_primary_id
+            ):
+                if (
+                    point.detection_method == "physical_bmtf_summary_child"
+                    and point.link_status in {"unresolved", "ambiguous"}
+                ):
+                    continue
                 reason = "ambiguous" if point.link_status == "ambiguous" else "unresolved"
                 structural_blockers.append(f"summary_primary_link_{reason}:{point.inventory_id}")
         structural_blockers.extend(
@@ -893,6 +903,12 @@ class DocumentUnderstandingService:
         reconciliation: List[CoverageReconciliation] = []
         primary_segment_by_inventory_id: Dict[str, str] = {}
         matched_ai_segment_ids: set[str] = set()
+        summary_navigation_points = [
+            item for item in inventory.points
+            if item.role == InventoryRole.NAVIGATION
+            and item.detection_method == "physical_hierarchical_summary_row"
+            and item.tg_grade in {"TG2", "TG3", "TGIU"}
+        ]
         for point in (item for item in inventory.points if item.role == InventoryRole.PRIMARY):
             overlaps = [
                 segment for segment in ai_segments
@@ -913,6 +929,7 @@ class DocumentUnderstandingService:
                     "physical_bolavi_tg_heading",
                     "physical_cross_page_uninvestigated_section",
                     "physical_uninvestigated_semantic",
+                    "physical_vurdering_av_avvik_summary_grounded",
                 }
 
             def rescue_candidate(segment: ValidatedSegment) -> bool:
@@ -958,25 +975,31 @@ class DocumentUnderstandingService:
             def identity_compatible(segment: ValidatedSegment) -> bool:
                 physical_title = norm(point.title)
                 candidate_title = norm(segment.title)
+                physical_title_tokens = [
+                    token for token in re.findall(r"\w+", point.title.casefold()) if len(token) > 3
+                ]
+                candidate_title_tokens = [
+                    token for token in re.findall(r"\w+", segment.title.casefold()) if len(token) > 3
+                ]
+                containment_allowed = min(len(physical_title_tokens), len(candidate_title_tokens)) >= 2
                 title_compatible = bool(
                     physical_title and candidate_title and (
                         physical_title == candidate_title
-                        or physical_title in candidate_title
-                        or candidate_title in physical_title
+                        or (
+                            containment_allowed
+                            and (physical_title in candidate_title or candidate_title in physical_title)
+                        )
                     )
                 )
                 label_compatible = bool(
                     point.point_label and segment.point_label
                     and point.point_label == segment.point_label
                 )
-                physical_tokens = {
-                    token for token in re.findall(r"\w+", point.title.casefold()) if len(token) > 3
-                }
-                candidate_tokens = {
-                    token for token in re.findall(r"\w+", segment.title.casefold()) if len(token) > 3
-                }
+                physical_tokens = set(physical_title_tokens)
+                candidate_tokens = set(candidate_title_tokens)
                 token_compatible = bool(
                     physical_tokens and candidate_tokens
+                    and min(len(physical_tokens), len(candidate_tokens)) >= 2
                     and len(physical_tokens & candidate_tokens) / min(
                         len(physical_tokens), len(candidate_tokens)
                     ) >= 0.6
@@ -998,19 +1021,74 @@ class DocumentUnderstandingService:
                     return "graded"
                 return "unknown"
 
+            def summary_navigation_supports(segment: ValidatedSegment) -> bool:
+                target_tg = str(segment.tg_grade or "").upper().replace(" ", "")
+                if target_tg not in {"TG3", "TGIU"}:
+                    return False
+                point_norm = norm(point.title)
+                point_tokens = {
+                    token for token in re.findall(r"\w+", point.title.casefold()) if len(token) > 3
+                }
+                section_tokens = {
+                    token for token in re.findall(r"\w+", point.section_context.casefold()) if len(token) > 3
+                }
+                for summary in summary_navigation_points:
+                    if summary.tg_grade != target_tg:
+                        continue
+                    summary_title = str(summary.title or "")
+                    summary_norm = norm(summary_title.split(">")[-1] if ">" in summary_title else summary_title)
+                    summary_tokens = {
+                        token for token in re.findall(r"\w+", summary_title.casefold()) if len(token) > 3
+                    }
+                    overlap = len(point_tokens & summary_tokens)
+                    if point_norm and summary_norm and (
+                        point_norm == summary_norm
+                        or point_norm in summary_norm
+                        or summary_norm in point_norm
+                    ):
+                        return True
+                    if overlap >= 2 and section_tokens & summary_tokens:
+                        return True
+                return False
+
             compatible = [segment for segment in overlaps if identity_compatible(segment)]
             incompatible = [segment for segment in overlaps if segment not in compatible]
+            summary_consistent = [
+                segment for segment in ai_segments
+                if (
+                    segment.validation_status == ValidationStatus.VALIDATED
+                    and segment.evidence is not None
+                    and segment.segment_id not in matched_ai_segment_ids
+                    and segment not in overlaps
+                    and identity_compatible(segment)
+                    and point.tg_grade in {None, "TG2"}
+                    and segment.tg_grade in {"TG3", "TGIU"}
+                    and summary_navigation_supports(segment)
+                )
+            ]
             rescuable = [
                 segment for segment in ai_segments
                 if rescue_candidate(segment) and identity_compatible(segment)
             ]
             ranked = sorted(compatible, key=score, reverse=True)
+            summary_ranked = sorted(summary_consistent, key=score, reverse=True)
             rescue_ranked = sorted(rescuable, key=score, reverse=True)
             matched = ranked[0] if ranked and score(ranked[0])[0] >= 10 else None
             matched_from_rescue = False
             if matched is None and rescue_ranked and score(rescue_ranked[0])[0] >= 10:
                 matched = rescue_ranked[0]
                 matched_from_rescue = True
+            if matched is None and summary_ranked and score(summary_ranked[0])[0] >= 10:
+                matched = summary_ranked[0]
+            elif (
+                matched is not None
+                and summary_ranked
+                and score(summary_ranked[0])[0] >= 10
+                and norm(summary_ranked[0].title) == norm(point.title)
+                and str(matched.tg_grade or "") != str(summary_ranked[0].tg_grade or "")
+                and str(summary_ranked[0].tg_grade or "") in {"TG3", "TGIU"}
+            ):
+                matched = summary_ranked[0]
             conflict = len(ranked) > 1 and score(ranked[0])[0] == score(ranked[1])[0]
             if conflict:
                 matched = None
@@ -1096,12 +1174,27 @@ class DocumentUnderstandingService:
                 continue
             if any(
                 item.kind == SegmentKind.REPORT_POINT
+                and item.validation_status == ValidationStatus.VALIDATED
+                and item.evidence is not None
+                and segment.evidence is not None
+                and item.segment_id != segment.segment_id
+                and any(
+                    span.char_start <= segment.evidence.char_start < span.char_end
+                    for span in (item.bound_body_spans or item.evidence_spans or [item.evidence])
+                )
+                and re.sub(r"\W+", "", item.title.casefold()) != re.sub(r"\W+", "", segment.title.casefold())
+                for item in output
+            ):
+                continue
+            if any(
+                item.kind == SegmentKind.REPORT_POINT
                 and re.sub(r"\W+", "", item.title.casefold()) == re.sub(r"\W+", "", segment.title.casefold())
-                and item.section_context == segment.section_context
                 for item in output
             ):
                 continue
             if segment.evidence is None:
+                continue
+            if str(segment.tg_grade or "").upper().replace(" ", "") in {"TG2", "TG3", "TGIU"}:
                 continue
             body_spans = segment.bound_body_spans or segment.evidence_spans or [segment.evidence]
             output.append(segment.model_copy(update={
@@ -1367,7 +1460,14 @@ class DocumentUnderstandingService:
         metadata_tokens = {"utskrift", "telefon", "kontakt", "org", "nettsiden", "side"}
         if ":" in compact and metadata_tokens & {token.casefold() for token in word_tokens}:
             return True
-        if len(compact.split()) >= 8 and any(marker in compact for marker in (".", ";", ":")):
+        if (
+            len(compact.split()) >= 8
+            and (
+                ":" in compact
+                or compact.rstrip().endswith((".", ";"))
+                or "; " in compact
+            )
+        ):
             return True
         return False
 
@@ -1392,18 +1492,30 @@ class DocumentUnderstandingService:
             return []
         suspicious_materialized: List[str] = []
         ai_fallback_count = 0
+        ungrounded_ai_tg_fallbacks: List[str] = []
         for item in primary_reconciliation:
             reason = item.reason or ""
             if "physical inventory missed the point" in reason:
                 ai_fallback_count += 1
+            segment = primary_segments.get(item.matched_segment_id or "")
+            if (
+                segment
+                and "ai_candidate_authoritative_fallback_missing_physical_point" in segment.validation_notes
+                and str(segment.tg_grade or "").upper() in {"TG2", "TG3", "TGIU"}
+            ):
+                ungrounded_ai_tg_fallbacks.append(segment.segment_id)
             if item.status != "source_materialized" or not item.matched_segment_id:
                 continue
-            segment = primary_segments.get(item.matched_segment_id)
             if segment and cls._looks_like_non_point_structural_title(segment.title):
                 suspicious_materialized.append(segment.segment_id)
+        if ungrounded_ai_tg_fallbacks:
+            return [
+                "ungrounded_ai_tg_fallback:" + ",".join(sorted(ungrounded_ai_tg_fallbacks)),
+            ]
         structural_abstention_count = sum(
             1
             for item in abstentions
+            if item.stage in {"segment_validation", "structural_reconciliation", "document_understanding"}
             if item.reason_code in {
                 "provider_requires_structural_confirmation",
                 "exact_quote_ambiguous",
@@ -1439,7 +1551,12 @@ class DocumentUnderstandingService:
             (FactType.INSPECTION_DATE, r"(?i)\b(?:befaringsdato|befaring(?:sdato)?)(?:\s*\(cid:\d+\))*\s*[:–—-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
             (FactType.REPORT_DATE, r"(?i)\b(?:rapportdato|rapport\s+utstedt|utstedelsesdato)(?:\s*\(cid:\d+\))*\s*[:–—-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
             (FactType.INSPECTION_DATE, r"(?is)\bBefaring\s+Dato\s+Til\s+stede\s+Rolle\s+(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
-            (FactType.REPORT_DATE, r"(?is)\bRevisjoner\s+Versjon\s+Ny\s+versjon\s+Kommentar\s+\d+\s+(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
+            (FactType.REPORT_DATE, r"(?is)\bRevisjoner\s+Versjon\s+Ny\s+versjon(?:\s+Kommentar)?\s+\d+\s+(\d{1,2}[./-]\d{1,2}[./-]\d{4})"),
+            (
+                FactType.REPORT_DATE,
+                r"(?is)\bAnsvarlig\s+for\s+rapporten\s*:\s*[^\n]{1,200}"
+                r"(?:\n[^\n]{1,200}){0,6}\n\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})\b",
+            ),
         )
         output: List[ValidatedDocumentFact] = []
         for fact_type, pattern in patterns:
@@ -1470,6 +1587,41 @@ class DocumentUnderstandingService:
                     validation_status=ValidationStatus.VALIDATED,
                     validation_notes=["deterministic_explicit_date_label"],
                 ))
+        return output
+
+    @staticmethod
+    def _deterministic_declared_standard_facts(
+        report_text: str,
+        pages: Sequence[PageSpan],
+    ) -> List[ValidatedDocumentFact]:
+        output: List[ValidatedDocumentFact] = []
+        for match in NS_3600_RE.finditer(report_text):
+            exact = match.group(0)
+            normalized = _normalize_declared_standard_value(exact)
+            if not normalized:
+                continue
+            page = next((item.page for item in pages if item.char_start <= match.start() < item.char_end), 1)
+            evidence = SourceEvidence(
+                evidence_id=_stable_id("source", FactType.DECLARED_STANDARD.value, match.start(), match.end()),
+                exact_quote=exact,
+                page=page,
+                char_start=match.start(),
+                char_end=match.end(),
+                quote_sha256=hashlib.sha256(exact.encode("utf-8")).hexdigest(),
+                validation_status=ValidationStatus.VALIDATED,
+                validation_notes=["deterministic_explicit_declared_standard"],
+            )
+            output.append(ValidatedDocumentFact(
+                fact_id=_stable_id("fact", FactType.DECLARED_STANDARD.value, normalized, match.start()),
+                fact_type=FactType.DECLARED_STANDARD,
+                raw_value=exact,
+                normalized_value=normalized,
+                confidence=1.0,
+                candidate_evidence=CandidateEvidence(exact_quote=exact, page=page),
+                evidence=evidence,
+                validation_status=ValidationStatus.VALIDATED,
+                validation_notes=["deterministic_explicit_declared_standard"],
+            ))
         return output
 
     @staticmethod
@@ -1511,6 +1663,27 @@ class DocumentUnderstandingService:
         for item in items:
             explicit = explicit_by_type.get(item.fact_type)
             if explicit and item.normalized_value != explicit.normalized_value:
+                continue
+            output.append(item)
+        return output
+
+    @staticmethod
+    def _prefer_specific_declared_standards(items: Sequence[ValidatedDocumentFact]) -> List[ValidatedDocumentFact]:
+        explicit_editions = {
+            str(fact.normalized_value or "").replace(" ", "").upper()
+            for fact in items
+            if fact.fact_type == FactType.DECLARED_STANDARD
+            and "deterministic_explicit_declared_standard" in fact.validation_notes
+            and ":" in str(fact.normalized_value or "")
+        }
+        if not explicit_editions:
+            return list(items)
+        output: List[ValidatedDocumentFact] = []
+        for item in items:
+            if (
+                item.fact_type == FactType.DECLARED_STANDARD
+                and str(item.normalized_value or "").replace(" ", "").upper() == "NS3600"
+            ):
                 continue
             output.append(item)
         return output

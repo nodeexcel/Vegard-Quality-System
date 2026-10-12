@@ -229,7 +229,7 @@
       "raw_text": "TG2 vurderes da dreneringen har passert halvparten av sin forventede levetid. Risiko: Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år. Konsekvens: Dersom dreneringen ikke fungerer tilfredsstillende, er det risiko for at vann trenger inn i konstruksjonen. Anbefalt tiltak: Det anbefales å overvåke dreneringens funksjon og planlegge eventuell oppgradering innen 5-10 år.",
       "extracted_fields": {
         "aarsak": "TG2 vurderes da dreneringen har passert halvparten av sin forventede levetid.",
-        "risiko": "Dreneringen er ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.",
+        "risiko": "Dreneringen e ikke synlig for inspeksjon. Dette medfører at det kan være forhold som tilsier at bygningsdelen må oppgraderes innen 5-10 år.",
         "konsekvens": "Dersom dreneringen ikke fungerer tilfredsstillende, er det risiko for at vann trenger inn i konstruksjonen.",
         "anbefalt_tiltak": "Det anbefales å overvåke dreneringens funksjon og planlegge eventuell oppgradering innen 5-10 år."
       },
